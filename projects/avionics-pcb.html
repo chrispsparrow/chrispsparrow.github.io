@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avionics GPS/Radio PCB — Christopher Sparrow</title>
+  <meta name="description" content="Case study: Custom 4-layer avionics PCB with integrated GPS telemetry and LoRa radio for AerospaceNU high-power rocketry.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+  <!-- ── NAV ──────────────────────────────────────────────── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="../" class="nav-name">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#skills">Skills</a>
+      <a href="../#contact">Contact</a>
+      <a href="#" class="nav-resume">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <!-- ── PROJECT HERO ─────────────────────────────────────── -->
+  <header class="proj-hero" aria-label="Project overview">
+    <!-- faint watermark of the tuna logo -->
+    <div class="proj-hero-bg" aria-hidden="true">
+      <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg" alt="">
+    </div>
+
+    <div class="proj-hero-content">
+      <p class="proj-breadcrumb">
+        <a href="../">← Christopher Sparrow</a>
+        &nbsp;/&nbsp; Selected Work &nbsp;/&nbsp; Avionics PCB
+      </p>
+
+      <div class="tag-row">
+        <span class="tag tag-gold">AEROSPACEONU</span>
+        <span class="tag">PCB DESIGN</span>
+        <span class="tag">RF SYSTEMS</span>
+        <span class="tag">EMBEDDED</span>
+        <span class="tag">KICAD</span>
+      </div>
+
+      <h1 class="proj-title">Custom Avionics<br>GPS / Radio PCB</h1>
+
+      <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+        <span class="status-chip">
+          <span class="status-dot"></span>
+          FIRMWARE — IN PROGRESS
+        </span>
+        <span class="mono" style="color:var(--text-muted);">REV A · 2024</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── DOWNLOAD BAR ──────────────────────────────────────── -->
+  <div style="background:var(--surface); border-bottom:1px solid var(--border); padding:1.5rem 2rem;">
+    <div style="max-width:1300px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+      <p class="mono" style="color:var(--text-muted);">FULL CASE STUDY — AerospaceNU Avionics PCB Portfolio Update</p>
+      <a href="../assets/Christopher Sparrow AerospaceNU Avionics PCB Portfolio Update.pdf"
+         class="btn-dl" target="_blank" rel="noopener"
+         aria-label="Download full case study PDF">
+        ↓ &nbsp; DOWNLOAD FULL CASE STUDY (PDF)
+      </a>
+    </div>
+  </div>
+
+  <!-- ── SYSTEM AT A GLANCE ────────────────────────────────── -->
+  <section class="sec-block" aria-label="System overview">
+    <div class="sec-block-inner">
+      <h2 class="sec-lbl">SYSTEM AT A GLANCE</h2>
+      <div class="sys-grid">
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">MICROCONTROLLER</div>
+          <div class="sys-cell-val">STM32F4 Series</div>
+          <div class="sys-cell-sub">ARM Cortex-M4 · 168 MHz</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">GPS MODULE</div>
+          <div class="sys-cell-val">u-blox NEO-M9N</div>
+          <div class="sys-cell-sub">25 mm × 25 mm · UART/SPI · 18 Hz</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">RADIO</div>
+          <div class="sys-cell-val">RFM96W LoRa</div>
+          <div class="sys-cell-sub">915 MHz · +20 dBm · SX1276</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">IMU</div>
+          <div class="sys-cell-val">ICM-20689</div>
+          <div class="sys-cell-sub">±2000 °/s gyro · ±16 g accel</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">BAROMETER</div>
+          <div class="sys-cell-val">MS5607</div>
+          <div class="sys-cell-sub">10 cm resolution · SPI</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">POWER</div>
+          <div class="sys-cell-val">3.3 V / 1.8 V Rails</div>
+          <div class="sys-cell-sub">LDO + buck · LiPo cell input</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">STORAGE</div>
+          <div class="sys-cell-val">MicroSD Slot</div>
+          <div class="sys-cell-sub">SPI · flight data logging</div>
+        </div>
+        <div class="sys-cell">
+          <div class="sys-cell-lbl mono">FORM FACTOR</div>
+          <div class="sys-cell-val">4-Layer PCB</div>
+          <div class="sys-cell-sub">Signal · GND · PWR · Signal</div>
+        </div>
+      </div>
+
+      <!-- NOTE: verify/update all specs against the case study PDF above. Values are representative placeholders. -->
+    </div>
+  </section>
+
+  <!-- ── ARCHITECTURE ──────────────────────────────────────── -->
+  <section class="sec-block" aria-label="System architecture">
+    <div class="sec-block-inner">
+      <h2 class="sec-lbl">ARCHITECTURE</h2>
+      <div class="arch-grid">
+
+        <div class="arch-text">
+          <p>The design centres on a single STM32F4 hub that arbitrates four independent SPI/UART buses. Separating the GPS, radio, IMU, and SD card onto discrete peripherals eliminates bus contention during peak logging rates and gives each subsystem a hard interrupt path to the MCU.</p>
+          <p>The 4-layer stackup places the inner GND plane immediately beneath the signal layer, minimising return-path inductance under the RF traces. The LoRa antenna feed is routed as a 50 Ω coplanar waveguide strip, length-matched to 80 mm with a keepout enforced in DRC. A π-network matching circuit sits at the SMA breakout for field tuning.</p>
+          <p>Power enters via a 2-cell LiPo connector, stepped down through a synchronous buck converter to 5 V and then to 3.3 V and 1.8 V LDOs for the GPS module's core and I/O domains. Current sensing resistors on each rail enable power budgeting in firmware.</p>
+        </div>
+
+        <div>
+          <div class="arch-nodes" role="list" aria-label="Component connections">
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">LiPo</span>
+              <span class="arch-node-val">→ Buck 5 V → LDO 3.3 V / 1.8 V</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">STM32F4</span>
+              <span class="arch-node-val">SPI bus 1 — IMU + SD card</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">STM32F4</span>
+              <span class="arch-node-val">SPI bus 2 — LoRa RFM96W</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">STM32F4</span>
+              <span class="arch-node-val">UART — u-blox GPS NMEA + UBX</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">STM32F4</span>
+              <span class="arch-node-val">SPI — MS5607 barometric altimeter</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">RFM96W</span>
+              <span class="arch-node-val">→ 50 Ω CPWG → SMA → antenna</span>
+            </div>
+            <div class="arch-node" role="listitem">
+              <span class="arch-node-key mono">Debug</span>
+              <span class="arch-node-val">SWD 10-pin header · UART console</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BOARD HOTSPOTS ────────────────────────────────────── -->
+  <section class="sec-block" aria-label="Interactive board diagram">
+    <div class="sec-block-inner">
+      <h2 class="sec-lbl">BOARD DETAIL — INTERACTIVE</h2>
+      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Hover or tap a point to reveal component callout.</p>
+
+      <!--
+        SWAP BOARD IMAGE:
+        Replace the .img-ph div with: <img class="hotspot-board" src="../assets/img/avionics/render-front.jpg" alt="Avionics PCB top render">
+        Then adjust hotspot-pt left/top percentages to match real component positions.
+      -->
+      <div class="hotspot-wrap" aria-label="Board diagram with labeled hotspots">
+        <div class="img-ph hotspot-board" style="aspect-ratio:16/9; min-height:0;" role="img" aria-label="PCB render placeholder — replace with real image">
+          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
+          <span class="img-ph-text">[ PCB 3D RENDER — replace with real board image ]\nHotspot positions set as % of image width/height</span>
+        </div>
+
+        <!-- Hotspot: MCU -->
+        <div class="hotspot-pt" style="left:42%; top:45%;" aria-label="Microcontroller" tabindex="0">
+          <div class="hotspot-dot"></div>
+          <div class="hotspot-callout" role="tooltip">
+            <div class="hc-lbl mono">MCU</div>
+            <div class="hc-val">STM32F4 Series</div>
+            <div class="hc-desc">ARM Cortex-M4 @ 168 MHz. Manages all SPI/UART buses, flight state machine, and interrupt-driven logging.</div>
+          </div>
+        </div>
+
+        <!-- Hotspot: GPS -->
+        <div class="hotspot-pt" style="left:72%; top:22%;" aria-label="GPS module" tabindex="0">
+          <div class="hotspot-dot"></div>
+          <div class="hotspot-callout" role="tooltip">
+            <div class="hc-lbl mono">GPS</div>
+            <div class="hc-val">u-blox NEO-M9N</div>
+            <div class="hc-desc">18 Hz update rate, 1.5 m CEP accuracy. SMA pigtail routes to patch antenna above the fin can.</div>
+          </div>
+        </div>
+
+        <!-- Hotspot: Radio -->
+        <div class="hotspot-pt" style="left:72%; top:68%;" data-flip="down" aria-label="LoRa radio" tabindex="0">
+          <div class="hotspot-dot"></div>
+          <div class="hotspot-callout" role="tooltip">
+            <div class="hc-lbl mono">RADIO</div>
+            <div class="hc-val">RFM96W LoRa</div>
+            <div class="hc-desc">915 MHz, +20 dBm transmit. 50 Ω CPWG trace feeds π-match network at SMA. Ground pour stitched with vias every 5 mm.</div>
+          </div>
+        </div>
+
+        <!-- Hotspot: Power -->
+        <div class="hotspot-pt" style="left:18%; top:72%;" data-flip="down" aria-label="Power section" tabindex="0">
+          <div class="hotspot-dot"></div>
+          <div class="hotspot-callout" role="tooltip">
+            <div class="hc-lbl mono">POWER</div>
+            <div class="hc-val">Buck + LDO Stack</div>
+            <div class="hc-desc">Synchronous buck (5 V), followed by LDOs at 3.3 V and 1.8 V. Current-sense resistors on each rail. Decoupling 100 nF + 10 µF at every domain transition.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMPARISON SLIDER ─────────────────────────────────── -->
+  <section class="sec-block" aria-label="Render vs copper layout comparison">
+    <div class="sec-block-inner">
+      <h2 class="sec-lbl">RENDER VS COPPER LAYOUT</h2>
+      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Drag or touch the handle to compare.</p>
+
+      <!--
+        SWAP IMAGES:
+        .compare-before → <img class="compare-before" src="../assets/img/avionics/render-front.jpg" alt="3D render">
+        .compare-after-clip img → <img src="../assets/img/avionics/copper-top.jpg" alt="Copper layout">
+        Both images must share the same pixel dimensions for the slider to align correctly.
+      -->
+      <div class="compare-wrap" role="img" aria-label="Image comparison slider — render vs copper layout">
+        <div class="img-ph compare-before" style="aspect-ratio:16/9; min-height:0; position:relative;">
+          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/></svg>
+          <span class="img-ph-text">[ LEFT — 3D RENDER\nreplace compare-before with real image ]</span>
+        </div>
+        <div class="compare-after-clip" aria-hidden="true">
+          <div class="img-ph" style="position:absolute; inset:0; min-height:0; background:#0a1200; border:none;">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M6 8h4M6 12h6M6 16h3"/></svg>
+            <span class="img-ph-text">[ RIGHT — COPPER LAYOUT\nreplace compare-after-clip &gt; img with real image ]</span>
+          </div>
+        </div>
+        <div class="compare-handle" aria-hidden="true">
+          <div class="compare-knob">⇔</div>
+        </div>
+        <span class="compare-lbl compare-lbl-l">3D RENDER</span>
+        <span class="compare-lbl compare-lbl-r">COPPER</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BUILD LOG GALLERY ─────────────────────────────────── -->
+  <section class="sec-block" aria-label="Build log gallery">
+    <div class="sec-block-inner">
+      <h2 class="sec-lbl">BUILD LOG</h2>
+      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Scroll or use ← → keys. Touch-drag supported.</p>
+
+      <!--
+        SWAP IMAGES: Replace each .img-ph inside .build-item with a real <img> tag.
+        e.g. <img src="../assets/img/avionics/build-log-01.jpg" alt="Schematic capture">
+      -->
+      <div class="build-log" role="list" aria-label="Build log photos">
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
+            <span class="img-ph-text">[ BUILD LOG 01\nSchematic capture ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">01 —</span> Schematic capture in KiCad · all nets named and ERC-clean before layout began</div>
+        </div>
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#080f00;">
+            <span class="img-ph-text">[ BUILD LOG 02\nComponent placement ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">02 —</span> Component placement · RF section isolated to top-right quadrant, power section bottom-left</div>
+        </div>
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#000d0a;">
+            <span class="img-ph-text">[ BUILD LOG 03\nRouting — signal layer ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">03 —</span> Top signal layer routing · SPI buses length-matched, 6 mil minimum clearance enforced</div>
+        </div>
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0a0800;">
+            <span class="img-ph-text">[ BUILD LOG 04\nCopper pour + DRC ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">04 —</span> Ground pour filled, via stitching applied, full DRC pass — zero violations</div>
+        </div>
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0a0a0a;">
+            <span class="img-ph-text">[ BUILD LOG 05\nGerber preview ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">05 —</span> Gerber stack exported · 2D preview verified in KiCad Gerber Viewer before fab submission</div>
+        </div>
+
+        <div class="build-item" role="listitem">
+          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#06060a;">
+            <span class="img-ph-text">[ BUILD LOG 06\nAssembled board ]</span>
+          </div>
+          <div class="build-caption"><span class="cap-num">06 —</span> Boards returned from JLCPCB · Dogtooth Systems silkscreen on back panel</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SKILLS DEMONSTRATED ───────────────────────────────── -->
+  <section class="sec-block" aria-label="Skills demonstrated and next steps">
+    <div class="sec-block-inner">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:start;">
+        <div>
+          <h2 class="sec-lbl">SKILLS DEMONSTRATED</h2>
+          <div class="skills-dem">
+            <div class="skill-chip">4-layer PCB layout</div>
+            <div class="skill-chip">RF trace impedance matching</div>
+            <div class="skill-chip">Schematic capture · ERC / DRC</div>
+            <div class="skill-chip">SPI / UART peripheral integration</div>
+            <div class="skill-chip">Power sequencing &amp; rail design</div>
+            <div class="skill-chip">KiCad 7/8 — footprint creation</div>
+            <div class="skill-chip">Gerber &amp; BOM production</div>
+            <div class="skill-chip">JLCPCB fabrication workflow</div>
+            <div class="skill-chip">LoRa / GPS subsystem design</div>
+            <div class="skill-chip">Decoupling strategy</div>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="sec-lbl">NEXT VALIDATION STEPS</h2>
+          <div class="arch-nodes">
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 1</span>
+              <span class="arch-node-val">Power-on test — rail voltages, quiescent current</span>
+            </div>
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 2</span>
+              <span class="arch-node-val">SPI loopback — verify bus signal integrity on scope</span>
+            </div>
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 3</span>
+              <span class="arch-node-val">GPS cold-start acquisition · NMEA parse test</span>
+            </div>
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 4</span>
+              <span class="arch-node-val">LoRa link test — packet RSSI at 1 km LOS</span>
+            </div>
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 5</span>
+              <span class="arch-node-val">Thermal run — confirm LDOs within ratings at max load</span>
+            </div>
+            <div class="arch-node">
+              <span class="arch-node-key mono">Step 6</span>
+              <span class="arch-node-val">Full flight simulation — log IMU + baro, verify SD write</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style>
+        @media (max-width: 900px) {
+          .skills-next-grid { grid-template-columns: 1fr !important; gap: 3rem !important; }
+        }
+      </style>
+    </div>
+  </section>
+
+  <!-- ── FIRMWARE ROADMAP ───────────────────────────────────── -->
+  <section class="sec-block" aria-label="Firmware roadmap">
+    <div class="sec-block-inner">
+      <div style="display:flex; align-items:center; gap:1.5rem; margin-bottom:2.5rem; flex-wrap:wrap;">
+        <h2 class="sec-lbl" style="margin-bottom:0;">FIRMWARE</h2>
+        <span class="status-chip"><span class="status-dot"></span>IN PROGRESS</span>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-dim); line-height:1.8; max-width:640px; margin-bottom:0;">
+        Hardware is validated and populated. Firmware development in progress on STM32CubeIDE. Target: stable GPS fix acquisition, reliable LoRa packet transmission, and verified SD write throughput before first flight.
+      </p>
+
+      <div class="firmware-grid">
+        <div class="fw-item">
+          <span class="fw-step">01</span>
+          <div>
+            <div class="fw-title">GPS NMEA Parsing</div>
+            <div class="fw-desc">Configure u-blox via UBX protocol, enable GGA + RMC sentences, parse fix and altitude in interrupt callback.</div>
+          </div>
+        </div>
+        <div class="fw-item">
+          <span class="fw-step">02</span>
+          <div>
+            <div class="fw-title">LoRa Packet Tx</div>
+            <div class="fw-desc">Initialise SX1276 via SPI, frame a telemetry packet (lat/lon/alt/RSSI), transmit on 10 Hz schedule with CRC.</div>
+          </div>
+        </div>
+        <div class="fw-item">
+          <span class="fw-step">03</span>
+          <div>
+            <div class="fw-title">IMU Integration</div>
+            <div class="fw-desc">ICM-20689 DMP bring-up, calibrate gyro offsets, integrate acceleration for apogee detection trigger.</div>
+          </div>
+        </div>
+        <div class="fw-item">
+          <span class="fw-step">04</span>
+          <div>
+            <div class="fw-title">SD Write Throughput</div>
+            <div class="fw-desc">FatFS layer over SPI, verify 200 Hz logging without buffer overflow. Pre-allocate clusters to avoid fragmentation delay mid-flight.</div>
+          </div>
+        </div>
+        <div class="fw-item">
+          <span class="fw-step">05</span>
+          <div>
+            <div class="fw-title">Flight State Machine</div>
+            <div class="fw-desc">Pad → Boost → Coast → Apogee → Descent states. Pyro continuity check pre-flight, drogue + main ejection commands gated on state.</div>
+          </div>
+        </div>
+        <div class="fw-item">
+          <span class="fw-step">06</span>
+          <div>
+            <div class="fw-title">Ground Station</div>
+            <div class="fw-desc">Python receiver decodes LoRa packets, plots live telemetry on map. Target: real-time altitude and GPS track on launch day.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────── -->
+  <footer role="contentinfo">
+    <img
+      src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+      alt="Dogtooth Systems"
+      class="footer-logo"
+      width="180"
+    >
+    <p class="footer-lockup mono">Christopher Sparrow · Dogtooth Systems</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#contact">Contact</a>
+      <a href="#">Résumé</a>
+    </nav>
+  </footer>
+
+  <script src="../js/main.js"></script>
+</body>
+</html>

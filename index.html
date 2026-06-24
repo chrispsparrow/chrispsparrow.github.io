@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Christopher Sparrow — Electrical Engineer</title>
+  <meta name="description" content="Christopher Sparrow — electrical engineer specialising in avionics PCB design and embedded systems. Portfolio of hardware projects.">
+  <meta property="og:title" content="Christopher Sparrow — Electrical Engineer">
+  <meta property="og:description" content="Avionics PCB design, embedded systems, and precision hardware.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ── INTRO OVERLAY ───────────────────────────────────── -->
+  <div id="intro" role="status" aria-label="Loading">
+    <div class="intro-rings" aria-hidden="true">
+      <div class="intro-ring"></div>
+      <div class="intro-ring"></div>
+      <div class="intro-ring"></div>
+    </div>
+    <span class="intro-label">DOGTOOTH SYSTEMS</span>
+    <span class="intro-skip" role="button" tabindex="0">press any key to skip</span>
+  </div>
+
+  <!-- ── NAV ─────────────────────────────────────────────── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="/" class="nav-name" aria-label="Christopher Sparrow — home">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#skills">Skills</a>
+      <a href="#contact">Contact</a>
+      <!-- Replace href with real résumé PDF path when ready -->
+      <a href="#" class="nav-resume" aria-label="Download résumé">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <!-- ── HERO ─────────────────────────────────────────────── -->
+  <section id="hero" aria-label="Introduction">
+    <div class="hero-sonar" aria-hidden="true">
+      <div class="hero-ring"></div>
+      <div class="hero-ring"></div>
+      <div class="hero-ring"></div>
+    </div>
+
+    <div class="hero-content">
+      <span class="hero-eyebrow" aria-label="Discipline">ELECTRICAL ENGINEERING</span>
+      <h1 class="hero-name">CHRISTOPHER<br>SPARROW</h1>
+      <span class="hero-sub">The engineer behind Dogtooth Systems</span>
+      <div class="hero-cta">
+        <a href="#work" class="btn-primary">Selected Work</a>
+        <a href="#contact" class="btn-outline">Get in Touch</a>
+      </div>
+    </div>
+
+    <div class="hero-scroll" aria-hidden="true">
+      <span>SCROLL</span>
+      <div class="hero-scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ── SELECTED WORK ────────────────────────────────────── -->
+  <div class="sec-div reveal" aria-hidden="true">
+    <span class="sec-div-word">SELECTED</span>
+    <span class="sec-div-word sec-div-slash">/</span>
+    <span class="sec-div-word">WORK</span>
+    <span class="sec-div-word sec-div-sub">REV A — 2 PROJECTS</span>
+  </div>
+
+  <section id="work" aria-label="Selected work">
+    <div class="work-grid">
+
+      <!-- Card 1 — Avionics PCB -->
+      <a href="projects/avionics-pcb.html" class="project-card bracketed" data-swap aria-label="Custom Avionics GPS/Radio PCB — view case study">
+        <div class="card-img-wrap">
+          <!--
+            SWAP IMAGES:
+            Replace .card-ph-front with: <img class="card-front" src="assets/img/avionics/render-front.jpg" alt="Avionics PCB 3D render">
+            Replace .card-ph-back  with: <img class="card-back"  src="assets/img/avionics/copper-top.jpg"   alt="Avionics PCB copper layout">
+          -->
+          <div class="card-ph card-ph-front">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
+            <span>[ RENDER — 3D board render<br>replace with real photo ]</span>
+          </div>
+          <div class="card-ph card-ph-back">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M6 8h4M6 12h6M6 16h3"/><circle cx="17" cy="8" r="2"/><circle cx="17" cy="16" r="2"/></svg>
+            <span>[ COPPER — PCB layout top layer<br>replace with real export ]</span>
+          </div>
+          <div class="card-swap-badge" aria-hidden="true">HOVER — COPPER VIEW</div>
+          <div class="card-view-badge" aria-hidden="true">COPPER LAYOUT</div>
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-num mono">01</span>
+            <span class="card-tag">AVIONICS</span>
+            <span class="card-tag">PCB DESIGN</span>
+          </div>
+          <h2 class="card-title">Custom Avionics<br>GPS / Radio PCB</h2>
+          <p class="card-desc">A compact 4-layer flight computer integrating GPS telemetry, LoRa radio, and full flight data logging for AerospaceNU's high-power rocket program.</p>
+          <span class="card-cta">View Case Study →</span>
+        </div>
+      </a>
+
+      <!-- Card 2 — Toothpaste Dispenser -->
+      <a href="projects/toothpaste.html" class="project-card bracketed" data-swap aria-label="Automatic Toothpaste Dispenser — view project">
+        <div class="card-img-wrap">
+          <!--
+            SWAP IMAGES:
+            Replace .card-ph-front with: <img class="card-front" src="assets/img/toothpaste/render.jpg"  alt="Toothpaste dispenser render">
+            Replace .card-ph-back  with: <img class="card-back"  src="assets/img/toothpaste/exploded.jpg" alt="Exploded view">
+          -->
+          <div class="card-ph card-ph-front" style="background:#0f121a;">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>[ RENDER — SolidWorks render<br>replace with real photo ]</span>
+          </div>
+          <div class="card-ph card-ph-back" style="background:#10101a;">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <span>[ EXPLODED — SolidWorks assembly<br>replace with real export ]</span>
+          </div>
+          <div class="card-swap-badge" aria-hidden="true">HOVER — EXPLODED VIEW</div>
+          <div class="card-view-badge" aria-hidden="true">ASSEMBLY VIEW</div>
+        </div>
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-num mono">02</span>
+            <span class="card-tag">MECHANICAL</span>
+            <span class="card-tag">EMBEDDED</span>
+            <span class="card-tag">GROUP PROJECT</span>
+          </div>
+          <h2 class="card-title">Automatic Toothpaste<br>Dispenser</h2>
+          <p class="card-desc">A 3-person capstone: SolidWorks mechanical design paired with Arduino-driven servo actuation. I owned the electronics and firmware side.</p>
+          <span class="card-cta">View Project →</span>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ── ABOUT ─────────────────────────────────────────────── -->
+  <div class="sec-div reveal" aria-hidden="true">
+    <span class="sec-div-word">ABOUT</span>
+    <span class="sec-div-word sec-div-slash">/</span>
+    <span class="sec-div-word">ME</span>
+  </div>
+
+  <section id="about" aria-label="About">
+    <div class="about-grid">
+      <div class="about-text">
+        <p class="reveal">I'm <strong>Christopher Sparrow</strong>, an electrical engineer building hardware at the intersection of aerospace systems and embedded electronics. I design the boards, write the firmware, and chase signal integrity all the way down.</p>
+        <p class="reveal reveal-d1">At <em>AerospaceNU</em>, Northeastern's high-power rocket team, I developed a custom avionics stack — four-layer PCB, GPS telemetry, LoRa radio uplink — that goes from schematic capture in KiCad straight to flight. The hardware has to work on the first drop.</p>
+        <p class="reveal reveal-d2"><strong>Dogtooth Systems</strong> is my engineering signature — named after the deep-water dogtooth tuna. It's the mark I put on my PCB silkscreens, the aesthetic thread running through my work, and a reminder that high performance exists in environments most people never see.</p>
+        <p class="reveal reveal-d3">Currently seeking roles in <em>hardware engineering</em>, avionics, and embedded systems where precision is the baseline expectation, not the exception.</p>
+
+        <div class="about-stats reveal reveal-d2">
+          <div class="stat">
+            <div class="stat-val">4</div>
+            <div class="stat-lbl">Layer PCB</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">2</div>
+            <div class="stat-lbl">Active Projects</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">RF</div>
+            <div class="stat-lbl">Radio Design</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">SW</div>
+            <div class="stat-lbl">SolidWorks</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="about-portrait reveal">
+        <div class="portrait-box bracketed">
+          <!--
+            SWAP PHOTO:
+            Replace the .img-ph div with: <img src="assets/img/portrait.jpg" alt="Christopher Sparrow">
+          -->
+          <div class="img-ph" style="aspect-ratio:3/4; min-height:0;">
+            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            <span class="img-ph-text">[ PORTRAIT PHOTO<br>replace with headshot ]</span>
+          </div>
+          <div class="portrait-caption mono">CHRISTOPHER SPARROW · EE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SKILLS ────────────────────────────────────────────── -->
+  <div class="sec-div reveal" aria-hidden="true">
+    <span class="sec-div-word">SKILLS</span>
+    <span class="sec-div-word sec-div-slash">/</span>
+    <span class="sec-div-word">SYSTEMS</span>
+  </div>
+
+  <section id="skills" aria-label="Skills">
+    <div class="skills-grid">
+
+      <div class="skill-group reveal bracketed">
+        <div class="skill-group-meta mono">01 / EDA &amp; PCB</div>
+        <h3 class="skill-group-title">Board Design</h3>
+        <ul class="skill-list">
+          <li>KiCad 7/8 — schematic &amp; layout</li>
+          <li>4-layer stackup &amp; impedance control</li>
+          <li>DFM / DRC / ERC — pre-fab checks</li>
+          <li>RF layout &amp; antenna keepouts</li>
+          <li>JLCPCB / OSHPark fabrication</li>
+          <li>LCSC &amp; Digi-Key BOM management</li>
+        </ul>
+      </div>
+
+      <div class="skill-group reveal reveal-d1 bracketed">
+        <div class="skill-group-meta mono">02 / EMBEDDED</div>
+        <h3 class="skill-group-title">Firmware &amp; Systems</h3>
+        <ul class="skill-list">
+          <li>C / C++ bare-metal &amp; RTOS</li>
+          <li>STM32 (HAL &amp; register-level)</li>
+          <li>Arduino / AVR prototyping</li>
+          <li>UART · SPI · I²C · CAN</li>
+          <li>LoRa / GNSS peripheral integration</li>
+          <li>Logic analyser &amp; oscilloscope debug</li>
+        </ul>
+      </div>
+
+      <div class="skill-group reveal reveal-d2 bracketed">
+        <div class="skill-group-meta mono">03 / MECHANICAL</div>
+        <h3 class="skill-group-title">Mechanical Design</h3>
+        <ul class="skill-list">
+          <li>SolidWorks — parts &amp; assemblies</li>
+          <li>GD&amp;T &amp; tolerance stack-up analysis</li>
+          <li>FDM 3D printing — rapid prototyping</li>
+          <li>Sheet metal &amp; enclosure design</li>
+          <li>Drawings &amp; ANSI/ISO standards</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── CONTACT ───────────────────────────────────────────── -->
+  <section id="contact" aria-label="Contact">
+    <div class="contact-inner">
+      <div class="reveal">
+        <h2 class="contact-heading">Let's<br><em>build</em><br>something.</h2>
+        <p class="contact-sub">Open to hardware engineering roles, avionics contracts, and collaboration. Fastest reply is email.</p>
+      </div>
+
+      <div class="contact-stack reveal reveal-d1">
+
+        <!-- Email -->
+        <div class="contact-item" style="cursor:default;" role="group" aria-label="Email contact">
+          <div class="contact-item-left">
+            <div class="contact-item-lbl mono">EMAIL</div>
+            <div class="contact-item-val">chrisparksparrow@gmail.com</div>
+          </div>
+          <div class="contact-item-right">
+            <button class="copy-btn" data-copy="chrisparksparrow@gmail.com" aria-label="Copy email address">Copy</button>
+            <a href="mailto:chrisparksparrow@gmail.com" class="contact-arrow" aria-label="Send email" style="text-decoration:none;">↗</a>
+          </div>
+        </div>
+
+        <!-- LinkedIn — replace href with real profile URL -->
+        <a href="#" class="contact-item" target="_blank" rel="noopener" aria-label="LinkedIn profile">
+          <div class="contact-item-left">
+            <div class="contact-item-lbl mono">LINKEDIN</div>
+            <div class="contact-item-val">linkedin.com/in/christopher-sparrow</div>
+          </div>
+          <div class="contact-item-right">
+            <span class="contact-arrow">↗</span>
+          </div>
+        </a>
+
+        <!-- GitHub — replace href with real profile URL -->
+        <a href="#" class="contact-item" target="_blank" rel="noopener" aria-label="GitHub profile">
+          <div class="contact-item-left">
+            <div class="contact-item-lbl mono">GITHUB</div>
+            <div class="contact-item-val">github.com/chrispsparrow</div>
+          </div>
+          <div class="contact-item-right">
+            <span class="contact-arrow">↗</span>
+          </div>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────── -->
+  <footer role="contentinfo">
+    <img
+      src="assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+      alt="Dogtooth Systems — tuna mark"
+      class="footer-logo"
+      width="180"
+    >
+    <p class="footer-lockup mono">Christopher Sparrow · Dogtooth Systems</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+      <a href="#">Résumé</a>
+    </nav>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
