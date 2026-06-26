@@ -12,47 +12,7 @@
   <style>
     /* ─── TOOTHPASTE PAGE ────────────────────────────────── */
 
-    /* HERO */
-    #tp-hero {
-      position: relative;
-      height: 100vh;
-      min-height: 560px;
-      display: flex;
-      align-items: center;
-      overflow: hidden;
-    }
-    .tp-hero-bg {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-    }
-    .tp-hero-bg img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      object-position: center 35%;
-    }
-    .tp-hero-bg::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(100deg,
-        rgba(243,241,236,0.97) 0%,
-        rgba(243,241,236,0.90) 36%,
-        rgba(243,241,236,0.42) 58%,
-        rgba(243,241,236,0.06) 100%);
-    }
-    .tp-hero-inner {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 1380px;
-      margin: 0 auto;
-      padding: 0 min(4rem, 6vw);
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 3rem;
-      align-items: center;
-    }
+    /* Title block — used in #tc-intro (desktop) and .tf-title-block (fallback) */
     .tp-breadcrumb {
       display: inline-block;
       font-family: var(--font-mono);
@@ -82,78 +42,9 @@
       font-size: 1rem;
       color: var(--text-muted);
       line-height: 1.7;
-      max-width: 460px;
-      margin: 0 0 2rem;
+      margin: 0 0 1.5rem;
     }
     .tp-hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-    /* Specs panel */
-    .tp-specs-panel {
-      background: rgba(243,241,236,0.88);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.5rem 1.75rem;
-    }
-    .tp-specs-hdr {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      letter-spacing: 0.18em;
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-    }
-    .tp-spec-row {
-      display: grid;
-      grid-template-columns: 100px 1fr;
-      gap: 0.4rem 0.75rem;
-      padding: 0.42rem 0;
-      border-bottom: 1px solid rgba(208,204,195,0.45);
-      align-items: baseline;
-    }
-    .tp-spec-row:last-child { border-bottom: none; }
-    .tp-spec-key {
-      font-family: var(--font-mono);
-      font-size: 0.57rem;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      text-transform: uppercase;
-    }
-    .tp-spec-val {
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--text);
-      line-height: 1.3;
-    }
-
-    /* Scroll cue */
-    .tp-scroll-cue {
-      position: absolute;
-      bottom: 2.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1;
-      font-family: var(--font-mono);
-      font-size: 0.55rem;
-      letter-spacing: 0.22em;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      white-space: nowrap;
-    }
-    .tp-scroll-cue::after {
-      content: '';
-      width: 1px;
-      height: 36px;
-      background: linear-gradient(to bottom, var(--text-muted), transparent);
-      animation: tpCuePulse 1.8s ease-in-out infinite;
-    }
-    @keyframes tpCuePulse {
-      0%, 100% { opacity: 0.35; }
-      50%       { opacity: 1; }
-    }
 
     /* ─── SCROLL TOUR ───────────────────────────────────── */
     #tour-wrap { position: relative; height: 600vh; }
@@ -187,7 +78,7 @@
       user-select: none;
     }
 
-    /* Intro text — left column */
+    /* Title / intro — left column */
     #tc-intro {
       position: absolute;
       left: 0;
@@ -195,20 +86,6 @@
       top: 50%;
       transform: translateY(-50%);
       padding: 0 min(2.5rem, 3.5vw);
-      pointer-events: none;
-    }
-    .tour-section-lbl {
-      font-family: var(--font-mono);
-      font-size: 0.55rem;
-      letter-spacing: 0.22em;
-      color: var(--text-muted);
-      margin-bottom: 0.9rem;
-    }
-    .tc-intro-body {
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      line-height: 1.7;
-      margin: 0;
     }
 
     /* ─── LEADER LINE ─── */
@@ -299,6 +176,11 @@
       max-width: 840px;
       margin: 0 auto;
     }
+    .tf-title-block {
+      padding-bottom: 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
     .tour-fallback-hdr {
       font-family: var(--font-mono);
       font-size: 0.6rem;
@@ -378,16 +260,6 @@
     .tp-cm { color: var(--text-dim); }
 
     /* ─── RESPONSIVE ─────────────────────────────────────── */
-    @media (max-width: 960px) {
-      .tp-hero-inner { grid-template-columns: 1fr; }
-      .tp-specs-panel { max-width: 420px; }
-      .tp-hero-bg::after {
-        background: linear-gradient(180deg,
-          rgba(243,241,236,0.96) 45%,
-          rgba(243,241,236,0.70) 70%,
-          rgba(243,241,236,0.25) 100%);
-      }
-    }
     @media (max-width: 560px) {
       .tp-hero-h1 { font-size: 2rem; }
       .tp-bs { padding-left: 1.5rem; padding-right: 1.5rem; }
@@ -402,7 +274,6 @@
       #tour-leader,
       #tour-dots        { display: none !important; }
       .tour-fallback    { display: block; }
-      .tp-scroll-cue    { display: none; }
     }
   </style>
 </head>
@@ -423,16 +294,13 @@
     </div>
   </nav>
 
-  <!-- ══ SECTION 1 — HERO ═══════════════════════════════════ -->
-  <section id="tp-hero" aria-label="Project overview">
+  <!-- ══ PARTS TOUR ════════════════════════════════════════ -->
+  <div id="tour-wrap">
 
-    <div class="tp-hero-bg" aria-hidden="true">
-      <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png" alt="">
-    </div>
+    <div id="tour-stage" aria-hidden="true">
 
-    <div class="tp-hero-inner">
-
-      <div class="tp-hero-left">
+      <!-- Title block — left column, visible at load, fades out as tour begins -->
+      <div id="tc-intro">
         <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
         <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
         <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
@@ -444,59 +312,6 @@
           <span class="tag">3D PRINTING</span>
           <span class="tag">ACCESSIBILITY</span>
         </div>
-      </div>
-
-      <aside class="tp-specs-panel" aria-label="System at a glance">
-        <div class="tp-specs-hdr mono">SYSTEM AT A GLANCE</div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Microcontroller</span>
-          <span class="tp-spec-val">Raspberry Pi Pico</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Actuator</span>
-          <span class="tp-spec-val">DC motor → 3D-printed threaded screw → squeezer arm</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Driver</span>
-          <span class="tp-spec-val">Dual-channel TB6612FNG</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Controls</span>
-          <span class="tp-spec-val">2 push-buttons</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Dose — adult</span>
-          <span class="tp-spec-val">0.5 s · pea-sized</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Dose — child</span>
-          <span class="tp-spec-val">0.25 s · rice-sized</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Body</span>
-          <span class="tp-spec-val">FDM 3D print · wall-mount</span>
-        </div>
-        <div class="tp-spec-row">
-          <span class="tp-spec-key">Tools</span>
-          <span class="tp-spec-val">SolidWorks · MicroPython</span>
-        </div>
-      </aside>
-
-    </div>
-
-    <div class="tp-scroll-cue" aria-hidden="true">SCROLL TO EXPLORE</div>
-
-  </section>
-
-  <!-- ══ SECTION 2 — PARTS TOUR ═══════════════════════════ -->
-  <div id="tour-wrap">
-
-    <div id="tour-stage" aria-hidden="true">
-
-      <!-- Intro text — left column, fades out as tour begins -->
-      <div id="tc-intro">
-        <div class="tour-section-lbl">PARTS TOUR</div>
-        <p class="tc-intro-body">Scroll to explore seven components of the dispenser.</p>
       </div>
 
       <!-- Image layers — middle third (left:33% right:33%), opacity-only crossfades -->
@@ -529,34 +344,49 @@
     </div>
 
     <!-- Static fallback — visible only on mobile / reduced-motion via CSS -->
-    <div class="tour-fallback" aria-label="Parts list">
+    <div class="tour-fallback" aria-label="Project overview and parts list">
+
+      <div class="tf-title-block">
+        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+        <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
+        <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
+        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button — no grip, no guessing.</p>
+        <div class="tp-hero-tags">
+          <span class="tag tag-gold">GROUP PROJECT</span>
+          <span class="tag">MICROPYTHON</span>
+          <span class="tag">RASPBERRY PI PICO</span>
+          <span class="tag">3D PRINTING</span>
+          <span class="tag">ACCESSIBILITY</span>
+        </div>
+      </div>
+
       <div class="tour-fallback-hdr">PARTS TOUR</div>
 
       <div class="tf-item">
         <img class="tf-thumb"
              src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
-             alt="Start button" style="object-position:30% 80%;">
+             alt="Start button" style="object-position:47% 74%;">
         <div>
           <div class="tf-label">Start button</div>
-          <p class="tf-caption">Press to dispense a measured dose.</p>
+          <p class="tf-caption">Press to dispense a measured dose from the slot below — pea-sized for adults, rice-sized for kids.</p>
         </div>
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
              src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
-             alt="Dispense slot" style="object-position:47% 79%;">
+             alt="Settings button" style="object-position:30% 80%;">
         <div>
-          <div class="tf-label">Dispense slot</div>
-          <p class="tf-caption">Pea-sized for adults, rice-sized for kids.</p>
+          <div class="tf-label">Settings button</div>
+          <p class="tf-caption">Settings button — single-press switches adult/child dose; double-press reverses the motor.</p>
         </div>
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
              src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
-             alt="3D-printed threaded screw" style="object-position:37% 52%;">
+             alt="3D-printed threaded screw" style="object-position:37% 55%;">
         <div>
           <div class="tf-label">3D-printed threaded screw</div>
-          <p class="tf-caption">The squeezer arm rides down the threads, turning motor spin into a linear push on the tube.</p>
+          <p class="tf-caption">3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -565,7 +395,7 @@
              alt="DC motor" style="object-position:43% 26%;">
         <div>
           <div class="tf-label">DC motor</div>
-          <p class="tf-caption">Drives the screw through a dual-channel driver.</p>
+          <p class="tf-caption">DC motor — drives the screw via the TB6612FNG driver.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -574,7 +404,7 @@
              alt="Raspberry Pi Pico" style="object-position:46% 32%;">
         <div>
           <div class="tf-label">Raspberry Pi Pico</div>
-          <p class="tf-caption">(MicroPython) — the controller I built and programmed.</p>
+          <p class="tf-caption">Raspberry Pi Pico (MicroPython) — the controller I built &amp; coded.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -583,7 +413,7 @@
              alt="Dual-channel motor driver" style="object-position:47% 47%;">
         <div>
           <div class="tf-label">Dual-channel motor driver</div>
-          <p class="tf-caption">Runs the motor forward/reverse.</p>
+          <p class="tf-caption">TB6612FNG dual-channel motor driver — runs the motor fwd/reverse.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -592,7 +422,7 @@
              alt="Keyhole wall-mount slots" style="object-position:62% 22%;">
         <div>
           <div class="tf-label">Keyhole wall-mount slots</div>
-          <p class="tf-caption">Mounts on a bathroom wall.</p>
+          <p class="tf-caption">Keyhole wall-mount slots — mounts on a bathroom wall.</p>
         </div>
       </div>
     </div>
@@ -675,24 +505,27 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
   <script src="../js/main.js"></script>
   <script>
-  /* ── FIXED-STAGE PARTS TOUR (opacity crossfades, no zoom) ── */
+  /* ── FIXED-STAGE PARTS TOUR ─────────────────────────────── */
   (function () {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 900) return;
 
+    /* FIX 2/3: corrected button labels and positions.
+       FIX 5:   pico+driver both on img B; wall-mount alone on img C.
+       side rule: x < 0.5 → left column; x >= 0.5 → right column. */
     const STOPS = [
-      { img: 'A', x: 0.30, y: 0.80, label: 'Start button',
-        caption: 'Start button — press to dispense a measured dose.',                                                                           side: 'left'  },
-      { img: 'A', x: 0.47, y: 0.79, label: 'Dispense slot',
-        caption: 'Dispense slot — pea-sized adult / rice-sized child.',                                                                        side: 'left'  },
-      { img: 'A', x: 0.37, y: 0.52, label: '3D-printed threaded screw',
-        caption: '3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push on the tube.',    side: 'left'  },
+      { img: 'A', x: 0.47, y: 0.74, label: 'Start button',
+        caption: 'Press to dispense a measured dose from the slot below — pea-sized for adults, rice-sized for kids.',                         side: 'left'  },
+      { img: 'A', x: 0.30, y: 0.80, label: 'Settings button',
+        caption: 'Settings button — single-press switches adult/child dose; double-press reverses the motor.',                                  side: 'left'  },
+      { img: 'A', x: 0.37, y: 0.55, label: '3D-printed threaded screw',
+        caption: '3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push.',                 side: 'left'  },
       { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',
         caption: 'DC motor — drives the screw via the TB6612FNG driver.',                                                                      side: 'left'  },
       { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',
         caption: 'Raspberry Pi Pico (MicroPython) — the controller I built & coded.',                                                          side: 'left'  },
       { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver',
         caption: 'TB6612FNG dual-channel motor driver — runs the motor fwd/reverse.',                                                          side: 'right' },
-      { img: 'C', x: 0.62, y: 0.22, label: 'Keyhole wall-mount slots',
+      { img: 'C', x: 0.62, y: 0.22, label: 'Wall-mount slots',
         caption: 'Keyhole wall-mount slots — mounts on a bathroom wall.',                                                                      side: 'right' },
     ];
 
@@ -720,7 +553,6 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     };
     const N = STOPS.length;
 
-    /* Build progress dots */
     const dots = STOPS.map((_, i) => {
       const d = document.createElement('div');
       d.className = 'tp-dot' + (i === 0 ? ' active' : '');
@@ -728,10 +560,8 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       return d;
     });
 
-    /* Column padding in px */
     function colPad() { return Math.round(Math.min(window.innerWidth * 0.035, 56)); }
 
-    /* Focal-point position in stage coordinates (px) */
     function getDotPos(stop) {
       let imgEl = IMGS[stop.img];
       const stageRect = stage.getBoundingClientRect();
@@ -743,13 +573,18 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       };
     }
 
-    /* Place dot + line + caption for stop at index idx */
+    /* FIX 4: line is at dotY; label sits just ABOVE the line (label bottom ≈ dotY);
+       caption flows naturally below the label — line never cuts through any text. */
+    const LABEL_H  = 14; /* px — estimated height of one .tl-lbl line */
+    const LINE_GAP = 3;  /* px — space between label bottom and the line */
+
     function placeLeader(idx) {
       const stop = STOPS[idx];
       const { x: dotX, y: dotY } = getDotPos(stop);
-      const pad  = colPad();
-      const W    = stage.offsetWidth;
-      const maxW = Math.round(W / 3 - pad * 2);
+      const pad     = colPad();
+      const W       = stage.offsetWidth;
+      const maxW    = Math.round(W / 3 - pad * 2);
+      const textTop = Math.max(8, dotY - LINE_GAP - LABEL_H);
 
       tlLbl.textContent = stop.label;
       tlCap.textContent = stop.caption;
@@ -760,19 +595,20 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       tlLine.classList.remove('tl-left', 'tl-right');
 
       if (stop.side === 'left') {
+        /* line: from left pad → dot; label above line; caption below */
         tlLine.style.cssText = `left:${pad}px; right:${W - dotX}px; top:${dotY}px;`;
-        tlText.style.cssText = `left:${pad}px; top:${dotY}px; text-align:left; transform:translateY(-50%); max-width:${maxW}px;`;
+        tlText.style.cssText = `left:${pad}px; top:${textTop}px; text-align:left; max-width:${maxW}px;`;
         void tlLine.offsetWidth;
         tlLine.classList.add('tl-left');
       } else {
+        /* line: from dot → right pad; label above line; caption below */
         tlLine.style.cssText = `left:${dotX}px; right:${pad}px; top:${dotY}px;`;
-        tlText.style.cssText = `right:${pad}px; top:${dotY}px; text-align:right; transform:translateY(-50%); max-width:${maxW}px;`;
+        tlText.style.cssText = `right:${pad}px; top:${textTop}px; text-align:right; max-width:${maxW}px;`;
         void tlLine.offsetWidth;
         tlLine.classList.add('tl-right');
       }
     }
 
-    /* Set image layer opacities directly (no CSS transition — driven per-frame) */
     function setImages(key0, key1, t) {
       for (const k of ['A', 'B', 'C']) {
         let op = 0;
@@ -785,11 +621,11 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     const P_INTRO_OUT = 0.12;
     const P_START     = 0.15;
     const P_END       = 0.92;
-    const XFADE_AT    = 0.6; /* start crossfade this far through a step */
+    const XFADE_AT    = 0.6;
 
-    let activeIdx      = -1;
-    let rafPending     = false;
-    let leaderTimeout  = null;
+    let activeIdx     = -1;
+    let rafPending    = false;
+    let leaderTimeout = null;
 
     function scheduleLeader(idx) {
       clearTimeout(leaderTimeout);
@@ -810,11 +646,11 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
       const p = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
 
-      /* Intro text opacity — fades out before first stop */
+      /* Title block fades out as tour begins */
       tcIntro.style.opacity = p < P_INTRO_OUT ? String(1 - p / P_INTRO_OUT) : '0';
 
-      /* Outside active tour range */
-      if (p < P_START || p >= P_END) {
+      /* Before tour — show image A (matches title state) */
+      if (p < P_START) {
         if (activeIdx !== -1) {
           activeIdx = -1;
           clearTimeout(leaderTimeout);
@@ -825,15 +661,28 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
         return;
       }
 
-      /* Map p → stop index + within-step fraction */
+      /* FIX 6: after tour ends — stay on last image (C), never return to A */
+      if (p >= P_END) {
+        if (activeIdx !== -1) {
+          activeIdx = -1;
+          clearTimeout(leaderTimeout);
+          leader.classList.remove('tl-visible');
+          dots.forEach(d => d.classList.remove('active'));
+        }
+        setImages(STOPS[N - 1].img, STOPS[N - 1].img, 0);
+        return;
+      }
+
+      /* Map scroll progress → stop index + within-step fraction.
+         raw = t * N so every stop (including the last) gets 1/N of the range. */
       const t   = (p - P_START) / (P_END - P_START);
-      const raw = t * (N - 1);
+      const raw = t * N;
       const i   = Math.min(Math.floor(raw), N - 1);
       const f   = raw - i;
       const s0  = STOPS[i];
       const s1  = STOPS[Math.min(i + 1, N - 1)];
 
-      /* Image crossfade */
+      /* Image crossfade (only when adjacent stops use different images) */
       if (s0.img === s1.img || i === N - 1) {
         setImages(s0.img, s0.img, 0);
       } else {
@@ -841,10 +690,8 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
         setImages(s0.img, s1.img, xf);
       }
 
-      /* Update dots */
       dots.forEach((d, di) => d.classList.toggle('active', di === i));
 
-      /* Update leader when stop index changes */
       if (i !== activeIdx) {
         activeIdx = i;
         scheduleLeader(i);
@@ -865,7 +712,6 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       update();
     }, { passive: true });
 
-    /* will-change hint while stage is in view */
     new IntersectionObserver((entries) => {
       const wc = entries[0].isIntersecting ? 'opacity' : 'auto';
       Object.values(LAYERS).forEach(l => { l.style.willChange = wc; });
