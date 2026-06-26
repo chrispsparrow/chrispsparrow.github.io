@@ -5,19 +5,93 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 
 /* ── INTRO ───────────────────────────────────────────────── */
 (function () {
-  const el = document.getElementById('intro');
-  if (!el) return;
-  if (REDUCED) { el.classList.add('gone'); return; }
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo(0, 0);
+  document.body.classList.add('intro-active');
 
-  const dismiss = () => {
-    el.classList.add('fade-out');
-    el.addEventListener('transitionend', () => el.classList.add('gone'), { once: true });
-    document.removeEventListener('keydown', dismiss);
+  const el       = document.getElementById('intro');
+  const siteWrap = document.getElementById('site-wrap');
+
+  /* Signals hero ripple to begin — fires exactly once from either exit path */
+  let doneFired = false;
+  const fireDone = () => {
+    if (!doneFired) { doneFired = true; document.dispatchEvent(new Event('intro-done')); }
   };
 
-  setTimeout(dismiss, 1150);
-  document.addEventListener('keydown', dismiss);
-  el.querySelector('.intro-skip')?.addEventListener('click', dismiss);
+  /* Instant reveal: no transition (skip / reduced-motion path) */
+  const skipNow = () => {
+    fireDone();
+    if (el) el.classList.add('gone');
+    const sr = document.getElementById('splash-rings');
+    if (sr) sr.style.display = 'none';
+    if (siteWrap) siteWrap.classList.add('revealed');
+    document.body.classList.remove('intro-active');
+  };
+
+  /* Animated reveal: overlay gone, site expands from center via clip-path */
+  const reveal = () => {
+    fireDone();
+    if (el) el.classList.add('gone');
+    if (!siteWrap) { document.body.classList.remove('intro-active'); return; }
+    siteWrap.classList.add('revealing');
+    siteWrap.addEventListener('transitionend', () => {
+      siteWrap.classList.remove('revealing');
+      siteWrap.classList.add('revealed');
+      document.body.classList.remove('intro-active');
+    }, { once: true });
+  };
+
+  if (!el)      { skipNow(); return; }
+  if (REDUCED)  { skipNow(); return; }
+
+  const rings  = document.getElementById('splash-rings');
+  const bloom  = el.querySelector('.intro-bloom');
+  const tunaEl = el.querySelector('.intro-tuna');
+  const tunaX  = el.querySelector('.intro-tuna-x');
+  const label  = el.querySelector('.intro-label');
+
+  /* Track whether the page is fully loaded */
+  let loaded = document.readyState === 'complete';
+  if (!loaded) window.addEventListener('load', () => { loaded = true; }, { once: true });
+
+  let hopCount       = 0;
+  const MAX_HOPS     = 6;
+  let revealPending  = false;
+  let dismissed      = false;
+
+  /* Called at the boundary between hops (fish is invisible at this moment) */
+  const onIteration = () => {
+    if (dismissed || revealPending) return;
+    hopCount++;
+    if (loaded || hopCount >= MAX_HOPS) {
+      revealPending = true;
+      /* Fish is invisible; stop the loop visually, fire splash, then reveal */
+      tunaEl.classList.add('landed');
+      if (bloom) bloom.classList.add('splashed');
+      if (rings) rings.classList.add('splashed');
+      if (label) label.classList.add('visible');
+      setTimeout(() => { if (!dismissed) reveal(); }, 900);
+    }
+  };
+
+  if (tunaX) tunaX.addEventListener('animationiteration', onIteration);
+
+  /* Safety fallback: if animationiteration never fires */
+  setTimeout(() => {
+    if (!dismissed && !revealPending) onIteration();
+  }, MAX_HOPS * 700 + 200);
+
+  /* Skip: any user input jumps straight to the site */
+  const skip = () => {
+    if (dismissed) return;
+    dismissed = true;
+    skipNow();
+  };
+  document.addEventListener('keydown',    skip, { once: true });
+  document.addEventListener('wheel',      skip, { once: true, passive: true });
+  document.addEventListener('touchstart', skip, { once: true, passive: true });
+  document.addEventListener('click',      skip, { once: true });
+  el.querySelector('.intro-skip')?.addEventListener('click', skip, { once: true });
 })();
 
 /* ── NAV SCROLL ──────────────────────────────────────────── */
@@ -163,4 +237,69 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
       if (e.key === 'ArrowLeft')  { g.scrollBy({ left: -320, behavior: 'smooth' }); e.preventDefault(); }
     });
   });
+})();
+
+/* ── HERO AMBIENT RIPPLE ─────────────────────────────────── */
+(function () {
+  if (REDUCED) return;
+
+  const hero      = document.getElementById('hero');
+  const container = document.getElementById('hero-ripple');
+  if (!hero || !container) return;
+
+  const slots = Array.from(container.querySelectorAll('.pulse-slot'));
+  if (!slots.length) return;
+
+  let slotIdx = 0;
+  let pumpId  = null;
+  let running = false;
+  let started = false;
+  let heroVis = false;
+
+  function firePulse() {
+    const slot = slots[slotIdx % slots.length];
+    slotIdx++;
+    slot.classList.remove('firing');
+    void slot.offsetWidth; /* restart CSS animation */
+    slot.classList.add('firing');
+  }
+
+  function pump() {
+    if (!running) return;
+    firePulse();
+    pumpId = setTimeout(pump, 2800);
+  }
+
+  function startPulsing() {
+    if (running) return;
+    running = true;
+    pump();
+  }
+
+  function stopPulsing() {
+    running = false;
+    clearTimeout(pumpId);
+    pumpId = null;
+  }
+
+  /* Pause when hero scrolls out of view */
+  const obs = new IntersectionObserver((entries) => {
+    heroVis = entries[0].isIntersecting;
+    if (!heroVis) stopPulsing();
+    else if (started && !document.hidden) startPulsing();
+  }, { threshold: 0 });
+  obs.observe(hero);
+
+  /* Pause when tab is hidden */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopPulsing();
+    else if (started && heroVis) startPulsing();
+  });
+
+  /* Start as soon as the intro hands off; fade to ambient level after 5 s */
+  document.addEventListener('intro-done', () => {
+    started = true;
+    if (heroVis && !document.hidden) startPulsing();
+    setTimeout(() => container.classList.add('ambient'), 5000);
+  }, { once: true });
 })();

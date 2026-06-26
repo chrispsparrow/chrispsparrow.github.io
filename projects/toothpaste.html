@@ -78,15 +78,23 @@
       user-select: none;
     }
 
-    /* Title / intro — left column */
+    /* Title / intro — flex row centered in stage; both cols start at same top edge */
     #tc-intro {
       position: absolute;
-      left: 0;
-      width: 33.33%;
+      left: 0; right: 0;
       top: 50%;
       transform: translateY(-50%);
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .tc-left-col,
+    .tc-right-col {
+      width: 33.33%;
       padding: 0 min(2.5rem, 3.5vw);
     }
+    .tc-left-col { pointer-events: auto; }
 
     /* ─── LEADER LINE ─── */
     #tour-leader {
@@ -224,7 +232,7 @@
       margin: 0 auto;
       padding: 4.5rem min(4rem, 5vw) 0;
     }
-    .tp-bs + .tp-bs { padding-top: 0; }
+    .tp-bs + .tp-bs { padding-top: 3.5rem; }
     .tp-bs:last-of-type { padding-bottom: 5rem; }
     .tp-bs .sec-lbl { margin-bottom: 1.5rem; }
     .tp-bs p {
@@ -263,16 +271,29 @@
     .tp-proto-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 1.25rem;
+      gap: 1.5rem;
       margin-top: 2rem;
+      align-items: start;
     }
-    .tp-proto-item img {
-      width: 100%;
-      aspect-ratio: 4 / 3;
-      object-fit: cover;
-      display: block;
-      border-radius: 4px;
+    /* tp-proto-item: just the frame + caption stack, no background */
+    .tp-proto-item { display: flex; flex-direction: column; gap: 0.6rem; }
+    .tp-proto-frame {
+      aspect-ratio: 3 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #F8F6F1;
       border: 1px solid var(--border);
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(23,21,15,0.06);
+      overflow: hidden;
+    }
+    .tp-proto-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
     }
     .tp-proto-caption {
       font-family: var(--font-mono);
@@ -280,16 +301,19 @@
       letter-spacing: 0.1em;
       color: var(--text-muted);
       text-transform: uppercase;
-      margin-top: 0.55rem;
+      text-align: center;
+      margin: 0;
     }
 
     /* ─── DEMO VIDEO ─────────────────────────────────────── */
     .tp-video-wrap {
-      max-width: 640px;
+      max-width: 380px;
       margin: 0 auto;
     }
     .tp-video-wrap video {
       width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
       display: block;
       border-radius: 6px;
       border: 1px solid var(--border);
@@ -338,16 +362,20 @@
 
       <!-- Title block — left column, visible at load, fades out as tour begins -->
       <div id="tc-intro">
-        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
-        <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
-        <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
-        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button — no grip, no guessing.</p>
-        <div class="tp-hero-tags">
-          <span class="tag tag-gold">GROUP PROJECT</span>
-          <span class="tag">MICROPYTHON</span>
-          <span class="tag">RASPBERRY PI PICO</span>
-          <span class="tag">3D PRINTING</span>
-          <span class="tag">ACCESSIBILITY</span>
+        <div class="tc-left-col">
+          <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+          <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
+        </div>
+        <div class="tc-right-col">
+          <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
+          <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button.</p>
+          <div class="tp-hero-tags">
+            <span class="tag tag-gold">GROUP PROJECT</span>
+            <span class="tag">MICROPYTHON</span>
+            <span class="tag">RASPBERRY PI PICO</span>
+            <span class="tag">3D PRINTING</span>
+            <span class="tag">ACCESSIBILITY</span>
+          </div>
         </div>
       </div>
 
@@ -387,7 +415,7 @@
         <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
         <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
         <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
-        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button — no grip, no guessing.</p>
+        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button.</p>
         <div class="tp-hero-tags">
           <span class="tag tag-gold">GROUP PROJECT</span>
           <span class="tag">MICROPYTHON</span>
@@ -532,19 +560,27 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     <h2 class="sec-lbl">PROTOTYPE PROGRESSION</h2>
     <div class="tp-proto-grid">
       <div class="tp-proto-item">
-        <img src="../assets/toothpaste/toothpaste-prototype-1-sketch.png" alt="Concept sketch">
+        <div class="tp-proto-frame">
+          <img src="../assets/toothpaste/toothpaste-prototype-1-sketch.png" alt="Concept sketch">
+        </div>
         <p class="tp-proto-caption">Concept sketch</p>
       </div>
       <div class="tp-proto-item">
-        <img src="../assets/toothpaste/toothpaste-prototype-2 FIRST 3D PRINT.png" alt="First 3D print">
+        <div class="tp-proto-frame">
+          <img src="../assets/toothpaste/toothpaste-prototype-2 FIRST 3D PRINT.png" alt="First 3D print">
+        </div>
         <p class="tp-proto-caption">First 3D print</p>
       </div>
       <div class="tp-proto-item">
-        <img src="../assets/toothpaste/toothpaste-prototype-1-physical.png" alt="Physical build">
+        <div class="tp-proto-frame">
+          <img src="../assets/toothpaste/toothpaste-prototype-1-physical.png" alt="Physical build">
+        </div>
         <p class="tp-proto-caption">Physical build</p>
       </div>
       <div class="tp-proto-item">
-        <img src="../assets/toothpaste/toothpaste-PROTOYPE-FINAL-cad-render.png" alt="Final CAD model">
+        <div class="tp-proto-frame">
+          <img src="../assets/toothpaste/toothpaste-PROTOYPE-FINAL-cad-render.png" alt="Final CAD model">
+        </div>
         <p class="tp-proto-caption">Final CAD model</p>
       </div>
     </div>
@@ -554,7 +590,8 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     <h2 class="sec-lbl">SEE IT WORK</h2>
     <div class="tp-video-wrap">
       <video src="../assets/toothpaste/TOOTHPASTE RETRIEVAL.MOV"
-             controls muted loop playsinline preload="metadata">
+             controls muted loop playsinline preload="metadata"
+             onloadstart="this.muted=true">
         Your browser doesn't support this video format.
       </video>
     </div>
