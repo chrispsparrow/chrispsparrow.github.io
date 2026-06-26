@@ -591,131 +591,127 @@ body.intro-active { overflow: hidden; }
 /* ============================================================
    WORK / PROJECT CARDS
    ============================================================ */
-#work { padding: 2rem 2rem 8rem; }
 
-.work-grid {
-  max-width: 1300px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
-  gap: 2px;
+#work {
+  border-top: 1px solid var(--border);
+  padding-top: 5rem;
+  padding-bottom: 8rem;
+  scroll-margin-top: 80px;
 }
 
+/* Section heading row */
+.work-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+.work-h-title {
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.work-h-slash { color: var(--gold); }
+.work-h-meta {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Two-column grid, single column below 768 px */
+.work-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2.5rem;
+}
+@media (max-width: 767px) {
+  .work-grid { grid-template-columns: 1fr; }
+}
+
+/* Card: full flex column, no background */
 .project-card {
-  display: block;
-  background: var(--surface);
-  cursor: pointer;
+  display: flex;
+  flex-direction: column;
   text-decoration: none;
+  color: inherit;
   outline-offset: 3px;
 }
 .project-card:focus-visible { outline: 2px solid var(--gold-text); }
 
-.card-img-wrap {
+/* Media frame: portrait 4/5, hairline border, off-white bg */
+.card-frame {
   position: relative;
-  aspect-ratio: 4/3;
-  max-height: 420px;
+  width: 100%;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid #DDD9CF;
+  background: #F3F1EC;
+  flex-shrink: 0;
 }
 
-.card-img-wrap .card-front,
-.card-img-wrap .card-back {
+/* Both images fill the frame; only one visible at a time */
+.card-default,
+.card-hover {
   position: absolute;
   inset: 0;
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center;
-  transition: opacity 0.45s ease, transform 0.6s var(--ease-expo);
+  transition: opacity 0.4s ease;
 }
-.card-img-wrap .card-front { z-index: 1; opacity: 1; }
-.card-img-wrap .card-back  { z-index: 2; opacity: 0; }
+.card-default { opacity: 1; }
+.card-hover   { opacity: 0; }
 
-.project-card:hover .card-back,
-.project-card.tapped .card-back { opacity: 1; }
-.project-card:hover .card-front,
-.project-card:hover .card-back  { transform: scale(1.03); }
-
-/* Opacity-only swap (no scale) — used for toothpaste card */
-.card-fade-only .card-front,
-.card-fade-only .card-back      { transition: opacity 0.4s ease; }
-.card-fade-only:hover .card-front,
-.card-fade-only:hover .card-back { transform: none; }
+.project-card:hover .card-default,
+.project-card.tapped .card-default { opacity: 0; }
+.project-card:hover .card-hover,
+.project-card.tapped .card-hover   { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-img-wrap .card-front,
-  .card-img-wrap .card-back { transition: none; }
+  .card-default, .card-hover { transition: none; }
 }
 
-/* placeholder halves inside card */
-.card-ph {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-.card-ph-front { background: #D4DDD6; z-index: 1; }
-.card-ph-back  { background: #D2D6DE; z-index: 2; opacity: 0; transition: opacity 0.45s ease; }
-.project-card:hover .card-ph-back,
-.project-card.tapped .card-ph-back { opacity: 1; }
-.card-ph span {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.1em;
-  color: #9B9690;
-  text-align: center;
-  padding: 0 1.5rem;
-  line-height: 1.7;
+/* Touch/no-hover: show default image unless card is tapped */
+@media (hover: none) and (pointer: coarse) {
+  .project-card:not(.tapped) .card-default { opacity: 1 !important; }
+  .project-card:not(.tapped) .card-hover   { opacity: 0 !important; }
 }
 
-.card-swap-badge {
+/* "HOVER — X VIEW" chip, top-right; hides on hover */
+.card-hover-chip {
   position: absolute;
-  top: 1rem; right: 1rem;
+  top: 1rem;
+  right: 1rem;
   z-index: 10;
-  background: rgba(243,241,236,0.88);
-  border: 1px solid var(--gold-border);
-  padding: 0.3rem 0.6rem;
+  background: rgba(243, 241, 236, 0.9);
+  border: 1px solid #DDD9CF;
+  border-radius: 3px;
+  padding: 0.25rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.5rem;
   letter-spacing: 0.1em;
-  color: var(--gold-text);
+  color: var(--text-muted);
   pointer-events: none;
   transition: opacity 0.3s;
 }
-.project-card:hover .card-swap-badge { opacity: 0; }
+.project-card:hover .card-hover-chip { opacity: 0; }
 
-.card-view-badge {
-  position: absolute;
-  bottom: 1rem; left: 1rem;
-  z-index: 10;
-  background: rgba(200,145,58,0.88);
-  padding: 0.25rem 0.6rem;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
-  color: #000;
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-.project-card:hover .card-view-badge,
-.project-card.tapped .card-view-badge { opacity: 1; }
-
-.card-body {
-  padding: 2rem;
-  border: 1px solid var(--border);
-  border-top: none;
-  transition: border-color 0.3s;
-}
-.project-card:hover .card-body { border-color: var(--gold-border); }
+/* Text below the frame */
+.card-body { padding: 1.5rem 0 0; }
 
 .card-meta {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.75rem;
 }
 .card-num {
   font-family: var(--font-mono);
@@ -728,7 +724,8 @@ body.intro-active { overflow: hidden; }
   font-size: 0.5rem;
   letter-spacing: 0.1em;
   color: var(--text-muted);
-  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 2px;
   padding: 0.18rem 0.5rem;
 }
 .card-title {
@@ -736,6 +733,7 @@ body.intro-active { overflow: hidden; }
   font-weight: 700;
   line-height: 1.15;
   margin-bottom: 0.65rem;
+  color: var(--text);
 }
 .card-desc {
   font-size: 0.875rem;
