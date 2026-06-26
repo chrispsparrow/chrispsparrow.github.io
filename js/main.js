@@ -18,7 +18,7 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     if (!doneFired) { doneFired = true; document.dispatchEvent(new Event('intro-done')); }
   };
 
-  /* Instant reveal: no transition (skip / reduced-motion path) */
+  /* Instant reveal: no transition (reduced-motion path only) */
   const skipNow = () => {
     fireDone();
     if (el) el.classList.add('gone');
@@ -41,57 +41,46 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     }, { once: true });
   };
 
-  if (!el)      { skipNow(); return; }
-  if (REDUCED)  { skipNow(); return; }
+  if (!el)     { skipNow(); return; }
+  if (REDUCED) { skipNow(); return; }
 
-  const rings  = document.getElementById('splash-rings');
-  const bloom  = el.querySelector('.intro-bloom');
-  const tunaEl = el.querySelector('.intro-tuna');
-  const tunaX  = el.querySelector('.intro-tuna-x');
-  const label  = el.querySelector('.intro-label');
+  const rings = document.getElementById('splash-rings');
+  const bloom = el.querySelector('.intro-bloom');
+  const label = el.querySelector('.intro-label');
+  const video = el.querySelector('.intro-video');
 
-  /* Track whether the page is fully loaded */
-  let loaded = document.readyState === 'complete';
-  if (!loaded) window.addEventListener('load', () => { loaded = true; }, { once: true });
+  /* Idempotent: fades video, fires bloom + rings, then animated reveal */
+  let triggered = false;
+  let safetyTimer = null;
 
-  let hopCount       = 0;
-  const MAX_HOPS     = 6;
-  let revealPending  = false;
-  let dismissed      = false;
-
-  /* Called at the boundary between hops (fish is invisible at this moment) */
-  const onIteration = () => {
-    if (dismissed || revealPending) return;
-    hopCount++;
-    if (loaded || hopCount >= MAX_HOPS) {
-      revealPending = true;
-      /* Fish is invisible; stop the loop visually, fire splash, then reveal */
-      tunaEl.classList.add('landed');
-      if (bloom) bloom.classList.add('splashed');
-      if (rings) rings.classList.add('splashed');
-      if (label) label.classList.add('visible');
-      setTimeout(() => { if (!dismissed) reveal(); }, 900);
-    }
+  const triggerBloom = () => {
+    if (triggered) return;
+    triggered = true;
+    clearTimeout(safetyTimer);
+    if (video) video.style.opacity = '0';
+    if (bloom) bloom.classList.add('splashed');
+    if (rings) rings.classList.add('splashed');
+    if (label) label.classList.add('visible');
+    setTimeout(reveal, 900);
   };
 
-  if (tunaX) tunaX.addEventListener('animationiteration', onIteration);
+  /* Safety: fire bloom if video never ends (stall / error / missing) */
+  safetyTimer = setTimeout(triggerBloom, 4000);
 
-  /* Safety fallback: if animationiteration never fires */
-  setTimeout(() => {
-    if (!dismissed && !revealPending) onIteration();
-  }, MAX_HOPS * 700 + 200);
+  if (video) {
+    video.addEventListener('ended', triggerBloom, { once: true });
+    const pp = video.play();
+    if (pp !== undefined) pp.catch(triggerBloom);  /* autoplay blocked */
+  } else {
+    triggerBloom();
+  }
 
-  /* Skip: any user input jumps straight to the site */
-  const skip = () => {
-    if (dismissed) return;
-    dismissed = true;
-    skipNow();
-  };
-  document.addEventListener('keydown',    skip, { once: true });
-  document.addEventListener('wheel',      skip, { once: true, passive: true });
-  document.addEventListener('touchstart', skip, { once: true, passive: true });
-  document.addEventListener('click',      skip, { once: true });
-  el.querySelector('.intro-skip')?.addEventListener('click', skip, { once: true });
+  /* Any user input: cancel video and fire bloom + reveal */
+  document.addEventListener('keydown',    triggerBloom, { once: true });
+  document.addEventListener('wheel',      triggerBloom, { once: true, passive: true });
+  document.addEventListener('touchstart', triggerBloom, { once: true, passive: true });
+  document.addEventListener('click',      triggerBloom, { once: true });
+  el.querySelector('.intro-skip')?.addEventListener('click', triggerBloom, { once: true });
 })();
 
 /* ── NAV SCROLL ──────────────────────────────────────────── */
