@@ -4,11 +4,394 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Automatic Toothpaste Dispenser — Christopher Sparrow</title>
-  <meta name="description" content="Group project: Automatic toothpaste dispenser using SolidWorks mechanical design and Arduino servo control. 3-person team capstone.">
+  <meta name="description" content="Cornerstone of Engineering group project: a 3D-printed, Raspberry Pi Pico–controlled toothpaste dispenser for people with limited hand dexterity. MicroPython firmware, lead-screw mechanism, adult/child dose modes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ─── TOOTHPASTE PAGE ────────────────────────────────── */
+
+    /* HERO */
+    #tp-hero {
+      position: relative;
+      height: 100vh;
+      min-height: 560px;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+    .tp-hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+    .tp-hero-bg img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center 35%;
+    }
+    .tp-hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg,
+        rgba(243,241,236,0.97) 0%,
+        rgba(243,241,236,0.90) 36%,
+        rgba(243,241,236,0.42) 58%,
+        rgba(243,241,236,0.06) 100%);
+    }
+    .tp-hero-inner {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0 min(4rem, 6vw);
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 3rem;
+      align-items: center;
+    }
+    .tp-breadcrumb {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--gold-text);
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+    }
+    .tp-breadcrumb:hover { opacity: 0.7; }
+    .tp-hero-kicker {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+    .tp-hero-h1 {
+      font-size: clamp(2rem, 4.5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.08;
+      color: var(--text);
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .tp-hero-tagline {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 460px;
+      margin: 0 0 2rem;
+    }
+    .tp-hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    /* Specs panel */
+    .tp-specs-panel {
+      background: rgba(243,241,236,0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem 1.75rem;
+    }
+    .tp-specs-hdr {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .tp-spec-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 0.4rem 0.75rem;
+      padding: 0.42rem 0;
+      border-bottom: 1px solid rgba(208,204,195,0.45);
+      align-items: baseline;
+    }
+    .tp-spec-row:last-child { border-bottom: none; }
+    .tp-spec-key {
+      font-family: var(--font-mono);
+      font-size: 0.57rem;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .tp-spec-val {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    /* Scroll cue */
+    .tp-scroll-cue {
+      position: absolute;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      letter-spacing: 0.22em;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+    .tp-scroll-cue::after {
+      content: '';
+      width: 1px;
+      height: 36px;
+      background: linear-gradient(to bottom, var(--text-muted), transparent);
+      animation: tpCuePulse 1.8s ease-in-out infinite;
+    }
+    @keyframes tpCuePulse {
+      0%, 100% { opacity: 0.35; }
+      50%       { opacity: 1; }
+    }
+
+    /* ─── SCROLL TOUR ───────────────────────────────────── */
+    #tour-wrap { position: relative; height: 600vh; }
+
+    #tour-stage {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .tour-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+    }
+    #tour-layer-A { opacity: 1; }
+    .tour-layer img {
+      height: 82vh;
+      width: auto;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .tour-section-lbl {
+      position: absolute;
+      top: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      letter-spacing: 0.22em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ─── LEADER LINE ─── */
+    #tour-leader {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 11;
+      transition: opacity 0.2s ease;
+    }
+    #tour-leader.tp-hidden { opacity: 0; }
+
+    .tl-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--gold-text);
+      transform: translate(-50%, -50%);
+      opacity: 0.9;
+    }
+
+    .tl-line {
+      position: absolute;
+      top: 50%;
+      height: 1px;
+      background: var(--gold-text);
+      opacity: 0.5;
+    }
+    @keyframes tl-draw {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+    .tl-line.tl-left {
+      transform-origin: right center;
+      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .tl-line.tl-right {
+      transform-origin: left center;
+      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .tl-text {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .tl-lbl {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      color: var(--gold-text);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+    .tl-cap {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    #tour-dots {
+      position: absolute;
+      bottom: 3.5rem;
+      right: min(4rem, 5vw);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .tp-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.25s ease, transform 0.25s ease;
+    }
+    .tp-dot.active {
+      background: var(--gold);
+      transform: scale(1.5);
+    }
+
+    /* ─── FALLBACK (mobile + reduced-motion) ─────────────── */
+    .tour-fallback {
+      display: none;
+      padding: 3rem min(4rem, 5vw);
+      max-width: 840px;
+      margin: 0 auto;
+    }
+    .tour-fallback-hdr {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+    .tf-item {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 1.25rem;
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .tf-item:last-child { border-bottom: none; }
+    .tf-thumb {
+      width: 140px;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    .tf-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.13em;
+      color: var(--gold-text);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+    .tf-caption {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* ─── BACKSTORY ─────────────────────────────────────── */
+    .tp-bs {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 4.5rem min(4rem, 5vw) 0;
+    }
+    .tp-bs + .tp-bs { padding-top: 0; }
+    .tp-bs:last-of-type { padding-bottom: 5rem; }
+    .tp-bs .sec-lbl { margin-bottom: 1.5rem; }
+    .tp-bs p {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.78;
+      margin: 0 0 1.1rem;
+    }
+    .tp-bs p:last-child { margin-bottom: 0; }
+
+    .tp-code-lbl {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      margin-top: 2rem;
+    }
+    .tp-pre {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.75;
+      color: var(--text);
+      background: rgba(208,204,195,0.18);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 4px;
+      padding: 1.5rem 1.75rem;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0;
+    }
+    .tp-cm { color: var(--text-dim); }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 960px) {
+      .tp-hero-inner { grid-template-columns: 1fr; }
+      .tp-specs-panel { max-width: 420px; }
+      .tp-hero-bg::after {
+        background: linear-gradient(180deg,
+          rgba(243,241,236,0.96) 45%,
+          rgba(243,241,236,0.70) 70%,
+          rgba(243,241,236,0.25) 100%);
+      }
+    }
+    @media (max-width: 560px) {
+      .tp-hero-h1 { font-size: 2rem; }
+      .tp-bs { padding-left: 1.5rem; padding-right: 1.5rem; }
+    }
+
+    /* ─── REDUCED-MOTION + MOBILE TOUR FALLBACK ─────────── */
+    @media (prefers-reduced-motion: reduce), (max-width: 767px) {
+      #tour-wrap        { height: auto !important; }
+      #tour-stage       { position: static !important; height: auto !important; overflow: visible !important; }
+      .tour-layer,
+      .tour-section-lbl,
+      #tour-leader,
+      #tour-dots        { display: none !important; }
+      .tour-fallback    { display: block; }
+      .tp-scroll-cue    { display: none; }
+    }
+  </style>
 </head>
 <body>
 
@@ -27,231 +410,243 @@
     </div>
   </nav>
 
-  <!-- ── PROJECT HERO ─────────────────────────────────────── -->
-  <header class="proj-hero" aria-label="Project overview">
-    <div class="proj-hero-bg" aria-hidden="true">
-      <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg" alt="">
+  <!-- ══ SECTION 1 — HERO ═══════════════════════════════════ -->
+  <section id="tp-hero" aria-label="Project overview">
+
+    <div class="tp-hero-bg" aria-hidden="true">
+      <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png" alt="">
     </div>
 
-    <div class="proj-hero-content">
-      <p class="proj-breadcrumb">
-        <a href="../">← Christopher Sparrow</a>
-        &nbsp;/&nbsp; Selected Work &nbsp;/&nbsp; Toothpaste Dispenser
-      </p>
+    <div class="tp-hero-inner">
 
-      <div class="tag-row">
-        <span class="tag tag-gold">GROUP PROJECT · 3 MEMBERS</span>
-        <span class="tag">MECHANICAL DESIGN</span>
-        <span class="tag">ARDUINO</span>
-        <span class="tag">SOLIDWORKS</span>
-        <span class="tag">SERVO CONTROL</span>
+      <div class="tp-hero-left">
+        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+        <p class="tp-hero-kicker mono">CORNERSTONE PROJECT · 2026</p>
+        <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
+        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button — no grip, no guessing.</p>
+        <div class="tp-hero-tags">
+          <span class="tag tag-gold">GROUP PROJECT</span>
+          <span class="tag">MICROPYTHON</span>
+          <span class="tag">RASPBERRY PI PICO</span>
+          <span class="tag">3D PRINTING</span>
+          <span class="tag">ACCESSIBILITY</span>
+        </div>
       </div>
 
-      <h1 class="proj-title">Automatic Toothpaste<br>Dispenser</h1>
+      <aside class="tp-specs-panel" aria-label="System at a glance">
+        <div class="tp-specs-hdr mono">SYSTEM AT A GLANCE</div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Microcontroller</span>
+          <span class="tp-spec-val">Raspberry Pi Pico</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Actuator</span>
+          <span class="tp-spec-val">DC motor + lead screw</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Driver</span>
+          <span class="tp-spec-val">Dual-channel TB6612FNG</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Controls</span>
+          <span class="tp-spec-val">2 push-buttons</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Dose — adult</span>
+          <span class="tp-spec-val">0.5 s · pea-sized</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Dose — child</span>
+          <span class="tp-spec-val">0.25 s · rice-sized</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Body</span>
+          <span class="tp-spec-val">FDM 3D print · wall-mount</span>
+        </div>
+        <div class="tp-spec-row">
+          <span class="tp-spec-key">Tools</span>
+          <span class="tp-spec-val">SolidWorks · MicroPython</span>
+        </div>
+      </aside>
 
-      <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-        <span class="mono" style="color:var(--text-muted);">REV 1.0 · 2024</span>
-        <span class="mono" style="color:var(--text-muted); border-left:1px solid var(--border); padding-left:1rem;">HARDWARE · COMPLETE</span>
-      </div>
     </div>
-  </header>
 
-  <!-- ── PROJECT OVERVIEW ──────────────────────────────────── -->
-  <section class="sec-block" aria-label="Project overview">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">OVERVIEW</h2>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:start;">
+    <div class="tp-scroll-cue" aria-hidden="true">SCROLL TO EXPLORE</div>
 
+  </section>
+
+  <!-- ══ SECTION 2 — SCROLL-ZOOM PARTS TOUR ════════════════ -->
+  <div id="tour-wrap">
+
+    <div id="tour-stage" aria-hidden="true">
+
+      <div class="tour-section-lbl">PARTS TOUR</div>
+
+      <!-- Three image layers — JS sets transform + opacity each scroll frame -->
+      <div class="tour-layer" id="tour-layer-A">
+        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             alt="Front view">
+      </div>
+      <div class="tour-layer" id="tour-layer-B">
+        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+             alt="Interior view">
+      </div>
+      <div class="tour-layer" id="tour-layer-C">
+        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back.png"
+             alt="Rear view">
+      </div>
+
+      <!-- Leader line: dot pinned to focal point + horizontal line + caption -->
+      <div id="tour-leader" aria-hidden="true">
+        <div class="tl-dot"></div>
+        <div class="tl-line" id="tl-line"></div>
+        <div class="tl-text" id="tl-text">
+          <div class="tl-lbl" id="tl-lbl"></div>
+          <p class="tl-cap" id="tl-cap"></p>
+        </div>
+      </div>
+
+      <!-- Progress dots -->
+      <div id="tour-dots" role="presentation"></div>
+
+    </div>
+
+    <!-- Static fallback — visible only on mobile / reduced-motion via CSS -->
+    <div class="tour-fallback" aria-label="Parts list">
+      <div class="tour-fallback-hdr">PARTS TOUR</div>
+
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             alt="Start button" style="object-position:30% 80%;">
         <div>
-          <p style="font-size:1rem; color:var(--text-dim); line-height:1.85; margin-bottom:1.2rem;">
-            A hands-free automatic toothpaste dispenser designed and built as a 3-person capstone project. The device detects a toothbrush via an IR proximity sensor, then drives a servo-powered plunger mechanism to dispense a measured amount of toothpaste — no contact required.
-          </p>
-          <p style="font-size:1rem; color:var(--text-dim); line-height:1.85; margin-bottom:1.2rem;">
-            The mechanical assembly was modelled in SolidWorks with full parametric tolerancing. An Arduino Nano manages sensor polling, servo PWM output, and an LED status indicator. The enclosure was 3D-printed in PLA at ±0.2 mm tolerance.
-          </p>
-          <p style="font-size:1rem; color:var(--text-dim); line-height:1.85;">
-            My role covered the complete electronics and firmware side — schematic, wiring harness, sensor calibration, servo characterisation, and all Arduino firmware — while teammates owned mechanical modelling and documentation.
-          </p>
+          <div class="tf-label">Start button</div>
+          <p class="tf-caption">Press to dispense a measured dose.</p>
         </div>
-
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             alt="Dispense slot" style="object-position:47% 79%;">
         <div>
-          <div class="sys-grid" style="grid-template-columns:1fr 1fr;">
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">MICROCONTROLLER</div>
-              <div class="sys-cell-val">Arduino Nano</div>
-              <div class="sys-cell-sub">ATmega328P · 5 V</div>
-            </div>
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">ACTUATION</div>
-              <div class="sys-cell-val">MG996R Servo</div>
-              <div class="sys-cell-sub">PWM · 55 g·cm torque</div>
-            </div>
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">SENSING</div>
-              <div class="sys-cell-val">IR Proximity</div>
-              <div class="sys-cell-sub">Sharp GP2Y0A21 · analog</div>
-            </div>
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">CAD TOOL</div>
-              <div class="sys-cell-val">SolidWorks 2024</div>
-              <div class="sys-cell-sub">3-person assembly</div>
-            </div>
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">POWER</div>
-              <div class="sys-cell-val">5 V USB</div>
-              <div class="sys-cell-sub">7805 LDO backup rail</div>
-            </div>
-            <div class="sys-cell">
-              <div class="sys-cell-lbl mono">ENCLOSURE</div>
-              <div class="sys-cell-val">FDM PLA Print</div>
-              <div class="sys-cell-sub">±0.2 mm · 4 parts</div>
-            </div>
-          </div>
+          <div class="tf-label">Dispense slot</div>
+          <p class="tf-caption">Pea-sized for adults, rice-sized for kids.</p>
         </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             alt="3D-printed threaded screw" style="object-position:37% 52%;">
+        <div>
+          <div class="tf-label">3D-printed threaded screw</div>
+          <p class="tf-caption">The squeezer arm rides down the threads, turning motor spin into a linear push on the tube.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             alt="DC motor" style="object-position:43% 26%;">
+        <div>
+          <div class="tf-label">DC motor</div>
+          <p class="tf-caption">Drives the screw through a dual-channel driver.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+             alt="Raspberry Pi Pico" style="object-position:46% 32%;">
+        <div>
+          <div class="tf-label">Raspberry Pi Pico</div>
+          <p class="tf-caption">(MicroPython) — the controller I built and programmed.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+             alt="Dual-channel motor driver" style="object-position:47% 47%;">
+        <div>
+          <div class="tf-label">Dual-channel motor driver</div>
+          <p class="tf-caption">Runs the motor forward/reverse.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb"
+             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back.png"
+             alt="Keyhole wall-mount slots" style="object-position:62% 22%;">
+        <div>
+          <div class="tf-label">Keyhole wall-mount slots</div>
+          <p class="tf-caption">Mounts on a bathroom wall.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ SECTION 3 — BACKSTORY ══════════════════════════════ -->
+
+  <section class="tp-bs reveal" aria-label="The problem">
+    <h2 class="sec-lbl">THE PROBLEM</h2>
+    <p>Conditions like arthritis and Parkinson's make squeezing a toothpaste tube painful or impossible. At the same time, over a third of children routinely use far too much toothpaste — there's no feedback on how much is "right."</p>
+    <p>Our goal: make correct dosing effortless, hands-free, and accessible to anyone — from a six-year-old to someone with limited hand dexterity.</p>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="How it works">
+    <h2 class="sec-lbl">HOW IT WORKS</h2>
+    <p>The dispenser mounts on the wall. A toothpaste tube slots in from the top; a 3D-printed lead screw and squeezer arm sit against the tube body. Press the Start button — the Pico reads the current dose setting, commands the motor driver at full PWM, and the screw turns, pushing the arm downward for exactly the right duration. Motor stops. Toothpaste dispensed.</p>
+    <p>A clear front door lets you see the remaining tube at a glance. Two keyhole slots on the rear mount to standard bathroom wall screws — no special hardware needed.</p>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Controls and firmware">
+    <h2 class="sec-lbl">CONTROLS &amp; FIRMWARE</h2>
+    <p>Button 2 dispenses. Button 1 configures — a single click toggles adult (0.5 s) vs child (0.25 s) mode; a double-click within 600 ms reverses the motor to retract the arm for tube reloading, no disassembly needed. All button reads use 25 ms software debounce polling — no interrupts required.</p>
+    <div class="tp-code-lbl mono">MICROPYTHON · DISPENSER LOGIC</div>
+    <pre class="tp-pre"><code>AdultDuration = 0.5    <span class="tp-cm"># pea-sized dose</span>
+ChildDuration = 0.25   <span class="tp-cm"># rice-sized dose</span>
+
+def motor_forward(duration):
+    ain1.value(1); ain2.value(0)   <span class="tp-cm"># set direction</span>
+    pwma.duty_u16(MotorDuty)       <span class="tp-cm"># full power</span>
+    time.sleep(duration)           <span class="tp-cm"># run for dose time</span>
+    motor_stop()                   <span class="tp-cm"># then stop</span>
+
+def start_mechanism():             <span class="tp-cm"># start → dispense</span>
+    motor_forward(TimeSetting)</code></pre>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Roles">
+    <h2 class="sec-lbl">MY ROLE VS TEAM</h2>
+    <div class="role-grid">
+      <div class="role-col" style="border-left: 3px solid var(--gold);">
+        <div class="role-col-lbl mono">CHRISTOPHER SPARROW</div>
+        <ul class="role-list">
+          <li>Electronics end-to-end — wiring Pico, TB6612FNG driver, and push-buttons</li>
+          <li>All MicroPython firmware: dispense logic, dual dose modes, debounce</li>
+          <li>Double-click detection for motor reversal without disassembly</li>
+          <li>Integration, assembly, and bring-up testing across all three prototypes</li>
+        </ul>
+      </div>
+      <div class="role-col">
+        <div class="role-col-lbl mono">SIMON HUME &amp; BORA BROMBERG</div>
+        <ul class="role-list">
+          <li>SolidWorks modelling — enclosure, lead screw, squeezer arm, wall bracket</li>
+          <li>Three-iteration prototyping — cardboard → first print → refined final</li>
+          <li>Clear front door design for tube-level visibility</li>
+          <li>Project report, technical documentation, and presentation</li>
+        </ul>
       </div>
     </div>
   </section>
 
-  <!-- ── ROLES ─────────────────────────────────────────────── -->
-  <section class="sec-block" aria-label="Team roles and responsibilities">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">ROLES — MY CONTRIBUTION VS TEAM</h2>
-      <div class="role-grid">
-
-        <div class="role-col" style="border-left: 3px solid var(--gold);">
-          <div class="role-col-lbl mono">MY RESPONSIBILITIES — CHRISTOPHER SPARROW</div>
-          <ul class="role-list">
-            <li>Full electronics schematic — sensor, Arduino, servo, LED driver</li>
-            <li>Wiring harness design and assembly — heat-shrink, strain relief</li>
-            <li>IR sensor calibration — distance-to-voltage curve, hysteresis threshold</li>
-            <li>Servo characterisation — PWM pulse width vs. angular position, torque verification</li>
-            <li>All Arduino firmware — state machine, sensor debounce, servo pulse generation</li>
-            <li>Power budget analysis — peak current, USB supply adequacy</li>
-            <li>Bring-up and functional test — verified full dispensing cycle × 50 runs</li>
-          </ul>
-        </div>
-
-        <div class="role-col">
-          <div class="role-col-lbl mono">TEAM RESPONSIBILITIES — 2 TEAMMATES</div>
-          <ul class="role-list">
-            <li>SolidWorks mechanical modelling — enclosure, plunger, servo mount bracket</li>
-            <li>Parametric tolerance analysis — plunger-to-tube clearance stack-up</li>
-            <li>3D printing production — 4-part PLA enclosure, hardware inserts</li>
-            <li>Final assembly integration — mechanical + electrical join</li>
-            <li>Project report and technical documentation</li>
-            <li>Presentation and demo preparation</li>
-          </ul>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── IMAGE GALLERY ─────────────────────────────────────── -->
-  <section class="sec-block" aria-label="Project images">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">PROJECT IMAGES</h2>
-
-      <!--
-        SWAP IMAGES: Replace each .img-ph with a real <img> tag.
-        e.g. <img src="../assets/img/toothpaste/render.jpg" alt="SolidWorks render">
-      -->
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; margin-bottom:2px;">
-        <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          <span class="img-ph-text">[ SOLIDWORKS RENDER\nFull assembly, isometric view ]</span>
-        </div>
-        <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#080e14;">
-          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          <span class="img-ph-text">[ EXPLODED ASSEMBLY VIEW\nSolidWorks exploded drawing ]</span>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px;">
-        <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0c0c08;">
-          <span class="img-ph-text">[ ELECTRONICS / WIRING\nHarness and breadboard ]</span>
-        </div>
-        <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0a0810;">
-          <span class="img-ph-text">[ PRINTED ENCLOSURE\nPLA parts before assembly ]</span>
-        </div>
-        <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#080c08;">
-          <span class="img-ph-text">[ FINAL ASSEMBLED UNIT\nComplete product photo ]</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── BUILD LOG GALLERY ─────────────────────────────────── -->
-  <section class="sec-block" aria-label="Build process gallery">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">BUILD PROCESS</h2>
-      <div class="build-log" role="list" aria-label="Build process photos">
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD 01\nSolidWorks parametric sketch ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">01 —</span> Mechanical concept · plunger geometry and servo bracket parametric sketch in SolidWorks</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0a0a08;">
-            <span class="img-ph-text">[ BUILD 02\nBreadboard prototype ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">02 —</span> Electronics prototype · IR sensor and servo on breadboard, initial firmware validation</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#080c0a;">
-            <span class="img-ph-text">[ BUILD 03\nFirst PLA print ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">03 —</span> First enclosure print · test fit, measured plunger clearance, iterated wall thickness</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0c0808;">
-            <span class="img-ph-text">[ BUILD 04\nWiring harness ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">04 —</span> Wiring harness · heat-shrink terminations, cable routed through enclosure channels</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0; background:#0a0c0e;">
-            <span class="img-ph-text">[ BUILD 05\nFinal integration ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">05 —</span> Integration and test · 50 dispensing cycles at room temp, cycle time 1.2 s average</div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── SKILLS DEMONSTRATED ───────────────────────────────── -->
-  <section class="sec-block" aria-label="Skills demonstrated">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">SKILLS DEMONSTRATED</h2>
-      <div class="skills-dem">
-        <div class="skill-chip">Arduino / ATmega firmware</div>
-        <div class="skill-chip">Servo PWM characterisation</div>
-        <div class="skill-chip">Sensor calibration (IR analog)</div>
-        <div class="skill-chip">State machine design</div>
-        <div class="skill-chip">Wiring harness &amp; connectors</div>
-        <div class="skill-chip">SolidWorks — assembly review</div>
-        <div class="skill-chip">GD&amp;T tolerance review</div>
-        <div class="skill-chip">FDM 3D printing integration</div>
-        <div class="skill-chip">Power budget analysis</div>
-        <div class="skill-chip">Cross-functional team collaboration</div>
-      </div>
-    </div>
+  <section class="tp-bs reveal" aria-label="Iteration">
+    <h2 class="sec-lbl">ITERATION</h2>
+    <p>Three prototypes across the semester. The cardboard mockup settled spatial layout — tube position, button placement, overall form factor. The first 3D print revealed that the squeezer arm geometry needed a tighter lead-screw pitch to apply consistent pressure without slipping. The final build tightened tolerances, repositioned the Pico to clear the motor wiring, and added the wall-mount keyhole slots.</p>
+    <p>The trickiest integration challenge: synchronising the mechanical arm advance with firmware timing. Too short and the dose is inconsistent; too long and the motor jams. The 0.5 s / 0.25 s values were calibrated empirically across a full tube.</p>
   </section>
 
   <!-- ── FOOTER ────────────────────────────────────────────── -->
   <footer role="contentinfo">
-    <img
-      src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
-      alt="Dogtooth Systems"
-      class="footer-logo"
-      width="180"
-    >
+    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_black.svg"
+         alt="Dogtooth Systems" class="footer-logo" width="180">
     <p class="footer-lockup mono">Christopher Sparrow · Dogtooth Systems</p>
     <nav class="footer-links" aria-label="Footer links">
       <a href="../#work">Work</a>
@@ -262,5 +657,194 @@
   </footer>
 
   <script src="../js/main.js"></script>
+  <script>
+  /* ── SCROLL-ZOOM PARTS TOUR ─────────────────────────────── */
+  (function () {
+    /* Natural image dimensions (portrait 1122 × 1402) */
+    const IMG_RATIO = 1122 / 1402;
+    /* Fraction of viewport height the img element occupies (match CSS height: 82vh) */
+    const IMG_VH = 0.82;
+    /* Max zoom scale (spec: ~1.6) */
+    const SCALE = 1.55;
+
+    /* ── Easy-edit focus-points array ── */
+    /* side: 'left'  → line runs LEFT  from focal point, caption at left edge  */
+    /* side: 'right' → line runs RIGHT from focal point, caption at right edge */
+    const STOPS = [
+      { img: 'A', x: 0.30, y: 0.80, label: 'Start button',              caption: 'Press to dispense a measured dose.',                                                              side: 'left'  },
+      { img: 'A', x: 0.47, y: 0.79, label: 'Dispense slot',             caption: 'Pea-sized for adults, rice-sized for kids.',                                                      side: 'left'  },
+      { img: 'A', x: 0.37, y: 0.52, label: '3D-printed threaded screw', caption: 'The squeezer arm rides down the threads, turning motor spin into a linear push on the tube.',     side: 'left'  },
+      { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',                  caption: 'Drives the screw through a dual-channel driver.',                                                 side: 'left'  },
+      { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',         caption: '(MicroPython) — the controller I built and programmed.',                                          side: 'left'  },
+      { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver', caption: 'Runs the motor forward/reverse.',                                                                  side: 'right' },
+      { img: 'C', x: 0.62, y: 0.22, label: 'Keyhole wall-mount slots',  caption: 'Mounts on a bathroom wall.',                                                                       side: 'right' },
+    ];
+
+    /* Skip on reduced-motion or mobile — CSS already shows fallback */
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 768) return;
+
+    const wrap      = document.getElementById('tour-wrap');
+    const stage     = document.getElementById('tour-stage');
+    const layerA    = document.getElementById('tour-layer-A');
+    const layerB    = document.getElementById('tour-layer-B');
+    const layerC    = document.getElementById('tour-layer-C');
+    const leader    = document.getElementById('tour-leader');
+    const tlLine    = document.getElementById('tl-line');
+    const tlText    = document.getElementById('tl-text');
+    const tlLbl     = document.getElementById('tl-lbl');
+    const tlCap     = document.getElementById('tl-cap');
+    const dotsWrap  = document.getElementById('tour-dots');
+    if (!wrap || !stage || !leader) return;
+
+    const LAYERS = { A: layerA, B: layerB, C: layerC };
+    const N = STOPS.length; /* 7 */
+
+    /* Build progress dots */
+    const dots = STOPS.map((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'tp-dot' + (i === 0 ? ' active' : '');
+      dotsWrap.appendChild(d);
+      return d;
+    });
+
+    const EDGE_FRAC = 0.18; /* line's far end as fraction of viewport width from edge */
+    const GAP       = 14;  /* px gap between line end and caption box */
+
+    function positionLeader(idx) {
+      const stop = STOPS[idx];
+      const side = stop.side;
+      const W    = window.innerWidth;
+      /* Caption width: ~12vw, clamped so it fits in the background zone */
+      const capW = Math.min(Math.max(Math.round(W * 0.12), 80), 175);
+
+      tlLbl.textContent = stop.label;
+      tlCap.textContent = stop.caption;
+      tlText.style.width = capW + 'px';
+
+      /* Remove animation classes, set new position, reflow, re-add */
+      tlLine.classList.remove('tl-left', 'tl-right');
+
+      if (side === 'left') {
+        /* Line: from right:50% (dot) extending left to farPx from left edge */
+        const farPx = Math.round(W * EDGE_FRAC);
+        tlLine.style.cssText  = `left:${farPx}px; right:50%;`;
+        /* Caption: right-aligned, sits just left of the line's far end */
+        tlText.style.cssText  = `left:${Math.max(4, farPx - GAP - capW)}px; width:${capW}px; text-align:left;`;
+        void tlLine.offsetWidth; /* flush so scaleX(0) registers before animation */
+        tlLine.classList.add('tl-left');
+      } else {
+        /* Line: from left:50% (dot) extending right to farPx from right edge */
+        const farPx = Math.round(W * (1 - EDGE_FRAC));
+        tlLine.style.cssText  = `left:50%; right:${W - farPx}px;`;
+        /* Caption: sits just right of the line's far end */
+        tlText.style.cssText  = `left:${farPx + GAP}px; width:${capW}px; text-align:left;`;
+        void tlLine.offsetWidth;
+        tlLine.classList.add('tl-right');
+      }
+    }
+
+    /* Seed first stop (no fade-in needed — leader starts visible) */
+    positionLeader(0);
+
+    let leaderIdx  = 0;
+    let rafPending = false;
+
+    function eio(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    /* Display dimensions of the img element (82 vh tall) */
+    function displaySize() {
+      const dH = window.innerHeight * IMG_VH;
+      return { dH, dW: dH * IMG_RATIO };
+    }
+
+    /* transform: scale(SCALE) translate(tx, ty)
+       Places focal point (fx, fy) at stage center.
+       In scaled coordinate space: translate = -(focal - imageCenter) */
+    function focalTranslate(stop, dW, dH) {
+      return {
+        tx: -(stop.x - 0.5) * dW,
+        ty: -(stop.y - 0.5) * dH,
+      };
+    }
+
+    function applyLayer(layer, tx, ty, opacity) {
+      layer.style.transform = `scale(${SCALE}) translate(${tx}px,${ty}px)`;
+      layer.style.opacity   = opacity;
+    }
+
+    function updateLeader(idx) {
+      if (idx === leaderIdx) return;
+      leaderIdx = idx;
+      leader.classList.add('tp-hidden');
+      setTimeout(() => {
+        positionLeader(idx);
+        leader.classList.remove('tp-hidden');
+      }, 200);
+      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    function update() {
+      rafPending = false;
+      const rect       = wrap.getBoundingClientRect();
+      const scrollRange = wrap.offsetHeight - window.innerHeight;
+      if (scrollRange <= 0) return;
+
+      const p  = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
+      const { dW, dH } = displaySize();
+
+      /* Float index 0 → N-1 */
+      const raw = p * (N - 1);
+      const i0  = Math.min(Math.floor(raw), N - 1);
+      const i1  = Math.min(i0 + 1, N - 1);
+      const t   = raw - i0;
+      const et  = eio(t);
+
+      const s0 = STOPS[i0];
+      const s1 = STOPS[i1];
+
+      /* Switch leader at halfway point between stops */
+      updateLeader(t >= 0.5 ? i1 : i0);
+
+      if (s0.img === s1.img) {
+        /* Same image — interpolate focal point */
+        const f0 = focalTranslate(s0, dW, dH);
+        const f1 = focalTranslate(s1, dW, dH);
+        applyLayer(LAYERS[s0.img], lerp(f0.tx, f1.tx, et), lerp(f0.ty, f1.ty, et), 1);
+        for (const k of ['A', 'B', 'C']) {
+          if (k !== s0.img) applyLayer(LAYERS[k], 0, 0, 0);
+        }
+      } else {
+        /* Cross-image fade */
+        const f0 = focalTranslate(s0, dW, dH);
+        const f1 = focalTranslate(s1, dW, dH);
+        applyLayer(LAYERS[s0.img], f0.tx, f0.ty, 1 - et);
+        applyLayer(LAYERS[s1.img], f1.tx, f1.ty, et);
+        for (const k of ['A', 'B', 'C']) {
+          if (k !== s0.img && k !== s1.img) applyLayer(LAYERS[k], 0, 0, 0);
+        }
+      }
+    }
+
+    function onScroll() {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(update);
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+
+    /* will-change: on while stage is in view, off otherwise */
+    const allLayers = [layerA, layerB, layerC].filter(Boolean);
+    new IntersectionObserver((entries) => {
+      const wc = entries[0].isIntersecting ? 'transform, opacity' : 'auto';
+      allLayers.forEach(l => { l.style.willChange = wc; });
+    }, { threshold: 0 }).observe(stage);
+
+    update(); /* initial render at scroll position 0 */
+  })();
+  </script>
+
 </body>
 </html>
