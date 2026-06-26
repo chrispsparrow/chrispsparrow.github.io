@@ -259,10 +259,47 @@
     }
     .tp-cm { color: var(--text-dim); }
 
+    /* ─── PROTOTYPE PROGRESSION ─────────────────────────── */
+    .tp-proto-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      margin-top: 2rem;
+    }
+    .tp-proto-item img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      display: block;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .tp-proto-caption {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 0.55rem;
+    }
+
+    /* ─── DEMO VIDEO ─────────────────────────────────────── */
+    .tp-video-wrap {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .tp-video-wrap video {
+      width: 100%;
+      display: block;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
     /* ─── RESPONSIVE ─────────────────────────────────────── */
     @media (max-width: 560px) {
       .tp-hero-h1 { font-size: 2rem; }
       .tp-bs { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .tp-proto-grid { grid-template-columns: repeat(2, 1fr); }
     }
 
     /* ─── REDUCED-MOTION + MOBILE TOUR FALLBACK ─────────── */
@@ -316,15 +353,15 @@
 
       <!-- Image layers — middle third (left:33% right:33%), opacity-only crossfades -->
       <div class="tour-layer" id="tour-layer-A">
-        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+        <img src="../assets/toothpaste/Cornerstone Project Final Image front.png"
              alt="Front view" id="img-A">
       </div>
       <div class="tour-layer" id="tour-layer-B">
-        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+        <img src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
              alt="Interior view" id="img-B">
       </div>
       <div class="tour-layer" id="tour-layer-C">
-        <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back.png"
+        <img src="../assets/toothpaste/Cornerstone Project Final Image back.png"
              alt="Rear view" id="img-C">
       </div>
 
@@ -364,7 +401,7 @@
 
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image front.png"
              alt="Start button" style="object-position:47% 74%;">
         <div>
           <div class="tf-label">Start button</div>
@@ -373,7 +410,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image front.png"
              alt="Settings button" style="object-position:30% 80%;">
         <div>
           <div class="tf-label">Settings button</div>
@@ -382,7 +419,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image front.png"
              alt="3D-printed threaded screw" style="object-position:37% 55%;">
         <div>
           <div class="tf-label">3D-printed threaded screw</div>
@@ -391,7 +428,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image front.png"
              alt="DC motor" style="object-position:43% 26%;">
         <div>
           <div class="tf-label">DC motor</div>
@@ -400,7 +437,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
              alt="Raspberry Pi Pico" style="object-position:46% 32%;">
         <div>
           <div class="tf-label">Raspberry Pi Pico</div>
@@ -409,7 +446,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
              alt="Dual-channel motor driver" style="object-position:47% 47%;">
         <div>
           <div class="tf-label">Dual-channel motor driver</div>
@@ -418,7 +455,7 @@
       </div>
       <div class="tf-item">
         <img class="tf-thumb"
-             src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back.png"
+             src="../assets/toothpaste/Cornerstone Project Final Image back.png"
              alt="Keyhole wall-mount slots" style="object-position:62% 22%;">
         <div>
           <div class="tf-label">Keyhole wall-mount slots</div>
@@ -469,6 +506,7 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
           <li>Electronics end-to-end — wiring Pico, TB6612FNG driver, and push-buttons</li>
           <li>All MicroPython firmware: dispense logic, dual dose modes, debounce</li>
           <li>Double-click detection for motor reversal without disassembly</li>
+          <li>Clear plexiglass viewing door — my design concept, letting the user see the remaining tube level at a glance</li>
           <li>Integration, assembly, and bring-up testing across all three prototypes</li>
         </ul>
       </div>
@@ -488,6 +526,38 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     <h2 class="sec-lbl">ITERATION</h2>
     <p>Three prototypes across the semester. The cardboard mockup settled spatial layout — tube position, button placement, overall form factor. The first 3D print revealed that the squeezer arm geometry needed a tighter thread pitch to apply consistent pressure without slipping. The final build tightened tolerances, repositioned the Pico to clear the motor wiring, and added the wall-mount keyhole slots.</p>
     <p>The trickiest integration challenge: synchronising the mechanical arm advance with firmware timing. Too short and the dose is inconsistent; too long and the motor jams. The 0.5 s / 0.25 s values were calibrated empirically across a full tube.</p>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Prototype progression">
+    <h2 class="sec-lbl">PROTOTYPE PROGRESSION</h2>
+    <div class="tp-proto-grid">
+      <div class="tp-proto-item">
+        <img src="../assets/toothpaste/toothpaste-prototype-1-sketch.png" alt="Concept sketch">
+        <p class="tp-proto-caption">Concept sketch</p>
+      </div>
+      <div class="tp-proto-item">
+        <img src="../assets/toothpaste/toothpaste-prototype-2 FIRST 3D PRINT.png" alt="First 3D print">
+        <p class="tp-proto-caption">First 3D print</p>
+      </div>
+      <div class="tp-proto-item">
+        <img src="../assets/toothpaste/toothpaste-prototype-1-physical.png" alt="Physical build">
+        <p class="tp-proto-caption">Physical build</p>
+      </div>
+      <div class="tp-proto-item">
+        <img src="../assets/toothpaste/toothpaste-PROTOYPE-FINAL-cad-render.png" alt="Final CAD model">
+        <p class="tp-proto-caption">Final CAD model</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Demo video">
+    <h2 class="sec-lbl">SEE IT WORK</h2>
+    <div class="tp-video-wrap">
+      <video src="../assets/toothpaste/TOOTHPASTE RETRIEVAL.MOV"
+             controls muted loop playsinline preload="metadata">
+        Your browser doesn't support this video format.
+      </video>
+    </div>
   </section>
 
   <!-- ── FOOTER ────────────────────────────────────────────── -->
