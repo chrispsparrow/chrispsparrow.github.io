@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Automatic Toothpaste Dispenser — Christopher Sparrow</title>
-  <meta name="description" content="Cornerstone of Engineering group project: a 3D-printed, Raspberry Pi Pico–controlled toothpaste dispenser for people with limited hand dexterity. MicroPython firmware, lead-screw mechanism, adult/child dose modes.">
+  <meta name="description" content="Cornerstone of Engineering group project: a 3D-printed, Raspberry Pi Pico–controlled toothpaste dispenser for people with limited hand dexterity. MicroPython firmware, motor-driven mechanism, adult/child dose modes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -166,9 +166,11 @@
       background: var(--bg);
     }
 
+    /* Image layers — middle third of stage */
     .tour-layer {
       position: absolute;
-      inset: 0;
+      left: 33.33%; right: 33.33%;
+      top: 0; bottom: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -176,24 +178,37 @@
     }
     #tour-layer-A { opacity: 1; }
     .tour-layer img {
-      height: 82vh;
+      max-height: 82vh;
+      max-width: 100%;
       width: auto;
+      height: auto;
       display: block;
       pointer-events: none;
       user-select: none;
     }
 
-    .tour-section-lbl {
+    /* Intro text — left column */
+    #tc-intro {
       position: absolute;
-      top: 2.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
+      left: 0;
+      width: 33.33%;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0 min(2.5rem, 3.5vw);
+      pointer-events: none;
+    }
+    .tour-section-lbl {
       font-family: var(--font-mono);
       font-size: 0.55rem;
       letter-spacing: 0.22em;
       color: var(--text-muted);
-      white-space: nowrap;
+      margin-bottom: 0.9rem;
+    }
+    .tc-intro-body {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin: 0;
     }
 
     /* ─── LEADER LINE ─── */
@@ -202,14 +217,13 @@
       inset: 0;
       pointer-events: none;
       z-index: 11;
-      transition: opacity 0.2s ease;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
-    #tour-leader.tp-hidden { opacity: 0; }
+    #tour-leader.tl-visible { opacity: 1; }
 
     .tl-dot {
       position: absolute;
-      top: 50%;
-      left: 50%;
       width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--gold-text);
@@ -219,10 +233,10 @@
 
     .tl-line {
       position: absolute;
-      top: 50%;
       height: 1px;
       background: var(--gold-text);
-      opacity: 0.5;
+      opacity: 0.6;
+      transform: scaleX(0);
     }
     @keyframes tl-draw {
       from { transform: scaleX(0); }
@@ -239,8 +253,6 @@
 
     .tl-text {
       position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
     }
     .tl-lbl {
       font-family: var(--font-mono);
@@ -258,6 +270,7 @@
       margin: 0;
     }
 
+    /* Progress dots — right column */
     #tour-dots {
       position: absolute;
       bottom: 3.5rem;
@@ -381,11 +394,11 @@
     }
 
     /* ─── REDUCED-MOTION + MOBILE TOUR FALLBACK ─────────── */
-    @media (prefers-reduced-motion: reduce), (max-width: 767px) {
+    @media (prefers-reduced-motion: reduce), (max-width: 899px) {
       #tour-wrap        { height: auto !important; }
       #tour-stage       { position: static !important; height: auto !important; overflow: visible !important; }
       .tour-layer,
-      .tour-section-lbl,
+      #tc-intro,
       #tour-leader,
       #tour-dots        { display: none !important; }
       .tour-fallback    { display: block; }
@@ -441,7 +454,7 @@
         </div>
         <div class="tp-spec-row">
           <span class="tp-spec-key">Actuator</span>
-          <span class="tp-spec-val">DC motor + lead screw</span>
+          <span class="tp-spec-val">DC motor → 3D-printed threaded screw → squeezer arm</span>
         </div>
         <div class="tp-spec-row">
           <span class="tp-spec-key">Driver</span>
@@ -475,30 +488,34 @@
 
   </section>
 
-  <!-- ══ SECTION 2 — SCROLL-ZOOM PARTS TOUR ════════════════ -->
+  <!-- ══ SECTION 2 — PARTS TOUR ═══════════════════════════ -->
   <div id="tour-wrap">
 
     <div id="tour-stage" aria-hidden="true">
 
-      <div class="tour-section-lbl">PARTS TOUR</div>
+      <!-- Intro text — left column, fades out as tour begins -->
+      <div id="tc-intro">
+        <div class="tour-section-lbl">PARTS TOUR</div>
+        <p class="tc-intro-body">Scroll to explore seven components of the dispenser.</p>
+      </div>
 
-      <!-- Three image layers — JS sets transform + opacity each scroll frame -->
+      <!-- Image layers — middle third (left:33% right:33%), opacity-only crossfades -->
       <div class="tour-layer" id="tour-layer-A">
         <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20front.png"
-             alt="Front view">
+             alt="Front view" id="img-A">
       </div>
       <div class="tour-layer" id="tour-layer-B">
         <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back%20open.png"
-             alt="Interior view">
+             alt="Interior view" id="img-B">
       </div>
       <div class="tour-layer" id="tour-layer-C">
         <img src="../assets/toothpaste/Cornerstone%20Project%20Final%20Image%20back.png"
-             alt="Rear view">
+             alt="Rear view" id="img-C">
       </div>
 
-      <!-- Leader line: dot pinned to focal point + horizontal line + caption -->
+      <!-- Leader line overlay — dot at focal point, horizontal line, caption -->
       <div id="tour-leader" aria-hidden="true">
-        <div class="tl-dot"></div>
+        <div class="tl-dot" id="tl-dot"></div>
         <div class="tl-line" id="tl-line"></div>
         <div class="tl-text" id="tl-text">
           <div class="tl-lbl" id="tl-lbl"></div>
@@ -506,7 +523,7 @@
         </div>
       </div>
 
-      <!-- Progress dots -->
+      <!-- Progress dots — bottom-right -->
       <div id="tour-dots" role="presentation"></div>
 
     </div>
@@ -592,7 +609,7 @@
 
   <section class="tp-bs reveal" aria-label="How it works">
     <h2 class="sec-lbl">HOW IT WORKS</h2>
-    <p>The dispenser mounts on the wall. A toothpaste tube slots in from the top; a 3D-printed lead screw and squeezer arm sit against the tube body. Press the Start button — the Pico reads the current dose setting, commands the motor driver at full PWM, and the screw turns, pushing the arm downward for exactly the right duration. Motor stops. Toothpaste dispensed.</p>
+    <p>The dispenser mounts on the wall. A toothpaste tube slots in from the top; a 3D-printed threaded screw and squeezer arm sit against the tube body. Press the Start button — the Pico reads the current dose setting, commands the motor driver at full PWM, and the screw turns, pushing the arm downward for exactly the right duration. Motor stops. Toothpaste dispensed.</p>
     <p>A clear front door lets you see the remaining tube at a glance. Two keyhole slots on the rear mount to standard bathroom wall screws — no special hardware needed.</p>
   </section>
 
@@ -628,7 +645,7 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       <div class="role-col">
         <div class="role-col-lbl mono">SIMON HUME &amp; BORA BROMBERG</div>
         <ul class="role-list">
-          <li>SolidWorks modelling — enclosure, lead screw, squeezer arm, wall bracket</li>
+          <li>SolidWorks modelling — enclosure, threaded screw, squeezer arm, wall bracket</li>
           <li>Three-iteration prototyping — cardboard → first print → refined final</li>
           <li>Clear front door design for tube-level visibility</li>
           <li>Project report, technical documentation, and presentation</li>
@@ -639,7 +656,7 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
   <section class="tp-bs reveal" aria-label="Iteration">
     <h2 class="sec-lbl">ITERATION</h2>
-    <p>Three prototypes across the semester. The cardboard mockup settled spatial layout — tube position, button placement, overall form factor. The first 3D print revealed that the squeezer arm geometry needed a tighter lead-screw pitch to apply consistent pressure without slipping. The final build tightened tolerances, repositioned the Pico to clear the motor wiring, and added the wall-mount keyhole slots.</p>
+    <p>Three prototypes across the semester. The cardboard mockup settled spatial layout — tube position, button placement, overall form factor. The first 3D print revealed that the squeezer arm geometry needed a tighter thread pitch to apply consistent pressure without slipping. The final build tightened tolerances, repositioned the Pico to clear the motor wiring, and added the wall-mount keyhole slots.</p>
     <p>The trickiest integration challenge: synchronising the mechanical arm advance with firmware timing. Too short and the dose is inconsistent; too long and the motor jams. The 0.5 s / 0.25 s values were calibrated empirically across a full tube.</p>
   </section>
 
@@ -658,46 +675,50 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
   <script src="../js/main.js"></script>
   <script>
-  /* ── SCROLL-ZOOM PARTS TOUR ─────────────────────────────── */
+  /* ── FIXED-STAGE PARTS TOUR (opacity crossfades, no zoom) ── */
   (function () {
-    /* Natural image dimensions (portrait 1122 × 1402) */
-    const IMG_RATIO = 1122 / 1402;
-    /* Fraction of viewport height the img element occupies (match CSS height: 82vh) */
-    const IMG_VH = 0.82;
-    /* Max zoom scale (spec: ~1.6) */
-    const SCALE = 1.55;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 900) return;
 
-    /* ── Easy-edit focus-points array ── */
-    /* side: 'left'  → line runs LEFT  from focal point, caption at left edge  */
-    /* side: 'right' → line runs RIGHT from focal point, caption at right edge */
     const STOPS = [
-      { img: 'A', x: 0.30, y: 0.80, label: 'Start button',              caption: 'Press to dispense a measured dose.',                                                              side: 'left'  },
-      { img: 'A', x: 0.47, y: 0.79, label: 'Dispense slot',             caption: 'Pea-sized for adults, rice-sized for kids.',                                                      side: 'left'  },
-      { img: 'A', x: 0.37, y: 0.52, label: '3D-printed threaded screw', caption: 'The squeezer arm rides down the threads, turning motor spin into a linear push on the tube.',     side: 'left'  },
-      { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',                  caption: 'Drives the screw through a dual-channel driver.',                                                 side: 'left'  },
-      { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',         caption: '(MicroPython) — the controller I built and programmed.',                                          side: 'left'  },
-      { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver', caption: 'Runs the motor forward/reverse.',                                                                  side: 'right' },
-      { img: 'C', x: 0.62, y: 0.22, label: 'Keyhole wall-mount slots',  caption: 'Mounts on a bathroom wall.',                                                                       side: 'right' },
+      { img: 'A', x: 0.30, y: 0.80, label: 'Start button',
+        caption: 'Start button — press to dispense a measured dose.',                                                                           side: 'left'  },
+      { img: 'A', x: 0.47, y: 0.79, label: 'Dispense slot',
+        caption: 'Dispense slot — pea-sized adult / rice-sized child.',                                                                        side: 'left'  },
+      { img: 'A', x: 0.37, y: 0.52, label: '3D-printed threaded screw',
+        caption: '3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push on the tube.',    side: 'left'  },
+      { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',
+        caption: 'DC motor — drives the screw via the TB6612FNG driver.',                                                                      side: 'left'  },
+      { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',
+        caption: 'Raspberry Pi Pico (MicroPython) — the controller I built & coded.',                                                          side: 'left'  },
+      { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver',
+        caption: 'TB6612FNG dual-channel motor driver — runs the motor fwd/reverse.',                                                          side: 'right' },
+      { img: 'C', x: 0.62, y: 0.22, label: 'Keyhole wall-mount slots',
+        caption: 'Keyhole wall-mount slots — mounts on a bathroom wall.',                                                                      side: 'right' },
     ];
 
-    /* Skip on reduced-motion or mobile — CSS already shows fallback */
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 768) return;
-
-    const wrap      = document.getElementById('tour-wrap');
-    const stage     = document.getElementById('tour-stage');
-    const layerA    = document.getElementById('tour-layer-A');
-    const layerB    = document.getElementById('tour-layer-B');
-    const layerC    = document.getElementById('tour-layer-C');
-    const leader    = document.getElementById('tour-leader');
-    const tlLine    = document.getElementById('tl-line');
-    const tlText    = document.getElementById('tl-text');
-    const tlLbl     = document.getElementById('tl-lbl');
-    const tlCap     = document.getElementById('tl-cap');
-    const dotsWrap  = document.getElementById('tour-dots');
+    const wrap     = document.getElementById('tour-wrap');
+    const stage    = document.getElementById('tour-stage');
+    const tcIntro  = document.getElementById('tc-intro');
+    const leader   = document.getElementById('tour-leader');
+    const tlDot    = document.getElementById('tl-dot');
+    const tlLine   = document.getElementById('tl-line');
+    const tlText   = document.getElementById('tl-text');
+    const tlLbl    = document.getElementById('tl-lbl');
+    const tlCap    = document.getElementById('tl-cap');
+    const dotsWrap = document.getElementById('tour-dots');
     if (!wrap || !stage || !leader) return;
 
-    const LAYERS = { A: layerA, B: layerB, C: layerC };
-    const N = STOPS.length; /* 7 */
+    const LAYERS = {
+      A: document.getElementById('tour-layer-A'),
+      B: document.getElementById('tour-layer-B'),
+      C: document.getElementById('tour-layer-C'),
+    };
+    const IMGS = {
+      A: document.getElementById('img-A'),
+      B: document.getElementById('img-B'),
+      C: document.getElementById('img-C'),
+    };
+    const N = STOPS.length;
 
     /* Build progress dots */
     const dots = STOPS.map((_, i) => {
@@ -707,122 +728,126 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
       return d;
     });
 
-    const EDGE_FRAC = 0.18; /* line's far end as fraction of viewport width from edge */
-    const GAP       = 14;  /* px gap between line end and caption box */
+    /* Column padding in px */
+    function colPad() { return Math.round(Math.min(window.innerWidth * 0.035, 56)); }
 
-    function positionLeader(idx) {
+    /* Focal-point position in stage coordinates (px) */
+    function getDotPos(stop) {
+      let imgEl = IMGS[stop.img];
+      const stageRect = stage.getBoundingClientRect();
+      let r = imgEl.getBoundingClientRect();
+      if (r.width === 0) { imgEl = IMGS.A; r = imgEl.getBoundingClientRect(); }
+      return {
+        x: r.left - stageRect.left + stop.x * r.width,
+        y: r.top  - stageRect.top  + stop.y * r.height,
+      };
+    }
+
+    /* Place dot + line + caption for stop at index idx */
+    function placeLeader(idx) {
       const stop = STOPS[idx];
-      const side = stop.side;
-      const W    = window.innerWidth;
-      /* Caption width: ~12vw, clamped so it fits in the background zone */
-      const capW = Math.min(Math.max(Math.round(W * 0.12), 80), 175);
+      const { x: dotX, y: dotY } = getDotPos(stop);
+      const pad  = colPad();
+      const W    = stage.offsetWidth;
+      const maxW = Math.round(W / 3 - pad * 2);
 
       tlLbl.textContent = stop.label;
       tlCap.textContent = stop.caption;
-      tlText.style.width = capW + 'px';
 
-      /* Remove animation classes, set new position, reflow, re-add */
+      tlDot.style.left = dotX + 'px';
+      tlDot.style.top  = dotY + 'px';
+
       tlLine.classList.remove('tl-left', 'tl-right');
 
-      if (side === 'left') {
-        /* Line: from right:50% (dot) extending left to farPx from left edge */
-        const farPx = Math.round(W * EDGE_FRAC);
-        tlLine.style.cssText  = `left:${farPx}px; right:50%;`;
-        /* Caption: right-aligned, sits just left of the line's far end */
-        tlText.style.cssText  = `left:${Math.max(4, farPx - GAP - capW)}px; width:${capW}px; text-align:left;`;
-        void tlLine.offsetWidth; /* flush so scaleX(0) registers before animation */
+      if (stop.side === 'left') {
+        tlLine.style.cssText = `left:${pad}px; right:${W - dotX}px; top:${dotY}px;`;
+        tlText.style.cssText = `left:${pad}px; top:${dotY}px; text-align:left; transform:translateY(-50%); max-width:${maxW}px;`;
+        void tlLine.offsetWidth;
         tlLine.classList.add('tl-left');
       } else {
-        /* Line: from left:50% (dot) extending right to farPx from right edge */
-        const farPx = Math.round(W * (1 - EDGE_FRAC));
-        tlLine.style.cssText  = `left:50%; right:${W - farPx}px;`;
-        /* Caption: sits just right of the line's far end */
-        tlText.style.cssText  = `left:${farPx + GAP}px; width:${capW}px; text-align:left;`;
+        tlLine.style.cssText = `left:${dotX}px; right:${pad}px; top:${dotY}px;`;
+        tlText.style.cssText = `right:${pad}px; top:${dotY}px; text-align:right; transform:translateY(-50%); max-width:${maxW}px;`;
         void tlLine.offsetWidth;
         tlLine.classList.add('tl-right');
       }
     }
 
-    /* Seed first stop (no fade-in needed — leader starts visible) */
-    positionLeader(0);
-
-    let leaderIdx  = 0;
-    let rafPending = false;
-
-    function eio(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
-    function lerp(a, b, t) { return a + (b - a) * t; }
-
-    /* Display dimensions of the img element (82 vh tall) */
-    function displaySize() {
-      const dH = window.innerHeight * IMG_VH;
-      return { dH, dW: dH * IMG_RATIO };
+    /* Set image layer opacities directly (no CSS transition — driven per-frame) */
+    function setImages(key0, key1, t) {
+      for (const k of ['A', 'B', 'C']) {
+        let op = 0;
+        if (k === key0) op = 1 - t;
+        if (k === key1) op += t;
+        LAYERS[k].style.opacity = op;
+      }
     }
 
-    /* transform: scale(SCALE) translate(tx, ty)
-       Places focal point (fx, fy) at stage center.
-       In scaled coordinate space: translate = -(focal - imageCenter) */
-    function focalTranslate(stop, dW, dH) {
-      return {
-        tx: -(stop.x - 0.5) * dW,
-        ty: -(stop.y - 0.5) * dH,
-      };
-    }
+    const P_INTRO_OUT = 0.12;
+    const P_START     = 0.15;
+    const P_END       = 0.92;
+    const XFADE_AT    = 0.6; /* start crossfade this far through a step */
 
-    function applyLayer(layer, tx, ty, opacity) {
-      layer.style.transform = `scale(${SCALE}) translate(${tx}px,${ty}px)`;
-      layer.style.opacity   = opacity;
-    }
+    let activeIdx      = -1;
+    let rafPending     = false;
+    let leaderTimeout  = null;
 
-    function updateLeader(idx) {
-      if (idx === leaderIdx) return;
-      leaderIdx = idx;
-      leader.classList.add('tp-hidden');
-      setTimeout(() => {
-        positionLeader(idx);
-        leader.classList.remove('tp-hidden');
-      }, 200);
-      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    function scheduleLeader(idx) {
+      clearTimeout(leaderTimeout);
+      leader.classList.remove('tl-visible');
+      const snap = idx;
+      leaderTimeout = setTimeout(() => {
+        if (activeIdx !== snap) return;
+        placeLeader(snap);
+        leader.classList.add('tl-visible');
+      }, 150);
     }
 
     function update() {
       rafPending = false;
-      const rect       = wrap.getBoundingClientRect();
+      const rect = wrap.getBoundingClientRect();
       const scrollRange = wrap.offsetHeight - window.innerHeight;
       if (scrollRange <= 0) return;
 
-      const p  = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
-      const { dW, dH } = displaySize();
+      const p = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
 
-      /* Float index 0 → N-1 */
-      const raw = p * (N - 1);
-      const i0  = Math.min(Math.floor(raw), N - 1);
-      const i1  = Math.min(i0 + 1, N - 1);
-      const t   = raw - i0;
-      const et  = eio(t);
+      /* Intro text opacity — fades out before first stop */
+      tcIntro.style.opacity = p < P_INTRO_OUT ? String(1 - p / P_INTRO_OUT) : '0';
 
-      const s0 = STOPS[i0];
-      const s1 = STOPS[i1];
-
-      /* Switch leader at halfway point between stops */
-      updateLeader(t >= 0.5 ? i1 : i0);
-
-      if (s0.img === s1.img) {
-        /* Same image — interpolate focal point */
-        const f0 = focalTranslate(s0, dW, dH);
-        const f1 = focalTranslate(s1, dW, dH);
-        applyLayer(LAYERS[s0.img], lerp(f0.tx, f1.tx, et), lerp(f0.ty, f1.ty, et), 1);
-        for (const k of ['A', 'B', 'C']) {
-          if (k !== s0.img) applyLayer(LAYERS[k], 0, 0, 0);
+      /* Outside active tour range */
+      if (p < P_START || p >= P_END) {
+        if (activeIdx !== -1) {
+          activeIdx = -1;
+          clearTimeout(leaderTimeout);
+          leader.classList.remove('tl-visible');
+          dots.forEach(d => d.classList.remove('active'));
         }
+        setImages('A', 'A', 0);
+        return;
+      }
+
+      /* Map p → stop index + within-step fraction */
+      const t   = (p - P_START) / (P_END - P_START);
+      const raw = t * (N - 1);
+      const i   = Math.min(Math.floor(raw), N - 1);
+      const f   = raw - i;
+      const s0  = STOPS[i];
+      const s1  = STOPS[Math.min(i + 1, N - 1)];
+
+      /* Image crossfade */
+      if (s0.img === s1.img || i === N - 1) {
+        setImages(s0.img, s0.img, 0);
       } else {
-        /* Cross-image fade */
-        const f0 = focalTranslate(s0, dW, dH);
-        const f1 = focalTranslate(s1, dW, dH);
-        applyLayer(LAYERS[s0.img], f0.tx, f0.ty, 1 - et);
-        applyLayer(LAYERS[s1.img], f1.tx, f1.ty, et);
-        for (const k of ['A', 'B', 'C']) {
-          if (k !== s0.img && k !== s1.img) applyLayer(LAYERS[k], 0, 0, 0);
-        }
+        const xf = Math.min(Math.max((f - XFADE_AT) / (1 - XFADE_AT), 0), 1);
+        setImages(s0.img, s1.img, xf);
+      }
+
+      /* Update dots */
+      dots.forEach((d, di) => d.classList.toggle('active', di === i));
+
+      /* Update leader when stop index changes */
+      if (i !== activeIdx) {
+        activeIdx = i;
+        scheduleLeader(i);
       }
     }
 
@@ -833,16 +858,20 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     }
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('resize', () => {
+      clearTimeout(leaderTimeout);
+      leader.classList.remove('tl-visible');
+      activeIdx = -1;
+      update();
+    }, { passive: true });
 
-    /* will-change: on while stage is in view, off otherwise */
-    const allLayers = [layerA, layerB, layerC].filter(Boolean);
+    /* will-change hint while stage is in view */
     new IntersectionObserver((entries) => {
-      const wc = entries[0].isIntersecting ? 'transform, opacity' : 'auto';
-      allLayers.forEach(l => { l.style.willChange = wc; });
+      const wc = entries[0].isIntersecting ? 'opacity' : 'auto';
+      Object.values(LAYERS).forEach(l => { l.style.willChange = wc; });
     }, { threshold: 0 }).observe(stage);
 
-    update(); /* initial render at scroll position 0 */
+    update();
   })();
   </script>
 
