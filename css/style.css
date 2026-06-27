@@ -122,7 +122,7 @@ body.intro-active { overflow: hidden; }
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #0E0E0C;
+  background: #F3F1EC;
 }
 #intro.gone { display: none; }
 
@@ -133,7 +133,7 @@ body.intro-active { overflow: hidden; }
   height: 100%;
   object-fit: contain;
   object-position: center;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.25s ease;
 }
 
 /* Site reveals via a clip-path circle growing from screen center */
@@ -286,7 +286,7 @@ body.intro-active { overflow: hidden; }
   font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.3em;
-  color: rgba(200, 145, 58, 0.9);
+  color: var(--gold-text);
   white-space: nowrap;
   z-index: 1;
   opacity: 0;
@@ -301,11 +301,11 @@ body.intro-active { overflow: hidden; }
   font-family: var(--font-mono);
   font-size: 0.55rem;
   letter-spacing: 0.1em;
-  color: rgba(243, 241, 236, 0.35);
+  color: var(--text-muted);
   cursor: pointer;
   transition: color 0.2s;
 }
-.intro-skip:hover { color: rgba(200, 145, 58, 0.85); }
+.intro-skip:hover { color: var(--gold-text); }
 
 /* ============================================================
    NAV

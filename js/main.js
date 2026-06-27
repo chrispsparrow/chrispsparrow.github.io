@@ -65,10 +65,11 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   };
 
   /* Safety: fire bloom if video never ends (stall / error / missing) */
-  safetyTimer = setTimeout(triggerBloom, 4000);
+  safetyTimer = setTimeout(triggerBloom, 3500);
 
   if (video) {
     video.addEventListener('ended', triggerBloom, { once: true });
+    video.addEventListener('error', triggerBloom, { once: true });  /* all sources failed */
     const pp = video.play();
     if (pp !== undefined) pp.catch(triggerBloom);  /* autoplay blocked */
   } else {
