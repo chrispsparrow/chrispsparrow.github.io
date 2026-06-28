@@ -125,8 +125,8 @@ body.intro-active { overflow: hidden; }
   background: #F3F1EC;
   overflow: hidden;
   /* nudge tuna's final-frame resting position to screen center */
-  --tuna-offset-x: -9%;
-  --tuna-offset-y: -6%;
+  --tuna-offset-x: 1%;
+  --tuna-offset-y: -21%;
 }
 #intro.gone { display: none; }
 
