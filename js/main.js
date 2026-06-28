@@ -65,7 +65,7 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   };
 
   /* Safety: fire bloom if video never ends (stall / error / missing) */
-  safetyTimer = setTimeout(triggerBloom, 3500);
+  safetyTimer = setTimeout(triggerBloom, 4000);
 
   if (video) {
     video.addEventListener('ended', triggerBloom, { once: true });

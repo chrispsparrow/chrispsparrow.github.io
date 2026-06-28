@@ -123,6 +123,10 @@ body.intro-active { overflow: hidden; }
   inset: 0;
   z-index: 1000;
   background: #F3F1EC;
+  overflow: hidden;
+  /* nudge tuna's final-frame resting position to screen center */
+  --tuna-offset-x: -9%;
+  --tuna-offset-y: -6%;
 }
 #intro.gone { display: none; }
 
@@ -133,6 +137,8 @@ body.intro-active { overflow: hidden; }
   height: 100%;
   object-fit: contain;
   object-position: center;
+  transform: translate(var(--tuna-offset-x), var(--tuna-offset-y));
+  transform-origin: center center;
   transition: opacity 0.25s ease;
 }
 
