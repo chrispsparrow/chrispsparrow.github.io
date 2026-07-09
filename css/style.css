@@ -124,6 +124,7 @@ body.intro-active { overflow: hidden; }
   z-index: 1000;
   background: #F3F1EC;
   overflow: hidden;
+  transition: opacity 0.25s ease;
   /* nudge tuna's final-frame resting position to screen center */
   --tuna-offset-x: 0%;
   --tuna-offset-y: 0%;
@@ -282,23 +283,6 @@ body.intro-active { overflow: hidden; }
   .intro-tuna-img { width: 52px; }
   .intro-tuna-y { margin-left: -26px; margin-top: -13px; }
 }
-
-/* Label: JS adds .visible after the final splash */
-.intro-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, 40px);
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.3em;
-  color: var(--gold-text);
-  white-space: nowrap;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.intro-label.visible { opacity: 0.7; }
 
 .intro-skip {
   position: absolute;
@@ -1464,5 +1448,4 @@ footer {
   .intro-tuna-x,
   .intro-tuna-y,
   .intro-tuna-img { animation: none !important; opacity: 0 !important; }
-  .intro-label    { transition: none !important; opacity: 0 !important; }
 }

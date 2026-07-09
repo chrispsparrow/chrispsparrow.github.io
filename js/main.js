@@ -28,10 +28,15 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     document.body.classList.remove('intro-active');
   };
 
-  /* Animated reveal: overlay gone, site expands from center via clip-path */
+  /* Animated reveal: overlay fades out while site expands from center via clip-path */
   const reveal = () => {
     fireDone();
-    if (el) el.classList.add('gone');
+    if (el) {
+      el.style.opacity = '0';  /* triggers the 0.25s #intro transition */
+      const gone = () => el.classList.add('gone');
+      el.addEventListener('transitionend', gone, { once: true });
+      setTimeout(gone, 400);   /* fallback if transitionend never fires */
+    }
     if (!siteWrap) { document.body.classList.remove('intro-active'); return; }
     siteWrap.classList.add('revealing');
     siteWrap.addEventListener('transitionend', () => {
@@ -46,7 +51,6 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 
   const rings = document.getElementById('splash-rings');
   const bloom = el.querySelector('.intro-bloom');
-  const label = el.querySelector('.intro-label');
   const video = el.querySelector('.intro-video');
 
   /* Idempotent: fades video, fires bloom + rings, then animated reveal */
@@ -58,6 +62,7 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     triggered = true;
     clearTimeout(safetyTimer);
     if (video) video.style.opacity = '0';
+    if (bloom) bloom.classList.add('splashed');  /* brief bloom as overlay fades */
     if (rings) rings.classList.add('splashed');
     reveal();
   };
