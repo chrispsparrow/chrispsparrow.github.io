@@ -31,7 +31,7 @@ body {
   font-family: var(--font-display);
   font-size: 1rem;
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow-x: clip; /* clip, not hidden — hidden creates a scroll container that breaks position:sticky */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -392,8 +392,10 @@ body.intro-active { overflow: hidden; }
    HERO
    ============================================================ */
 #hero {
-  position: relative;
-  min-height: 100svh;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  z-index: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -549,6 +551,9 @@ body.intro-active { overflow: hidden; }
    SECTION DIVIDERS
    ============================================================ */
 .sec-div {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
   padding: 5rem 2rem 1.5rem;
   border-top: 1px solid var(--border);
   display: flex;
@@ -583,6 +588,9 @@ body.intro-active { overflow: hidden; }
    ============================================================ */
 
 #work {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
   border-top: 1px solid var(--border);
   padding-top: 5rem;
   padding-bottom: 8rem;
@@ -748,7 +756,7 @@ body.intro-active { overflow: hidden; }
 /* ============================================================
    ABOUT
    ============================================================ */
-#about { padding: 2rem 2rem 8rem; }
+#about { position: relative; z-index: 1; background: var(--bg); padding: 2rem 2rem 8rem; }
 
 .about-grid {
   max-width: 1300px;
@@ -828,7 +836,7 @@ body.intro-active { overflow: hidden; }
 /* ============================================================
    SKILLS
    ============================================================ */
-#skills { padding: 2rem 2rem 8rem; }
+#skills { position: relative; z-index: 1; background: var(--bg); padding: 2rem 2rem 8rem; }
 
 .skills-grid {
   max-width: 1300px;
@@ -880,6 +888,9 @@ body.intro-active { overflow: hidden; }
    CONTACT
    ============================================================ */
 #contact {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
   padding: 2rem 2rem 8rem;
   border-top: 1px solid var(--border);
 }
@@ -958,6 +969,9 @@ body.intro-active { overflow: hidden; }
    FOOTER
    ============================================================ */
 footer {
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
   padding: 5rem 2rem 3rem;
   border-top: 1px solid var(--border);
   display: flex;
