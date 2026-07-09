@@ -53,6 +53,11 @@
     </div>
   </nav>
 
+  <!-- ── HERO + CURTAIN WRAPPER ─────────────────────────── -->
+  <!-- Plain block div: bounds the sticky track so #hero un-sticks after #work covers it.
+       Must have no overflow, transform, or filter — any of those break position:sticky. -->
+  <div class="hero-unit">
+
   <!-- ── HERO ─────────────────────────────────────────────── -->
   <section id="hero" aria-label="Introduction">
     <div id="hero-ripple" aria-hidden="true">
@@ -156,11 +161,13 @@
     </div>
   </section>
 
+  </div><!-- /.hero-unit -->
+
   <!-- ── ABOUT ─────────────────────────────────────────────── -->
-  <div class="sec-div reveal" aria-hidden="true">
-    <span class="sec-div-word">ABOUT</span>
-    <span class="sec-div-word sec-div-slash">/</span>
-    <span class="sec-div-word">ME</span>
+  <div class="sec-div" aria-hidden="true">
+    <span class="sec-div-word reveal">ABOUT</span>
+    <span class="sec-div-word sec-div-slash reveal reveal-d1">/</span>
+    <span class="sec-div-word reveal reveal-d2">ME</span>
   </div>
 
   <section id="about" aria-label="About">
@@ -208,10 +215,10 @@
   </section>
 
   <!-- ── SKILLS ────────────────────────────────────────────── -->
-  <div class="sec-div reveal" aria-hidden="true">
-    <span class="sec-div-word">SKILLS</span>
-    <span class="sec-div-word sec-div-slash">/</span>
-    <span class="sec-div-word">SYSTEMS</span>
+  <div class="sec-div" aria-hidden="true">
+    <span class="sec-div-word reveal">SKILLS</span>
+    <span class="sec-div-word sec-div-slash reveal reveal-d1">/</span>
+    <span class="sec-div-word reveal reveal-d2">SYSTEMS</span>
   </div>
 
   <section id="skills" aria-label="Skills">
