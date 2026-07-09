@@ -58,10 +58,8 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     triggered = true;
     clearTimeout(safetyTimer);
     if (video) video.style.opacity = '0';
-    if (bloom) bloom.classList.add('splashed');
     if (rings) rings.classList.add('splashed');
-    if (label) label.classList.add('visible');
-    setTimeout(reveal, 900);
+    reveal();
   };
 
   /* Safety: fire bloom if video never ends (stall / error / missing) */
