@@ -3,12 +3,324 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Avionics GPS/Radio PCB — Christopher Sparrow</title>
-  <meta name="description" content="Case study: Custom 4-layer avionics PCB with integrated GPS telemetry and LoRa radio for AerospaceNU high-power rocketry.">
+  <title>Custom Avionics GPS/Radio PCB — Christopher Sparrow</title>
+  <meta name="description" content="4-layer custom avionics PCB for AerospaceNU's high-power rocket program: ATSAMD21G18A MCU, u-blox SAM-M8Q GNSS, Ebyte E22 LoRa radio, LTC4412 power mux, 50 Ω RF trace. KiCad 8 design by Christopher Sparrow.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ─── AVIONICS PCB PAGE ─────────────────────────────────── */
+
+    .tp-breadcrumb {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--gold-text);
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+    }
+    .tp-breadcrumb:hover { opacity: 0.7; }
+    .tp-hero-kicker {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+    .tp-hero-h1 {
+      font-size: clamp(2rem, 4.5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.08;
+      color: var(--text);
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .tp-hero-tagline {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin: 0 0 1.5rem;
+    }
+    .tp-hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    /* ─── SCROLL TOUR ─────────────────────────────────────── */
+    #tour-wrap { position: relative; height: 600vh; }
+
+    #tour-stage {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* Image layers — middle third of stage */
+    .tour-layer {
+      position: absolute;
+      left: 33.33%; right: 33.33%;
+      top: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+    }
+    #tour-layer-A { opacity: 1; }
+    .tour-layer img {
+      max-height: 82vh;
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      display: block;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* Title / intro — left col breadcrumb, right col h1; fades as tour begins */
+    #tc-intro {
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .tc-left-col,
+    .tc-right-col {
+      width: 33.33%;
+      padding: 0 min(2.5rem, 3.5vw);
+    }
+    .tc-left-col { pointer-events: auto; }
+
+    /* ─── LEADER LINE ─── */
+    #tour-leader {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 11;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #tour-leader.tl-visible { opacity: 1; }
+
+    .tl-dot {
+      position: absolute;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--gold-text);
+      transform: translate(-50%, -50%);
+      opacity: 0.9;
+    }
+
+    .tl-line {
+      position: absolute;
+      height: 1px;
+      background: var(--gold-text);
+      opacity: 0.6;
+      transform: scaleX(0);
+    }
+    @keyframes tl-draw {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+    .tl-line.tl-left {
+      transform-origin: right center;
+      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .tl-line.tl-right {
+      transform-origin: left center;
+      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .tl-text { position: absolute; }
+    .tl-lbl {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      color: var(--gold-text);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+    .tl-cap {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    /* Progress dots — bottom-right */
+    #tour-dots {
+      position: absolute;
+      bottom: 3.5rem;
+      right: min(4rem, 5vw);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .tp-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.25s ease, transform 0.25s ease;
+    }
+    .tp-dot.active {
+      background: var(--gold);
+      transform: scale(1.5);
+    }
+
+    /* ─── FALLBACK (mobile + reduced-motion) ─────────────── */
+    .tour-fallback {
+      display: none;
+      padding: 3rem min(4rem, 5vw);
+      max-width: 840px;
+      margin: 0 auto;
+    }
+    .tf-title-block {
+      padding-bottom: 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .tour-fallback-hdr {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+    .tf-item {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 1.25rem;
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .tf-item:last-child { border-bottom: none; }
+    .tf-thumb {
+      width: 140px; height: 140px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    .tf-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.13em;
+      color: var(--gold-text);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+    .tf-caption {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* ─── BACKSTORY ─────────────────────────────────────── */
+    .tp-bs {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 4.5rem min(4rem, 5vw) 0;
+    }
+    .tp-bs + .tp-bs { padding-top: 3.5rem; }
+    .tp-bs:last-of-type { padding-bottom: 5rem; }
+    .tp-bs .sec-lbl { margin-bottom: 1.5rem; }
+    .tp-bs p {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.78;
+      margin: 0 0 1.1rem;
+    }
+    .tp-bs p:last-child { margin-bottom: 0; }
+
+    /* ─── INLINE FIGURE ─────────────────────────────────── */
+    .av-figure {
+      margin: 2rem 0 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #16192b;
+    }
+    .av-figure img {
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+      object-fit: contain;
+      display: block;
+    }
+    .av-figcaption {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.13em;
+      color: var(--text-muted);
+      padding: 0.6rem 1rem;
+      border-top: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+
+    /* ─── BOARD DETAIL GALLERY ──────────────────────────── */
+    .av-gallery {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 4.5rem min(4rem, 5vw) 5rem;
+    }
+    .av-gallery .sec-lbl { margin-bottom: 2rem; }
+    .av-gallery-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    .av-gallery-item { display: flex; flex-direction: column; gap: 0.6rem; }
+    .av-gallery-frame {
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: #16192b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .av-gallery-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .av-gallery-caption {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      text-align: center;
+      margin: 0;
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 560px) {
+      .tp-hero-h1      { font-size: 2rem; }
+      .tp-bs           { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .av-gallery      { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .av-gallery-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── REDUCED-MOTION + MOBILE TOUR FALLBACK ─────────── */
+    @media (prefers-reduced-motion: reduce), (max-width: 899px) {
+      #tour-wrap     { height: auto !important; }
+      #tour-stage    { position: static !important; height: auto !important; overflow: visible !important; }
+      .tour-layer,
+      #tc-intro,
+      #tour-leader,
+      #tour-dots     { display: none !important; }
+      .tour-fallback { display: block; }
+    }
+  </style>
 </head>
 <body>
 
@@ -27,427 +339,218 @@
     </div>
   </nav>
 
-  <!-- ── PROJECT HERO ─────────────────────────────────────── -->
-  <header class="proj-hero" aria-label="Project overview">
-    <!-- faint watermark of the tuna logo -->
-    <div class="proj-hero-bg" aria-hidden="true">
-      <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_black.svg" alt="">
-    </div>
+  <!-- ══ BOARD TOUR ════════════════════════════════════════ -->
+  <div id="tour-wrap">
 
-    <div class="proj-hero-content">
-      <p class="proj-breadcrumb">
-        <a href="../">← Christopher Sparrow</a>
-        &nbsp;/&nbsp; Selected Work &nbsp;/&nbsp; Avionics PCB
-      </p>
+    <div id="tour-stage" aria-hidden="true">
 
-      <div class="tag-row">
-        <span class="tag tag-gold">AEROSPACEONU</span>
-        <span class="tag">PCB DESIGN</span>
-        <span class="tag">RF SYSTEMS</span>
-        <span class="tag">EMBEDDED</span>
-        <span class="tag">KICAD</span>
+      <!-- Title block — fades out as tour begins -->
+      <div id="tc-intro">
+        <div class="tc-left-col">
+          <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+          <p class="tp-hero-kicker mono">AEROSPACENU · SOLO PROJECT · 2026</p>
+        </div>
+        <div class="tc-right-col">
+          <h1 class="tp-hero-h1">Custom Avionics<br>GPS / Radio<br>PCB</h1>
+          <p class="tp-hero-tagline">A compact 4-layer flight computer integrating GPS telemetry and LoRa radio for AerospaceNU's high-power rocket program.</p>
+          <div class="tp-hero-tags">
+            <span class="tag tag-gold">SOLO PROJECT</span>
+            <span class="tag">KICAD 8</span>
+            <span class="tag">4-LAYER PCB</span>
+            <span class="tag">ATSAMD21</span>
+            <span class="tag">LORA RADIO</span>
+            <span class="tag">RF DESIGN</span>
+          </div>
+        </div>
       </div>
 
-      <h1 class="proj-title">Custom Avionics<br>GPS / Radio PCB</h1>
-
-      <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-        <span class="status-chip">
-          <span class="status-dot"></span>
-          FIRMWARE — IN PROGRESS
-        </span>
-        <span class="mono" style="color:var(--text-muted);">REV A · 2024</span>
+      <!-- Image layers — middle third, opacity-only crossfades -->
+      <div class="tour-layer" id="tour-layer-A">
+        <img src="../assets/avionics/avionics-front-render.png"
+             alt="Avionics PCB — 3D front render" id="img-A">
       </div>
-    </div>
-  </header>
+      <div class="tour-layer" id="tour-layer-B">
+        <img src="../assets/avionics/avionics-copper-layout.png"
+             alt="Avionics PCB — copper layer layout" id="img-B">
+      </div>
+      <div class="tour-layer" id="tour-layer-C">
+        <img src="../assets/avionics/avionics-power-detail.png"
+             alt="Avionics PCB — power section detail" id="img-C">
+      </div>
 
-  <!-- ── DOWNLOAD BAR ──────────────────────────────────────── -->
-  <div style="background:var(--surface); border-bottom:1px solid var(--border); padding:1.5rem 2rem;">
-    <div style="max-width:1300px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-      <p class="mono" style="color:var(--text-muted);">FULL CASE STUDY — AerospaceNU Avionics PCB Portfolio Update</p>
-      <a href="../assets/Christopher Sparrow AerospaceNU Avionics PCB Portfolio Update.pdf"
-         class="btn-dl" target="_blank" rel="noopener"
-         aria-label="Download full case study PDF">
-        ↓ &nbsp; DOWNLOAD FULL CASE STUDY (PDF)
-      </a>
+      <!-- Leader line overlay -->
+      <div id="tour-leader" aria-hidden="true">
+        <div class="tl-dot"  id="tl-dot"></div>
+        <div class="tl-line" id="tl-line"></div>
+        <div class="tl-text" id="tl-text">
+          <div class="tl-lbl" id="tl-lbl"></div>
+          <p  class="tl-cap" id="tl-cap"></p>
+        </div>
+      </div>
+
+      <!-- Progress dots — bottom-right -->
+      <div id="tour-dots" role="presentation"></div>
+
+    </div><!-- /#tour-stage -->
+
+    <!-- Static fallback — mobile / reduced-motion -->
+    <div class="tour-fallback" aria-label="Board component overview">
+
+      <div class="tf-title-block">
+        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+        <p class="tp-hero-kicker mono">AEROSPACENU · SOLO PROJECT · 2026</p>
+        <h1 class="tp-hero-h1">Custom Avionics<br>GPS / Radio<br>PCB</h1>
+        <p class="tp-hero-tagline">A compact 4-layer flight computer integrating GPS telemetry and LoRa radio for AerospaceNU's high-power rocket program.</p>
+        <div class="tp-hero-tags">
+          <span class="tag tag-gold">SOLO PROJECT</span>
+          <span class="tag">KICAD 8</span>
+          <span class="tag">4-LAYER PCB</span>
+          <span class="tag">ATSAMD21</span>
+          <span class="tag">LORA RADIO</span>
+          <span class="tag">RF DESIGN</span>
+        </div>
+      </div>
+
+      <div class="tour-fallback-hdr">BOARD COMPONENTS</div>
+
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
+             alt="ATSAMD21G18A MCU">
+        <div>
+          <div class="tf-label">ATSAMD21G18A</div>
+          <p class="tf-caption">Arm Cortex-M0+ MCU, 48 MHz, 256 KB flash. Four SERCOM peripherals drive the GNSS, radio, SPI flash, and USB stack simultaneously.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
+             alt="u-blox SAM-M8Q GNSS">
+        <div>
+          <div class="tf-label">u-blox SAM-M8Q</div>
+          <p class="tf-caption">Concurrent GPS/GLONASS, 10 Hz fix rate. SPI connection avoids I²C clock-stretching at high update rates.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
+             alt="Ebyte E22 LoRa radio">
+        <div>
+          <div class="tf-label">Ebyte E22 / SX1262</div>
+          <p class="tf-caption">900 MHz LoRa radio, 30 dBm output, SMA antenna connector. Handles all ground-station telemetry downlink during flight.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
+             alt="SWD debug header">
+        <div>
+          <div class="tf-label">SWD debug header</div>
+          <p class="tf-caption">Amphenol 2×5 1.27 mm header. OpenOCD + J-Link Mini for flashing and stepping through bare-metal C.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-copper-layout.png"
+             alt="50 ohm RF trace">
+        <div>
+          <div class="tf-label">50 Ω RF trace</div>
+          <p class="tf-caption">11.2 mil trace on outer copper, calculated for JLC's 4-layer stackup. No 90° bends; all corners chamfered.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-copper-layout.png"
+             alt="Ground plane">
+        <div>
+          <div class="tf-label">Ground plane</div>
+          <p class="tf-caption">Unbroken GND pour on Layer 2. Reduces loop inductance on the power rail and serves as the RF return path for the 50 Ω trace.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
+             alt="AP2112K LDO regulator">
+        <div>
+          <div class="tf-label">AP2112K-3.3</div>
+          <p class="tf-caption">600 mA LDO regulator. Supplies the 3.3 V rail to MCU, GNSS, flash, and IO — comfortably above worst-case radio TX burst.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
+             alt="LTC4412 power mux">
+        <div>
+          <div class="tf-label">LTC4412 power mux</div>
+          <p class="tf-caption">Ideal diode controller + PMOSFET. USB takes priority with &lt;50 mV drop; LiPo cuts in instantly when USB is removed.</p>
+        </div>
+      </div>
+      <div class="tf-item">
+        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
+             alt="PRTR5V0U2X ESD protection">
+        <div>
+          <div class="tf-label">PRTR5V0U2X ESD</div>
+          <p class="tf-caption">Dual-rail TVS on USB D+/D−. 0.5 pF load capacitance, IEC 61000-4-2 Level 4 rated.</p>
+        </div>
+      </div>
+
+    </div><!-- /.tour-fallback -->
+
+  </div><!-- /#tour-wrap -->
+
+  <!-- ══ BACKSTORY ══════════════════════════════════════════ -->
+
+  <section class="tp-bs reveal" aria-label="The mission">
+    <h2 class="sec-lbl">THE MISSION</h2>
+    <p>AerospaceNU designs and launches high-power rockets to altitudes above 10,000 feet. Off-the-shelf flight computers have fixed sensor configurations and closed firmware — no telemetry at our frequencies, no raw GNSS data, no integration path with the ground station we were building. We needed a custom board that could fly alongside the structural payload, downlink GPS position over LoRa, and survive the mechanical loads of a Mach 0.8 ascent.</p>
+    <p>Every design decision was made against a single hard constraint: the hardware has to work on the first drop. There is no field service. There is no rework at 10,000 feet.</p>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Architecture and layer stackup">
+    <h2 class="sec-lbl">ARCHITECTURE</h2>
+    <p>The board is a 4-layer stackup: Signal / GND / PWR / Signal. The MCU is an ATSAMD21G18A (Arm Cortex-M0+, 48 MHz, 256 KB flash), chosen for its native USB Full-Speed peripheral, four independent SERCOM modules, and mature driver ecosystem. GNSS is a u-blox SAM-M8Q — concurrent GPS and GLONASS, up to 10 Hz fix rate — connected via SPI to eliminate I²C clock-stretching at high update rates. The LoRa radio is an Ebyte E22-900T30S, SX1262-based, 30 dBm output, with an SMA connector feeding a quarter-wave whip.</p>
+    <p>The unbroken ground pour on Layer 2 is the most important feature of the stackup. It ties all return currents to a common reference, reduces loop inductance on the power rail, and serves as the RF return plane for the 50 Ω antenna trace. Layer 3 carries a poured power plane split into 3.3 V and VBUS domains.</p>
+    <!-- avionics-stackup.png: PCB copper layer view (KiCad export) — no separate stackup diagram was generated -->
+    <figure class="av-figure">
+      <img src="../assets/avionics/avionics-stackup.png"
+           alt="KiCad PCB layout — copper layer view showing all layers">
+      <figcaption class="av-figcaption">KiCad 8 PCB layout · 4-layer: Signal / GND / PWR / Signal</figcaption>
+    </figure>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="RF and antenna design">
+    <h2 class="sec-lbl">RF &amp; ANTENNA</h2>
+    <p>The 50 Ω transmission line from the E22 radio output pin to the SMA connector is the most layout-sensitive part of the board. Trace width was calculated using JLC's published 4-layer stackup parameters: 11.2 mil trace on the outer copper layer over a solid GND reference plane achieves 50 Ω within fabrication tolerances.</p>
+    <p>No 90° bends — every corner is chamfered at 45°. No stubs, no via transitions in the RF path. The SMA connector footprint has a via fence around the keeper tabs and a copper pour keepout under the signal pad. The RF zone is isolated from digital return currents with a moat cut in the outer copper pour. Antenna keepout extends three wavelengths from all metal enclosure walls.</p>
+  </section>
+
+  <section class="tp-bs reveal" aria-label="Power architecture">
+    <h2 class="sec-lbl">POWER ARCHITECTURE</h2>
+    <p>Two supply sources: USB (5 V) and 1S LiPo (3.7 V nominal, 4.2 V charged). The LTC4412 ideal diode controller manages source priority — when USB is present it gates the LiPo PMOSFET with a sub-50 mV forward drop; when USB is removed the LiPo takes over with zero switching glitch. No Schottky D-OR diodes, no voltage droop on handoff.</p>
+    <p>The AP2112K-3.3 LDO runs off whichever source wins, regulating to 3.3 V at up to 600 mA. Worst-case draw: SAM-M8Q at 18 mA, E22 radio at 200 mA TX burst, SAMD21 at 25 mA, peripheral IO at 30 mA — 273 mA peak, 54% of LDO rating with 200 mA headroom. ESD protection on USB D+/D− is a PRTR5V0U2X: 0.5 pF input capacitance to preserve high-speed USB signal integrity, rated IEC 61000-4-2 Level 4.</p>
+  </section>
+
+  <!-- ══ BOARD DETAIL GALLERY ════════════════════════════════ -->
+
+  <div class="av-gallery reveal" aria-label="Board detail gallery">
+    <h2 class="sec-lbl">BOARD DETAIL</h2>
+    <div class="av-gallery-grid">
+
+      <div class="av-gallery-item">
+        <div class="av-gallery-frame">
+          <img src="../assets/avionics/avionics-gallery-1.png"
+               alt="Power section routing — top copper layer overview">
+        </div>
+        <p class="av-gallery-caption">Power section — top copper routing</p>
+      </div>
+
+      <div class="av-gallery-item">
+        <div class="av-gallery-frame">
+          <img src="../assets/avionics/avionics-gallery-2.png"
+               alt="3D power section close-up — LDO and USB circuitry">
+        </div>
+        <p class="av-gallery-caption">3D power rail close-up — LDO &amp; USB</p>
+      </div>
+
     </div>
   </div>
 
-  <!-- ── SYSTEM AT A GLANCE ────────────────────────────────── -->
-  <section class="sec-block" aria-label="System overview">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">SYSTEM AT A GLANCE</h2>
-      <div class="sys-grid">
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">MICROCONTROLLER</div>
-          <div class="sys-cell-val">STM32F4 Series</div>
-          <div class="sys-cell-sub">ARM Cortex-M4 · 168 MHz</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">GPS MODULE</div>
-          <div class="sys-cell-val">u-blox NEO-M9N</div>
-          <div class="sys-cell-sub">25 mm × 25 mm · UART/SPI · 18 Hz</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">RADIO</div>
-          <div class="sys-cell-val">RFM96W LoRa</div>
-          <div class="sys-cell-sub">915 MHz · +20 dBm · SX1276</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">IMU</div>
-          <div class="sys-cell-val">ICM-20689</div>
-          <div class="sys-cell-sub">±2000 °/s gyro · ±16 g accel</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">BAROMETER</div>
-          <div class="sys-cell-val">MS5607</div>
-          <div class="sys-cell-sub">10 cm resolution · SPI</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">POWER</div>
-          <div class="sys-cell-val">3.3 V / 1.8 V Rails</div>
-          <div class="sys-cell-sub">LDO + buck · LiPo cell input</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">STORAGE</div>
-          <div class="sys-cell-val">MicroSD Slot</div>
-          <div class="sys-cell-sub">SPI · flight data logging</div>
-        </div>
-        <div class="sys-cell">
-          <div class="sys-cell-lbl mono">FORM FACTOR</div>
-          <div class="sys-cell-val">4-Layer PCB</div>
-          <div class="sys-cell-sub">Signal · GND · PWR · Signal</div>
-        </div>
-      </div>
-
-      <!-- NOTE: verify/update all specs against the case study PDF above. Values are representative placeholders. -->
-    </div>
-  </section>
-
-  <!-- ── ARCHITECTURE ──────────────────────────────────────── -->
-  <section class="sec-block" aria-label="System architecture">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">ARCHITECTURE</h2>
-      <div class="arch-grid">
-
-        <div class="arch-text">
-          <p>The design centres on a single STM32F4 hub that arbitrates four independent SPI/UART buses. Separating the GPS, radio, IMU, and SD card onto discrete peripherals eliminates bus contention during peak logging rates and gives each subsystem a hard interrupt path to the MCU.</p>
-          <p>The 4-layer stackup places the inner GND plane immediately beneath the signal layer, minimising return-path inductance under the RF traces. The LoRa antenna feed is routed as a 50 Ω coplanar waveguide strip, length-matched to 80 mm with a keepout enforced in DRC. A π-network matching circuit sits at the SMA breakout for field tuning.</p>
-          <p>Power enters via a 2-cell LiPo connector, stepped down through a synchronous buck converter to 5 V and then to 3.3 V and 1.8 V LDOs for the GPS module's core and I/O domains. Current sensing resistors on each rail enable power budgeting in firmware.</p>
-        </div>
-
-        <div>
-          <div class="arch-nodes" role="list" aria-label="Component connections">
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">LiPo</span>
-              <span class="arch-node-val">→ Buck 5 V → LDO 3.3 V / 1.8 V</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">STM32F4</span>
-              <span class="arch-node-val">SPI bus 1 — IMU + SD card</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">STM32F4</span>
-              <span class="arch-node-val">SPI bus 2 — LoRa RFM96W</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">STM32F4</span>
-              <span class="arch-node-val">UART — u-blox GPS NMEA + UBX</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">STM32F4</span>
-              <span class="arch-node-val">SPI — MS5607 barometric altimeter</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">RFM96W</span>
-              <span class="arch-node-val">→ 50 Ω CPWG → SMA → antenna</span>
-            </div>
-            <div class="arch-node" role="listitem">
-              <span class="arch-node-key mono">Debug</span>
-              <span class="arch-node-val">SWD 10-pin header · UART console</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── BOARD HOTSPOTS ────────────────────────────────────── -->
-  <section class="sec-block" aria-label="Interactive board diagram">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">BOARD DETAIL — INTERACTIVE</h2>
-      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Hover or tap a point to reveal component callout.</p>
-
-      <!--
-        SWAP BOARD IMAGE:
-        Replace the .img-ph div with: <img class="hotspot-board" src="../assets/img/avionics/render-front.jpg" alt="Avionics PCB top render">
-        Then adjust hotspot-pt left/top percentages to match real component positions.
-      -->
-      <div class="hotspot-wrap" aria-label="Board diagram with labeled hotspots">
-        <div class="img-ph hotspot-board" style="aspect-ratio:16/9; min-height:0;" role="img" aria-label="PCB render placeholder — replace with real image">
-          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg>
-          <span class="img-ph-text">[ PCB 3D RENDER — replace with real board image ]\nHotspot positions set as % of image width/height</span>
-        </div>
-
-        <!-- Hotspot: MCU -->
-        <div class="hotspot-pt" style="left:42%; top:45%;" aria-label="Microcontroller" tabindex="0">
-          <div class="hotspot-dot"></div>
-          <div class="hotspot-callout" role="tooltip">
-            <div class="hc-lbl mono">MCU</div>
-            <div class="hc-val">STM32F4 Series</div>
-            <div class="hc-desc">ARM Cortex-M4 @ 168 MHz. Manages all SPI/UART buses, flight state machine, and interrupt-driven logging.</div>
-          </div>
-        </div>
-
-        <!-- Hotspot: GPS -->
-        <div class="hotspot-pt" style="left:72%; top:22%;" aria-label="GPS module" tabindex="0">
-          <div class="hotspot-dot"></div>
-          <div class="hotspot-callout" role="tooltip">
-            <div class="hc-lbl mono">GPS</div>
-            <div class="hc-val">u-blox NEO-M9N</div>
-            <div class="hc-desc">18 Hz update rate, 1.5 m CEP accuracy. SMA pigtail routes to patch antenna above the fin can.</div>
-          </div>
-        </div>
-
-        <!-- Hotspot: Radio -->
-        <div class="hotspot-pt" style="left:72%; top:68%;" data-flip="down" aria-label="LoRa radio" tabindex="0">
-          <div class="hotspot-dot"></div>
-          <div class="hotspot-callout" role="tooltip">
-            <div class="hc-lbl mono">RADIO</div>
-            <div class="hc-val">RFM96W LoRa</div>
-            <div class="hc-desc">915 MHz, +20 dBm transmit. 50 Ω CPWG trace feeds π-match network at SMA. Ground pour stitched with vias every 5 mm.</div>
-          </div>
-        </div>
-
-        <!-- Hotspot: Power -->
-        <div class="hotspot-pt" style="left:18%; top:72%;" data-flip="down" aria-label="Power section" tabindex="0">
-          <div class="hotspot-dot"></div>
-          <div class="hotspot-callout" role="tooltip">
-            <div class="hc-lbl mono">POWER</div>
-            <div class="hc-val">Buck + LDO Stack</div>
-            <div class="hc-desc">Synchronous buck (5 V), followed by LDOs at 3.3 V and 1.8 V. Current-sense resistors on each rail. Decoupling 100 nF + 10 µF at every domain transition.</div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── COMPARISON SLIDER ─────────────────────────────────── -->
-  <section class="sec-block" aria-label="Render vs copper layout comparison">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">RENDER VS COPPER LAYOUT</h2>
-      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Drag or touch the handle to compare.</p>
-
-      <!--
-        SWAP IMAGES:
-        .compare-before → <img class="compare-before" src="../assets/img/avionics/render-front.jpg" alt="3D render">
-        .compare-after-clip img → <img src="../assets/img/avionics/copper-top.jpg" alt="Copper layout">
-        Both images must share the same pixel dimensions for the slider to align correctly.
-      -->
-      <div class="compare-wrap" role="img" aria-label="Image comparison slider — render vs copper layout">
-        <div class="img-ph compare-before" style="aspect-ratio:16/9; min-height:0; position:relative;">
-          <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="1"/></svg>
-          <span class="img-ph-text">[ LEFT — 3D RENDER\nreplace compare-before with real image ]</span>
-        </div>
-        <div class="compare-after-clip" aria-hidden="true">
-          <div class="img-ph" style="position:absolute; inset:0; min-height:0; border:none;">
-            <svg class="img-ph-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M6 8h4M6 12h6M6 16h3"/></svg>
-            <span class="img-ph-text">[ RIGHT — COPPER LAYOUT\nreplace compare-after-clip &gt; img with real image ]</span>
-          </div>
-        </div>
-        <div class="compare-handle" aria-hidden="true">
-          <div class="compare-knob">⇔</div>
-        </div>
-        <span class="compare-lbl compare-lbl-l">3D RENDER</span>
-        <span class="compare-lbl compare-lbl-r">COPPER</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── BUILD LOG GALLERY ─────────────────────────────────── -->
-  <section class="sec-block" aria-label="Build log gallery">
-    <div class="sec-block-inner">
-      <h2 class="sec-lbl">BUILD LOG</h2>
-      <p class="mono" style="color:var(--text-muted); margin-bottom:2rem;">Scroll or use ← → keys. Touch-drag supported.</p>
-
-      <!--
-        SWAP IMAGES: Replace each .img-ph inside .build-item with a real <img> tag.
-        e.g. <img src="../assets/img/avionics/build-log-01.jpg" alt="Schematic capture">
-      -->
-      <div class="build-log" role="list" aria-label="Build log photos">
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 01\nSchematic capture ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">01 —</span> Schematic capture in KiCad · all nets named and ERC-clean before layout began</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 02\nComponent placement ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">02 —</span> Component placement · RF section isolated to top-right quadrant, power section bottom-left</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 03\nRouting — signal layer ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">03 —</span> Top signal layer routing · SPI buses length-matched, 6 mil minimum clearance enforced</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 04\nCopper pour + DRC ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">04 —</span> Ground pour filled, via stitching applied, full DRC pass — zero violations</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 05\nGerber preview ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">05 —</span> Gerber stack exported · 2D preview verified in KiCad Gerber Viewer before fab submission</div>
-        </div>
-
-        <div class="build-item" role="listitem">
-          <div class="img-ph" style="aspect-ratio:4/3; min-height:0;">
-            <span class="img-ph-text">[ BUILD LOG 06\nAssembled board ]</span>
-          </div>
-          <div class="build-caption"><span class="cap-num">06 —</span> Boards returned from JLCPCB · Dogtooth Systems silkscreen on back panel</div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ── SKILLS DEMONSTRATED ───────────────────────────────── -->
-  <section class="sec-block" aria-label="Skills demonstrated and next steps">
-    <div class="sec-block-inner">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:start;">
-        <div>
-          <h2 class="sec-lbl">SKILLS DEMONSTRATED</h2>
-          <div class="skills-dem">
-            <div class="skill-chip">4-layer PCB layout</div>
-            <div class="skill-chip">RF trace impedance matching</div>
-            <div class="skill-chip">Schematic capture · ERC / DRC</div>
-            <div class="skill-chip">SPI / UART peripheral integration</div>
-            <div class="skill-chip">Power sequencing &amp; rail design</div>
-            <div class="skill-chip">KiCad 7/8 — footprint creation</div>
-            <div class="skill-chip">Gerber &amp; BOM production</div>
-            <div class="skill-chip">JLCPCB fabrication workflow</div>
-            <div class="skill-chip">LoRa / GPS subsystem design</div>
-            <div class="skill-chip">Decoupling strategy</div>
-          </div>
-        </div>
-
-        <div>
-          <h2 class="sec-lbl">NEXT VALIDATION STEPS</h2>
-          <div class="arch-nodes">
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 1</span>
-              <span class="arch-node-val">Power-on test — rail voltages, quiescent current</span>
-            </div>
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 2</span>
-              <span class="arch-node-val">SPI loopback — verify bus signal integrity on scope</span>
-            </div>
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 3</span>
-              <span class="arch-node-val">GPS cold-start acquisition · NMEA parse test</span>
-            </div>
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 4</span>
-              <span class="arch-node-val">LoRa link test — packet RSSI at 1 km LOS</span>
-            </div>
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 5</span>
-              <span class="arch-node-val">Thermal run — confirm LDOs within ratings at max load</span>
-            </div>
-            <div class="arch-node">
-              <span class="arch-node-key mono">Step 6</span>
-              <span class="arch-node-val">Full flight simulation — log IMU + baro, verify SD write</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <style>
-        @media (max-width: 900px) {
-          .skills-next-grid { grid-template-columns: 1fr !important; gap: 3rem !important; }
-        }
-      </style>
-    </div>
-  </section>
-
-  <!-- ── FIRMWARE ROADMAP ───────────────────────────────────── -->
-  <section class="sec-block" aria-label="Firmware roadmap">
-    <div class="sec-block-inner">
-      <div style="display:flex; align-items:center; gap:1.5rem; margin-bottom:2.5rem; flex-wrap:wrap;">
-        <h2 class="sec-lbl" style="margin-bottom:0;">FIRMWARE</h2>
-        <span class="status-chip"><span class="status-dot"></span>IN PROGRESS</span>
-      </div>
-      <p style="font-size:0.9rem; color:var(--text-dim); line-height:1.8; max-width:640px; margin-bottom:0;">
-        Hardware is validated and populated. Firmware development in progress on STM32CubeIDE. Target: stable GPS fix acquisition, reliable LoRa packet transmission, and verified SD write throughput before first flight.
-      </p>
-
-      <div class="firmware-grid">
-        <div class="fw-item">
-          <span class="fw-step">01</span>
-          <div>
-            <div class="fw-title">GPS NMEA Parsing</div>
-            <div class="fw-desc">Configure u-blox via UBX protocol, enable GGA + RMC sentences, parse fix and altitude in interrupt callback.</div>
-          </div>
-        </div>
-        <div class="fw-item">
-          <span class="fw-step">02</span>
-          <div>
-            <div class="fw-title">LoRa Packet Tx</div>
-            <div class="fw-desc">Initialise SX1276 via SPI, frame a telemetry packet (lat/lon/alt/RSSI), transmit on 10 Hz schedule with CRC.</div>
-          </div>
-        </div>
-        <div class="fw-item">
-          <span class="fw-step">03</span>
-          <div>
-            <div class="fw-title">IMU Integration</div>
-            <div class="fw-desc">ICM-20689 DMP bring-up, calibrate gyro offsets, integrate acceleration for apogee detection trigger.</div>
-          </div>
-        </div>
-        <div class="fw-item">
-          <span class="fw-step">04</span>
-          <div>
-            <div class="fw-title">SD Write Throughput</div>
-            <div class="fw-desc">FatFS layer over SPI, verify 200 Hz logging without buffer overflow. Pre-allocate clusters to avoid fragmentation delay mid-flight.</div>
-          </div>
-        </div>
-        <div class="fw-item">
-          <span class="fw-step">05</span>
-          <div>
-            <div class="fw-title">Flight State Machine</div>
-            <div class="fw-desc">Pad → Boost → Coast → Apogee → Descent states. Pyro continuity check pre-flight, drogue + main ejection commands gated on state.</div>
-          </div>
-        </div>
-        <div class="fw-item">
-          <span class="fw-step">06</span>
-          <div>
-            <div class="fw-title">Ground Station</div>
-            <div class="fw-desc">Python receiver decodes LoRa packets, plots live telemetry on map. Target: real-time altitude and GPS track on launch day.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ── FOOTER ────────────────────────────────────────────── -->
   <footer role="contentinfo">
-    <img
-      src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_black.svg"
-      alt="Dogtooth Systems"
-      class="footer-logo"
-      width="180"
-    >
+    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_black.svg"
+         alt="Dogtooth Systems" class="footer-logo" width="180">
     <p class="footer-lockup mono">Christopher Sparrow · Dogtooth Systems</p>
     <nav class="footer-links" aria-label="Footer links">
       <a href="../#work">Work</a>
@@ -458,5 +561,244 @@
   </footer>
 
   <script src="../js/main.js"></script>
+  <script>
+  /* ── AVIONICS BOARD TOUR ─────────────────────────────────── */
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 900) return;
+
+    /*
+     * AVIONICS_MARKER_COORDS
+     * All x/y values are PLACEHOLDER — tune against the rendered images at 100% zoom.
+     *   x = fraction of image width  (0 = left edge,   1 = right edge)
+     *   y = fraction of image height (0 = top edge,    1 = bottom edge)
+     * side: 'left'  → label in left column,  line draws from left pad rightward to dot
+     *        'right' → label in right column, line draws from dot leftward to right pad
+     */
+    const STOPS = [
+      /* ── Image A — 3D front render (avionics-front-render.png) ── */
+      { img: 'A', x: 0.42, y: 0.52,   /* PLACEHOLDER — tune against real image */
+        label: 'ATSAMD21G18A',
+        caption: 'Arm Cortex-M0+ MCU, 48 MHz, 256 KB flash. Four SERCOM peripherals drive the GNSS, radio, SPI flash, and USB stack simultaneously.',
+        side: 'left' },
+      { img: 'A', x: 0.32, y: 0.22,   /* PLACEHOLDER */
+        label: 'u-blox SAM-M8Q',
+        caption: 'Concurrent GPS/GLONASS, 10 Hz fix rate. SPI connection avoids I²C clock-stretching at high update rates.',
+        side: 'left' },
+      { img: 'A', x: 0.65, y: 0.40,   /* PLACEHOLDER */
+        label: 'Ebyte E22 / SX1262',
+        caption: '900 MHz LoRa radio, 30 dBm output, SMA antenna connector. Handles all ground-station telemetry downlink during flight.',
+        side: 'right' },
+      { img: 'A', x: 0.72, y: 0.75,   /* PLACEHOLDER */
+        label: 'SWD debug header',
+        caption: 'Amphenol 2×5 1.27 mm header. OpenOCD + J-Link Mini for flashing and stepping through bare-metal C.',
+        side: 'right' },
+
+      /* ── Image B — Copper PCB layout (avionics-copper-layout.png) ── */
+      { img: 'B', x: 0.68, y: 0.30,   /* PLACEHOLDER */
+        label: '50 Ω RF trace',
+        caption: '11.2 mil trace on outer copper, calculated for JLC\'s 4-layer stackup. No 90° bends; all corners chamfered.',
+        side: 'right' },
+      { img: 'B', x: 0.38, y: 0.65,   /* PLACEHOLDER */
+        label: 'Ground plane',
+        caption: 'Unbroken GND pour on Layer 2. Reduces loop inductance on the power rail and serves as the RF return path.',
+        side: 'left' },
+
+      /* ── Image C — Power section detail (avionics-power-detail.png) ── */
+      { img: 'C', x: 0.35, y: 0.30,   /* PLACEHOLDER */
+        label: 'AP2112K-3.3',
+        caption: '600 mA LDO regulator. Supplies the 3.3 V rail to MCU, GNSS, flash, and IO — comfortably above worst-case radio TX burst.',
+        side: 'left' },
+      { img: 'C', x: 0.58, y: 0.52,   /* PLACEHOLDER */
+        label: 'LTC4412 power mux',
+        caption: 'Ideal diode controller + PMOSFET. USB takes priority with <50 mV drop; LiPo cuts in instantly when USB is removed.',
+        side: 'right' },
+      { img: 'C', x: 0.42, y: 0.75,   /* PLACEHOLDER */
+        label: 'PRTR5V0U2X ESD',
+        caption: 'Dual-rail TVS on USB D+/D−. 0.5 pF load capacitance, IEC 61000-4-2 Level 4 rated.',
+        side: 'left' },
+    ];
+
+    const wrap     = document.getElementById('tour-wrap');
+    const stage    = document.getElementById('tour-stage');
+    const tcIntro  = document.getElementById('tc-intro');
+    const leader   = document.getElementById('tour-leader');
+    const tlDot    = document.getElementById('tl-dot');
+    const tlLine   = document.getElementById('tl-line');
+    const tlText   = document.getElementById('tl-text');
+    const tlLbl    = document.getElementById('tl-lbl');
+    const tlCap    = document.getElementById('tl-cap');
+    const dotsWrap = document.getElementById('tour-dots');
+    if (!wrap || !stage || !leader) return;
+
+    const LAYERS = {
+      A: document.getElementById('tour-layer-A'),
+      B: document.getElementById('tour-layer-B'),
+      C: document.getElementById('tour-layer-C'),
+    };
+    const IMGS = {
+      A: document.getElementById('img-A'),
+      B: document.getElementById('img-B'),
+      C: document.getElementById('img-C'),
+    };
+    const N = STOPS.length;
+
+    const dots = STOPS.map((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'tp-dot' + (i === 0 ? ' active' : '');
+      dotsWrap.appendChild(d);
+      return d;
+    });
+
+    function colPad() { return Math.round(Math.min(window.innerWidth * 0.035, 56)); }
+
+    function getDotPos(stop) {
+      let imgEl = IMGS[stop.img];
+      const stageRect = stage.getBoundingClientRect();
+      let r = imgEl.getBoundingClientRect();
+      if (r.width === 0) { imgEl = IMGS.A; r = imgEl.getBoundingClientRect(); }
+      return {
+        x: r.left - stageRect.left + stop.x * r.width,
+        y: r.top  - stageRect.top  + stop.y * r.height,
+      };
+    }
+
+    const LABEL_H  = 14;
+    const LINE_GAP = 3;
+
+    function placeLeader(idx) {
+      const stop = STOPS[idx];
+      const { x: dotX, y: dotY } = getDotPos(stop);
+      const pad     = colPad();
+      const W       = stage.offsetWidth;
+      const maxW    = Math.round(W / 3 - pad * 2);
+      const textTop = Math.max(8, dotY - LINE_GAP - LABEL_H);
+
+      tlLbl.textContent = stop.label;
+      tlCap.textContent = stop.caption;
+
+      tlDot.style.left = dotX + 'px';
+      tlDot.style.top  = dotY + 'px';
+
+      tlLine.classList.remove('tl-left', 'tl-right');
+
+      if (stop.side === 'left') {
+        tlLine.style.cssText = `left:${pad}px; right:${W - dotX}px; top:${dotY}px;`;
+        tlText.style.cssText = `left:${pad}px; top:${textTop}px; text-align:left; max-width:${maxW}px;`;
+        void tlLine.offsetWidth;
+        tlLine.classList.add('tl-left');
+      } else {
+        tlLine.style.cssText = `left:${dotX}px; right:${pad}px; top:${dotY}px;`;
+        tlText.style.cssText = `right:${pad}px; top:${textTop}px; text-align:right; max-width:${maxW}px;`;
+        void tlLine.offsetWidth;
+        tlLine.classList.add('tl-right');
+      }
+    }
+
+    function setImages(key0, key1, t) {
+      for (const k of ['A', 'B', 'C']) {
+        let op = 0;
+        if (k === key0) op = 1 - t;
+        if (k === key1) op += t;
+        LAYERS[k].style.opacity = op;
+      }
+    }
+
+    const P_INTRO_OUT = 0.12;
+    const P_START     = 0.15;
+    const P_END       = 0.92;
+    const XFADE_AT    = 0.6;
+
+    let activeIdx     = -1;
+    let rafPending    = false;
+    let leaderTimeout = null;
+
+    function scheduleLeader(idx) {
+      clearTimeout(leaderTimeout);
+      leader.classList.remove('tl-visible');
+      const snap = idx;
+      leaderTimeout = setTimeout(() => {
+        if (activeIdx !== snap) return;
+        placeLeader(snap);
+        leader.classList.add('tl-visible');
+      }, 150);
+    }
+
+    function update() {
+      rafPending = false;
+      const rect = wrap.getBoundingClientRect();
+      const scrollRange = wrap.offsetHeight - window.innerHeight;
+      if (scrollRange <= 0) return;
+
+      const p = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
+
+      tcIntro.style.opacity = p < P_INTRO_OUT ? String(1 - p / P_INTRO_OUT) : '0';
+
+      if (p < P_START) {
+        if (activeIdx !== -1) {
+          activeIdx = -1;
+          clearTimeout(leaderTimeout);
+          leader.classList.remove('tl-visible');
+          dots.forEach(d => d.classList.remove('active'));
+        }
+        setImages('A', 'A', 0);
+        return;
+      }
+
+      if (p >= P_END) {
+        if (activeIdx !== -1) {
+          activeIdx = -1;
+          clearTimeout(leaderTimeout);
+          leader.classList.remove('tl-visible');
+          dots.forEach(d => d.classList.remove('active'));
+        }
+        setImages(STOPS[N - 1].img, STOPS[N - 1].img, 0);
+        return;
+      }
+
+      const t   = (p - P_START) / (P_END - P_START);
+      const raw = t * N;
+      const i   = Math.min(Math.floor(raw), N - 1);
+      const f   = raw - i;
+      const s0  = STOPS[i];
+      const s1  = STOPS[Math.min(i + 1, N - 1)];
+
+      if (s0.img === s1.img || i === N - 1) {
+        setImages(s0.img, s0.img, 0);
+      } else {
+        const xf = Math.min(Math.max((f - XFADE_AT) / (1 - XFADE_AT), 0), 1);
+        setImages(s0.img, s1.img, xf);
+      }
+
+      dots.forEach((d, di) => d.classList.toggle('active', di === i));
+
+      if (i !== activeIdx) {
+        activeIdx = i;
+        scheduleLeader(i);
+      }
+    }
+
+    function onScroll() {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(update);
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', () => {
+      clearTimeout(leaderTimeout);
+      leader.classList.remove('tl-visible');
+      activeIdx = -1;
+      update();
+    }, { passive: true });
+
+    new IntersectionObserver((entries) => {
+      const wc = entries[0].isIntersecting ? 'opacity' : 'auto';
+      Object.values(LAYERS).forEach(l => { l.style.willChange = wc; });
+    }, { threshold: 0 }).observe(stage);
+
+    update();
+  })();
+  </script>
+
 </body>
 </html>
