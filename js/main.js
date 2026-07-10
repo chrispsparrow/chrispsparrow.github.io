@@ -296,3 +296,63 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     setTimeout(() => container.classList.add('ambient'), 5000);
   }, { once: true });
 })();
+
+/* ── FLASHLIGHT REVEAL ───────────────────────────────── */
+(function () {
+  if (REDUCED) return;
+
+  const MAX_R   = 110;   /* spotlight radius px */
+  const FEATHER = 0.60;  /* transparent-core fraction (feather starts here) */
+  const LP_POS  = 0.15;  /* position lerp factor per frame */
+  const LP_R    = 0.10;  /* radius lerp factor per frame */
+
+  function initFlashlight(wrap) {
+    const base = wrap.querySelector('.fl-base');
+    if (!base) return;
+
+    let mx = 0, my = 0;   /* target cursor position (container-relative) */
+    let cx = 0, cy = 0;   /* current lerped position */
+    let cr = 0, tr = 0;   /* current / target radius */
+    let rafId = null, entered = false;
+
+    function applyMask() {
+      if (cr < 0.5) {
+        base.style.webkitMaskImage = '';
+        base.style.maskImage = '';
+      } else {
+        const g = `radial-gradient(circle ${cr.toFixed(1)}px at ${cx.toFixed(1)}px ${cy.toFixed(1)}px, transparent ${Math.round(FEATHER * 100)}%, black 100%)`;
+        base.style.webkitMaskImage = g;
+        base.style.maskImage = g;
+      }
+    }
+
+    function tick() {
+      rafId = null;
+      cx += (mx - cx) * LP_POS;
+      cy += (my - cy) * LP_POS;
+      cr += (tr - cr) * LP_R;
+      applyMask();
+      if (Math.abs(mx - cx) > 0.3 || Math.abs(my - cy) > 0.3 || Math.abs(tr - cr) > 0.3)
+        rafId = requestAnimationFrame(tick);
+    }
+
+    function sched() { if (!rafId) rafId = requestAnimationFrame(tick); }
+
+    wrap.addEventListener('pointermove', function (e) {
+      const r = wrap.getBoundingClientRect();
+      mx = e.clientX - r.left;
+      my = e.clientY - r.top;
+      if (!entered) { cx = mx; cy = my; entered = true; }
+      tr = MAX_R;
+      sched();
+    });
+
+    wrap.addEventListener('pointerleave', function () {
+      tr = 0;
+      entered = false;
+      sched();
+    });
+  }
+
+  document.querySelectorAll('.fl-wrap').forEach(initFlashlight);
+})();

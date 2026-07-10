@@ -1443,6 +1443,65 @@ footer {
 .role-list li::before { content: '—'; color: var(--gold-text); flex-shrink:0; }
 
 /* ============================================================
+   FLASHLIGHT REVEAL
+   ============================================================ */
+/* Container: position:relative is required for absolute children */
+.fl-wrap { position: relative; overflow: hidden; }
+
+/* Card context — both images fill the frame absolutely */
+.card-frame.fl-wrap .fl-hidden,
+.card-frame.fl-wrap .fl-base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Tour stage context — fl-stage wraps the image, sizes to it */
+.fl-stage {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  pointer-events: auto; /* re-enable even when parent tour-layer has pointer-events:none */
+}
+/* position:relative so it participates in stacking order; DOM order puts it above fl-hidden */
+.fl-stage .fl-base {
+  position: relative;
+  max-height: 82vh;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+.fl-stage .fl-hidden {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Reduced-motion: mask always off */
+@media (prefers-reduced-motion: reduce) {
+  .fl-base {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+}
+
+/* ============================================================
    REDUCED MOTION
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
