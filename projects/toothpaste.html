@@ -66,7 +66,6 @@
       align-items: center;
       justify-content: center;
       opacity: 0;
-      pointer-events: none; /* invisible layers must not block the fl-stage below */
     }
     #tour-layer-A { opacity: 1; }
     .tour-layer img {
@@ -382,14 +381,8 @@
 
       <!-- Image layers — middle third (left:33% right:33%), opacity-only crossfades -->
       <div class="tour-layer" id="tour-layer-A">
-        <div class="fl-wrap fl-stage">
-          <img class="fl-hidden"
-               src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
-               alt="" aria-hidden="true">
-          <img class="fl-base"
-               src="../assets/toothpaste/Cornerstone Project Final Image front.png"
-               alt="Front view" id="img-A">
-        </div>
+        <img src="../assets/toothpaste/Cornerstone Project Final Image front.png"
+             alt="Front view" id="img-A">
       </div>
       <div class="tour-layer" id="tour-layer-B">
         <img src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
