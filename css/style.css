@@ -702,8 +702,21 @@ body.intro-active { overflow: hidden; }
 }
 .project-card:hover .card-hover-chip { opacity: 0; }
 
+/* Title/meta overlay pinned to bottom of image frame */
+.card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 4rem 1.25rem 1.25rem;
+  background: linear-gradient(to bottom, transparent 0%, rgba(243,241,236,0.88) 40%, rgba(243,241,236,0.97) 100%);
+  pointer-events: none;
+}
+.card-overlay .card-title { margin-bottom: 0; }
+
 /* Text below the frame */
-.card-body { padding: 1.5rem 0 0; }
+.card-body { padding: 1.25rem 0 0; }
 
 .card-meta {
   display: flex;
