@@ -4,32 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Avionics GPS/Radio PCB — Christopher Sparrow</title>
-  <meta name="description" content="4-layer custom avionics PCB for AerospaceNU's high-power rocket program: ATSAMD21G18A MCU, u-blox SAM-M8Q GNSS, Ebyte E22 LoRa radio, LTC4412 power mux, 50 Ω RF trace. KiCad 8 design by Christopher Sparrow.">
+  <meta name="description" content="Portfolio case study: custom 4-layer KiCad PCB for AerospaceNU's high-power rocket program, integrating u-blox SAM-M8Q GPS and 900 MHz LoRa telemetry downlink.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
   <style>
-    /* ─── AVIONICS PCB PAGE ─────────────────────────────────── */
+    /* ─── AVIONICS PCB — CASE STUDY ─────────────────────────── */
 
-    .tp-breadcrumb {
+    .av-intro {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 6rem 2rem 3rem;
+    }
+
+    .av-breadcrumb {
       display: inline-block;
       font-family: var(--font-mono);
       font-size: 0.6rem;
       letter-spacing: 0.15em;
       color: var(--gold-text);
       text-decoration: none;
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
     }
-    .tp-breadcrumb:hover { opacity: 0.7; }
-    .tp-hero-kicker {
+    .av-breadcrumb:hover { opacity: 0.7; }
+
+    .av-kicker {
       font-family: var(--font-mono);
       font-size: 0.62rem;
       letter-spacing: 0.15em;
       color: var(--text-muted);
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.75rem;
     }
-    .tp-hero-h1 {
+
+    .av-h1 {
       font-size: clamp(2rem, 4.5vw, 3.5rem);
       font-weight: 700;
       line-height: 1.08;
@@ -37,288 +45,80 @@
       margin: 0 0 1.25rem;
       letter-spacing: -0.02em;
     }
-    .tp-hero-tagline {
+
+    .av-tagline {
       font-size: 1rem;
       color: var(--text-muted);
       line-height: 1.7;
-      margin: 0 0 1.5rem;
-    }
-    .tp-hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-    /* ─── SCROLL TOUR ─────────────────────────────────────── */
-    #tour-wrap { position: relative; height: 600vh; }
-
-    #tour-stage {
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow: hidden;
-      background: var(--bg);
+      margin: 0 0 1.25rem;
     }
 
-    /* Image layers — middle third of stage */
-    .tour-layer {
-      position: absolute;
-      left: 33.33%; right: 33.33%;
-      top: 0; bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-    }
-    #tour-layer-A { opacity: 1; }
-    .tour-layer img {
-      max-height: 82vh;
-      max-width: 100%;
-      width: auto;
-      height: auto;
-      display: block;
-      pointer-events: none;
-      user-select: none;
-    }
-
-    /* Title / intro — left col breadcrumb, right col h1; fades as tour begins */
-    #tc-intro {
-      position: absolute;
-      left: 0; right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .tc-left-col,
-    .tc-right-col {
-      width: 33.33%;
-      padding: 0 min(2.5rem, 3.5vw);
-    }
-    .tc-left-col { pointer-events: auto; }
-
-    /* ─── LEADER LINE ─── */
-    #tour-leader {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 11;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    #tour-leader.tl-visible { opacity: 1; }
-
-    .tl-dot {
-      position: absolute;
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--gold-text);
-      transform: translate(-50%, -50%);
-      opacity: 0.9;
-    }
-
-    .tl-line {
-      position: absolute;
-      height: 1px;
-      background: var(--gold-text);
-      opacity: 0.6;
-      transform: scaleX(0);
-    }
-    @keyframes tl-draw {
-      from { transform: scaleX(0); }
-      to   { transform: scaleX(1); }
-    }
-    .tl-line.tl-left {
-      transform-origin: right center;
-      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    }
-    .tl-line.tl-right {
-      transform-origin: left center;
-      animation: tl-draw 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    }
-
-    .tl-text { position: absolute; }
-    .tl-lbl {
+    .av-spec-strip {
       font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.14em;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
       color: var(--gold-text);
-      margin-bottom: 0.3rem;
-      text-transform: uppercase;
-      line-height: 1.3;
-    }
-    .tl-cap {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      line-height: 1.5;
-      margin: 0;
-    }
-
-    /* Progress dots — bottom-right */
-    #tour-dots {
-      position: absolute;
-      bottom: 3.5rem;
-      right: min(4rem, 5vw);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 0.45rem;
-    }
-    .tp-dot {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: var(--border);
-      transition: background 0.25s ease, transform 0.25s ease;
-    }
-    .tp-dot.active {
-      background: var(--gold);
-      transform: scale(1.5);
-    }
-
-    /* ─── FALLBACK (mobile + reduced-motion) ─────────────── */
-    .tour-fallback {
-      display: none;
-      padding: 3rem min(4rem, 5vw);
-      max-width: 840px;
-      margin: 0 auto;
-    }
-    .tf-title-block {
-      padding-bottom: 3rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2.5rem;
-    }
-    .tour-fallback-hdr {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      color: var(--text-muted);
       margin-bottom: 2rem;
     }
-    .tf-item {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 1.25rem;
-      padding: 1.25rem 0;
-      border-bottom: 1px solid var(--border);
+
+    .av-download-btn {
+      display: inline-flex;
       align-items: center;
-    }
-    .tf-item:last-child { border-bottom: none; }
-    .tf-thumb {
-      width: 140px; height: 140px;
-      object-fit: cover;
-      border-radius: 4px;
-    }
-    .tf-label {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      letter-spacing: 0.13em;
-      color: var(--gold-text);
-      margin-bottom: 0.35rem;
-      text-transform: uppercase;
-    }
-    .tf-caption {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-      margin: 0;
-    }
-
-    /* ─── BACKSTORY ─────────────────────────────────────── */
-    .tp-bs {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 4.5rem min(4rem, 5vw) 0;
-    }
-    .tp-bs + .tp-bs { padding-top: 3.5rem; }
-    .tp-bs:last-of-type { padding-bottom: 5rem; }
-    .tp-bs .sec-lbl { margin-bottom: 1.5rem; }
-    .tp-bs p {
-      font-size: 1rem;
-      color: var(--text-muted);
-      line-height: 1.78;
-      margin: 0 0 1.1rem;
-    }
-    .tp-bs p:last-child { margin-bottom: 0; }
-
-    /* ─── INLINE FIGURE ─────────────────────────────────── */
-    .av-figure {
-      margin: 2rem 0 0;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      overflow: hidden;
-      background: #16192b;
-    }
-    .av-figure img {
-      width: 100%;
-      height: auto;
-      max-height: 360px;
-      object-fit: contain;
-      display: block;
-    }
-    .av-figcaption {
+      gap: 0.5rem;
       font-family: var(--font-mono);
       font-size: 0.6rem;
-      letter-spacing: 0.13em;
-      color: var(--text-muted);
-      padding: 0.6rem 1rem;
-      border-top: 1px solid var(--border);
-      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold-text);
+      border: 1px solid var(--gold-border);
+      padding: 0.65rem 1.25rem;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .av-download-btn:hover {
+      background: var(--gold-dim);
+      border-color: var(--gold-text);
     }
 
-    /* ─── BOARD DETAIL GALLERY ──────────────────────────── */
-    .av-gallery {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 4.5rem min(4rem, 5vw) 5rem;
+    /* ─── PDF EMBED ──────────────────────────────────────────── */
+
+    .av-pdf-wrap {
+      padding: 0 2rem 6rem;
     }
-    .av-gallery .sec-lbl { margin-bottom: 2rem; }
-    .av-gallery-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-    }
-    .av-gallery-item { display: flex; flex-direction: column; gap: 0.6rem; }
-    .av-gallery-frame {
-      aspect-ratio: 4 / 3;
-      overflow: hidden;
-      border-radius: 4px;
+
+    .av-pdf-frame {
+      display: block;
+      width: 100%;
+      height: calc(100svh - 4rem);
+      min-height: 600px;
       border: 1px solid var(--border);
-      background: #16192b;
+      background: var(--surface);
+    }
+
+    .av-pdf-fallback {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-    }
-    .av-gallery-frame img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-    .av-gallery-caption {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
-      text-transform: uppercase;
+      gap: 1.5rem;
+      padding: 4rem 2rem;
       text-align: center;
+    }
+    .av-pdf-fallback p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.7;
       margin: 0;
     }
 
-    /* ─── RESPONSIVE ─────────────────────────────────────── */
-    @media (max-width: 560px) {
-      .tp-hero-h1      { font-size: 2rem; }
-      .tp-bs           { padding-left: 1.5rem; padding-right: 1.5rem; }
-      .av-gallery      { padding-left: 1.5rem; padding-right: 1.5rem; }
-      .av-gallery-grid { grid-template-columns: 1fr; }
-    }
-
-    /* ─── REDUCED-MOTION + MOBILE TOUR FALLBACK ─────────── */
-    @media (prefers-reduced-motion: reduce), (max-width: 899px) {
-      #tour-wrap     { height: auto !important; }
-      #tour-stage    { position: static !important; height: auto !important; overflow: visible !important; }
-      .tour-layer,
-      #tc-intro,
-      #tour-leader,
-      #tour-dots     { display: none !important; }
-      .tour-fallback { display: block; }
+    @media (max-width: 640px) {
+      .av-intro   { padding: 5rem 1.5rem 2.5rem; }
+      .av-pdf-wrap { padding: 0 0 4rem; }
+      .av-pdf-frame {
+        height: 75svh;
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+      }
     }
   </style>
 </head>
@@ -339,212 +139,33 @@
     </div>
   </nav>
 
-  <!-- ══ BOARD TOUR ════════════════════════════════════════ -->
-  <div id="tour-wrap">
+  <!-- ── CASE STUDY INTRO ──────────────────────────────────── -->
+  <div class="av-intro">
+    <a href="../#work" class="av-breadcrumb">← BACK TO SELECTED WORK</a>
+    <p class="av-kicker">PORTFOLIO CASE STUDY · REV A · 2026</p>
+    <h1 class="av-h1">Custom Avionics<br>GPS / Radio PCB</h1>
+    <p class="av-tagline">A custom KiCad printed circuit board for rocket GPS position acquisition and a 900 MHz telemetry downlink.</p>
+    <p class="av-spec-strip">SAMD21 · u-blox SAM-M8Q · E22 900 MHz · 1S LiPo / USB</p>
+    <a href="../assets/AVIONICS%20PCB%20FILES/Christopher%20Sparrow%20AerospaceNU%20Avionics%20PCB%20Portfolio%20Update.pdf"
+       download
+       target="_blank"
+       class="av-download-btn">DOWNLOAD PDF · 5.6 MB ↓</a>
+  </div>
 
-    <div id="tour-stage" aria-hidden="true">
-
-      <!-- Title block — fades out as tour begins -->
-      <div id="tc-intro">
-        <div class="tc-left-col">
-          <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
-          <p class="tp-hero-kicker mono">AEROSPACENU · SOLO PROJECT · 2026</p>
-        </div>
-        <div class="tc-right-col">
-          <h1 class="tp-hero-h1">Custom Avionics<br>GPS / Radio<br>PCB</h1>
-          <p class="tp-hero-tagline">A compact 4-layer flight computer integrating GPS telemetry and LoRa radio for AerospaceNU's high-power rocket program.</p>
-          <div class="tp-hero-tags">
-            <span class="tag tag-gold">SOLO PROJECT</span>
-            <span class="tag">KICAD 8</span>
-            <span class="tag">4-LAYER PCB</span>
-            <span class="tag">ATSAMD21</span>
-            <span class="tag">LORA RADIO</span>
-            <span class="tag">RF DESIGN</span>
-          </div>
-        </div>
+  <!-- ── PDF VIEWER ────────────────────────────────────────── -->
+  <div class="av-pdf-wrap">
+    <iframe
+      src="../assets/AVIONICS%20PCB%20FILES/Christopher%20Sparrow%20AerospaceNU%20Avionics%20PCB%20Portfolio%20Update.pdf"
+      class="av-pdf-frame"
+      title="Custom Avionics GPS/Radio PCB — Portfolio Case Study (PDF)">
+      <div class="av-pdf-fallback">
+        <p>Your browser cannot display this PDF inline.<br>Use the button below to open or download it.</p>
+        <a href="../assets/AVIONICS%20PCB%20FILES/Christopher%20Sparrow%20AerospaceNU%20Avionics%20PCB%20Portfolio%20Update.pdf"
+           download
+           target="_blank"
+           class="av-download-btn">DOWNLOAD PDF · 5.6 MB ↓</a>
       </div>
-
-      <!-- Image layers — middle third, opacity-only crossfades -->
-      <div class="tour-layer" id="tour-layer-A">
-        <img src="../assets/avionics/avionics-front-render.png"
-             alt="Avionics PCB — 3D front render" id="img-A">
-      </div>
-      <div class="tour-layer" id="tour-layer-B">
-        <img src="../assets/avionics/avionics-copper-layout.png"
-             alt="Avionics PCB — copper layer layout" id="img-B">
-      </div>
-      <div class="tour-layer" id="tour-layer-C">
-        <img src="../assets/avionics/avionics-power-detail.png"
-             alt="Avionics PCB — power section detail" id="img-C">
-      </div>
-
-      <!-- Leader line overlay -->
-      <div id="tour-leader" aria-hidden="true">
-        <div class="tl-dot"  id="tl-dot"></div>
-        <div class="tl-line" id="tl-line"></div>
-        <div class="tl-text" id="tl-text">
-          <div class="tl-lbl" id="tl-lbl"></div>
-          <p  class="tl-cap" id="tl-cap"></p>
-        </div>
-      </div>
-
-      <!-- Progress dots — bottom-right -->
-      <div id="tour-dots" role="presentation"></div>
-
-    </div><!-- /#tour-stage -->
-
-    <!-- Static fallback — mobile / reduced-motion -->
-    <div class="tour-fallback" aria-label="Board component overview">
-
-      <div class="tf-title-block">
-        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
-        <p class="tp-hero-kicker mono">AEROSPACENU · SOLO PROJECT · 2026</p>
-        <h1 class="tp-hero-h1">Custom Avionics<br>GPS / Radio<br>PCB</h1>
-        <p class="tp-hero-tagline">A compact 4-layer flight computer integrating GPS telemetry and LoRa radio for AerospaceNU's high-power rocket program.</p>
-        <div class="tp-hero-tags">
-          <span class="tag tag-gold">SOLO PROJECT</span>
-          <span class="tag">KICAD 8</span>
-          <span class="tag">4-LAYER PCB</span>
-          <span class="tag">ATSAMD21</span>
-          <span class="tag">LORA RADIO</span>
-          <span class="tag">RF DESIGN</span>
-        </div>
-      </div>
-
-      <div class="tour-fallback-hdr">BOARD COMPONENTS</div>
-
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
-             alt="ATSAMD21G18A MCU">
-        <div>
-          <div class="tf-label">ATSAMD21G18A</div>
-          <p class="tf-caption">Arm Cortex-M0+ MCU, 48 MHz, 256 KB flash. Four SERCOM peripherals drive the GNSS, radio, SPI flash, and USB stack simultaneously.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
-             alt="u-blox SAM-M8Q GNSS">
-        <div>
-          <div class="tf-label">u-blox SAM-M8Q</div>
-          <p class="tf-caption">Concurrent GPS/GLONASS, 10 Hz fix rate. SPI connection avoids I²C clock-stretching at high update rates.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
-             alt="Ebyte E22 LoRa radio">
-        <div>
-          <div class="tf-label">Ebyte E22 / SX1262</div>
-          <p class="tf-caption">900 MHz LoRa radio, 30 dBm output, SMA antenna connector. Handles all ground-station telemetry downlink during flight.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-front-render.png"
-             alt="SWD debug header">
-        <div>
-          <div class="tf-label">SWD debug header</div>
-          <p class="tf-caption">Amphenol 2×5 1.27 mm header. OpenOCD + J-Link Mini for flashing and stepping through bare-metal C.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-copper-layout.png"
-             alt="50 ohm RF trace">
-        <div>
-          <div class="tf-label">50 Ω RF trace</div>
-          <p class="tf-caption">11.2 mil trace on outer copper, calculated for JLC's 4-layer stackup. No 90° bends; all corners chamfered.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-copper-layout.png"
-             alt="Ground plane">
-        <div>
-          <div class="tf-label">Ground plane</div>
-          <p class="tf-caption">Unbroken GND pour on Layer 2. Reduces loop inductance on the power rail and serves as the RF return path for the 50 Ω trace.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
-             alt="AP2112K LDO regulator">
-        <div>
-          <div class="tf-label">AP2112K-3.3</div>
-          <p class="tf-caption">600 mA LDO regulator. Supplies the 3.3 V rail to MCU, GNSS, flash, and IO — comfortably above worst-case radio TX burst.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
-             alt="LTC4412 power mux">
-        <div>
-          <div class="tf-label">LTC4412 power mux</div>
-          <p class="tf-caption">Ideal diode controller + PMOSFET. USB takes priority with &lt;50 mV drop; LiPo cuts in instantly when USB is removed.</p>
-        </div>
-      </div>
-      <div class="tf-item">
-        <img class="tf-thumb" src="../assets/avionics/avionics-power-detail.png"
-             alt="PRTR5V0U2X ESD protection">
-        <div>
-          <div class="tf-label">PRTR5V0U2X ESD</div>
-          <p class="tf-caption">Dual-rail TVS on USB D+/D−. 0.5 pF load capacitance, IEC 61000-4-2 Level 4 rated.</p>
-        </div>
-      </div>
-
-    </div><!-- /.tour-fallback -->
-
-  </div><!-- /#tour-wrap -->
-
-  <!-- ══ BACKSTORY ══════════════════════════════════════════ -->
-
-  <section class="tp-bs reveal" aria-label="The mission">
-    <h2 class="sec-lbl">THE MISSION</h2>
-    <p>AerospaceNU designs and launches high-power rockets to altitudes above 10,000 feet. Off-the-shelf flight computers have fixed sensor configurations and closed firmware — no telemetry at our frequencies, no raw GNSS data, no integration path with the ground station we were building. We needed a custom board that could fly alongside the structural payload, downlink GPS position over LoRa, and survive the mechanical loads of a Mach 0.8 ascent.</p>
-    <p>Every design decision was made against a single hard constraint: the hardware has to work on the first drop. There is no field service. There is no rework at 10,000 feet.</p>
-  </section>
-
-  <section class="tp-bs reveal" aria-label="Architecture and layer stackup">
-    <h2 class="sec-lbl">ARCHITECTURE</h2>
-    <p>The board is a 4-layer stackup: Signal / GND / PWR / Signal. The MCU is an ATSAMD21G18A (Arm Cortex-M0+, 48 MHz, 256 KB flash), chosen for its native USB Full-Speed peripheral, four independent SERCOM modules, and mature driver ecosystem. GNSS is a u-blox SAM-M8Q — concurrent GPS and GLONASS, up to 10 Hz fix rate — connected via SPI to eliminate I²C clock-stretching at high update rates. The LoRa radio is an Ebyte E22-900T30S, SX1262-based, 30 dBm output, with an SMA connector feeding a quarter-wave whip.</p>
-    <p>The unbroken ground pour on Layer 2 is the most important feature of the stackup. It ties all return currents to a common reference, reduces loop inductance on the power rail, and serves as the RF return plane for the 50 Ω antenna trace. Layer 3 carries a poured power plane split into 3.3 V and VBUS domains.</p>
-    <!-- avionics-stackup.png: PCB copper layer view (KiCad export) — no separate stackup diagram was generated -->
-    <figure class="av-figure">
-      <img src="../assets/avionics/avionics-stackup.png"
-           alt="KiCad PCB layout — copper layer view showing all layers">
-      <figcaption class="av-figcaption">KiCad 8 PCB layout · 4-layer: Signal / GND / PWR / Signal</figcaption>
-    </figure>
-  </section>
-
-  <section class="tp-bs reveal" aria-label="RF and antenna design">
-    <h2 class="sec-lbl">RF &amp; ANTENNA</h2>
-    <p>The 50 Ω transmission line from the E22 radio output pin to the SMA connector is the most layout-sensitive part of the board. Trace width was calculated using JLC's published 4-layer stackup parameters: 11.2 mil trace on the outer copper layer over a solid GND reference plane achieves 50 Ω within fabrication tolerances.</p>
-    <p>No 90° bends — every corner is chamfered at 45°. No stubs, no via transitions in the RF path. The SMA connector footprint has a via fence around the keeper tabs and a copper pour keepout under the signal pad. The RF zone is isolated from digital return currents with a moat cut in the outer copper pour. Antenna keepout extends three wavelengths from all metal enclosure walls.</p>
-  </section>
-
-  <section class="tp-bs reveal" aria-label="Power architecture">
-    <h2 class="sec-lbl">POWER ARCHITECTURE</h2>
-    <p>Two supply sources: USB (5 V) and 1S LiPo (3.7 V nominal, 4.2 V charged). The LTC4412 ideal diode controller manages source priority — when USB is present it gates the LiPo PMOSFET with a sub-50 mV forward drop; when USB is removed the LiPo takes over with zero switching glitch. No Schottky D-OR diodes, no voltage droop on handoff.</p>
-    <p>The AP2112K-3.3 LDO runs off whichever source wins, regulating to 3.3 V at up to 600 mA. Worst-case draw: SAM-M8Q at 18 mA, E22 radio at 200 mA TX burst, SAMD21 at 25 mA, peripheral IO at 30 mA — 273 mA peak, 54% of LDO rating with 200 mA headroom. ESD protection on USB D+/D− is a PRTR5V0U2X: 0.5 pF input capacitance to preserve high-speed USB signal integrity, rated IEC 61000-4-2 Level 4.</p>
-  </section>
-
-  <!-- ══ BOARD DETAIL GALLERY ════════════════════════════════ -->
-
-  <div class="av-gallery reveal" aria-label="Board detail gallery">
-    <h2 class="sec-lbl">BOARD DETAIL</h2>
-    <div class="av-gallery-grid">
-
-      <div class="av-gallery-item">
-        <div class="av-gallery-frame">
-          <img src="../assets/avionics/avionics-gallery-1.png"
-               alt="Power section routing — top copper layer overview">
-        </div>
-        <p class="av-gallery-caption">Power section — top copper routing</p>
-      </div>
-
-      <div class="av-gallery-item">
-        <div class="av-gallery-frame">
-          <img src="../assets/avionics/avionics-gallery-2.png"
-               alt="3D power section close-up — LDO and USB circuitry">
-        </div>
-        <p class="av-gallery-caption">3D power rail close-up — LDO &amp; USB</p>
-      </div>
-
-    </div>
+    </iframe>
   </div>
 
   <!-- ── FOOTER ────────────────────────────────────────────── -->
@@ -558,247 +179,16 @@
       <a href="../#contact">Contact</a>
       <a href="#">Résumé</a>
     </nav>
+    <div class="footer-social" aria-label="Social links">
+      <a href="https://www.linkedin.com/in/chrispsparrow" target="_blank" rel="noopener" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <a href="https://github.com/chrispsparrow" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+    </div>
   </footer>
 
   <script src="../js/main.js"></script>
-  <script>
-  /* ── AVIONICS BOARD TOUR ─────────────────────────────────── */
-  (function () {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.innerWidth < 900) return;
-
-    /*
-     * AVIONICS_MARKER_COORDS
-     * All x/y values are PLACEHOLDER — tune against the rendered images at 100% zoom.
-     *   x = fraction of image width  (0 = left edge,   1 = right edge)
-     *   y = fraction of image height (0 = top edge,    1 = bottom edge)
-     * side: 'left'  → label in left column,  line draws from left pad rightward to dot
-     *        'right' → label in right column, line draws from dot leftward to right pad
-     */
-    const STOPS = [
-      /* ── Image A — 3D front render (avionics-front-render.png) ── */
-      { img: 'A', x: 0.42, y: 0.52,   /* PLACEHOLDER — tune against real image */
-        label: 'ATSAMD21G18A',
-        caption: 'Arm Cortex-M0+ MCU, 48 MHz, 256 KB flash. Four SERCOM peripherals drive the GNSS, radio, SPI flash, and USB stack simultaneously.',
-        side: 'left' },
-      { img: 'A', x: 0.32, y: 0.22,   /* PLACEHOLDER */
-        label: 'u-blox SAM-M8Q',
-        caption: 'Concurrent GPS/GLONASS, 10 Hz fix rate. SPI connection avoids I²C clock-stretching at high update rates.',
-        side: 'left' },
-      { img: 'A', x: 0.65, y: 0.40,   /* PLACEHOLDER */
-        label: 'Ebyte E22 / SX1262',
-        caption: '900 MHz LoRa radio, 30 dBm output, SMA antenna connector. Handles all ground-station telemetry downlink during flight.',
-        side: 'right' },
-      { img: 'A', x: 0.72, y: 0.75,   /* PLACEHOLDER */
-        label: 'SWD debug header',
-        caption: 'Amphenol 2×5 1.27 mm header. OpenOCD + J-Link Mini for flashing and stepping through bare-metal C.',
-        side: 'right' },
-
-      /* ── Image B — Copper PCB layout (avionics-copper-layout.png) ── */
-      { img: 'B', x: 0.68, y: 0.30,   /* PLACEHOLDER */
-        label: '50 Ω RF trace',
-        caption: '11.2 mil trace on outer copper, calculated for JLC\'s 4-layer stackup. No 90° bends; all corners chamfered.',
-        side: 'right' },
-      { img: 'B', x: 0.38, y: 0.65,   /* PLACEHOLDER */
-        label: 'Ground plane',
-        caption: 'Unbroken GND pour on Layer 2. Reduces loop inductance on the power rail and serves as the RF return path.',
-        side: 'left' },
-
-      /* ── Image C — Power section detail (avionics-power-detail.png) ── */
-      { img: 'C', x: 0.35, y: 0.30,   /* PLACEHOLDER */
-        label: 'AP2112K-3.3',
-        caption: '600 mA LDO regulator. Supplies the 3.3 V rail to MCU, GNSS, flash, and IO — comfortably above worst-case radio TX burst.',
-        side: 'left' },
-      { img: 'C', x: 0.58, y: 0.52,   /* PLACEHOLDER */
-        label: 'LTC4412 power mux',
-        caption: 'Ideal diode controller + PMOSFET. USB takes priority with <50 mV drop; LiPo cuts in instantly when USB is removed.',
-        side: 'right' },
-      { img: 'C', x: 0.42, y: 0.75,   /* PLACEHOLDER */
-        label: 'PRTR5V0U2X ESD',
-        caption: 'Dual-rail TVS on USB D+/D−. 0.5 pF load capacitance, IEC 61000-4-2 Level 4 rated.',
-        side: 'left' },
-    ];
-
-    const wrap     = document.getElementById('tour-wrap');
-    const stage    = document.getElementById('tour-stage');
-    const tcIntro  = document.getElementById('tc-intro');
-    const leader   = document.getElementById('tour-leader');
-    const tlDot    = document.getElementById('tl-dot');
-    const tlLine   = document.getElementById('tl-line');
-    const tlText   = document.getElementById('tl-text');
-    const tlLbl    = document.getElementById('tl-lbl');
-    const tlCap    = document.getElementById('tl-cap');
-    const dotsWrap = document.getElementById('tour-dots');
-    if (!wrap || !stage || !leader) return;
-
-    const LAYERS = {
-      A: document.getElementById('tour-layer-A'),
-      B: document.getElementById('tour-layer-B'),
-      C: document.getElementById('tour-layer-C'),
-    };
-    const IMGS = {
-      A: document.getElementById('img-A'),
-      B: document.getElementById('img-B'),
-      C: document.getElementById('img-C'),
-    };
-    const N = STOPS.length;
-
-    const dots = STOPS.map((_, i) => {
-      const d = document.createElement('div');
-      d.className = 'tp-dot' + (i === 0 ? ' active' : '');
-      dotsWrap.appendChild(d);
-      return d;
-    });
-
-    function colPad() { return Math.round(Math.min(window.innerWidth * 0.035, 56)); }
-
-    function getDotPos(stop) {
-      let imgEl = IMGS[stop.img];
-      const stageRect = stage.getBoundingClientRect();
-      let r = imgEl.getBoundingClientRect();
-      if (r.width === 0) { imgEl = IMGS.A; r = imgEl.getBoundingClientRect(); }
-      return {
-        x: r.left - stageRect.left + stop.x * r.width,
-        y: r.top  - stageRect.top  + stop.y * r.height,
-      };
-    }
-
-    const LABEL_H  = 14;
-    const LINE_GAP = 3;
-
-    function placeLeader(idx) {
-      const stop = STOPS[idx];
-      const { x: dotX, y: dotY } = getDotPos(stop);
-      const pad     = colPad();
-      const W       = stage.offsetWidth;
-      const maxW    = Math.round(W / 3 - pad * 2);
-      const textTop = Math.max(8, dotY - LINE_GAP - LABEL_H);
-
-      tlLbl.textContent = stop.label;
-      tlCap.textContent = stop.caption;
-
-      tlDot.style.left = dotX + 'px';
-      tlDot.style.top  = dotY + 'px';
-
-      tlLine.classList.remove('tl-left', 'tl-right');
-
-      if (stop.side === 'left') {
-        tlLine.style.cssText = `left:${pad}px; right:${W - dotX}px; top:${dotY}px;`;
-        tlText.style.cssText = `left:${pad}px; top:${textTop}px; text-align:left; max-width:${maxW}px;`;
-        void tlLine.offsetWidth;
-        tlLine.classList.add('tl-left');
-      } else {
-        tlLine.style.cssText = `left:${dotX}px; right:${pad}px; top:${dotY}px;`;
-        tlText.style.cssText = `right:${pad}px; top:${textTop}px; text-align:right; max-width:${maxW}px;`;
-        void tlLine.offsetWidth;
-        tlLine.classList.add('tl-right');
-      }
-    }
-
-    function setImages(key0, key1, t) {
-      for (const k of ['A', 'B', 'C']) {
-        let op = 0;
-        if (k === key0) op = 1 - t;
-        if (k === key1) op += t;
-        LAYERS[k].style.opacity = op;
-      }
-    }
-
-    const P_INTRO_OUT = 0.12;
-    const P_START     = 0.15;
-    const P_END       = 0.92;
-    const XFADE_AT    = 0.6;
-
-    let activeIdx     = -1;
-    let rafPending    = false;
-    let leaderTimeout = null;
-
-    function scheduleLeader(idx) {
-      clearTimeout(leaderTimeout);
-      leader.classList.remove('tl-visible');
-      const snap = idx;
-      leaderTimeout = setTimeout(() => {
-        if (activeIdx !== snap) return;
-        placeLeader(snap);
-        leader.classList.add('tl-visible');
-      }, 150);
-    }
-
-    function update() {
-      rafPending = false;
-      const rect = wrap.getBoundingClientRect();
-      const scrollRange = wrap.offsetHeight - window.innerHeight;
-      if (scrollRange <= 0) return;
-
-      const p = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
-
-      tcIntro.style.opacity = p < P_INTRO_OUT ? String(1 - p / P_INTRO_OUT) : '0';
-
-      if (p < P_START) {
-        if (activeIdx !== -1) {
-          activeIdx = -1;
-          clearTimeout(leaderTimeout);
-          leader.classList.remove('tl-visible');
-          dots.forEach(d => d.classList.remove('active'));
-        }
-        setImages('A', 'A', 0);
-        return;
-      }
-
-      if (p >= P_END) {
-        if (activeIdx !== -1) {
-          activeIdx = -1;
-          clearTimeout(leaderTimeout);
-          leader.classList.remove('tl-visible');
-          dots.forEach(d => d.classList.remove('active'));
-        }
-        setImages(STOPS[N - 1].img, STOPS[N - 1].img, 0);
-        return;
-      }
-
-      const t   = (p - P_START) / (P_END - P_START);
-      const raw = t * N;
-      const i   = Math.min(Math.floor(raw), N - 1);
-      const f   = raw - i;
-      const s0  = STOPS[i];
-      const s1  = STOPS[Math.min(i + 1, N - 1)];
-
-      if (s0.img === s1.img || i === N - 1) {
-        setImages(s0.img, s0.img, 0);
-      } else {
-        const xf = Math.min(Math.max((f - XFADE_AT) / (1 - XFADE_AT), 0), 1);
-        setImages(s0.img, s1.img, xf);
-      }
-
-      dots.forEach((d, di) => d.classList.toggle('active', di === i));
-
-      if (i !== activeIdx) {
-        activeIdx = i;
-        scheduleLeader(i);
-      }
-    }
-
-    function onScroll() {
-      if (rafPending) return;
-      rafPending = true;
-      requestAnimationFrame(update);
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', () => {
-      clearTimeout(leaderTimeout);
-      leader.classList.remove('tl-visible');
-      activeIdx = -1;
-      update();
-    }, { passive: true });
-
-    new IntersectionObserver((entries) => {
-      const wc = entries[0].isIntersecting ? 'opacity' : 'auto';
-      Object.values(LAYERS).forEach(l => { l.style.willChange = wc; });
-    }, { threshold: 0 }).observe(stage);
-
-    update();
-  })();
-  </script>
-
 </body>
 </html>
