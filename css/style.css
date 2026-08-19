@@ -756,6 +756,9 @@ body.intro-active { overflow: hidden; }
 /* ============================================================
    ABOUT
    ============================================================ */
+/* Offset for fixed nav when scrolling to anchor sections */
+#about, #skills, #contact { scroll-margin-top: 5rem; }
+
 #about { position: relative; z-index: 1; background: var(--bg); padding: 2rem 2rem 8rem; }
 
 .about-grid {
