@@ -108,6 +108,24 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   }
 })();
 
+/* ── ANCHOR SCROLL OFFSET ────────────────────────────────── */
+(function () {
+  const nav = document.getElementById('nav');
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href').slice(1);
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      e.preventDefault();
+      const gap = (nav ? nav.getBoundingClientRect().height : 64) + 32;
+      const top = target.getBoundingClientRect().top + window.scrollY - gap;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      history.pushState(null, '', '#' + id);
+    });
+  });
+})();
+
 /* ── HERO PARALLAX ───────────────────────────────────────── */
 (function () {
   if (REDUCED) return;
