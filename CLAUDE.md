@@ -13,6 +13,8 @@ layout exports, etc.), use the one in `Avionics PCB Files x2`.
   `href`/`src` (spaces as `%20`).
 - Do **not** delete or rename anything in the older `AVIONICS PCB FILES` folder.
 
-**Exception (for now):** do NOT change the avionics project's cover image or board
-photos yet (currently sourced from `assets/AVIONICS PCB FILES/`). Those are being
-replaced separately later.
+The homepage avionics card (Selected Work section) now uses an interactive 3D
+viewer — Google `model-viewer`, self-hosted at `js/vendor/model-viewer-4.3.1.min.js`
+— loading the meshopt-optimized model `assets/Avionics PCB Files x2/avionics-pcb.min.glb`
+(optimized from the original `CHRISTOPHER SPARROW-Avionics_GPS_Radio_v2.glb` in the
+same folder). The still image is only the viewer's poster/fallback.

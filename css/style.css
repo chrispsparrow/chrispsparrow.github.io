@@ -410,7 +410,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8rem 2rem 6rem;
+  padding: 6.5rem 2rem 5rem;
   overflow: hidden;
   background: var(--hero-bg);
   color: var(--hero-text);
@@ -475,10 +475,15 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(1.4rem, 3.2vh, 2.4rem);
-  width: min(760px, 100%);
+  /* vh-aware so the bracketed frame stays short enough to fit inside the
+     hero (below the nav, above the bottom) even on shorter viewports */
+  gap: clamp(0.95rem, 2.35vh, 2rem);
+  /* hug the content so the bracket box reads as a near-square, not a wide
+     landscape rectangle. Generous side padding keeps it from getting too narrow. */
+  width: fit-content;
+  max-width: min(760px, 100%);
   margin: 0 auto;
-  padding: clamp(2.4rem, 6vw, 4.5rem) clamp(2rem, 7vw, 5rem);
+  padding: clamp(2rem, 4vh, 3.6rem) clamp(1.8rem, 3.9vw, 2.9rem);
 }
 
 /* Four thin L-shaped gold corner marks — not a full box outline */
@@ -495,9 +500,10 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 .hero-corner.br { bottom: 0; right: 0; border-left: none;  border-top: none; }
 
 .hero-logo {
-  width: clamp(150px, 30vw, 300px);
+  /* capped by viewport height (24.6vh) so it shrinks on short screens */
+  width: min(clamp(157px, 29vw, 314px), 24.6vh);
   height: auto;
-  margin-bottom: clamp(0.3rem, 1vh, 0.8rem);
+  margin-bottom: clamp(0.2rem, 0.9vh, 0.8rem);
 }
 
 .hero-eyebrow {
@@ -509,7 +515,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 .hero-name {
-  font-size: clamp(2.6rem, 8.5vw, 6.5rem);
+  /* capped by viewport height so two lines never overflow short screens */
+  font-size: min(clamp(2.7rem, 9vw, 6.7rem), 9.5vh);
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 0.9;
@@ -677,7 +684,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
      dark hero, rather than a hard seam. */
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
   padding-top: 5rem;
-  padding-bottom: 8rem;
+  padding-bottom: 3rem;
   scroll-margin-top: 80px;
 }
 
@@ -706,14 +713,64 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   white-space: nowrap;
 }
 
-/* Two-column grid, single column below 768 px */
-.work-grid {
+/* Full-height alternating project rows */
+.work-rows { display: flex; flex-direction: column; }
+
+.work-row {
+  min-height: 100svh;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2.5rem;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2.5rem, 6vw, 6rem);
+  align-items: center;
+  padding: 3rem 0;
 }
-@media (max-width: 767px) {
-  .work-grid { grid-template-columns: 1fr; }
+
+.work-row-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 520px;
+  color: inherit;
+  text-decoration: none;
+}
+.work-row-info:focus-visible { outline: 2px solid var(--gold-text); outline-offset: 4px; }
+
+.work-row-title {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0.5rem 0 1.3rem;
+  color: var(--text);
+}
+.work-row-desc {
+  font-size: clamp(0.95rem, 1.15vw, 1.1rem);
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin-bottom: 1.9rem;
+}
+.work-row-info .card-cta { align-self: flex-start; }
+.work-row-info:hover .card-cta { border-color: var(--gold-text); }
+
+.work-row-media { width: 100%; }
+.work-row-media .card-frame {
+  width: 100%;
+  max-width: 540px;
+  aspect-ratio: 4 / 5;
+  max-height: 76svh;
+  margin: 0 auto;
+}
+
+/* Stack on smaller screens; media below the text, natural height */
+@media (max-width: 860px) {
+  .work-row {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 2rem;
+    padding: 3.5rem 0;
+  }
+  .work-row-info { max-width: none; }
+  .work-row-media .card-frame { max-width: 440px; max-height: none; }
 }
 
 /* Card: full flex column, no background */
@@ -836,6 +893,99 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   transition: border-color 0.2s;
 }
 .project-card:hover .card-cta { border-color: var(--gold-text); }
+
+/* ============================================================
+   AVIONICS 3D VIEWER CARD
+   ============================================================ */
+/* Viewer card is a container, not a link. Its text half is the nav link. */
+.project-card--viewer .card-body { display: block; color: inherit; }
+.project-card--viewer .card-body:focus-visible { outline: 2px solid var(--gold-text); outline-offset: 3px; }
+.project-card--viewer:hover .card-cta,
+.project-card--viewer .card-body:hover .card-cta { border-color: var(--gold-text); }
+
+/* Dark "window" panel matching the hero theme, same 4/5 frame as the
+   toothpaste card so the grid stays balanced. */
+.card-viewer {
+  background: var(--hero-bg);
+  border-color: rgba(200,145,58,0.22);
+  overflow: hidden;
+}
+.card-viewer .hero-corner { z-index: 5; }
+
+#av-viewer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background-color: var(--hero-bg);
+  --poster-color: var(--hero-bg);
+  --progress-bar-color: transparent;   /* we draw our own gold bar */
+  --progress-mask: transparent;
+}
+#av-viewer:focus-visible { outline: 2px solid var(--gold-text); outline-offset: -2px; }
+
+/* Thin gold download progress bar (slotted) */
+.av-progress {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 2px;
+  background: transparent;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+.av-progress.done { opacity: 0; }
+.av-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--gold);
+  transition: width 0.2s ease;
+}
+
+/* "DRAG TO ROTATE" hint — fades after first interaction */
+.av-hint {
+  position: absolute;
+  left: 0.85rem;
+  bottom: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.16em;
+  color: var(--hero-text-muted);
+  background: rgba(11,11,11,0.55);
+  padding: 0.25rem 0.5rem;
+  border: 1px solid rgba(200,145,58,0.25);
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 0.5s ease;
+}
+.av-hint.hidden { opacity: 0; }
+
+/* RESET button — monospace label style, top-right */
+.av-reset {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  background: rgba(11,11,11,0.55);
+  border: 1px solid rgba(200,145,58,0.35);
+  border-radius: 3px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  opacity: 0;                     /* revealed once the model is loaded */
+  transition: opacity 0.3s ease, background 0.2s, border-color 0.2s;
+}
+.card-viewer.loaded .av-reset { opacity: 1; }
+.av-reset:hover { background: rgba(200,145,58,0.15); border-color: var(--gold); }
+.av-reset:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-progress-fill, .av-hint, .av-reset { transition: none; }
+}
 
 /* ============================================================
    ABOUT

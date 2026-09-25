@@ -287,6 +287,60 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   });
 })();
 
+/* ── AVIONICS 3D VIEWER ──────────────────────────────────── */
+(function () {
+  const mv = document.getElementById('av-viewer');
+  if (!mv) return;
+
+  const panel    = mv.closest('.card-viewer');
+  const hint     = mv.querySelector('.av-hint');
+  const progress = mv.querySelector('.av-progress');
+  const fill     = mv.querySelector('.av-progress-fill');
+  const resetBtn = mv.querySelector('.av-reset');
+
+  const DEFAULT_ORBIT = '-32deg 58deg 105%';
+  const DEFAULT_FOV   = '30deg';
+
+  /* Reduced motion: no auto-rotate, no camera easing. */
+  if (REDUCED) {
+    mv.removeAttribute('auto-rotate');
+    mv.setAttribute('interaction-prompt', 'none');
+  }
+
+  /* Download progress → thin gold bar. */
+  mv.addEventListener('progress', (e) => {
+    const p = e.detail.totalProgress;
+    if (fill) fill.style.width = (p * 100) + '%';
+    if (progress && p === 1) progress.classList.add('done');
+  });
+
+  /* Reveal RESET once the model is ready. */
+  mv.addEventListener('load', () => { panel && panel.classList.add('loaded'); });
+
+  /* Fade the "DRAG TO ROTATE" hint after the first real interaction. */
+  const hideHint = () => hint && hint.classList.add('hidden');
+  mv.addEventListener('pointerdown', hideHint, { once: true });
+  mv.addEventListener('camera-change', (e) => {
+    if (e.detail && e.detail.source === 'user-interaction') hideHint();
+  });
+
+  /* Desktop scroll-wheel must scroll the PAGE, not zoom the model.
+     Stop the event before model-viewer's internal handler sees it, but
+     don't preventDefault, so normal page scrolling continues.
+     Touch pinch-zoom uses touch events, so it is unaffected. */
+  mv.addEventListener('wheel', (e) => { e.stopImmediatePropagation(); }, { capture: true });
+
+  /* RESET → smoothly return to the default three-quarter view. */
+  if (resetBtn) {
+    resetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      mv.setAttribute('camera-orbit', DEFAULT_ORBIT);
+      mv.setAttribute('field-of-view', DEFAULT_FOV);
+      if (REDUCED && typeof mv.jumpCameraToGoal === 'function') mv.jumpCameraToGoal();
+    });
+  }
+})();
+
 /* ── HERO AMBIENT RIPPLE ─────────────────────────────────── */
 (function () {
   if (REDUCED) return;
