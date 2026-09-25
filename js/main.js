@@ -63,7 +63,13 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
     clearTimeout(safetyTimer);
     if (video) video.style.opacity = '0';
     if (bloom) bloom.classList.add('splashed');  /* brief bloom as overlay fades */
-    if (rings) rings.classList.add('splashed');
+    if (rings) {
+      rings.classList.add('splashed');
+      /* Rings scale up huge (visual only) then rest at opacity 0. Being
+         position:fixed they escape body/html overflow clipping and would leave
+         a phantom horizontal scroll, so remove them once the ripple finishes. */
+      setTimeout(() => { rings.style.display = 'none'; }, 3500);
+    }
     reveal();
   };
 
@@ -183,6 +189,46 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   };
   window.addEventListener('scroll', onScroll, { passive: true });
   update();
+})();
+
+/* ── STICKY PROGRESS LABEL ───────────────────────────────── */
+/* Shows "SELECTED WORK · NN / 02" while a project panel is pinned at the top,
+   switching theme (dark on navy, light on mint) and hiding once About covers
+   the panels. A top-strip rootMargin means only the front-most covering panel
+   is "active"; the highest-DOM-order intersecting element wins. */
+(function () {
+  const label = document.querySelector('.work-progress');
+  const av    = document.getElementById('panel-avionics');
+  const tp    = document.getElementById('panel-toothpaste');
+  const after = document.querySelector('.after-panels');
+  if (!label || !av || !tp) return;
+
+  const items = [
+    { el: av,    text: 'SELECTED WORK · 01 / 02', theme: 'dark'  },
+    { el: tp,    text: 'SELECTED WORK · 02 / 02', theme: 'light' },
+    { el: after, text: null },   // About covering → hide the label
+  ].filter(i => i.el);
+
+  const state = new Array(items.length).fill(false);
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      const idx = items.findIndex(i => i.el === e.target);
+      if (idx >= 0) state[idx] = e.isIntersecting;
+    });
+    let active = -1;
+    for (let i = 0; i < state.length; i++) if (state[i]) active = i;
+
+    if (active === -1 || items[active].text === null) {
+      label.classList.remove('visible');
+    } else {
+      if (label.textContent !== items[active].text) label.textContent = items[active].text;
+      label.setAttribute('data-theme', items[active].theme);
+      label.classList.add('visible');
+    }
+  }, { rootMargin: '-80px 0px -80% 0px', threshold: 0 });
+
+  items.forEach(i => io.observe(i.el));
 })();
 
 /* ── SCROLL REVEAL ───────────────────────────────────────── */

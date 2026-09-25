@@ -21,6 +21,13 @@
   --hero-text: #F4F2ED;        /* near-white primary */
   --hero-text-muted: #A5A199;  /* muted light grey — ~7:1 on --hero-bg */
   --hero-bracket: rgba(200,145,58,0.5); /* gold, slightly transparent */
+  /* Full-screen project panel colors (no existing navy/teal var was close) */
+  --panel-avionics: #0d1b2a;            /* deep navy */
+  --panel-toothpaste: #e3efe9;          /* pale mint */
+  --panel-avionics-desc: #A9B7C6;       /* muted light grey-blue for navy panel */
+  --teal: #146b62;                      /* teal text/link — ~5.5:1 on mint */
+  --teal-accent: #1f8f82;               /* brighter teal for brackets/borders */
+  --teal-border: rgba(20,107,98,0.4);
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;
   --ease-expo: cubic-bezier(0.16,1,0.3,1);
@@ -31,7 +38,7 @@
    RESET & BASE
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+html { scroll-behavior: smooth; scroll-padding-top: 6rem; overflow-x: clip; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -406,7 +413,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   position: sticky;
   top: 0;
   height: 100svh;
-  z-index: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -675,16 +682,17 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    WORK / PROJECT CARDS
    ============================================================ */
 
+/* Selected Work = compact sticky intro band (title-block style). Pins at the
+   top while the first project panel slides up over it (same curtain mechanic). */
 #work {
-  position: relative;
-  z-index: 1;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   background: var(--bg);
-  border-top: 1px solid var(--border);
-  /* Soft edge so the off-white section reads as a layer rising over the
-     dark hero, rather than a hard seam. */
+  /* Soft leading edge so the off-white band reads as a layer rising over
+     the dark hero, rather than a hard seam. */
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
-  padding-top: 5rem;
-  padding-bottom: 3rem;
+  padding: 6.5rem 0 2.5rem;   /* top clears the fixed nav when pinned */
   scroll-margin-top: 80px;
 }
 
@@ -694,8 +702,22 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   align-items: baseline;
   gap: 1.5rem;
   flex-wrap: wrap;
-  margin-bottom: 3rem;
 }
+
+/* Thin gold rule under the heading, with REV label right-aligned at its end */
+.work-rule {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 1.1rem;
+}
+.work-rule-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--gold);
+  opacity: 0.75;
+}
+.work-rule .work-h-meta { white-space: nowrap; }
 .work-h-title {
   font-size: clamp(1.75rem, 4.5vw, 3.25rem);
   font-weight: 700;
@@ -759,6 +781,113 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   aspect-ratio: 4 / 5;
   max-height: 76svh;
   margin: 0 auto;
+}
+
+/* ============================================================
+   FULL-SCREEN PROJECT PANELS (sticky curtain chain)
+   Each panel pins at top:0 while the next (higher z-index, solid bg)
+   slides up over it — the same mechanic as hero → Selected Work.
+   ============================================================ */
+.panel {
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 6rem 0 4rem;                 /* top clears the fixed nav */
+  box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.45);   /* soft leading edge */
+}
+.panel-inner {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2.5rem, 6vw, 6rem);
+  align-items: center;
+}
+/* Media fits within one panel height on desktop (was overflowing) */
+.panel .card-frame { max-width: 520px; max-height: 68svh; margin: 0 auto; }
+
+/* z-chain: each panel covers the previous as it rises */
+.panel-avionics   { z-index: 3; background: var(--panel-avionics);   color: var(--hero-text); }
+.panel-toothpaste { z-index: 4; background: var(--panel-toothpaste); color: var(--text); }
+
+/* After-panels: About onward, slides up over the last pinned panel */
+.after-panels {
+  position: relative;
+  z-index: 5;
+  background: var(--bg);
+  box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.4);
+}
+
+/* ── Avionics panel (deep navy) text + viewer ── */
+.panel-avionics .work-row-title { color: var(--hero-text); }
+.panel-avionics .work-row-desc  { color: var(--panel-avionics-desc); }
+.panel-avionics .card-num       { color: var(--gold); }
+.panel-avionics .card-tag       { color: #C7D2DE; border-color: rgba(255,255,255,0.28); }
+.panel-avionics .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
+.panel-avionics .work-row-info:hover .card-cta { border-color: var(--gold); }
+.panel-avionics .work-row-info:focus-visible   { outline-color: var(--gold); }
+/* Viewer box dissolves into the navy panel; board appears to float */
+.panel-avionics .card-viewer { background: var(--panel-avionics); border-color: rgba(255,255,255,0.12); }
+.panel-avionics #av-viewer {
+  background-color: var(--panel-avionics);
+  --poster-color: var(--panel-avionics);
+}
+
+/* ── Toothpaste panel (pale mint) teal accents ── */
+.panel-toothpaste .work-row-title { color: var(--text); }
+.panel-toothpaste .work-row-desc  { color: var(--text-dim); }
+.panel-toothpaste .card-num       { color: var(--teal); }
+.panel-toothpaste .card-tag       { color: var(--teal); border-color: var(--teal-border); }
+.panel-toothpaste .card-cta       { color: var(--teal); border-bottom-color: var(--teal-border); }
+.panel-toothpaste .work-row-info:hover .card-cta { border-color: var(--teal); }
+.panel-toothpaste .work-row-info:focus-visible   { outline-color: var(--teal); }
+/* Photo framed as a card with teal corner brackets */
+.panel-toothpaste .card-frame { border-color: var(--teal-border); background: #eef4f1; }
+.panel-toothpaste .hero-corner { border-color: var(--teal-accent); z-index: 5; }
+
+/* ── Sticky progress label ── */
+.work-progress {
+  position: fixed;
+  top: 5rem;
+  left: 2rem;
+  z-index: 480;              /* below nav (500) */
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.work-progress.visible { opacity: 1; }
+.work-progress[data-theme="dark"]  { color: var(--hero-text); border-color: rgba(255,255,255,0.25); background: rgba(13,27,42,0.55); }
+.work-progress[data-theme="light"] { color: var(--teal); border-color: var(--teal-border); background: rgba(227,239,233,0.7); }
+
+/* ── Mobile / short screens: no pinning, just stacked color bands ── */
+@media (max-width: 900px) {
+  /* #hero stays 'relative' (not sticky) so it remains the containing block for
+     its absolute ripple layer and keeps clipping it (static would let it escape). */
+  #hero { position: relative; height: auto; min-height: 100svh; }
+  #work, .panel, .after-panels { position: static; box-shadow: none; }
+  .panel { min-height: auto; padding: 4rem 0; }
+  .panel-inner { grid-template-columns: 1fr; gap: 2rem; }
+  .panel-inner .work-row-info { max-width: none; }
+  .panel .card-frame { max-height: none; max-width: 440px; }
+  .work-progress { display: none; }
+}
+
+/* ── Reduced motion: no pinning or leading-edge shadows, plain color bands ── */
+@media (prefers-reduced-motion: reduce) {
+  #hero { position: relative !important; height: auto; min-height: 100svh; }
+  #work, .panel, .after-panels { position: static !important; box-shadow: none !important; }
+  .panel { min-height: 100svh; }
+  .work-progress { transition: none; }
 }
 
 /* Stack on smaller screens; media below the text, natural height */
