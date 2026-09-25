@@ -148,6 +148,43 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   });
 })();
 
+/* ── HERO ENTRANCE (staggered fade after loader) ─────────── */
+(function () {
+  if (REDUCED) return;
+  const frame = document.querySelector('.hero-frame');
+  if (!frame) return;
+  document.addEventListener('intro-done', () => {
+    frame.classList.add('hero-enter');
+  }, { once: true });
+})();
+
+/* ── HERO CURTAIN FADE ───────────────────────────────────── */
+/* As #work rises over the sticky hero, gently fade + scale the hero frame
+   so it feels covered rather than abruptly hidden. Skipped for reduced
+   motion (falls back to a plain sticky curtain with no fade). */
+(function () {
+  if (REDUCED) return;
+  const hero  = document.getElementById('hero');
+  const frame = document.querySelector('.hero-frame');
+  if (!hero || !frame) return;
+
+  let raf = false;
+  const update = () => {
+    raf = false;
+    const h = window.innerHeight || 1;
+    const p = Math.min(Math.max(window.scrollY / (h * 0.85), 0), 1);
+    frame.style.opacity   = String(1 - p);
+    frame.style.transform = `scale(${1 - p * 0.06})`;
+  };
+  const onScroll = () => {
+    if (raf) return;
+    raf = true;
+    requestAnimationFrame(update);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  update();
+})();
+
 /* ── SCROLL REVEAL ───────────────────────────────────────── */
 (function () {
   const els = document.querySelectorAll('.reveal');

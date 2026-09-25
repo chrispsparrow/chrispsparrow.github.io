@@ -14,6 +14,13 @@
   --text-muted: #4A4742;
   --text-dim: #6B6560;
   --border: #D0CCC3;
+  /* Dark hero — matches the near-black final frame of the loader video.
+     ffmpeg was unavailable to sample the exact frame, so this uses the
+     specified near-black fallback (#0b0b0b). */
+  --hero-bg: #0b0b0b;
+  --hero-text: #F4F2ED;        /* near-white primary */
+  --hero-text-muted: #A5A199;  /* muted light grey — ~7:1 on --hero-bg */
+  --hero-bracket: rgba(200,145,58,0.5); /* gold, slightly transparent */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;
   --ease-expo: cubic-bezier(0.16,1,0.3,1);
@@ -116,13 +123,17 @@ button { font-family: inherit; }
    INTRO OVERLAY
    ============================================================ */
 
-body.intro-active { overflow: hidden; }
+/* Dark during the whole intro/reveal so no off-white flashes behind the
+   growing clip-path circle before #work covers the viewport. Reverts to the
+   default off-white body background once .intro-active is removed (reveal end),
+   so the narrow section dividers still sit on off-white. */
+body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 #intro {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #F3F1EC;
+  background: var(--hero-bg);
   overflow: hidden;
   transition: opacity 0.25s ease;
   /* nudge tuna's final-frame resting position to screen center */
@@ -401,6 +412,8 @@ body.intro-active { overflow: hidden; }
   justify-content: center;
   padding: 8rem 2rem 6rem;
   overflow: hidden;
+  background: var(--hero-bg);
+  color: var(--hero-text);
 }
 
 /* ── HERO AMBIENT RIPPLE ──────────────────────────────── */
@@ -456,30 +469,60 @@ body.intro-active { overflow: hidden; }
   width: 100%;
 }
 
+/* ── HERO FRAME (corner-bracket motif from the PDF cover) ── */
+.hero-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.4rem, 3.2vh, 2.4rem);
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: clamp(2.4rem, 6vw, 4.5rem) clamp(2rem, 7vw, 5rem);
+}
+
+/* Four thin L-shaped gold corner marks — not a full box outline */
+.hero-corner {
+  position: absolute;
+  width: clamp(26px, 4vw, 38px);
+  height: clamp(26px, 4vw, 38px);
+  border: 1.5px solid var(--hero-bracket);
+  pointer-events: none;
+}
+.hero-corner.tl { top: 0; left: 0;  border-right: none; border-bottom: none; }
+.hero-corner.tr { top: 0; right: 0; border-left: none;  border-bottom: none; }
+.hero-corner.bl { bottom: 0; left: 0;  border-right: none; border-top: none; }
+.hero-corner.br { bottom: 0; right: 0; border-left: none;  border-top: none; }
+
+.hero-logo {
+  width: clamp(150px, 30vw, 300px);
+  height: auto;
+  margin-bottom: clamp(0.3rem, 1vh, 0.8rem);
+}
+
 .hero-eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.35em;
-  color: var(--gold-text);
-  margin-bottom: 2.5rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  color: var(--hero-text-muted);
   display: block;
 }
 
 .hero-name {
-  font-size: clamp(3.2rem, 11vw, 14.5rem);
+  font-size: clamp(2.6rem, 8.5vw, 6.5rem);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 0.88;
-  color: var(--text);
-  margin-bottom: 2.5rem;
+  line-height: 0.9;
+  color: var(--hero-text);
+  margin: 0;
 }
 
 .hero-sub {
   font-family: var(--font-mono);
-  font-size: clamp(0.6rem, 1.4vw, 0.85rem);
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-  margin-bottom: 3.5rem;
+  font-size: clamp(0.6rem, 1.4vw, 0.82rem);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold);
   display: block;
 }
 
@@ -488,6 +531,21 @@ body.intro-active { overflow: hidden; }
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+  margin-top: clamp(0.4rem, 1.5vh, 1rem);
+}
+
+/* Optional staggered entrance after the loader hands off.
+   .hero-enter is added by JS on intro-done (skipped under reduced motion). */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-enter .hero-logo    { animation: heroIn 0.7s var(--ease-expo) both; }
+  .hero-enter .hero-eyebrow { animation: heroIn 0.7s var(--ease-expo) 0.12s both; }
+  .hero-enter .hero-name    { animation: heroIn 0.7s var(--ease-expo) 0.22s both; }
+  .hero-enter .hero-sub     { animation: heroIn 0.7s var(--ease-expo) 0.36s both; }
+  .hero-enter .hero-cta     { animation: heroIn 0.7s var(--ease-expo) 0.48s both; }
+}
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .btn-primary {
@@ -520,6 +578,17 @@ body.intro-active { overflow: hidden; }
 }
 .btn-outline:hover { background: var(--gold-dim); border-color: var(--gold-text); transform: translateY(-2px); }
 
+/* Dark-hero button treatment: the primary stays gold; the outline gets a
+   brighter gold border + text so it reads intentionally on near-black. */
+#hero .btn-outline {
+  border-color: rgba(200,145,58,0.45);
+  color: var(--gold);
+}
+#hero .btn-outline:hover {
+  background: rgba(200,145,58,0.12);
+  border-color: var(--gold);
+}
+
 .hero-scroll {
   position: absolute;
   bottom: 2.5rem;
@@ -529,22 +598,34 @@ body.intro-active { overflow: hidden; }
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  z-index: 1;
   animation: scrollBob 2.5s ease-in-out infinite;
 }
 .hero-scroll span {
   font-family: var(--font-mono);
   font-size: 0.5rem;
   letter-spacing: 0.2em;
-  color: var(--text-muted);
+  color: var(--hero-text-muted);
 }
 .hero-scroll-line {
   width: 1px;
   height: 36px;
-  background: linear-gradient(to bottom, var(--gold-border), transparent);
+  background: linear-gradient(to bottom, rgba(200,145,58,0.6), transparent);
 }
 @keyframes scrollBob {
   0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.6; }
   50%      { transform: translateX(-50%) translateY(6px); opacity: 1; }
+}
+
+/* Mobile: shrink logo/name and tighten spacing so the whole frame fits in
+   one 100svh screen without crowding the nav or the scroll indicator. */
+@media (max-width: 640px) {
+  #hero { padding: 6rem 1.25rem 5rem; }
+  .hero-frame { padding: 2rem 1.4rem; gap: 1.2rem; width: 100%; }
+  .hero-logo { width: clamp(118px, 34vw, 190px); margin-bottom: 0.2rem; }
+  .hero-name { font-size: clamp(2.3rem, 12vw, 3.4rem); }
+  .hero-eyebrow { letter-spacing: 0.22em; }
+  .hero-sub { letter-spacing: 0.2em; }
 }
 
 /* ============================================================
@@ -592,6 +673,9 @@ body.intro-active { overflow: hidden; }
   z-index: 1;
   background: var(--bg);
   border-top: 1px solid var(--border);
+  /* Soft edge so the off-white section reads as a layer rising over the
+     dark hero, rather than a hard seam. */
+  box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
   padding-top: 5rem;
   padding-bottom: 8rem;
   scroll-margin-top: 80px;
