@@ -12,23 +12,40 @@
   <style>
     /* ─── AVIONICS PCB — FULL-SCREEN PDF VIEWER ─────────────── */
 
-    html, body { overflow: hidden; height: 100%; }
+    /* Flex column: site nav + back/download bar stack at the top, the PDF
+       iframe fills the remaining height. */
+    html { height: 100%; }
+    body {
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
 
+    /* Site nav in normal flow (not fixed) on this utility page; opaque and
+       compact regardless of scroll so it always reads over the PDF. */
+    #nav {
+      position: static;
+      flex: 0 0 auto;
+      padding: 1rem 2rem;
+      background: rgba(243, 241, 236, 0.96);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* Secondary bar: back link + download */
     .av-bar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 100;
-      height: 48px;
+      flex: 0 0 auto;
+      height: 42px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 1.5rem;
-      background: rgba(243, 241, 236, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      padding: 0 2rem;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
     }
-
     .av-back {
       font-family: var(--font-mono);
       font-size: 0.58rem;
@@ -38,42 +55,52 @@
       transition: opacity 0.2s;
     }
     .av-back:hover { opacity: 0.7; }
-
     .av-download {
       font-family: var(--font-mono);
       font-size: 0.58rem;
       letter-spacing: 0.12em;
       color: var(--gold-text);
       border: 1px solid var(--gold-border);
-      padding: 0.35rem 0.9rem;
+      padding: 0.3rem 0.85rem;
       text-decoration: none;
       transition: background 0.2s, border-color 0.2s;
     }
-    .av-download:hover {
-      background: var(--gold-dim);
-      border-color: var(--gold-text);
-    }
+    .av-download:hover { background: var(--gold-dim); border-color: var(--gold-text); }
 
     .av-pdf-frame {
-      position: fixed;
-      top: 48px; left: 0; right: 0; bottom: 0;
+      flex: 1 1 auto;
       width: 100%;
-      height: calc(100% - 48px);
+      min-height: 0;      /* allow the iframe to shrink inside the flex column */
       border: none;
       display: block;
     }
 
     @media (max-width: 640px) {
-      .av-bar       { height: 52px; padding: 0 1rem; }
-      .av-pdf-frame { top: 52px; height: calc(100% - 52px); }
+      #nav     { padding: 0.9rem 1rem; }
+      .av-bar  { padding: 0 1rem; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ── OVERLAY BAR ───────────────────────────────────────── -->
+  <!-- ── SITE NAV (matches homepage; links back to home sections) ── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="../index.html" class="nav-name" aria-label="Christopher Sparrow — home">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="../index.html#work">Work</a>
+      <a href="../index.html#about">About</a>
+      <a href="../index.html#skills">Skills</a>
+      <a href="../index.html#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <!-- ── BACK / DOWNLOAD BAR ───────────────────────────────── -->
   <div class="av-bar">
-    <a href="../#work" class="av-back">← SELECTED WORK</a>
+    <a href="../index.html#work" class="av-back">← SELECTED WORK</a>
     <a href="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf"
        download
        target="_blank"
