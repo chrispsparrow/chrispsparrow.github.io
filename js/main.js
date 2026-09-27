@@ -129,6 +129,9 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 /* ── ANCHOR SCROLL OFFSET ────────────────────────────────── */
 (function () {
   const nav = document.getElementById('nav');
+  /* Robust document offset via offsetTop chain — unaffected by sticky pinning
+     (getBoundingClientRect would report 0 for an already-stuck element). */
+  const docTop = (el) => { let y = 0; while (el) { y += el.offsetTop; el = el.offsetParent; } return y; };
   document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
       const id = a.getAttribute('href').slice(1);
@@ -136,8 +139,11 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
       const target = document.getElementById(id);
       if (!target) return;
       e.preventDefault();
-      const gap = (nav ? nav.getBoundingClientRect().height : 64) + 32;
-      const top = target.getBoundingClientRect().top + window.scrollY - gap;
+      /* #work is the sticky Selected Work band: land exactly at its flow top so
+         it pins under the nav and fully covers the hero (no leftover sliver).
+         Other sections sit below the fixed nav, so offset by the nav height. */
+      const gap = (id === 'work') ? 0 : (nav ? nav.getBoundingClientRect().height : 64) + 32;
+      const top = docTop(target) - gap;
       window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
       history.pushState(null, '', '#' + id);
     });

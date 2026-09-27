@@ -693,7 +693,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
      the dark hero, rather than a hard seam. */
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
   padding: 6.5rem 0 2.5rem;   /* top clears the fixed nav when pinned */
-  scroll-margin-top: 80px;
+  /* Negative to cancel html's scroll-padding-top (6rem): anchoring to #work
+     lands it at the very top so it pins and covers the hero (no sliver). */
+  scroll-margin-top: -6rem;
 }
 
 /* Section heading row */
