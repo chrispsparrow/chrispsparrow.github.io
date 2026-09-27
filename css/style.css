@@ -28,6 +28,9 @@
   --teal: #146b62;                      /* teal text/link — ~5.5:1 on mint */
   --teal-accent: #1f8f82;               /* brighter teal for brackets/borders */
   --teal-border: rgba(20,107,98,0.4);
+  /* Coming Soon sub-section only — salmon orange, distinct from gold and teal */
+  --soon-accent: #FF8C69;               /* salmon — dashed border + pulsing dot (decorative) */
+  --soon-text: #B94328;                 /* darker salmon for status text — ~4.7:1 on --bg */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;
   --ease-expo: cubic-bezier(0.16,1,0.3,1);
@@ -706,7 +709,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   flex-wrap: wrap;
 }
 
-/* Thin gold rule under the heading, with REV label right-aligned at its end */
+/* Thin gold rule under the Selected Work heading */
 .work-rule {
   display: flex;
   align-items: center;
@@ -719,7 +722,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   background: var(--gold);
   opacity: 0.75;
 }
-.work-rule .work-h-meta { white-space: nowrap; }
 .work-h-title {
   font-size: clamp(1.75rem, 4.5vw, 3.25rem);
   font-weight: 700;
@@ -729,13 +731,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   letter-spacing: -0.02em;
 }
 .work-h-slash { color: var(--gold); }
-.work-h-meta {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
 
 /* Full-height alternating project rows */
 .work-rows { display: flex; flex-direction: column; }
@@ -851,26 +846,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 .panel-toothpaste .card-frame { border-color: var(--teal-border); background: #eef4f1; }
 .panel-toothpaste .hero-corner { border-color: var(--teal-accent); z-index: 5; }
 
-/* ── Sticky progress label ── */
-.work-progress {
-  position: fixed;
-  top: 5rem;
-  left: 2rem;
-  z-index: 480;              /* below nav (500) */
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.18em;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease;
-}
-.work-progress.visible { opacity: 1; }
-.work-progress[data-theme="dark"]  { color: var(--hero-text); border-color: rgba(255,255,255,0.25); background: rgba(13,27,42,0.55); }
-.work-progress[data-theme="light"] { color: var(--teal); border-color: var(--teal-border); background: rgba(227,239,233,0.7); }
-
 /* ── Mobile / short screens: no pinning, just stacked color bands ── */
 @media (max-width: 900px) {
   /* #hero stays 'relative' (not sticky) so it remains the containing block for
@@ -881,7 +856,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   .panel-inner { grid-template-columns: 1fr; gap: 2rem; }
   .panel-inner .work-row-info { max-width: none; }
   .panel .card-frame { max-height: none; max-width: 440px; }
-  .work-progress { display: none; }
 }
 
 /* ── Reduced motion: no pinning or leading-edge shadows, plain color bands ── */
@@ -889,7 +863,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   #hero { position: relative !important; height: auto; min-height: 100svh; }
   #work, .panel, .after-panels { position: static !important; box-shadow: none !important; }
   .panel { min-height: 100svh; }
-  .work-progress { transition: none; }
 }
 
 /* Stack on smaller screens; media below the text, natural height */
@@ -902,6 +875,94 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   }
   .work-row-info { max-width: none; }
   .work-row-media .card-frame { max-width: 440px; max-height: none; }
+}
+
+/* ============================================================
+   COMING SOON  (Selected Work sub-section)
+   Salmon accent (--soon-accent / --soon-text) is used only here.
+   Compact dashed cards: no cover image, no viewer, no tags, not clickable.
+   ============================================================ */
+.coming-soon {
+  background: var(--bg);
+  padding: clamp(3.5rem, 7vw, 6rem) 2rem clamp(4rem, 8vw, 7rem);
+}
+.coming-soon-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+/* One step below the Selected Work heading so it doesn't compete */
+.coming-soon-title {
+  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0 0 0.6rem;
+}
+.coming-soon-sub {
+  font-size: 1rem;
+  color: var(--text-dim);
+  line-height: 1.7;
+  max-width: 640px;
+  margin: 0 0 2.5rem;
+}
+.coming-soon-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 760px) {
+  .coming-soon-grid { grid-template-columns: 1fr; }
+}
+.soon-card {
+  border: 1.5px dashed var(--soon-accent);
+  border-radius: 6px;
+  background: transparent;
+  padding: 1.6rem 1.75rem 1.85rem;
+}
+/* Status sits at the top, where the published cards show their number */
+.soon-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--soon-text);
+  margin: 0 0 1rem;
+}
+.soon-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  margin: 0 0 0.4rem;
+}
+.soon-meta {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin: 0 0 1rem;
+}
+.soon-desc {
+  font-size: 0.92rem;
+  color: var(--text-dim);
+  line-height: 1.75;
+  margin: 0;
+}
+/* Small salmon dot before "In progress" — slow pulse, hidden from AT */
+.soon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--soon-accent);
+  flex-shrink: 0;
+  animation: soonPulse 2.4s ease-in-out infinite;
+}
+@keyframes soonPulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .soon-dot { animation: none; }
 }
 
 /* Card: full flex column, no background */
@@ -1188,16 +1249,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   position: relative;
 }
 .portrait-box img { width: 100%; height: 100%; object-fit: cover; }
-.portrait-caption {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: 0.6rem 1rem;
-  background: rgba(243,241,236,0.92);
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.15em;
-  color: var(--gold-text);
-}
 
 /* ============================================================
    SKILLS

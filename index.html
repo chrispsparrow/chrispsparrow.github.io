@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -51,9 +51,6 @@
       <a href="assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
     </div>
   </nav>
-
-  <!-- Sticky progress label — shows which project panel is active -->
-  <div class="work-progress" data-theme="dark" aria-hidden="true">SELECTED WORK · 01 / 02</div>
 
   <!-- ── HERO + CURTAIN WRAPPER ─────────────────────────── -->
   <!-- Plain block div: bounds the sticky track so #hero un-sticks after #work covers it.
@@ -118,7 +115,6 @@
       </div>
       <div class="work-rule reveal reveal-d1">
         <span class="work-rule-line" aria-hidden="true"></span>
-        <span class="work-h-meta">REV A · 2 PROJECTS</span>
       </div>
 
     </div><!-- /.container -->
@@ -221,6 +217,30 @@
        panel (About onward). Higher z-index so it covers the sticky panels. -->
   <div class="after-panels">
 
+  <!-- ── COMING SOON (Selected Work sub-section) ──────────────── -->
+  <section class="coming-soon" aria-label="Coming soon">
+    <div class="coming-soon-inner">
+      <h3 class="coming-soon-title reveal">Coming soon to dogtoothsystems.com</h3>
+      <p class="coming-soon-sub reveal reveal-d1">One project I've finished and one I'm building right now. Full write-ups are on the way.</p>
+
+      <div class="coming-soon-grid">
+        <article class="soon-card reveal reveal-d1">
+          <p class="soon-status">Finished, write-up coming soon</p>
+          <h4 class="soon-title">Avionics Flight Computer Firmware</h4>
+          <p class="soon-meta">AerospaceNU, fall 2025, team project with mentors</p>
+          <p class="soon-desc">I worked with mentors on my rocket team to write code for our flight computer. My code reads the pressure and motion sensors and turns their raw numbers into real measurements like altitude, with smoothing so noisy readings don't cause false alarms. It also saves flight data to a memory chip 50 times a second and detects when the rocket launches, reaches its highest point, and lands.</p>
+        </article>
+
+        <article class="soon-card reveal reveal-d2">
+          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
+          <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
+          <p class="soon-meta">AerospaceNU, solo project, started September 2026</p>
+          <p class="soon-desc">I'm building a receiver that picks up live data radioed down from our team's rocket during flight. It decodes the data and sends it over Bluetooth to a laptop or phone, so we can track the rocket in real time. Right now I'm choosing the radio parts and antenna, designing the circuit board in KiCad, and writing the code that receives the data.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <!-- ── ABOUT ─────────────────────────────────────────────── -->
   <div class="sec-div" aria-hidden="true">
     <span class="sec-div-word reveal">ABOUT</span>
@@ -240,7 +260,6 @@
       <div class="about-portrait reveal">
         <div class="portrait-box bracketed">
           <img src="assets/headshot_chapel_softbg_blue.jpg" alt="Christopher Sparrow — headshot">
-          <div class="portrait-caption mono">CHRISTOPHER SPARROW · EE</div>
         </div>
       </div>
     </div>
@@ -384,6 +403,6 @@
     const MV = customElements.get('model-viewer');
     MV.meshoptDecoderLocation = new URL('js/vendor/meshopt_decoder.js', document.baseURI).href;
   </script>
-  <script src="js/main.js?v=7"></script>
+  <script src="js/main.js?v=8"></script>
 </body>
 </html>
