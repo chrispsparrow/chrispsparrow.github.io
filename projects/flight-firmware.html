@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=15">
+  <link rel="stylesheet" href="../css/style.css?v=16">
   <style>
     /* ─── FIRMWARE PAGE ─────────────────────────────────── */
 
@@ -137,13 +137,13 @@
     .fw-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
 
     /* Code snippets */
-    .fw-code-lbl {
+    .fw-sec .fw-code-lbl {
       font-size: 0.88rem;
       color: var(--text-muted);
       line-height: 1.55;
-      margin: 2rem 0 0.75rem;
+      margin: 2.25rem 0 0.75rem;
     }
-    .fw-code-lbl:first-of-type { margin-top: 0.5rem; }
+    .fw-sec .fw-code-lbl:first-of-type { margin-top: 0.5rem; }
     .fw-pre {
       font-family: var(--font-mono);
       font-size: 0.76rem;
@@ -310,6 +310,20 @@
   <section class="fw-sec reveal" aria-labelledby="code-h">
     <h2 class="sec-lbl" id="code-h">Code highlights</h2>
 
+    <p class="fw-code-lbl">The low-pass filter that turns the raw altitude into the smoothed gold line on the chart. Each new reading moves the output 10% of the way toward it.</p>
+    <pre class="fw-pre"><code>float lowPassPosition(float position) {
+    constexpr float alpha = 0.1;
+    static bool initialized = false;
+    static float output = 0;
+    if (!initialized) {
+        output = position;
+        initialized = true;
+        return output;
+    }
+    output += alpha * (position - output);
+    return output;
+}</code></pre>
+
     <p class="fw-code-lbl">The hold timer. <span class="fw-code-inline">check()</span> only returns true once its condition has stayed true for the whole hold time.</p>
     <pre class="fw-pre"><code>class Debounce {
 public:
@@ -370,21 +384,6 @@ private:
 } else if (state == POST_FLIGHT) {
     runCli();
 }</code></pre>
-
-    <p class="fw-code-lbl">The flash write loop. Log entries are 37 bytes and flash pages are 512 bytes, so a write that crosses a page boundary gets split in two.</p>
-    <pre class="fw-pre"><code>void S25FL512::write(uint32_t address, const uint8_t* buffer, uint32_t length) const {
-    uint32_t offset = 0;
-    while (length &gt; 0) {
-        uint32_t currentPageEnd = (address - (address % PAGE_SIZE)) + PAGE_SIZE;
-        uint32_t numberOfBytesToWrite = min(length, currentPageEnd - address);
-
-        pageProgram(address, (buffer + offset), numberOfBytesToWrite);
-
-        length -= numberOfBytesToWrite;
-        address += numberOfBytesToWrite;
-        offset += numberOfBytesToWrite;
-    }
-}</code></pre>
   </section>
 
   <!-- ── TESTING ──────────────────────────────────────────── -->
@@ -430,6 +429,6 @@ private:
   </footer>
 
   <script src="../js/main.js?v=10"></script>
-  <script src="../js/flight-replay.js?v=1"></script>
+  <script src="../js/flight-replay.js?v=2"></script>
 </body>
 </html>

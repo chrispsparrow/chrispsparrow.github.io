@@ -267,33 +267,31 @@
   }
 
   /**
-   * Mounts a chart.
+   * Mounts an interactive chart.
    * el: the container. Its data-src attribute is the flight-data.json URL.
-   * opts.mini: small, non-interactive version (home page)
+   * opts.fill: the chart takes the container's height (home page panel)
+   *            instead of sizing itself from its width (project page)
    * opts.toggle: button that turns the hold timers off and on
    * opts.summary: element that gets the screen-reader summary
    */
   function mount(el, opts) {
     opts = opts || {};
-    const mini = !!opts.mini;
+    const fill = !!opts.fill;
     let holdTimers = true;
     let series = null;
     const seriesCache = {};
     let hoverK = null;
 
-    el.classList.add('fr-chart', mini ? 'fr-chart--mini' : 'fr-chart--full');
+    el.classList.add('fr-chart', fill ? 'fr-chart--fill' : 'fr-chart--full');
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
     el.appendChild(svg);
 
-    let tip = null;
-    if (!mini) {
-      tip = document.createElement('div');
-      tip.className = 'fr-tip';
-      tip.hidden = true;
-      el.appendChild(tip);
-    }
+    const tip = document.createElement('div');
+    tip.className = 'fr-tip';
+    tip.hidden = true;
+    el.appendChild(tip);
 
     let layout = null;
 
@@ -301,24 +299,23 @@
       if (!series) return;
       const W = Math.max(240, el.clientWidth);
       const narrow = W < 480;
-      const H = mini ? Math.max(200, el.clientHeight)
+      const H = fill ? Math.max(220, el.clientHeight)
                      : narrow ? 340 : Math.round(Math.max(300, Math.min(460, W * 0.5)));
-      const m = mini ? { l: 14, r: 14, b: 18 } : { l: narrow ? 50 : 62, r: narrow ? 12 : 20, b: 40 };
+      const m = { l: narrow ? 50 : 62, r: narrow ? 12 : 20, b: 40 };
       const pw = W - m.l - m.r;
       const x = t => m.l + (t / CROP_S) * pw;
 
       // Event labels sit in rows above the plot. Lay them out first (they only
       // depend on x), stacking any that would overlap, then size the top margin.
-      const labelY = mini ? 14 : 16;
-      const rowH = mini ? 13 : 16;
+      const labelY = 16, rowH = 16;
       const rowsEnd = [];
       const labels = [];
       for (const [key, name] of EVENTS) {
         const ev = series.events[key];
         if (!ev) continue;
         const ex = x(ev.t);
-        const text = mini ? name : `${name} ${fmtTime(ev.ms)}`;
-        const tw = text.length * (mini ? 6.2 : 7.1) + 8;
+        const text = `${name} ${fmtTime(ev.ms)}`;
+        const tw = text.length * 7.1 + 8;
         const anchorEnd = ex + tw > W - 4;
         const left = anchorEnd ? ex - tw : ex;
         let row = 0;
@@ -326,7 +323,7 @@
         rowsEnd[row] = left + tw;
         labels.push({ ev, ex, text, anchorEnd, ly: labelY + row * rowH });
       }
-      m.t = labelY + Math.max(0, rowsEnd.length - 1) * rowH + (mini ? 16 : 20);
+      m.t = labelY + Math.max(0, rowsEnd.length - 1) * rowH + 20;
       const ph = H - m.t - m.b;
 
       // Height axis: nice steps from 0 up. The dip at ignition is only a meter or
@@ -334,7 +331,7 @@
       const pts = series.pts;
       let yMax = 0, dataMin = 0;
       for (const p of pts) { yMax = Math.max(yMax, p.raw, p.smooth); dataMin = Math.min(dataMin, p.raw, p.smooth); }
-      const yStep = niceStep(yMax - dataMin, mini ? 3 : 6);
+      const yStep = niceStep(yMax - dataMin, ph < 260 ? 4 : 6);
       yMax = Math.ceil(yMax / yStep) * yStep;
       const yMin = dataMin - (yMax - dataMin) * 0.02;
       const y = h => m.t + (1 - (h - yMin) / (yMax - yMin)) * ph;
@@ -348,25 +345,21 @@
         return d;
       };
 
+      // grid + axes
       let s = '';
-      if (!mini) {
-        // grid + axes
-        for (let v = 0; v <= yMax + 1e-9; v += yStep) {
-          s += `<line class="fr-grid" x1="${m.l}" x2="${m.l + pw}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>`;
-          s += `<text class="fr-axis" x="${m.l - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`;
-        }
-        s += `<line class="fr-tick" x1="${m.l}" x2="${m.l + pw}" y1="${m.t + ph}" y2="${m.t + ph}"/>`;
-        const xStep = narrow ? 20 : 10;
-        for (let t = 0; t <= CROP_S; t += xStep) {
-          s += `<line class="fr-tick" x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${m.t + ph}" y2="${m.t + ph + 5}"/>`;
-          s += `<text class="fr-axis" x="${x(t).toFixed(1)}" y="${m.t + ph + 19}" text-anchor="middle">${t}</text>`;
-        }
-        s += `<text class="fr-axis-title" x="${m.l + pw}" y="${H - 4}" text-anchor="end">Time (s)</text>`;
-        const ty = m.t + ph / 2;
-        s += `<text class="fr-axis-title" x="14" y="${ty.toFixed(1)}" text-anchor="middle" transform="rotate(-90 14 ${ty.toFixed(1)})">Height above start (m)</text>`;
-      } else {
-        s += `<line class="fr-grid" x1="${m.l}" x2="${m.l + pw}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"/>`;
+      for (let v = 0; v <= yMax + 1e-9; v += yStep) {
+        s += `<line class="fr-grid" x1="${m.l}" x2="${m.l + pw}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>`;
+        s += `<text class="fr-axis" x="${m.l - 8}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`;
       }
+      s += `<line class="fr-tick" x1="${m.l}" x2="${m.l + pw}" y1="${m.t + ph}" y2="${m.t + ph}"/>`;
+      const xStep = narrow ? 20 : 10;
+      for (let t = 0; t <= CROP_S; t += xStep) {
+        s += `<line class="fr-tick" x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="${m.t + ph}" y2="${m.t + ph + 5}"/>`;
+        s += `<text class="fr-axis" x="${x(t).toFixed(1)}" y="${m.t + ph + 19}" text-anchor="middle">${t}</text>`;
+      }
+      s += `<text class="fr-axis-title" x="${m.l + pw}" y="${H - 4}" text-anchor="end">Time (s)</text>`;
+      const ty = m.t + ph / 2;
+      s += `<text class="fr-axis-title" x="14" y="${ty.toFixed(1)}" text-anchor="middle" transform="rotate(-90 14 ${ty.toFixed(1)})">Height above start (m)</text>`;
 
       s += `<path class="fr-raw" d="${path('raw')}"/>`;
       s += `<path class="fr-smooth" d="${path('smooth')}"/>`;
@@ -375,14 +368,12 @@
       for (const { ev, ex, text, anchorEnd, ly } of labels) {
         const ey = y(ev.h);
         s += `<line class="fr-event-line" x1="${ex.toFixed(1)}" x2="${ex.toFixed(1)}" y1="${ly + 4}" y2="${ey.toFixed(1)}"/>`;
-        s += `<circle class="fr-event-dot" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="${mini ? 3.5 : 4.5}"/>`;
+        s += `<circle class="fr-event-dot" cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="4.5"/>`;
         s += `<text class="fr-event-label" x="${(anchorEnd ? ex - 5 : ex + 5).toFixed(1)}" y="${ly}" text-anchor="${anchorEnd ? 'end' : 'start'}">${text}</text>`;
       }
 
-      if (!mini) {
-        s += `<line class="fr-cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ph}" visibility="hidden"/>`;
-        s += `<circle class="fr-hover-dot" r="4" visibility="hidden"/>`;
-      }
+      s += `<line class="fr-cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ph}" visibility="hidden"/>`;
+      s += `<circle class="fr-hover-dot" r="4" visibility="hidden"/>`;
 
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('width', W);
@@ -403,7 +394,7 @@
     }
 
     function showHover(k) {
-      if (!layout || !tip) return;
+      if (!layout) return;
       hoverK = k;
       const p = series.pts[k];
       const cx = layout.x(p.t), cy = layout.y(p.smooth);
@@ -420,14 +411,13 @@
       const tw = tip.offsetWidth, th = tip.offsetHeight;
       let left = cx + 12;
       if (left + tw > layout.W - 4) left = cx - tw - 12;
-      let top = Math.min(Math.max(cy - th - 12, layout.m.t), layout.m.t + layout.ph - th);
+      const top = Math.min(Math.max(cy - th - 12, layout.m.t), layout.m.t + layout.ph - th);
       tip.style.left = Math.max(4, left) + 'px';
       tip.style.top = top + 'px';
     }
 
     function hideHover() {
       hoverK = null;
-      if (!tip) return;
       tip.hidden = true;
       const cross = svg.querySelector('.fr-cross'), dot = svg.querySelector('.fr-hover-dot');
       if (cross) cross.setAttribute('visibility', 'hidden');
@@ -441,26 +431,24 @@
       return nearest(Math.min(Math.max(t, 0), CROP_S));
     }
 
-    if (!mini) {
-      el.tabIndex = 0;
-      el.setAttribute('role', 'group');
-      el.setAttribute('aria-label', 'Flight replay chart. Use the left and right arrow keys to move through the flight.');
-      el.addEventListener('pointermove', ev => { if (series && layout) showHover(pointerToK(ev)); });
-      el.addEventListener('pointerdown', ev => { if (series && layout) showHover(pointerToK(ev)); });
-      el.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') hideHover(); });
-      el.addEventListener('keydown', ev => {
-        if (!series) return;
-        const stepS = ev.shiftKey ? 5 : 0.5;
-        let t = hoverK === null ? 0 : series.pts[hoverK].t;
-        if (ev.key === 'ArrowRight') t += stepS;
-        else if (ev.key === 'ArrowLeft') t -= stepS;
-        else if (ev.key === 'Escape') { hideHover(); return; }
-        else return;
-        ev.preventDefault();
-        showHover(nearest(Math.min(Math.max(t, 0), CROP_S)));
-      });
-      el.addEventListener('blur', hideHover);
-    }
+    el.tabIndex = 0;
+    el.setAttribute('role', 'group');
+    el.setAttribute('aria-label', 'Flight replay chart. Use the left and right arrow keys to move through the flight.');
+    el.addEventListener('pointermove', ev => { if (series && layout) showHover(pointerToK(ev)); });
+    el.addEventListener('pointerdown', ev => { if (series && layout) showHover(pointerToK(ev)); });
+    el.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') hideHover(); });
+    el.addEventListener('keydown', ev => {
+      if (!series) return;
+      const stepS = ev.shiftKey ? 5 : 0.5;
+      let t = hoverK === null ? 0 : series.pts[hoverK].t;
+      if (ev.key === 'ArrowRight') t += stepS;
+      else if (ev.key === 'ArrowLeft') t -= stepS;
+      else if (ev.key === 'Escape') { hideHover(); return; }
+      else return;
+      ev.preventDefault();
+      showHover(nearest(Math.min(Math.max(t, 0), CROP_S)));
+    });
+    el.addEventListener('blur', hideHover);
 
     function setHoldTimers(on) {
       holdTimers = on;
@@ -494,17 +482,18 @@
 
   root.FlightChart = { mount };
 
-  // Auto-mount: [data-flight-chart="full"] on the project page, "mini" on the home page.
-  // The mini chart waits until it's close to the screen so the home page loads light.
+  // Auto-mount: data-flight-chart="full" on the project page, "panel" on the
+  // home page. The panel chart fills its card and waits until it's close to
+  // the screen before loading the data, so the home page loads light.
   function autoMount() {
     document.querySelectorAll('[data-flight-chart]').forEach(el => {
-      const mini = el.dataset.flightChart === 'mini';
+      const panel = el.dataset.flightChart === 'panel';
       const go = () => mount(el, {
-        mini,
+        fill: panel,
         toggle: document.getElementById(el.dataset.toggle || ''),
         summary: document.getElementById(el.dataset.summary || '')
       });
-      if (mini && 'IntersectionObserver' in window) {
+      if (panel && 'IntersectionObserver' in window) {
         const io = new IntersectionObserver((entries) => {
           if (entries.some(e => e.isIntersecting)) { io.disconnect(); go(); }
         }, { rootMargin: '600px 0px' });

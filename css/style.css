@@ -39,7 +39,7 @@
   --contact-bg-deep: #8C3E2A;           /* darker rust for hover — off-white 6.6:1 */
   --contact-line: rgba(244,242,237,0.7);/* off-white outlines on rust — ~3.4:1 */
   --dark-line: rgba(244,242,237,0.14);  /* hairline dividers on navy, charcoal, and black */
-  --chart-raw: #6FB6E8;                 /* flight chart raw altitude, drawn as a halo under the gold line */
+  --chart-raw: #22E4FF;                 /* flight chart raw altitude: neon cyan glow under the gold line */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-text: 'Funnel Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;   /* code blocks and the hero labels/buttons only */
@@ -845,18 +845,34 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   --poster-color: var(--panel-avionics);
 }
 
-/* ── Firmware panel (charcoal) text + mini flight chart ── */
+/* ── Firmware panel (charcoal) text + interactive flight chart ── */
 .panel-firmware .work-row-title { color: var(--hero-text); }
 .panel-firmware .work-row-desc  { color: var(--hero-text-muted); }
 .panel-firmware .card-tag       { color: #C9C5BD; border-color: rgba(244,242,237,0.28); }
 .panel-firmware .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
-.panel-firmware .work-row-info:hover .card-cta,
-.panel-firmware .project-card:hover ~ .work-row-info .card-cta { border-color: var(--gold); }
-.panel-firmware .work-row-info:focus-visible,
-.panel-firmware .project-card:focus-visible { outline-color: var(--gold); }
+.panel-firmware .work-row-info:hover .card-cta { border-color: var(--gold); }
+.panel-firmware .work-row-info:focus-visible   { outline-color: var(--gold); }
 .panel-firmware .card-frame { background: var(--skills-surface); border-color: var(--dark-line); }
-.panel-firmware .card-frame .fr-chart { position: absolute; inset: 1.4rem 1.2rem; }
 .panel-firmware .hero-corner { z-index: 5; }
+/* Chart card: legend on top, chart fills the middle, hold-timer button below */
+.fr-frame-inner {
+  position: absolute;
+  inset: 1.1rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.fr-frame-inner .fr-legend { font-size: 0.78rem; gap: 0.3rem 1rem; }
+.fr-frame-inner .fr-chart { flex: 1 1 0; }
+.fr-frame-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.fr-frame-foot .fr-toggle { font-size: 0.8rem; padding: 0.4rem 0.75rem; }
+.fr-hint { font-size: 0.78rem; color: var(--hero-text-muted); }
 
 /* ── Toothpaste panel (pale mint) teal accents ── */
 .panel-toothpaste .work-row-title { color: var(--text); }
@@ -1946,24 +1962,27 @@ footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 .fr-chart { position: relative; width: 100%; }
 .fr-chart svg { display: block; overflow: visible; }
-.fr-chart--full { min-height: 280px; touch-action: pan-y; cursor: crosshair; border-radius: 4px; }
-.fr-chart--full:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
-.fr-chart--mini { height: 100%; pointer-events: none; }
+.fr-chart--full,
+.fr-chart--fill { touch-action: pan-y; cursor: crosshair; border-radius: 4px; }
+.fr-chart--full { min-height: 280px; }
+.fr-chart--full:focus-visible,
+.fr-chart--fill:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+/* Fill mode: the card sets the size, so the SVG can't push the box taller */
+.fr-chart--fill { min-height: 0; }
+.fr-chart--fill svg { position: absolute; top: 0; left: 0; }
 .fr-chart.fr-failed { min-height: 0; }
 
 .fr-grid  { stroke: var(--dark-line); stroke-width: 1; }
 .fr-tick  { stroke: rgba(244,242,237,0.3); stroke-width: 1; }
 .fr-axis  { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
 .fr-axis-title { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
-.fr-raw    { fill: none; stroke: var(--chart-raw); stroke-width: 3; stroke-opacity: 0.7; stroke-linejoin: round; stroke-linecap: round; }
+.fr-raw    { fill: none; stroke: var(--chart-raw); stroke-width: 4.5; stroke-opacity: 0.9; stroke-linejoin: round; stroke-linecap: round; }
 .fr-smooth { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .fr-event-line  { stroke: rgba(244,242,237,0.45); stroke-width: 1; stroke-dasharray: 3 3; }
 .fr-event-dot   { fill: var(--skills-bg); stroke: var(--hero-text); stroke-width: 2; }
 .fr-event-label { fill: var(--hero-text); font-family: var(--font-text); font-size: 12.5px; font-weight: 600; }
 .fr-cross     { stroke: rgba(244,242,237,0.55); stroke-width: 1; pointer-events: none; }
 .fr-hover-dot { fill: var(--gold); stroke: var(--skills-bg); stroke-width: 2; pointer-events: none; }
-.fr-chart--mini .fr-smooth { stroke-width: 2.25; }
-.fr-chart--mini .fr-event-label { font-size: 11px; }
 
 .fr-tip {
   position: absolute;
@@ -1997,7 +2016,7 @@ footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .fr-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.85rem; color: var(--hero-text-muted); }
 .fr-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
 .fr-key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--gold); }
-.fr-key--raw { border-top: 3px solid var(--chart-raw); opacity: 0.8; }
+.fr-key--raw { border-top: 4px solid var(--chart-raw); opacity: 0.9; }
 .fr-key--event { width: 9px; height: 9px; border: 2px solid var(--hero-text); border-radius: 50%; }
 
 .fr-toggle {

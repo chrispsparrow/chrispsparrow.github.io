@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -194,21 +194,36 @@
     </div>
   </section>
 
-  <!-- ── Firmware panel (charcoal) : mini flight chart LEFT, info RIGHT ── -->
+  <!-- ── Firmware panel (charcoal) : interactive flight chart LEFT, info RIGHT ── -->
   <section id="panel-firmware" class="panel panel-firmware" aria-label="Avionics Flight Computer Firmware">
     <div class="panel-inner">
-      <a class="work-row-media project-card reveal" href="projects/flight-firmware.html"
-         aria-label="Avionics Flight Computer Firmware, view the project">
+      <!-- Media is its own region (NOT a link) so hovering and tapping the chart never navigates -->
+      <div class="work-row-media reveal">
         <div class="card-frame">
           <span class="hero-corner tl" aria-hidden="true"></span>
           <span class="hero-corner tr" aria-hidden="true"></span>
           <span class="hero-corner bl" aria-hidden="true"></span>
           <span class="hero-corner br" aria-hidden="true"></span>
-          <!-- Small, non-interactive flight replay chart (js/flight-replay.js) -->
-          <div class="fr-chart fr-chart--mini" data-flight-chart="mini"
-               data-src="assets/firmware/flight-data.json" aria-hidden="true"></div>
+          <!-- Interactive flight replay chart (js/flight-replay.js) -->
+          <div class="fr-frame-inner">
+            <div class="fr-legend" aria-hidden="true">
+              <span><i class="fr-key"></i>Smoothed altitude</span>
+              <span><i class="fr-key fr-key--raw"></i>Raw altitude</span>
+              <span><i class="fr-key fr-key--event"></i>Called by the code</span>
+            </div>
+            <div class="fr-chart" id="home-flight-chart"
+                 data-flight-chart="panel"
+                 data-src="assets/firmware/flight-data.json"
+                 data-toggle="home-fr-toggle"
+                 data-summary="home-fr-summary"></div>
+            <p id="home-fr-summary" class="sr-only" aria-live="polite"></p>
+            <div class="fr-frame-foot">
+              <button id="home-fr-toggle" class="fr-toggle" type="button" aria-pressed="false">Turn off the hold timers</button>
+              <span class="fr-hint" aria-hidden="true">Hover or tap the chart</span>
+            </div>
+          </div>
         </div>
-      </a>
+      </div>
 
       <a class="work-row-info reveal reveal-d1" href="projects/flight-firmware.html"
          aria-label="Avionics Flight Computer Firmware, view the project">
@@ -290,7 +305,7 @@
     <div class="about-grid">
       <div class="about-text">
         <p class="reveal">I'm <strong>Christopher Sparrow</strong>, an electrical engineering student at Northeastern. Most of the work on this site comes from my contributions to <em>AerospaceNU</em>, Northeastern University's rocketry club. I'm on the avionics subteam, which designs the electronics for club projects like air brakes (flaps that slow the rocket down) and our supersonic carbon fiber rocket.</p>
-        <p class="reveal reveal-d1"><a href="projects/flight-firmware.html">In fall 2025 I worked with mentors on our flight computer's code.</a> Now I'm building two projects on my own. The first is a circuit board built to track the rocket with GPS and radio its position down to the ground. I've already designed the board, and right now I'm assembling it. The second is a ground station, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
+        <p class="reveal reveal-d1"><a href="projects/flight-firmware.html">In fall 2025 I worked with mentors on our flight computer's code.</a> Now I'm building two projects on my own. The first is <a href="projects/avionics-pcb.html">a circuit board built to track the rocket with GPS and radio its position down to the ground</a>. I've already designed the board, and right now I'm assembling it. The second is a ground station, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
         <p class="reveal reveal-d2"><strong>Dogtooth Systems</strong> is named after the dogtooth tuna, and its logo is on circuit boards I've designed and across this site. Some of my deepest passions are freediving and spearfishing, and a lot of spearos have heard stories about the dogtooth being the hardest fish to target. Going after one tests your skill, patience, gear, and how well you know the sport.</p>
         <p class="reveal reveal-d3">I try to bring that same mindset to engineering. With rocket electronics, most of the work happens on the bench long before launch day, and everything has to come together the one time it really matters.</p>
         <p class="reveal reveal-d4">I'm looking for a spring or summer 2027 co-op in hardware, avionics, embedded systems, or radio work.</p>
@@ -449,6 +464,6 @@
     MV.meshoptDecoderLocation = new URL('js/vendor/meshopt_decoder.js', document.baseURI).href;
   </script>
   <script src="js/main.js?v=10"></script>
-  <script src="js/flight-replay.js?v=1"></script>
+  <script src="js/flight-replay.js?v=2"></script>
 </body>
 </html>
