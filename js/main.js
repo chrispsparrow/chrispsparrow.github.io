@@ -151,24 +151,29 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 })();
 
 /* ── HERO PARALLAX ───────────────────────────────────────── */
+/* The hero content drifts opposite the cursor. It eases toward its target
+   each frame, so the bigger movement glides instead of snapping. */
 (function () {
   if (REDUCED) return;
-  const hero    = document.getElementById('hero');
-  const sonar   = hero?.querySelector('.hero-sonar');
-  const content = hero?.querySelector('.hero-content');
-  if (!sonar && !content) return;
+  const content = document.querySelector('#hero .hero-content');
+  if (!content) return;
 
-  let raf = false;
+  const RANGE = 40;    // px of travel across the whole screen (±20px from center)
+  const EASE  = 0.08;  // share of the remaining distance covered each frame
+  let tx = 0, ty = 0, x = 0, y = 0, running = false;
+
+  const step = () => {
+    x += (tx - x) * EASE;
+    y += (ty - y) * EASE;
+    content.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+    if (Math.abs(tx - x) > 0.05 || Math.abs(ty - y) > 0.05) requestAnimationFrame(step);
+    else running = false;
+  };
+
   document.addEventListener('mousemove', (e) => {
-    if (raf) return;
-    raf = true;
-    requestAnimationFrame(() => {
-      const dx = (e.clientX / window.innerWidth  - 0.5);
-      const dy = (e.clientY / window.innerHeight - 0.5);
-      if (sonar)   sonar.style.transform   = `translate(${dx * 22}px, ${dy * 22}px)`;
-      if (content) content.style.transform = `translate(${dx * -7}px, ${dy * -7}px)`;
-      raf = false;
-    });
+    tx = (e.clientX / window.innerWidth  - 0.5) * -RANGE;
+    ty = (e.clientY / window.innerHeight - 0.5) * -RANGE;
+    if (!running) { running = true; requestAnimationFrame(step); }
   });
 })();
 

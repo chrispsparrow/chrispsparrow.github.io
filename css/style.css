@@ -31,8 +31,17 @@
   /* Coming Soon sub-section only — salmon orange, distinct from gold and teal */
   --soon-accent: #FF8C69;               /* salmon — dashed border + pulsing dot (decorative) */
   --soon-text: #B94328;                 /* darker salmon for status text — ~4.7:1 on --bg */
+  /* Lower home page bands: About reuses --panel-avionics (navy), the footer
+     reuses --hero-bg (black). Ratios are for the text colors used on each. */
+  --skills-bg: #1E2227;                 /* charcoal — gold 5.8:1, --hero-text-muted 6.2:1 */
+  --skills-surface: #252A30;            /* skill columns, one step up from charcoal — muted 5.6:1 */
+  --contact-bg: #A34A32;                /* deep rust — off-white text 5.2:1 */
+  --contact-bg-deep: #8C3E2A;           /* darker rust for hover — off-white 6.6:1 */
+  --contact-line: rgba(244,242,237,0.7);/* off-white outlines on rust — ~3.4:1 */
+  --dark-line: rgba(244,242,237,0.14);  /* hairline dividers on navy, charcoal, and black */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: 'Space Mono', 'Courier New', monospace;
+  --font-text: 'Funnel Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Space Mono', 'Courier New', monospace;   /* code blocks and the hero labels/buttons only */
   --ease-expo: cubic-bezier(0.16,1,0.3,1);
   --ease-in-out: cubic-bezier(0.4,0,0.2,1);
 }
@@ -45,7 +54,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 6rem; overflow-x: clip; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-display);
+  font-family: var(--font-text);
   font-size: 1rem;
   line-height: 1.6;
   overflow-x: clip; /* clip, not hidden — hidden creates a scroll container that breaks position:sticky */
@@ -55,15 +64,14 @@ body {
 img, svg { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
+/* Headings (and the nav wordmark) keep the display font; all other text uses --font-text */
+h1, h2, h3, h4, h5, h6, .sec-div-word, .nav-name { font-family: var(--font-display); }
 
 /* ============================================================
    TYPOGRAPHY UTILITIES
    ============================================================ */
 .mono {
-  font-family: var(--font-mono);
-  letter-spacing: 0.1em;
-  font-size: 0.65rem;
-  text-transform: uppercase;
+  font-family: var(--font-text);
 }
 .gold { color: var(--gold-text); }
 .muted { color: var(--text-muted); }
@@ -88,7 +96,7 @@ button { font-family: inherit; }
   position: absolute;
   width: 18px;
   height: 18px;
-  border-color: var(--gold-border);
+  border-color: var(--hero-bracket);   /* only used on the dark About and Skills bands */
   border-style: solid;
   transition: border-color 0.3s ease, width 0.3s ease, height 0.3s ease;
   pointer-events: none;
@@ -96,7 +104,7 @@ button { font-family: inherit; }
 .bracketed::before { top: 0; left: 0; border-width: 1.5px 0 0 1.5px; }
 .bracketed::after  { bottom: 0; right: 0; border-width: 0 1.5px 1.5px 0; }
 .bracketed:hover::before,
-.bracketed:hover::after { border-color: var(--gold-text); width: 22px; height: 22px; }
+.bracketed:hover::after { border-color: var(--gold); width: 22px; height: 22px; }
 
 /* ============================================================
    IMAGE PLACEHOLDERS
@@ -120,7 +128,7 @@ button { font-family: inherit; }
   color: #B8B4AB;
 }
 .img-ph-text {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.55rem;
   letter-spacing: 0.1em;
   color: #9B9690;
@@ -135,8 +143,7 @@ button { font-family: inherit; }
 
 /* Dark during the whole intro/reveal so no off-white flashes behind the
    growing clip-path circle before #work covers the viewport. Reverts to the
-   default off-white body background once .intro-active is removed (reveal end),
-   so the narrow section dividers still sit on off-white. */
+   default off-white body background once .intro-active is removed (reveal end). */
 body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 #intro {
@@ -309,9 +316,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   position: absolute;
   bottom: 2rem;
   right: 2rem;
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font-text);
+  font-size: 0.75rem;
+  letter-spacing: normal;
   color: var(--text-muted);
   cursor: pointer;
   transition: color 0.2s;
@@ -355,9 +362,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   gap: 2.5rem;
 }
 .nav-links a {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
+  font-family: var(--font-text);
+  font-size: 0.9rem;
+  letter-spacing: normal;
   color: var(--text-muted);
   transition: color 0.2s;
 }
@@ -406,7 +413,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
     z-index: 490;
   }
   .nav-links.open { display: flex; }
-  .nav-links a { font-size: 0.75rem; }
+  .nav-links a { font-size: 1.05rem; }
 }
 
 /* ============================================================
@@ -494,6 +501,17 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   max-width: min(760px, 100%);
   margin: 0 auto;
   padding: clamp(2rem, 4vh, 3.6rem) clamp(1.8rem, 3.9vw, 2.9rem);
+  /* Keep the four gold corners on a square: height follows the width and the
+     content sits in the middle. On phones the content is taller than the frame
+     is wide, so it grows past square there. */
+  aspect-ratio: 1 / 1;
+  justify-content: center;
+}
+/* Short desktop screens: a full square won't fit between the nav and the SCROLL
+   cue, so the frame fills the height that is there instead (as close to square
+   as fits). 13.625rem = hero top padding + the SCROLL cue's reach into the bottom. */
+@media (max-height: 760px) and (min-width: 641px) {
+  .hero-frame { aspect-ratio: auto; min-height: calc(100svh - 13.625rem); }
 }
 
 /* Four thin L-shaped gold corner marks — not a full box outline */
@@ -516,14 +534,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   margin-bottom: clamp(0.2rem, 0.9vh, 0.8rem);
 }
 
-.hero-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.3em;
-  color: var(--hero-text-muted);
-  display: block;
-}
-
 .hero-name {
   /* capped by viewport height so two lines never overflow short screens */
   font-size: min(clamp(2.7rem, 9vw, 6.7rem), 9.5vh);
@@ -534,6 +544,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   margin: 0;
 }
 
+/* Hero exception to the Typography rule: the subline, buttons, and SCROLL
+   label keep their original Space Mono look (spaced-out caps). */
 .hero-sub {
   font-family: var(--font-mono);
   font-size: clamp(0.6rem, 1.4vw, 0.82rem);
@@ -555,7 +567,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    .hero-enter is added by JS on intro-done (skipped under reduced motion). */
 @media (prefers-reduced-motion: no-preference) {
   .hero-enter .hero-logo    { animation: heroIn 0.7s var(--ease-expo) both; }
-  .hero-enter .hero-eyebrow { animation: heroIn 0.7s var(--ease-expo) 0.12s both; }
   .hero-enter .hero-name    { animation: heroIn 0.7s var(--ease-expo) 0.22s both; }
   .hero-enter .hero-sub     { animation: heroIn 0.7s var(--ease-expo) 0.36s both; }
   .hero-enter .hero-cta     { animation: heroIn 0.7s var(--ease-expo) 0.48s both; }
@@ -641,19 +652,18 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   .hero-frame { padding: 2rem 1.4rem; gap: 1.2rem; width: 100%; }
   .hero-logo { width: clamp(118px, 34vw, 190px); margin-bottom: 0.2rem; }
   .hero-name { font-size: clamp(2.3rem, 12vw, 3.4rem); }
-  .hero-eyebrow { letter-spacing: 0.22em; }
   .hero-sub { letter-spacing: 0.2em; }
 }
 
 /* ============================================================
    SECTION DIVIDERS
    ============================================================ */
+/* Dividers sit inside a colored .band (About, Skills), so no background or
+   top rule of their own. Words take the band's text color. */
 .sec-div {
   position: relative;
   z-index: 1;
-  background: var(--bg);
   padding: 5rem 2rem 1.5rem;
-  border-top: 1px solid var(--border);
   display: flex;
   align-items: baseline;
   gap: 1.2rem;
@@ -667,11 +677,11 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   letter-spacing: -0.025em;
   line-height: 0.88;
   white-space: nowrap;
-  color: var(--text);
+  color: inherit;
 }
 .sec-div-slash { color: var(--gold); }
 .sec-div-sub {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-text) !important;
   font-size: 0.6rem !important;
   font-weight: 400 !important;
   letter-spacing: 0.2em !important;
@@ -822,7 +832,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Avionics panel (deep navy) text + viewer ── */
 .panel-avionics .work-row-title { color: var(--hero-text); }
 .panel-avionics .work-row-desc  { color: var(--panel-avionics-desc); }
-.panel-avionics .card-num       { color: var(--gold); }
 .panel-avionics .card-tag       { color: #C7D2DE; border-color: rgba(255,255,255,0.28); }
 .panel-avionics .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
 .panel-avionics .work-row-info:hover .card-cta { border-color: var(--gold); }
@@ -837,7 +846,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Toothpaste panel (pale mint) teal accents ── */
 .panel-toothpaste .work-row-title { color: var(--text); }
 .panel-toothpaste .work-row-desc  { color: var(--text-dim); }
-.panel-toothpaste .card-num       { color: var(--teal); }
 .panel-toothpaste .card-tag       { color: var(--teal); border-color: var(--teal-border); }
 .panel-toothpaste .card-cta       { color: var(--teal); border-bottom-color: var(--teal-border); }
 .panel-toothpaste .work-row-info:hover .card-cta { border-color: var(--teal); }
@@ -1026,9 +1034,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   border: 1px solid #DDD9CF;
   border-radius: 3px;
   padding: 0.25rem 0.55rem;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font-text);
+  font-size: 0.75rem;
+  letter-spacing: normal;
   color: var(--text-muted);
   pointer-events: none;
   transition: opacity 0.3s;
@@ -1044,16 +1052,10 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   gap: 0.8rem;
   margin-bottom: 0.75rem;
 }
-.card-num {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.15em;
-  color: var(--gold-text);
-}
 .card-tag {
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font-text);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 2px;
@@ -1076,13 +1078,14 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
+  font-family: var(--font-text);
+  font-size: 0.9rem;
+  letter-spacing: normal;
   color: var(--gold-text);
   border-bottom: 1px solid var(--gold-border);
   padding-bottom: 2px;
   transition: border-color 0.2s;
+  font-weight: 500;
 }
 .project-card:hover .card-cta { border-color: var(--gold-text); }
 
@@ -1140,9 +1143,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   position: absolute;
   left: 0.85rem;
   bottom: 0.85rem;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.16em;
+  font-family: var(--font-text);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
   color: var(--hero-text-muted);
   background: rgba(11,11,11,0.55);
   padding: 0.25rem 0.5rem;
@@ -1159,9 +1162,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   position: absolute;
   top: 0.7rem;
   right: 0.7rem;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.14em;
+  font-family: var(--font-text);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
   color: var(--gold);
   background: rgba(11,11,11,0.55);
   border: 1px solid rgba(200,145,58,0.35);
@@ -1180,10 +1183,19 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 /* ============================================================
+   LOWER HOME PAGE BANDS
+   Coming Soon (off-white) → About (navy) → Skills (charcoal) →
+   Contact (rust) → footer (black). Solid colors with hard edges.
+   Each .band wraps a section divider and its section.
+   ============================================================ */
+.band-about  { background: var(--panel-avionics); color: var(--hero-text); }
+.band-skills { background: var(--skills-bg);      color: var(--hero-text); }
+
+/* ============================================================
    ABOUT
    ============================================================ */
 
-#about { position: relative; z-index: 1; background: var(--bg); padding: 2rem 2rem 8rem; }
+#about { position: relative; z-index: 1; padding: 2rem 2rem 8rem; }
 
 .about-grid {
   max-width: 1300px;
@@ -1199,12 +1211,12 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 .about-text p {
   font-size: 1rem;
-  color: var(--text-dim);
+  color: var(--panel-avionics-desc);
   line-height: 1.85;
   margin-bottom: 1.4rem;
 }
-.about-text p strong { color: var(--text); font-weight: 500; }
-.about-text p em { color: var(--gold-text); font-style: normal; }
+.about-text p strong { color: var(--hero-text); font-weight: 500; }
+.about-text p em { color: var(--gold); font-style: normal; }
 
 .about-stats {
   display: grid;
@@ -1214,8 +1226,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 .stat {
   padding: 1.4rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid var(--dark-line);
   position: relative;
   overflow: hidden;
 }
@@ -1234,17 +1246,17 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   margin-bottom: 0.3rem;
 }
 .stat-lbl {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.55rem;
   letter-spacing: 0.12em;
-  color: var(--text-muted);
+  color: var(--panel-avionics-desc);
 }
 
 .about-portrait { position: relative; }
 .portrait-box {
   aspect-ratio: 3/4;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--panel-avionics);
+  border: 1px solid var(--dark-line);
   overflow: hidden;
   position: relative;
 }
@@ -1253,7 +1265,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ============================================================
    SKILLS
    ============================================================ */
-#skills { position: relative; z-index: 1; background: var(--bg); padding: 2rem 2rem 8rem; }
+#skills { position: relative; z-index: 1; padding: 2rem 2rem 8rem; }
 
 .skills-grid {
   max-width: 1300px;
@@ -1265,52 +1277,58 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 .skill-group {
   padding: 2.5rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--skills-surface);
+  border: 1px solid var(--dark-line);
   transition: border-color 0.3s;
 }
-.skill-group:hover { border-color: var(--gold-border); }
+.skill-group:hover { border-color: var(--hero-bracket); }
 
 .skill-group-meta {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.2em;
-  color: var(--gold-text);
+  font-family: var(--font-text);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
   margin-bottom: 0.5rem;
 }
 .skill-group-title {
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--hero-text);
   margin-bottom: 1.5rem;
   padding-bottom: 1.2rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--dark-line);
 }
 
 .skill-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
 .skill-list li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;   /* bullet lines up with the first line when an item wraps */
   gap: 0.75rem;
   font-size: 0.875rem;
-  color: var(--text-dim);
+  color: var(--hero-text-muted);
 }
 .skill-list li::before {
   content: '';
   width: 3px; height: 3px;
   background: var(--gold);
   flex-shrink: 0;
+  margin-top: calc(0.8em - 1.5px);   /* centers the 3px dot on the first line */
 }
 
 /* ============================================================
    CONTACT
    ============================================================ */
+/* Rust band: gold isn't readable on rust, so every piece of text, link,
+   and outline here is off-white (--hero-text, 5.2:1). */
 #contact {
   position: relative;
   z-index: 1;
-  background: var(--bg);
-  padding: 2rem 2rem 8rem;
-  border-top: 1px solid var(--border);
+  background: var(--contact-bg);
+  color: var(--hero-text);
+  padding: clamp(5rem, 9vw, 8rem) 2rem 8rem;
 }
+#contact a:focus-visible,
+#contact button:focus-visible { outline: 2px solid var(--hero-text); outline-offset: 3px; }
 .contact-inner {
   max-width: 1300px;
   margin: 0 auto;
@@ -1329,50 +1347,55 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   line-height: 0.95;
   margin-bottom: 1.5rem;
 }
-.contact-heading em { color: var(--gold-text); font-style: normal; }
+.contact-heading em { color: inherit; font-style: normal; }
 .contact-sub {
   font-size: 0.95rem;
-  color: var(--text-muted);
+  color: var(--hero-text);
   line-height: 1.75;
 }
 
-.contact-stack { display: flex; flex-direction: column; gap: 2px; }
+/* Separate outlined boxes (a 2px gap would read as a doubled line) */
+.contact-stack { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .contact-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1.2rem 1.5rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid var(--contact-line);
   transition: border-color 0.2s, background 0.2s;
   text-decoration: none;
 }
-.contact-item:hover { border-color: var(--gold-border); background: var(--gold-dim); }
+/* Hover darkens the rust (never lightens it) so the text keeps its contrast */
+.contact-item:hover { border-color: var(--hero-text); background: var(--contact-bg-deep); }
 
 .contact-platform-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: var(--hero-text);
   margin-right: 1rem;
-  transition: color 0.2s;
 }
-.contact-item:hover .contact-platform-icon { color: var(--gold-text); }
 
-.contact-item-left { flex: 1; }
+.contact-item-left { flex: 1; min-width: 0; }
 .contact-item-lbl {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  letter-spacing: 0.16em;
-  color: var(--text-muted);
+  font-family: var(--font-text);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--hero-text);
   margin-bottom: 0.25rem;
 }
-.contact-item-val { font-size: 0.95rem; color: var(--text); }
+/* On very narrow phones the email wraps at the <wbr> after "@", not mid-word */
+.contact-item-val { font-size: 0.95rem; color: var(--hero-text); overflow-wrap: break-word; }
 
-.contact-item-right { display: flex; align-items: center; gap: 0.75rem; }
+/* margin keeps the email address from running into the Copy button on phones */
+.contact-item-right { display: flex; align-items: center; gap: 0.75rem; margin-left: 0.75rem; }
+@media (max-width: 480px) {
+  .contact-item { padding: 1.1rem 1rem; }
+}
 .contact-arrow {
-  color: var(--gold-text);
+  color: var(--hero-text);
   font-size: 1.1rem;
   transition: transform 0.2s;
 }
@@ -1380,54 +1403,61 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 .copy-btn {
   background: none;
-  border: 1px solid var(--gold-border);
+  border: 1px solid var(--contact-line);
   padding: 0.3rem 0.7rem;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
-  color: var(--gold-text);
+  font-family: var(--font-text);
+  font-size: 0.78rem;
+  letter-spacing: normal;
+  color: var(--hero-text);
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.copy-btn:hover { background: var(--gold-dim); border-color: var(--gold-text); }
-.copy-btn.copied { color: #2d8a4a; border-color: #2d8a4a; }
+/* Hover and the "Copied!" state flip to an off-white fill with rust text (5.2:1) */
+.copy-btn:hover,
+.copy-btn.copied { background: var(--hero-text); border-color: var(--hero-text); color: var(--contact-bg); }
+@media (max-width: 480px) {
+  .copy-btn { padding: 0.3rem 0.55rem; }   /* lets the email fit on one line at 390px */
+}
 
 /* ============================================================
    FOOTER
    ============================================================ */
+/* Same black as the hero, on the home page and every project page.
+   Uses the white logo (the black one would disappear). */
 footer {
   position: relative;
   z-index: 1;
-  background: var(--bg);
+  background: var(--hero-bg);
+  color: var(--hero-text);
   padding: 5rem 2rem 3rem;
-  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2rem;
   text-align: center;
 }
-.footer-logo { width: 180px; opacity: 0.55; transition: opacity 0.3s; }
-.footer-logo:hover { opacity: 0.9; }
+.footer-logo { width: 180px; opacity: 0.85; transition: opacity 0.3s; }
+.footer-logo:hover { opacity: 1; }
 .footer-lockup {
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
+  font-family: var(--font-text);
+  font-size: 0.9rem;
+  letter-spacing: normal;
+  color: var(--hero-text-muted);
 }
 .footer-links { display: flex; gap: 2rem; }
 .footer-links a {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  letter-spacing: normal;
+  color: var(--hero-text);
   transition: color 0.2s;
 }
-.footer-links a:hover { color: var(--gold-text); }
+.footer-links a:hover { color: var(--gold); }
 
 .footer-social { display: flex; gap: 1.25rem; margin-top: 1.25rem; }
-.footer-social a { color: var(--text-muted); transition: color 0.2s; }
-.footer-social a:hover { color: var(--gold-text); }
+.footer-social a { color: var(--hero-text-muted); transition: color 0.2s; }
+.footer-social a:hover { color: var(--gold); }
+footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* ============================================================
    SCROLL REVEAL
@@ -1476,7 +1506,7 @@ footer {
   margin: 0 auto;
 }
 .proj-breadcrumb {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.58rem;
   letter-spacing: 0.15em;
   color: var(--text-muted);
@@ -1494,9 +1524,9 @@ footer {
 
 .tag-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
 .tag {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font-text);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
   padding: 0.22rem 0.6rem;
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -1510,7 +1540,7 @@ footer {
   padding: 0.32rem 0.85rem;
   background: rgba(138,94,16,0.08);
   border: 1px solid rgba(138,94,16,0.28);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.1em;
   color: #8A5E10;
@@ -1533,14 +1563,15 @@ footer {
   margin: 0 auto;
 }
 .sec-lbl {
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.22em;
+  font-family: var(--font-text);
+  font-size: 1rem;
+  letter-spacing: normal;
   color: var(--gold-text);
   margin-bottom: 2.5rem;
   display: flex;
   align-items: center;
   gap: 1rem;
+  font-weight: 600;
 }
 .sec-lbl::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
@@ -1556,7 +1587,7 @@ footer {
   border: 1px solid var(--border);
 }
 .sys-cell-lbl {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.14em;
   color: var(--text-muted);
@@ -1587,7 +1618,7 @@ footer {
   border: 1px solid var(--border);
 }
 .arch-node-key {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.12em;
   color: var(--gold-text);
@@ -1657,7 +1688,7 @@ footer {
   border-top-color: var(--gold-border);
 }
 .hc-lbl {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.14em;
   color: var(--gold-text);
@@ -1734,7 +1765,7 @@ footer {
 .compare-lbl {
   position: absolute;
   bottom: 1rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.1em;
   background: rgba(243,241,236,0.88);
@@ -1772,7 +1803,7 @@ footer {
   background: var(--surface);
   border: 1px solid var(--border);
   border-top: none;
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.52rem;
   letter-spacing: 0.08em;
   color: var(--text-muted);
@@ -1798,7 +1829,7 @@ footer {
   gap: 1rem;
 }
 .fw-step {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.62rem;
   color: var(--gold-text);
   flex-shrink: 0;
@@ -1838,7 +1869,7 @@ footer {
   padding: 1rem 2.2rem;
   border: 1px solid var(--gold-border);
   color: var(--gold-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -1861,13 +1892,14 @@ footer {
   border: 1px solid var(--border);
 }
 .role-col-lbl {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.16em;
+  font-family: var(--font-text);
+  font-size: 0.9rem;
+  letter-spacing: normal;
   color: var(--gold-text);
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
+  font-weight: 600;
 }
 .role-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
 .role-list li { font-size: 0.85rem; color: var(--text-dim); display: flex; gap: 0.6rem; align-items: flex-start; }

@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Avionics GPS/Radio PCB — Christopher Sparrow</title>
-  <meta name="description" content="Portfolio case study: custom 4-layer KiCad PCB for AerospaceNU's high-power rocket program, integrating u-blox SAM-M8Q GPS and 900 MHz LoRa telemetry downlink.">
+  <title>Custom Avionics GPS / Radio PCB | Christopher Sparrow</title>
+  <meta name="description" content="A four-layer circuit board I designed on my own in KiCad for AerospaceNU, Northeastern's rocket team. It's built to track the rocket with a u-blox SAM-M8Q GPS and send its position down to the ground over a 900 MHz LoRa radio.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=14">
   <style>
     /* ─── AVIONICS PCB — FULL-SCREEN PDF VIEWER ─────────────── */
 
@@ -47,18 +47,18 @@
       border-bottom: 1px solid var(--border);
     }
     .av-back {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      letter-spacing: 0.14em;
+      font-family: var(--font-text);
+      font-size: 0.88rem;
+      letter-spacing: normal;
       color: var(--gold-text);
       text-decoration: none;
       transition: opacity 0.2s;
     }
     .av-back:hover { opacity: 0.7; }
     .av-download {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      letter-spacing: 0.12em;
+      font-family: var(--font-text);
+      font-size: 0.88rem;
+      letter-spacing: normal;
       color: var(--gold-text);
       border: 1px solid var(--gold-border);
       padding: 0.3rem 0.85rem;
@@ -85,7 +85,7 @@
 
   <!-- ── SITE NAV (matches homepage; links back to home sections) ── -->
   <nav id="nav" aria-label="Main navigation">
-    <a href="../index.html" class="nav-name" aria-label="Christopher Sparrow — home">Christopher Sparrow</a>
+    <a href="../index.html" class="nav-name" aria-label="Christopher Sparrow, home page">Christopher Sparrow</a>
     <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
@@ -100,20 +100,20 @@
 
   <!-- ── BACK / DOWNLOAD BAR ───────────────────────────────── -->
   <div class="av-bar">
-    <a href="../index.html#work" class="av-back">← SELECTED WORK</a>
+    <a href="../index.html#work" class="av-back">← Back to my projects</a>
     <a href="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf"
        download
        target="_blank"
-       class="av-download">DOWNLOAD PDF · 2.5 MB ↓</a>
+       class="av-download">Download the PDF (2.5 MB) ↓</a>
   </div>
 
   <!-- ── FULL-SCREEN PDF ───────────────────────────────────── -->
   <iframe
     src="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf"
     class="av-pdf-frame"
-    title="Custom Avionics GPS/Radio PCB — Portfolio Case Study">
+    title="Case study for the Custom Avionics GPS / Radio PCB">
   </iframe>
 
-  <script src="../js/main.js?v=8"></script>
+  <script src="../js/main.js?v=10"></script>
 </body>
 </html>

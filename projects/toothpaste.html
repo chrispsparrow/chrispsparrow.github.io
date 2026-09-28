@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Automatic Toothpaste Dispenser — Christopher Sparrow</title>
-  <meta name="description" content="Cornerstone of Engineering group project: a 3D-printed, Raspberry Pi Pico–controlled toothpaste dispenser for people with limited hand dexterity. MicroPython firmware, motor-driven mechanism, adult/child dose modes.">
+  <title>Assistive Toothpaste Dispenser | Christopher Sparrow</title>
+  <meta name="description" content="For Northeastern's Cornerstone of Engineering class, our team of three built a 3D-printed toothpaste dispenser for people who have trouble squeezing a tube. I led the electronics and wrote the MicroPython code for its Raspberry Pi Pico.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=14">
   <style>
     /* ─── TOOTHPASTE PAGE ────────────────────────────────── */
 
     /* Title block — used in #tc-intro (desktop) and .tf-title-block (fallback) */
     .tp-breadcrumb {
       display: inline-block;
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.15em;
+      font-family: var(--font-text);
+      font-size: 0.9rem;
+      letter-spacing: normal;
       color: var(--gold-text);
       text-decoration: none;
       margin-bottom: 1.5rem;
@@ -133,13 +133,13 @@
       position: absolute;
     }
     .tl-lbl {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.14em;
+      font-family: var(--font-text);
+      font-size: 0.85rem;
+      letter-spacing: normal;
       color: var(--gold-text);
       margin-bottom: 0.3rem;
-      text-transform: uppercase;
       line-height: 1.3;
+      font-weight: 600;
     }
     .tl-cap {
       font-size: 0.82rem;
@@ -183,11 +183,12 @@
       margin-bottom: 2.5rem;
     }
     .tour-fallback-hdr {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
+      font-family: var(--font-text);
+      font-size: 0.95rem;
+      letter-spacing: normal;
       color: var(--text-muted);
       margin-bottom: 2rem;
+      font-weight: 600;
     }
     .tf-item {
       display: grid;
@@ -205,12 +206,12 @@
       border-radius: 4px;
     }
     .tf-label {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      letter-spacing: 0.13em;
+      font-family: var(--font-text);
+      font-size: 0.9rem;
+      letter-spacing: normal;
       color: var(--gold-text);
       margin-bottom: 0.35rem;
-      text-transform: uppercase;
+      font-weight: 600;
     }
     .tf-caption {
       font-size: 0.9rem;
@@ -237,9 +238,9 @@
     .tp-bs p:last-child { margin-bottom: 0; }
 
     .tp-code-lbl {
-      font-family: var(--font-mono);
-      font-size: 0.58rem;
-      letter-spacing: 0.18em;
+      font-family: var(--font-text);
+      font-size: 0.85rem;
+      letter-spacing: normal;
       color: var(--text-muted);
       margin-bottom: 0.75rem;
       margin-top: 2rem;
@@ -289,11 +290,10 @@
       display: block;
     }
     .tp-proto-caption {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
+      font-family: var(--font-text);
+      font-size: 0.85rem;
+      letter-spacing: normal;
       color: var(--text-muted);
-      text-transform: uppercase;
       text-align: center;
       margin: 0;
     }
@@ -344,7 +344,7 @@
       <a href="../#about">About</a>
       <a href="../#skills">Skills</a>
       <a href="../#contact">Contact</a>
-      <a href="#" class="nav-resume">Résumé ↗</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
     </div>
   </nav>
 
@@ -356,13 +356,13 @@
       <!-- Title block — left column, visible at load, fades out as tour begins -->
       <div id="tc-intro">
         <div class="tc-left-col">
-          <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
+          <a href="../" class="tp-breadcrumb">← Back to home</a>
         </div>
         <div class="tc-right-col">
-          <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
-          <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button.</p>
+          <h1 class="tp-hero-h1">Assistive<br>Toothpaste<br>Dispenser</h1>
+          <p class="tp-hero-tagline">A 3D-printed dispenser that gives you the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
           <div class="tp-hero-tags">
-            <span class="tag tag-gold">GROUP PROJECT</span>
+            <span class="tag tag-gold">TEAM PROJECT</span>
             <span class="tag">MICROPYTHON</span>
             <span class="tag">RASPBERRY PI PICO</span>
             <span class="tag">3D PRINTING</span>
@@ -374,15 +374,15 @@
       <!-- Image layers — middle third (left:33% right:33%), opacity-only crossfades -->
       <div class="tour-layer" id="tour-layer-A">
         <img src="../assets/toothpaste/Cornerstone Project Final Image front.png"
-             alt="Front view" id="img-A">
+             alt="Front of the dispenser" id="img-A">
       </div>
       <div class="tour-layer" id="tour-layer-B">
         <img src="../assets/toothpaste/Cornerstone Project Final Image back open.png"
-             alt="Interior view" id="img-B">
+             alt="Inside the dispenser, with the back open" id="img-B">
       </div>
       <div class="tour-layer" id="tour-layer-C">
         <img src="../assets/toothpaste/Cornerstone Project Final Image back.png"
-             alt="Rear view" id="img-C">
+             alt="Back of the dispenser" id="img-C">
       </div>
 
       <!-- Leader line overlay — dot at focal point, horizontal line, caption -->
@@ -404,11 +404,11 @@
     <div class="tour-fallback" aria-label="Project overview and parts list">
 
       <div class="tf-title-block">
-        <a href="../" class="tp-breadcrumb">← CHRISTOPHER SPARROW / WORK</a>
-        <h1 class="tp-hero-h1">Automatic<br>Toothpaste<br>Dispenser</h1>
-        <p class="tp-hero-tagline">A 3D-printed, Pico-controlled dispenser that delivers a dentist-recommended dose at the press of a button.</p>
+        <a href="../" class="tp-breadcrumb">← Back to home</a>
+        <h1 class="tp-hero-h1">Assistive<br>Toothpaste<br>Dispenser</h1>
+        <p class="tp-hero-tagline">A 3D-printed dispenser that gives you the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
         <div class="tp-hero-tags">
-          <span class="tag tag-gold">GROUP PROJECT</span>
+          <span class="tag tag-gold">TEAM PROJECT</span>
           <span class="tag">MICROPYTHON</span>
           <span class="tag">RASPBERRY PI PICO</span>
           <span class="tag">3D PRINTING</span>
@@ -416,7 +416,7 @@
         </div>
       </div>
 
-      <div class="tour-fallback-hdr">PARTS TOUR</div>
+      <div class="tour-fallback-hdr">Parts tour</div>
 
       <div class="tf-item">
         <img class="tf-thumb"
@@ -424,7 +424,7 @@
              alt="Start button" style="object-position:47% 74%;">
         <div>
           <div class="tf-label">Start button</div>
-          <p class="tf-caption">Press to dispense a measured dose from the slot below — pea-sized for adults, rice-sized for kids.</p>
+          <p class="tf-caption">Press it to get a dose from the slot underneath. The adult setting gives a pea-sized amount and the kid setting gives a rice-sized amount.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -433,7 +433,7 @@
              alt="Settings button" style="object-position:30% 80%;">
         <div>
           <div class="tf-label">Settings button</div>
-          <p class="tf-caption">Settings button — single-press switches adult/child dose; double-press reverses the motor.</p>
+          <p class="tf-caption">Press it once to switch between the adult and kid dose. Press it twice quickly to run the motor backward, which lifts the arm so you can put in a new tube.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -442,7 +442,7 @@
              alt="3D-printed threaded screw" style="object-position:37% 55%;">
         <div>
           <div class="tf-label">3D-printed threaded screw</div>
-          <p class="tf-caption">3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push.</p>
+          <p class="tf-caption">The motor spins this screw, and the arm rides down its threads. That's how the motor's spinning becomes a straight push on the tube.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -451,7 +451,7 @@
              alt="DC motor" style="object-position:43% 26%;">
         <div>
           <div class="tf-label">DC motor</div>
-          <p class="tf-caption">DC motor — drives the screw via the TB6612FNG driver.</p>
+          <p class="tf-caption">This motor turns the screw. The Pico switches it on, off, and into reverse through the motor driver.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -460,7 +460,7 @@
              alt="Raspberry Pi Pico" style="object-position:46% 32%;">
         <div>
           <div class="tf-label">Raspberry Pi Pico</div>
-          <p class="tf-caption">Raspberry Pi Pico (MicroPython) — the controller I built &amp; coded.</p>
+          <p class="tf-caption">This small computer runs the whole dispenser. I wired it up and wrote all of its code in MicroPython.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -469,7 +469,7 @@
              alt="Dual-channel motor driver" style="object-position:47% 47%;">
         <div>
           <div class="tf-label">Dual-channel motor driver</div>
-          <p class="tf-caption">TB6612FNG dual-channel motor driver — runs the motor fwd/reverse.</p>
+          <p class="tf-caption">The Pico can't power a motor on its own, so this TB6612FNG driver board sits in between. It lets the motor run forward or backward.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -478,7 +478,7 @@
              alt="Keyhole wall-mount slots" style="object-position:62% 22%;">
         <div>
           <div class="tf-label">Keyhole wall-mount slots</div>
-          <p class="tf-caption">Keyhole wall-mount slots — mounts on a bathroom wall.</p>
+          <p class="tf-caption">These slots on the back let you hang the dispenser on regular bathroom wall screws.</p>
         </div>
       </div>
     </div>
@@ -488,21 +488,23 @@
   <!-- ══ SECTION 3 — BACKSTORY ══════════════════════════════ -->
 
   <section class="tp-bs reveal" aria-label="The problem">
-    <h2 class="sec-lbl">THE PROBLEM</h2>
-    <p>Conditions like arthritis and Parkinson's make squeezing a toothpaste tube painful or impossible. At the same time, over a third of children routinely use far too much toothpaste — there's no feedback on how much is "right."</p>
-    <p>Our goal: make correct dosing effortless, hands-free, and accessible to anyone — from a six-year-old to someone with limited hand dexterity.</p>
+    <h2 class="sec-lbl">The problem</h2>
+    <p>For people with arthritis or Parkinson's, squeezing a toothpaste tube can be painful or even impossible. Kids have the opposite problem. Over a third of them use more toothpaste than they should, because nothing tells them how much is enough.</p>
+    <p>We wanted to make getting the right amount easy for everyone, from a six-year-old to someone who has trouble using their hands. With our dispenser, it takes one button press.</p>
   </section>
 
   <section class="tp-bs reveal" aria-label="How it works">
-    <h2 class="sec-lbl">HOW IT WORKS</h2>
-    <p>The dispenser mounts on the wall. A toothpaste tube slots in from the top; a 3D-printed threaded screw and squeezer arm sit against the tube body. Press the Start button — the Pico reads the current dose setting, commands the motor driver at full PWM, and the screw turns, pushing the arm downward for exactly the right duration. Motor stops. Toothpaste dispensed.</p>
-    <p>A clear front door lets you see the remaining tube at a glance. Two keyhole slots on the rear mount to standard bathroom wall screws — no special hardware needed.</p>
+    <h2 class="sec-lbl">How it works</h2>
+    <p>The dispenser hangs on the wall, and the toothpaste tube slides in from the top. Inside, a 3D-printed screw and a squeezer arm sit up against the tube.</p>
+    <p>When you press the Start button, the Raspberry Pi Pico (the small computer that runs everything) checks which dose you picked and runs the motor at full power. The motor turns the screw, which pushes the arm down onto the tube for just the right amount of time. Then the motor stops and your toothpaste comes out.</p>
+    <p>A clear front door lets you see how much toothpaste is left. Two keyhole slots on the back fit regular bathroom wall screws, so you don't need any special hardware to hang it.</p>
   </section>
 
-  <section class="tp-bs reveal" aria-label="Controls and firmware">
-    <h2 class="sec-lbl">CONTROLS &amp; FIRMWARE</h2>
-    <p>Button 2 dispenses. Button 1 configures — a single click toggles adult (0.5 s) vs child (0.25 s) mode; a double-click within 600 ms reverses the motor to retract the arm for tube reloading, no disassembly needed. All button reads use 25 ms software debounce polling — no interrupts required.</p>
-    <div class="tp-code-lbl mono">MICROPYTHON · DISPENSER LOGIC</div>
+  <section class="tp-bs reveal" aria-label="Buttons and code">
+    <h2 class="sec-lbl">Buttons and code</h2>
+    <p>There are two buttons. The Start button gives you a dose. The Settings button switches between two doses. The adult dose runs the motor for half a second, and the kid dose runs it for a quarter second. If you press Settings twice within 0.6 seconds, the motor runs backward and lifts the arm back up, so you can load a new tube without taking anything apart.</p>
+    <p>When you press a button, the metal contacts bounce for a split second, so one press can look like several. To fix that, the code checks the buttons in a loop and waits 25 milliseconds to make sure a press is real. This is called debouncing, and doing it this way meant I didn't need interrupts, a more advanced way of reacting to button presses.</p>
+    <div class="tp-code-lbl mono">The part of my code that runs a dose</div>
     <pre class="tp-pre"><code>AdultDuration = 0.5    <span class="tp-cm"># pea-sized dose</span>
 ChildDuration = 0.25   <span class="tp-cm"># rice-sized dose</span>
 
@@ -516,69 +518,69 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     motor_forward(TimeSetting)</code></pre>
   </section>
 
-  <section class="tp-bs reveal" aria-label="Roles">
-    <h2 class="sec-lbl">MY ROLE VS TEAM</h2>
+  <section class="tp-bs reveal" aria-label="Who did what">
+    <h2 class="sec-lbl">Who did what</h2>
     <div class="role-grid">
       <div class="role-col" style="border-left: 3px solid var(--gold);">
-        <div class="role-col-lbl mono">CHRISTOPHER SPARROW</div>
+        <div class="role-col-lbl mono">What I did</div>
         <ul class="role-list">
-          <li>Electronics end-to-end — wiring Pico, TB6612FNG driver, and push-buttons</li>
-          <li>All MicroPython firmware: dispense logic, dual dose modes, debounce</li>
-          <li>Double-click detection for motor reversal without disassembly</li>
-          <li>Clear plexiglass viewing door — my design concept, letting the user see the remaining tube level at a glance</li>
-          <li>Integration, assembly, and bring-up testing across all three prototypes</li>
+          <li>Did all the electronics, wiring the Pico, the motor driver, and the buttons</li>
+          <li>Wrote all the MicroPython code, including the dose timing, the two dose settings, and the button debouncing</li>
+          <li>Added the double-press that runs the motor backward, so you can change tubes without taking the dispenser apart</li>
+          <li>Came up with the idea for the clear plexiglass door so you can see how much toothpaste is left</li>
+          <li>Put together and tested all three of our prototypes</li>
         </ul>
       </div>
       <div class="role-col">
-        <div class="role-col-lbl mono">SIMON HUME &amp; BORA BROMBERG</div>
+        <div class="role-col-lbl mono">What Simon Hume and Bora Bromberg did</div>
         <ul class="role-list">
-          <li>SolidWorks modelling — enclosure, threaded screw, squeezer arm, wall bracket</li>
-          <li>Three-iteration prototyping — cardboard → first print → refined final</li>
-          <li>Clear front door design for tube-level visibility</li>
-          <li>Project report, technical documentation, and presentation</li>
+          <li>Designed the case, threaded screw, squeezer arm, and wall bracket in SolidWorks, a 3D design program</li>
+          <li>Took the design through three versions, from cardboard to a first 3D print to the final build</li>
+          <li>Built the clear door into the case design</li>
+          <li>Wrote the project report and documentation, and made the presentation</li>
         </ul>
       </div>
     </div>
   </section>
 
-  <section class="tp-bs reveal" aria-label="Iteration">
-    <h2 class="sec-lbl">ITERATION</h2>
-    <p>Three prototypes across the semester. The cardboard mockup settled spatial layout — tube position, button placement, overall form factor. The first 3D print revealed that the squeezer arm geometry needed a tighter thread pitch to apply consistent pressure without slipping. The final build tightened tolerances, repositioned the Pico to clear the motor wiring, and added the wall-mount keyhole slots.</p>
-    <p>The trickiest integration challenge: synchronising the mechanical arm advance with firmware timing. Too short and the dose is inconsistent; too long and the motor jams. The 0.5 s / 0.25 s values were calibrated empirically across a full tube.</p>
+  <section class="tp-bs reveal" aria-label="Three prototypes">
+    <h2 class="sec-lbl">Three prototypes</h2>
+    <p>We built three prototypes over the semester. The cardboard version helped us figure out the basic layout, like where the tube and buttons should go and how big the whole thing should be. Our first 3D print showed that the screw's threads needed to be closer together so the arm would press evenly without slipping. For the final build, we made the parts fit together more tightly, moved the Pico so it wasn't in the way of the motor wires, and added the keyhole slots for hanging it.</p>
+    <p>The hardest part was matching how far the arm moves to how long the code runs the motor. If the motor runs too short, you get a different amount every time. If it runs too long, the motor jams. We picked the half-second and quarter-second timings by testing them over an entire tube.</p>
   </section>
 
-  <section class="tp-bs reveal" aria-label="Prototype progression">
-    <h2 class="sec-lbl">PROTOTYPE PROGRESSION</h2>
+  <section class="tp-bs reveal" aria-label="From sketch to final design">
+    <h2 class="sec-lbl">From sketch to final design</h2>
     <div class="tp-proto-grid">
       <div class="tp-proto-item">
         <div class="tp-proto-frame">
-          <img src="../assets/toothpaste/toothpaste-prototype-1-sketch.png" alt="Concept sketch">
+          <img src="../assets/toothpaste/toothpaste-prototype-1-sketch.png" alt="Concept sketch of the dispenser">
         </div>
         <p class="tp-proto-caption">Concept sketch</p>
       </div>
       <div class="tp-proto-item">
         <div class="tp-proto-frame">
-          <img src="../assets/toothpaste/toothpaste-prototype-2 FIRST 3D PRINT.png" alt="First 3D print">
+          <img src="../assets/toothpaste/toothpaste-prototype-2 FIRST 3D PRINT.png" alt="Our first 3D-printed version">
         </div>
         <p class="tp-proto-caption">First 3D print</p>
       </div>
       <div class="tp-proto-item">
         <div class="tp-proto-frame">
-          <img src="../assets/toothpaste/toothpaste-prototype-1-physical.png" alt="Physical build">
+          <img src="../assets/toothpaste/toothpaste-prototype-1-physical.png" alt="Physical build of a prototype">
         </div>
         <p class="tp-proto-caption">Physical build</p>
       </div>
       <div class="tp-proto-item">
         <div class="tp-proto-frame">
-          <img src="../assets/toothpaste/toothpaste-PROTOYPE-FINAL-cad-render.png" alt="Final CAD model">
+          <img src="../assets/toothpaste/toothpaste-PROTOYPE-FINAL-cad-render.png" alt="Final 3D model of the dispenser">
         </div>
-        <p class="tp-proto-caption">Final CAD model</p>
+        <p class="tp-proto-caption">Final 3D model</p>
       </div>
     </div>
   </section>
 
   <section class="tp-bs reveal" aria-label="Demo video">
-    <h2 class="sec-lbl">SEE IT WORK</h2>
+    <h2 class="sec-lbl">Watch it work</h2>
     <div class="tp-video-wrap">
       <video src="../assets/toothpaste/TOOTHPASTE RETRIEVAL.MOV"
              controls muted loop playsinline preload="metadata"
@@ -590,18 +592,18 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
   <!-- ── FOOTER ────────────────────────────────────────────── -->
   <footer role="contentinfo">
-    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_black.svg"
-         alt="Dogtooth Systems" class="footer-logo" width="180">
-    <p class="footer-lockup mono">Christopher Sparrow · Dogtooth Systems</p>
+    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+         alt="Dogtooth Systems logo, a dogtooth tuna" class="footer-logo" width="180">
+    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
     <nav class="footer-links" aria-label="Footer links">
       <a href="../#work">Work</a>
       <a href="../#about">About</a>
       <a href="../#contact">Contact</a>
-      <a href="#">Résumé</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
     </nav>
   </footer>
 
-  <script src="../js/main.js?v=8"></script>
+  <script src="../js/main.js?v=10"></script>
   <script>
   /* ── FIXED-STAGE PARTS TOUR ─────────────────────────────── */
   (function () {
@@ -612,19 +614,26 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
        side rule: x < 0.5 → left column; x >= 0.5 → right column. */
     const STOPS = [
       { img: 'A', x: 0.47, y: 0.74, label: 'Start button',
-        caption: 'Press to dispense a measured dose from the slot below — pea-sized for adults, rice-sized for kids.',                         side: 'left'  },
+        caption: "Press it to get a dose from the slot underneath. The adult setting gives a pea-sized amount and the kid setting gives a rice-sized amount.",
+        side: 'left'  },
       { img: 'A', x: 0.30, y: 0.80, label: 'Settings button',
-        caption: 'Settings button — single-press switches adult/child dose; double-press reverses the motor.',                                  side: 'left'  },
+        caption: "Press it once to switch between the adult and kid dose. Press it twice quickly to run the motor backward, which lifts the arm so you can put in a new tube.",
+        side: 'left'  },
       { img: 'A', x: 0.37, y: 0.55, label: '3D-printed threaded screw',
-        caption: '3D-printed threaded screw — the squeezer arm rides down the threads, turning motor spin into a linear push.',                 side: 'left'  },
+        caption: "The motor spins this screw, and the arm rides down its threads. That's how the motor's spinning becomes a straight push on the tube.",
+        side: 'left'  },
       { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',
-        caption: 'DC motor — drives the screw via the TB6612FNG driver.',                                                                      side: 'left'  },
+        caption: "This motor turns the screw. The Pico switches it on, off, and into reverse through the motor driver.",
+        side: 'left'  },
       { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',
-        caption: 'Raspberry Pi Pico (MicroPython) — the controller I built & coded.',                                                          side: 'left'  },
+        caption: "This small computer runs the whole dispenser. I wired it up and wrote all of its code in MicroPython.",
+        side: 'left'  },
       { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver',
-        caption: 'TB6612FNG dual-channel motor driver — runs the motor fwd/reverse.',                                                          side: 'right' },
+        caption: "The Pico can't power a motor on its own, so this TB6612FNG driver board sits in between. It lets the motor run forward or backward.",
+        side: 'right' },
       { img: 'C', x: 0.62, y: 0.22, label: 'Wall-mount slots',
-        caption: 'Keyhole wall-mount slots — mounts on a bathroom wall.',                                                                      side: 'right' },
+        caption: "These slots on the back let you hang the dispenser on regular bathroom wall screws.",
+        side: 'right' },
     ];
 
     const wrap     = document.getElementById('tour-wrap');
@@ -673,7 +682,7 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
     /* FIX 4: line is at dotY; label sits just ABOVE the line (label bottom ≈ dotY);
        caption flows naturally below the label — line never cuts through any text. */
-    const LABEL_H  = 14; /* px — estimated height of one .tl-lbl line */
+    const LABEL_H  = 18; /* px — estimated height of one .tl-lbl line */
     const LINE_GAP = 3;  /* px — space between label bottom and the line */
 
     function placeLeader(idx) {
