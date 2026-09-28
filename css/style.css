@@ -2000,7 +2000,7 @@ footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .fr-axis  { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
 .fr-axis-title { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
 .fr-raw    { fill: none; stroke: var(--chart-raw); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.fr-smooth { fill: none; stroke: var(--chart-smooth); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fr-smooth { fill: none; stroke: var(--chart-smooth); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
 .fr-event-line  { stroke: rgba(244,242,237,0.45); stroke-width: 1; stroke-dasharray: 3 3; }
 .fr-event-dot   { fill: var(--skills-bg); stroke: var(--hero-text); stroke-width: 2; }
 .fr-event-label { fill: var(--hero-text); font-family: var(--font-text); font-size: 12.5px; font-weight: 600; }
@@ -2038,7 +2038,7 @@ footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 }
 .fr-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.85rem; color: var(--hero-text-muted); }
 .fr-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
-.fr-key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--chart-smooth); }
+.fr-key { display: inline-block; width: 18px; height: 0; border-top: 1.5px solid var(--chart-smooth); }
 .fr-key--raw { border-top: 3px solid var(--chart-raw); }
 .fr-key--event { width: 9px; height: 9px; border: 2px solid var(--hero-text); border-radius: 50%; }
 
