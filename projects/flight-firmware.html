@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avionics Flight Computer Firmware | Christopher Sparrow</title>
+  <meta name="description" content="Flight code I wrote with mentors for AerospaceNU. It reads a rocket's barometer and motion sensor, logs at 50 Hz, and detects launch, apogee, and landing.">
+  <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=15">
+  <style>
+    /* ─── FIRMWARE PAGE ─────────────────────────────────── */
+
+    /* Title block */
+    .fw-hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 8rem min(4rem, 5vw) 1rem;
+    }
+    .fw-breadcrumb {
+      display: inline-block;
+      font-family: var(--font-text);
+      font-size: 0.9rem;
+      color: var(--gold-text);
+      margin-bottom: 1.5rem;
+    }
+    .fw-breadcrumb:hover { opacity: 0.7; }
+    .fw-h1 {
+      font-size: clamp(2rem, 4.5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin: 0 0 1.25rem;
+      max-width: 820px;
+    }
+    .fw-tagline {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 700px;
+      margin: 0 0 1.5rem;
+    }
+    .fw-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+    /* Chart section (wider than the text sections) */
+    .fw-wide {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3.5rem min(4rem, 5vw) 0;
+    }
+    .fw-wide .sec-lbl { margin-bottom: 1.25rem; }
+    .fw-lead {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+      max-width: 760px;
+      margin: 0 0 1.75rem;
+    }
+
+    /* Text sections */
+    .fw-sec {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 4.5rem min(4rem, 5vw) 0;
+    }
+    .fw-sec:last-of-type { padding-bottom: 5rem; }
+    .fw-sec .sec-lbl { margin-bottom: 1.5rem; }
+    .fw-sec p {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.78;
+      margin: 0 0 1.1rem;
+    }
+    .fw-sec p:last-child { margin-bottom: 0; }
+    .fw-sec a:not(.fw-breadcrumb) {
+      color: var(--gold-text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .fw-sec a:not(.fw-breadcrumb):hover { color: var(--text); }
+    .fw-code-inline {
+      font-family: var(--font-text);
+      font-weight: 600;
+      color: var(--text);
+      background: rgba(208,204,195,0.35);
+      border-radius: 3px;
+      padding: 0.05rem 0.35rem;
+    }
+
+    /* Four flight states */
+    .fw-states {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      margin-top: 1.75rem;
+    }
+    .fw-state {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1.4rem 1.5rem;
+    }
+    .fw-state h3 {
+      font-size: 1.05rem;
+      color: var(--text);
+      margin: 0 0 0.5rem;
+    }
+    .fw-state p { font-size: 0.92rem; line-height: 1.7; margin: 0; }
+    .fw-state .fw-logging {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--gold-text);
+      margin-bottom: 0.5rem;
+    }
+
+    /* Board parts list + the parts my code talks to */
+    .fw-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem 2rem; margin: 0.25rem 0 1.5rem; }
+    .fw-list li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.95rem; color: var(--text-muted); line-height: 1.55; }
+    .fw-list li::before { content: ''; width: 4px; height: 4px; background: var(--gold); flex-shrink: 0; margin-top: calc(0.78em - 2px); }
+    .fw-table-wrap { overflow-x: auto; margin: 0.5rem 0 1.5rem; }
+    .fw-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .fw-table th, .fw-table td {
+      text-align: left;
+      vertical-align: top;
+      padding: 0.75rem 0.9rem 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.55;
+    }
+    .fw-table th { font-weight: 600; color: var(--text); font-size: 0.85rem; }
+    .fw-table td { color: var(--text-muted); }
+    .fw-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+
+    /* Code snippets */
+    .fw-code-lbl {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin: 2rem 0 0.75rem;
+    }
+    .fw-code-lbl:first-of-type { margin-top: 0.5rem; }
+    .fw-pre {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      line-height: 1.7;
+      color: var(--text);
+      background: rgba(208,204,195,0.18);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: 4px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0;
+    }
+
+    /* What I'd do next */
+    .fw-next { list-style: none; display: flex; flex-direction: column; gap: 1.25rem; margin-top: 0.5rem; }
+    .fw-next li { border-left: 3px solid var(--gold); padding: 0.1rem 0 0.1rem 1.1rem; }
+    .fw-next h3 { font-size: 1.02rem; color: var(--text); margin: 0 0 0.35rem; }
+    .fw-next p { font-size: 0.95rem; margin: 0; }
+
+    @media (max-width: 640px) {
+      .fw-hero { padding-top: 6.5rem; }
+      .fw-states { grid-template-columns: 1fr; }
+      .fw-list { grid-template-columns: 1fr; }
+      .fw-pre { font-size: 0.7rem; padding: 1rem 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAV ──────────────────────────────────────────────── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="../" class="nav-name">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#skills">Skills</a>
+      <a href="../#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <main>
+
+  <!-- ── TITLE ────────────────────────────────────────────── -->
+  <header class="fw-hero">
+    <a href="../" class="fw-breadcrumb">← Back to home</a>
+    <h1 class="fw-h1">Avionics Flight Computer Firmware</h1>
+    <p class="fw-tagline">Flight code that reads a rocket's barometer and motion sensor, logs the data, and works out when the rocket launches, reaches apogee, and lands. It runs on Silly Goose, Patrick McGuire's custom altimeter board. I wrote it alongside my mentors on AerospaceNU's avionics team in fall 2025.</p>
+    <div class="fw-tags">
+      <span class="tag tag-gold">TEAM PROJECT</span>
+      <span class="tag">AEROSPACENU</span>
+      <span class="tag">C++</span>
+      <span class="tag">PLATFORMIO</span>
+    </div>
+  </header>
+
+  <!-- ── FLIGHT REPLAY ────────────────────────────────────── -->
+  <section class="fw-wide" aria-labelledby="replay-h">
+    <h2 class="sec-lbl" id="replay-h">Flight replay</h2>
+    <p class="fw-lead">This is a recorded flight run through my flight logic. The gold line is the smoothed altitude the code works with, and the faint line under it is the raw altitude from the barometer. The circles mark where the code called launch, apogee, and landing. Hover over the chart or tap it to see the time, height, and flight state at any point.</p>
+
+    <div class="fr-card">
+      <div class="fr-card-head">
+        <div class="fr-legend" aria-hidden="true">
+          <span><i class="fr-key"></i>Smoothed altitude</span>
+          <span><i class="fr-key fr-key--raw"></i>Raw altitude</span>
+          <span><i class="fr-key fr-key--event"></i>Called by the code</span>
+        </div>
+        <button id="fr-toggle" class="fr-toggle" type="button" aria-pressed="false">Turn off the hold timers</button>
+      </div>
+
+      <div id="flight-chart"
+           data-flight-chart="full"
+           data-src="../assets/firmware/flight-data.json"
+           data-toggle="fr-toggle"
+           data-summary="fr-summary"></div>
+      <p id="fr-summary" class="sr-only" aria-live="polite"></p>
+
+      <p class="fr-toggle-help">The hold timers make the code wait before it trusts a change. It waits 0.1 s before calling launch, 0.5 s before calling apogee, and 5 s before calling landing. Turn them off to see what happens without them.</p>
+      <p class="fr-note">This is my firmware's logic copied into JavaScript and run on the same recorded data we used for bench testing. The bench replay fed in one reading every 20 ms, a bit slower than real time.</p>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ─────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="how-h">
+    <h2 class="sec-lbl" id="how-h">How it works</h2>
+    <p>The main loop runs every 20 ms, so 50 times a second. Each time, it reads the barometer and the motion sensor and converts the raw readings into real units, like pascals for pressure and m/s² for acceleration. Then it turns the pressure into altitude, smooths the data, updates the flight state, and saves a log entry.</p>
+    <p>Altitude comes from the standard atmosphere formula, which converts air pressure into height above sea level. I smooth it with a low-pass filter where each new reading moves the output 10% of the way toward it. Vertical speed comes from the change in raw altitude between loops, run through a slower filter that moves 5% of the way each time. For acceleration, the code uses the total across all three axes, so it works no matter how the board is mounted in the rocket.</p>
+    <p>Each log entry is a packed 37-byte record with the time, pressure, temperature, altitude, vertical speed, acceleration, and flight state. The 64 MB flash chip fits about 1.8 million entries, or around 10 hours of logging at 50 Hz.</p>
+  </section>
+
+  <!-- ── FLIGHT STATES ────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="states-h">
+    <h2 class="sec-lbl" id="states-h">Four flight states</h2>
+    <p>The code is always in one of four states. Every change needs its condition to stay true for a set time first, which is what the hold timers in the chart control. The code only writes to the flash chip during ascent and descent, so it doesn't fill the log while the rocket sits on the pad.</p>
+    <div class="fw-states">
+      <div class="fw-state">
+        <h3>Pre-flight</h3>
+        <p>The rocket is on the pad and the code is listening for serial commands. It moves to ascent when acceleration goes over 40 m/s² (about 4 g) or the smoothed altitude goes over 100 m above sea level, for at least 0.1 s.</p>
+      </div>
+      <div class="fw-state">
+        <h3>Ascent</h3>
+        <span class="fw-logging">Logging on</span>
+        <p>It moves to descent when the smoothed vertical speed drops below −2 m/s, meaning the rocket is falling, for at least 0.5 s.</p>
+      </div>
+      <div class="fw-state">
+        <h3>Descent</h3>
+        <span class="fw-logging">Logging on</span>
+        <p>The code keeps a reference altitude and resets it whenever the altitude moves more than 3 m away. Once the altitude stays within 3 m of the reference for 5 s, the rocket has landed.</p>
+      </div>
+      <div class="fw-state">
+        <h3>Post-flight</h3>
+        <p>Logging stops and the serial commands work again, so we can download the flight log over USB.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── THE BOARD ────────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="board-h">
+    <h2 class="sec-lbl" id="board-h">The board</h2>
+    <p>The code runs on Silly Goose, a custom dual-deploy altimeter designed and built by Patrick McGuire, who was also one of my mentors on this project. Patrick made the board and I wrote code for it. You can read about the board in <a href="https://sites.google.com/view/patrick-m-mcguire/projects-home/circuit-board-design" target="_blank" rel="noopener">Patrick's write-up</a>.</p>
+    <p>High-power rockets usually open a small parachute at their highest point and a big one close to the ground. Small black powder charges push each parachute out, and the altimeter board fires them electrically. That's what dual deploy means.</p>
+    <p>Here's what's on Silly Goose:</p>
+    <ul class="fw-list">
+      <li>SAMD21 microcontroller</li>
+      <li>Barometer</li>
+      <li>Accelerometer and gyroscope</li>
+      <li>8 KB of FRAM for settings and state</li>
+      <li>64 MB of flash for black-box logging</li>
+      <li>Two switched channels for firing parachute charges</li>
+      <li>USB and battery power switching</li>
+      <li>Reverse polarity protection</li>
+    </ul>
+    <p>My code talks to three of those parts:</p>
+    <div class="fw-table-wrap">
+      <table class="fw-table">
+        <thead>
+          <tr><th scope="col">Part</th><th scope="col">Connection</th><th scope="col">What the code does with it</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MS5607 barometer</td><td>I²C, address 0x77, 400 kHz</td><td>Reads pressure and temperature at an oversampling ratio of 256</td></tr>
+          <tr><td>ICM-20602 motion sensor</td><td>I²C, address 0x69</td><td>Reads acceleration on all three axes at ±16 g. The gyroscope is set to ±2000 °/s and read, but the flight logic doesn't use it yet.</td></tr>
+          <tr><td>S25FL512 flash, 64 MB</td><td>SPI, chip select on pin 12</td><td>Stores the flight log, using 4-byte addresses and 512-byte pages</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>My code doesn't use the FRAM or fire the parachute charges. It handles the sensing, logging, and flight-state detection that deployment timing depends on.</p>
+    <p>I built the sensor drivers with my mentors. The barometer driver started from <a href="https://github.com/UravuLabs/MS5607" target="_blank" rel="noopener">UravuLabs' open-source MS5607 library</a>, and we adapted it for this board.</p>
+    <p>My <a href="avionics-pcb.html">custom GPS board</a> uses the same SAMD21 microcontroller.</p>
+  </section>
+
+  <!-- ── TOOLS ────────────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="tools-h">
+    <h2 class="sec-lbl" id="tools-h">Tools</h2>
+    <p>I wrote the code in C++ with the Arduino framework, used PlatformIO to build and upload it, and worked in CLion. The PlatformIO build uses the Adafruit Feather M0 board profile, which has the same SAMD21 chip.</p>
+  </section>
+
+  <!-- ── CODE HIGHLIGHTS ──────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="code-h">
+    <h2 class="sec-lbl" id="code-h">Code highlights</h2>
+
+    <p class="fw-code-lbl">The hold timer. <span class="fw-code-inline">check()</span> only returns true once its condition has stayed true for the whole hold time.</p>
+    <pre class="fw-pre"><code>class Debounce {
+public:
+    explicit Debounce(const uint32_t time) : m_debounceTimeMs(time) {}
+
+    bool check(bool condition) {
+        uint32_t currentTime = millis();
+
+        if (!m_isInitialized) {
+            m_referenceTime = currentTime;
+            m_isInitialized = true;
+        }
+
+        if (condition) {
+            if (currentTime - m_referenceTime &gt;= m_debounceTimeMs) {
+                return true;
+            }
+        } else {
+            m_referenceTime = currentTime;
+        }
+
+        return false;
+    }
+
+private:
+    uint32_t m_debounceTimeMs = 0;
+    uint32_t m_referenceTime = 0;
+    bool m_isInitialized = false;
+};</code></pre>
+
+    <p class="fw-code-lbl">The flight state machine. It runs once every loop.</p>
+    <pre class="fw-pre"><code>if (state == PRE_FLIGHT) {
+    runCli();
+
+    if (takeoffDebounce.check(altitudeM &gt; 100 || netAccelerationMSS &gt; 40)) {
+        state = ASCENT;
+    }
+} else if (state == ASCENT) {
+    logger.writeLogEntry(logData);
+
+    if (apogeeDebounce.check(velocityMS &lt; -2.0)) {
+        state = DESCENT;
+    }
+} else if (state == DESCENT) {
+    logger.writeLogEntry(logData);
+
+    static float referenceAltitude = 0;
+
+    bool altitudeChanged = abs(altitudeM - referenceAltitude) &gt; 3.0;
+
+    if (altitudeChanged) {
+        referenceAltitude = altitudeM;
+    }
+
+    if (landingDebounce.check(!altitudeChanged)) {
+        state = POST_FLIGHT;
+    }
+} else if (state == POST_FLIGHT) {
+    runCli();
+}</code></pre>
+
+    <p class="fw-code-lbl">The flash write loop. Log entries are 37 bytes and flash pages are 512 bytes, so a write that crosses a page boundary gets split in two.</p>
+    <pre class="fw-pre"><code>void S25FL512::write(uint32_t address, const uint8_t* buffer, uint32_t length) const {
+    uint32_t offset = 0;
+    while (length &gt; 0) {
+        uint32_t currentPageEnd = (address - (address % PAGE_SIZE)) + PAGE_SIZE;
+        uint32_t numberOfBytesToWrite = min(length, currentPageEnd - address);
+
+        pageProgram(address, (buffer + offset), numberOfBytesToWrite);
+
+        length -= numberOfBytesToWrite;
+        address += numberOfBytesToWrite;
+        offset += numberOfBytesToWrite;
+    }
+}</code></pre>
+  </section>
+
+  <!-- ── TESTING ──────────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="test-h">
+    <h2 class="sec-lbl" id="test-h">Testing</h2>
+    <p>We tested the code on the bench in sim mode. When <span class="fw-code-inline">IS_SIM</span> is on, the loop swaps the live sensor readings for rows from <span class="fw-code-inline">SimData.h</span>, a recording of about 7,200 readings, and steps forward one row every loop. Each loop also prints the current reading over serial, so we could watch the altitude, speed, and state change as the replay ran. The chart above uses the same recording. This code hasn't flown yet.</p>
+    <p>Before launch and after landing, the code listens for one-letter commands over USB serial. Sending <span class="fw-code-inline">o</span> prints every saved log entry as tab-separated text, <span class="fw-code-inline">e</span> erases the whole flash chip, and <span class="fw-code-inline">p</span> prints the current reading.</p>
+  </section>
+
+  <!-- ── LOOKING AHEAD ────────────────────────────────────── -->
+  <section class="fw-sec reveal" aria-labelledby="next-h">
+    <h2 class="sec-lbl" id="next-h">Looking ahead to future boards</h2>
+    <p>Working on this code gave me a list of things I'm looking forward to building into the drivers and firmware for my next boards.</p>
+    <ul class="fw-next">
+      <li>
+        <h3>Measuring height from the pad</h3>
+        <p>This code measures height from standard sea-level pressure, so at a launch site higher than about 100 m it would think the rocket had launched while it was still on the pad. On future boards, I'll save the pad altitude at startup and measure everything from there.</p>
+      </li>
+      <li>
+        <h3>Firing the parachute charges</h3>
+        <p>Silly Goose has two switched channels for parachute charges that this code doesn't use yet. The flight states it tracks are what deployment gets built on, and I'm looking forward to adding that step on a future board, with the small parachute's charge firing at apogee and the big one's at a set height on the way down.</p>
+      </li>
+      <li>
+        <h3>Starting every filter cleanly</h3>
+        <p>The velocity filter here returns on its first call before it saves the starting altitude and time. Its second call then divides by the whole time since power-up, which gives the speed a made-up starting value that fades over a second or two. In my next drivers, every filter will save its starting values on the first reading.</p>
+      </li>
+    </ul>
+  </section>
+
+  </main>
+
+  <!-- ── FOOTER ────────────────────────────────────────────── -->
+  <footer role="contentinfo">
+    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+         alt="Dogtooth Systems logo, a dogtooth tuna" class="footer-logo" width="180">
+    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
+    </nav>
+  </footer>
+
+  <script src="../js/main.js?v=10"></script>
+  <script src="../js/flight-replay.js?v=1"></script>
+</body>
+</html>

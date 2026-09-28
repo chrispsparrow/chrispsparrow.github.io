@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -147,7 +147,7 @@
           <span class="card-tag">CIRCUIT BOARD DESIGN</span>
         </div>
         <h3 class="work-row-title">Custom Avionics<br>GPS / Radio PCB</h3>
-        <p class="work-row-desc">A circuit board I designed on my own for Northeastern's Aerospace Launch Initiative. It's built to track the rocket with GPS, save its position, and radio that data down to the ground.</p>
+        <p class="work-row-desc">A circuit board I designed on my own for the Northeastern University Launch Initiative. It's built to track the rocket with GPS, save its position, and radio that data down to the ground.</p>
         <span class="card-cta">View Project →</span>
       </a>
 
@@ -194,10 +194,52 @@
     </div>
   </section>
 
-  <!-- ── Project 02 panel — Toothpaste (pale mint) : photo LEFT, info RIGHT ── -->
+  <!-- ── Firmware panel (charcoal) : mini flight chart LEFT, info RIGHT ── -->
+  <section id="panel-firmware" class="panel panel-firmware" aria-label="Avionics Flight Computer Firmware">
+    <div class="panel-inner">
+      <a class="work-row-media project-card reveal" href="projects/flight-firmware.html"
+         aria-label="Avionics Flight Computer Firmware, view the project">
+        <div class="card-frame">
+          <span class="hero-corner tl" aria-hidden="true"></span>
+          <span class="hero-corner tr" aria-hidden="true"></span>
+          <span class="hero-corner bl" aria-hidden="true"></span>
+          <span class="hero-corner br" aria-hidden="true"></span>
+          <!-- Small, non-interactive flight replay chart (js/flight-replay.js) -->
+          <div class="fr-chart fr-chart--mini" data-flight-chart="mini"
+               data-src="assets/firmware/flight-data.json" aria-hidden="true"></div>
+        </div>
+      </a>
+
+      <a class="work-row-info reveal reveal-d1" href="projects/flight-firmware.html"
+         aria-label="Avionics Flight Computer Firmware, view the project">
+        <div class="card-meta">
+          <span class="card-tag">EMBEDDED</span>
+          <span class="card-tag">FIRMWARE</span>
+          <span class="card-tag">TEAM PROJECT</span>
+        </div>
+        <h3 class="work-row-title">Avionics Flight<br>Computer Firmware</h3>
+        <p class="work-row-desc">Code I wrote with mentors on my avionics team for Silly Goose, a custom altimeter board built by one of them, Patrick McGuire. It reads the pressure and motion sensors, smooths out the noise, and figures out when the rocket launches, peaks, and lands.</p>
+        <span class="card-cta">View Project →</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Toothpaste panel (pale mint) : info LEFT, photo RIGHT ── -->
   <section id="panel-toothpaste" class="panel panel-toothpaste" aria-label="Assistive Toothpaste Dispenser">
     <div class="panel-inner">
-      <a class="work-row-media project-card reveal" href="projects/toothpaste.html" data-swap
+      <a class="work-row-info reveal" href="projects/toothpaste.html"
+         aria-label="Assistive Toothpaste Dispenser, view the project">
+        <div class="card-meta">
+          <span class="card-tag">MECHANICAL</span>
+          <span class="card-tag">EMBEDDED</span>
+          <span class="card-tag">TEAM PROJECT</span>
+        </div>
+        <h3 class="work-row-title">Assistive Toothpaste<br>Dispenser</h3>
+        <p class="work-row-desc">A wall-mounted dispenser that pushes out the right amount of toothpaste with one button press, made for people who have limited dexterity. On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico.</p>
+        <span class="card-cta">View Project →</span>
+      </a>
+
+      <a class="work-row-media project-card reveal reveal-d1" href="projects/toothpaste.html" data-swap
          aria-label="Assistive Toothpaste Dispenser, view the project">
         <div class="card-frame">
           <span class="hero-corner tl" aria-hidden="true"></span>
@@ -213,18 +255,6 @@
           <span class="card-hover-chip" aria-hidden="true">Hover or tap to see inside</span>
         </div>
       </a>
-
-      <a class="work-row-info reveal reveal-d1" href="projects/toothpaste.html"
-         aria-label="Assistive Toothpaste Dispenser, view the project">
-        <div class="card-meta">
-          <span class="card-tag">MECHANICAL</span>
-          <span class="card-tag">EMBEDDED</span>
-          <span class="card-tag">TEAM PROJECT</span>
-        </div>
-        <h3 class="work-row-title">Assistive Toothpaste<br>Dispenser</h3>
-        <p class="work-row-desc">A wall-mounted dispenser that pushes out the right amount of toothpaste with one button press, made for people who have limited dexterity. On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico.</p>
-        <span class="card-cta">View Project →</span>
-      </a>
     </div>
   </section>
 
@@ -236,17 +266,10 @@
   <section class="coming-soon" aria-label="Coming soon">
     <div class="coming-soon-inner">
       <h3 class="coming-soon-title reveal">Coming soon to dogtoothsystems.com</h3>
-      <p class="coming-soon-sub reveal reveal-d1">One project I've finished and one I'm building right now. Full write-ups are on the way.</p>
+      <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building right now. A full write-up is on the way.</p>
 
       <div class="coming-soon-grid">
         <article class="soon-card reveal reveal-d1">
-          <p class="soon-status">Finished, write-up coming soon</p>
-          <h4 class="soon-title">Avionics Flight Computer Firmware</h4>
-          <p class="soon-meta">AerospaceNU, fall 2025, team project with mentors</p>
-          <p class="soon-desc">I worked with mentors on my avionics team to write code for our flight computer. My code reads the pressure and motion sensors and turns their raw numbers into real measurements like altitude, with smoothing so noisy readings don't cause false alarms. It also saves flight data to a memory chip 50 times a second and detects when the rocket launches, reaches its highest point, and lands.</p>
-        </article>
-
-        <article class="soon-card reveal reveal-d2">
           <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
           <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
           <p class="soon-meta">AerospaceNU, solo project, started September 2026</p>
@@ -267,7 +290,7 @@
     <div class="about-grid">
       <div class="about-text">
         <p class="reveal">I'm <strong>Christopher Sparrow</strong>, an electrical engineering student at Northeastern. Most of the work on this site comes from my contributions to <em>AerospaceNU</em>, Northeastern University's rocketry club. I'm on the avionics subteam, which designs the electronics for club projects like air brakes (flaps that slow the rocket down) and our supersonic carbon fiber rocket.</p>
-        <p class="reveal reveal-d1">In fall 2025 I worked with mentors on our flight computer's code. Now I'm building two projects on my own. The first is a circuit board built to track the rocket with GPS and radio its position down to the ground. I've already designed the board, and right now I'm assembling it. The second is a ground station, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
+        <p class="reveal reveal-d1"><a href="projects/flight-firmware.html">In fall 2025 I worked with mentors on our flight computer's code.</a> Now I'm building two projects on my own. The first is a circuit board built to track the rocket with GPS and radio its position down to the ground. I've already designed the board, and right now I'm assembling it. The second is a ground station, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
         <p class="reveal reveal-d2"><strong>Dogtooth Systems</strong> is named after the dogtooth tuna, and its logo is on circuit boards I've designed and across this site. Some of my deepest passions are freediving and spearfishing, and a lot of spearos have heard stories about the dogtooth being the hardest fish to target. Going after one tests your skill, patience, gear, and how well you know the sport.</p>
         <p class="reveal reveal-d3">I try to bring that same mindset to engineering. With rocket electronics, most of the work happens on the bench long before launch day, and everything has to come together the one time it really matters.</p>
         <p class="reveal reveal-d4">I'm looking for a spring or summer 2027 co-op in hardware, avionics, embedded systems, or radio work.</p>
@@ -426,5 +449,6 @@
     MV.meshoptDecoderLocation = new URL('js/vendor/meshopt_decoder.js', document.baseURI).href;
   </script>
   <script src="js/main.js?v=10"></script>
+  <script src="js/flight-replay.js?v=1"></script>
 </body>
 </html>

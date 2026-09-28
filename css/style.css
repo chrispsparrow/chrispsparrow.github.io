@@ -39,6 +39,7 @@
   --contact-bg-deep: #8C3E2A;           /* darker rust for hover — off-white 6.6:1 */
   --contact-line: rgba(244,242,237,0.7);/* off-white outlines on rust — ~3.4:1 */
   --dark-line: rgba(244,242,237,0.14);  /* hairline dividers on navy, charcoal, and black */
+  --chart-raw: #6FB6E8;                 /* flight chart raw altitude, drawn as a halo under the gold line */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-text: 'Funnel Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Space Mono', 'Courier New', monospace;   /* code blocks and the hero labels/buttons only */
@@ -819,12 +820,13 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 
 /* z-chain: each panel covers the previous as it rises */
 .panel-avionics   { z-index: 3; background: var(--panel-avionics);   color: var(--hero-text); }
-.panel-toothpaste { z-index: 4; background: var(--panel-toothpaste); color: var(--text); }
+.panel-firmware   { z-index: 4; background: var(--skills-bg);        color: var(--hero-text); }
+.panel-toothpaste { z-index: 5; background: var(--panel-toothpaste); color: var(--text); }
 
 /* After-panels: About onward, slides up over the last pinned panel */
 .after-panels {
   position: relative;
-  z-index: 5;
+  z-index: 6;
   background: var(--bg);
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.4);
 }
@@ -842,6 +844,19 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   background-color: var(--panel-avionics);
   --poster-color: var(--panel-avionics);
 }
+
+/* ── Firmware panel (charcoal) text + mini flight chart ── */
+.panel-firmware .work-row-title { color: var(--hero-text); }
+.panel-firmware .work-row-desc  { color: var(--hero-text-muted); }
+.panel-firmware .card-tag       { color: #C9C5BD; border-color: rgba(244,242,237,0.28); }
+.panel-firmware .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
+.panel-firmware .work-row-info:hover .card-cta,
+.panel-firmware .project-card:hover ~ .work-row-info .card-cta { border-color: var(--gold); }
+.panel-firmware .work-row-info:focus-visible,
+.panel-firmware .project-card:focus-visible { outline-color: var(--gold); }
+.panel-firmware .card-frame { background: var(--skills-surface); border-color: var(--dark-line); }
+.panel-firmware .card-frame .fr-chart { position: absolute; inset: 1.4rem 1.2rem; }
+.panel-firmware .hero-corner { z-index: 5; }
 
 /* ── Toothpaste panel (pale mint) teal accents ── */
 .panel-toothpaste .work-row-title { color: var(--text); }
@@ -1217,6 +1232,15 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 .about-text p strong { color: var(--hero-text); font-weight: 500; }
 .about-text p em { color: var(--gold); font-style: normal; }
+.about-text p a {
+  color: var(--hero-text);
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.about-text p a:hover { color: var(--gold); }
+.about-text p a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .about-stats {
   display: grid;
@@ -1904,6 +1928,102 @@ footer a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .role-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
 .role-list li { font-size: 0.85rem; color: var(--text-dim); display: flex; gap: 0.6rem; align-items: flex-start; }
 .role-list li::before { content: '—'; color: var(--gold-text); flex-shrink:0; }
+
+/* ============================================================
+   FLIGHT REPLAY CHART  (js/flight-replay.js)
+   Drawn on charcoal: the full chart sits in .fr-card on the firmware
+   page, the mini chart in the firmware panel on the home page.
+   ============================================================ */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fr-chart { position: relative; width: 100%; }
+.fr-chart svg { display: block; overflow: visible; }
+.fr-chart--full { min-height: 280px; touch-action: pan-y; cursor: crosshair; border-radius: 4px; }
+.fr-chart--full:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.fr-chart--mini { height: 100%; pointer-events: none; }
+.fr-chart.fr-failed { min-height: 0; }
+
+.fr-grid  { stroke: var(--dark-line); stroke-width: 1; }
+.fr-tick  { stroke: rgba(244,242,237,0.3); stroke-width: 1; }
+.fr-axis  { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
+.fr-axis-title { fill: var(--hero-text-muted); font-family: var(--font-text); font-size: 12px; }
+.fr-raw    { fill: none; stroke: var(--chart-raw); stroke-width: 3; stroke-opacity: 0.7; stroke-linejoin: round; stroke-linecap: round; }
+.fr-smooth { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.fr-event-line  { stroke: rgba(244,242,237,0.45); stroke-width: 1; stroke-dasharray: 3 3; }
+.fr-event-dot   { fill: var(--skills-bg); stroke: var(--hero-text); stroke-width: 2; }
+.fr-event-label { fill: var(--hero-text); font-family: var(--font-text); font-size: 12.5px; font-weight: 600; }
+.fr-cross     { stroke: rgba(244,242,237,0.55); stroke-width: 1; pointer-events: none; }
+.fr-hover-dot { fill: var(--gold); stroke: var(--skills-bg); stroke-width: 2; pointer-events: none; }
+.fr-chart--mini .fr-smooth { stroke-width: 2.25; }
+.fr-chart--mini .fr-event-label { font-size: 11px; }
+
+.fr-tip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--hero-bg);
+  border: 1px solid rgba(244,242,237,0.2);
+  border-radius: 4px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--hero-text);
+  white-space: nowrap;
+}
+.fr-tip span { display: inline-block; min-width: 3.4rem; color: var(--hero-text-muted); }
+
+.fr-card {
+  background: var(--skills-bg);
+  color: var(--hero-text);
+  border-radius: 6px;
+  padding: clamp(1.1rem, 3vw, 2rem);
+}
+.fr-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.fr-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.85rem; color: var(--hero-text-muted); }
+.fr-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.fr-key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--gold); }
+.fr-key--raw { border-top: 3px solid var(--chart-raw); opacity: 0.8; }
+.fr-key--event { width: 9px; height: 9px; border: 2px solid var(--hero-text); border-radius: 50%; }
+
+.fr-toggle {
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gold);
+  background: transparent;
+  border: 1px solid rgba(200,145,58,0.6);
+  border-radius: 3px;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.fr-toggle:hover { background: rgba(200,145,58,0.12); border-color: var(--gold); }
+.fr-toggle[aria-pressed="true"] { background: var(--gold); color: #000; border-color: var(--gold); }
+.fr-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.fr-toggle-help { font-size: 0.85rem; color: var(--hero-text-muted); line-height: 1.6; margin: 0.9rem 0 0; }
+.fr-note {
+  font-size: 0.85rem;
+  color: var(--hero-text-muted);
+  line-height: 1.6;
+  margin: 1rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--dark-line);
+}
 
 /* ============================================================
    REDUCED MOTION

@@ -19,6 +19,17 @@ viewer — Google `model-viewer`, self-hosted at `js/vendor/model-viewer-4.3.1.m
 (optimized from the original `CHRISTOPHER SPARROW-Avionics_GPS_Radio_v2.glb` in the
 same folder). The still image is only the viewer's poster/fallback.
 
+## Flight firmware project
+
+The firmware source for the flight computer project lives outside this repo in
+`../Clion/` (the `Sillygoose Drivers/AvionicsSillyGooseDrivers/Avionics` PlatformIO
+project, plus `Clion.zip`). It must stay out of this repo. Never copy the zip or the
+source files here. The only things from it on the site are
+`assets/firmware/flight-data.json` (converted from `SimData.h`), the short code
+snippets on `projects/flight-firmware.html`, and the JavaScript port of the flight
+logic in `js/flight-replay.js`. If the firmware changes, update the port to match it
+exactly rather than fixing the logic in JavaScript.
+
 ## Writing voice
 
 Follow these rules for all visible text on the site: headings, paragraphs, card
