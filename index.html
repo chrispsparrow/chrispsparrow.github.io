@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -284,7 +284,11 @@
       <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building right now. A full write-up is on the way.</p>
 
       <div class="coming-soon-grid">
-        <article class="soon-card reveal reveal-d1">
+        <article class="soon-card reveal reveal-d1" id="ground-station">
+          <!-- Dashed border drawn in SVG so the dashes can march clockwise around the rounded corners -->
+          <svg class="soon-border" aria-hidden="true" focusable="false">
+            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
+          </svg>
           <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
           <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
           <p class="soon-meta">AerospaceNU, solo project, started September 2026</p>
@@ -305,7 +309,7 @@
     <div class="about-grid">
       <div class="about-text">
         <p class="reveal">I'm <strong>Christopher Sparrow</strong>, an electrical engineering student at Northeastern. Most of the work on this site comes from my contributions to <em>AerospaceNU</em>, Northeastern University's rocketry club. I'm on the avionics subteam, which designs the electronics for club projects like air brakes (flaps that slow the rocket down) and our supersonic carbon fiber rocket.</p>
-        <p class="reveal reveal-d1"><a href="projects/flight-firmware.html">In fall 2025 I worked with mentors on our flight computer's code.</a> Now I'm building two projects on my own. The first is <a href="projects/avionics-pcb.html">a circuit board built to track the rocket with GPS and radio its position down to the ground</a>. I've already designed the board, and right now I'm assembling it. The second is a ground station, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
+        <p class="reveal reveal-d1">In fall 2025 I worked with mentors on our flight <a href="projects/flight-firmware.html">computer's code</a>. Now I'm building two projects on my own. The first is a <a href="projects/avionics-pcb.html">circuit board</a> built to track the rocket with GPS and radio its position down to the ground. I've already designed the board, and right now I'm assembling it. The second is a <a href="#ground-station">ground station</a>, a radio board that will pick up the rocket's data during flight and send it over Bluetooth to a laptop or phone.</p>
         <p class="reveal reveal-d2"><strong>Dogtooth Systems</strong> is named after the dogtooth tuna, and its logo is on circuit boards I've designed and across this site. Some of my deepest passions are freediving and spearfishing, and a lot of spearos have heard stories about the dogtooth being the hardest fish to target. Going after one tests your skill, patience, gear, and how well you know the sport.</p>
         <p class="reveal reveal-d3">I try to bring that same mindset to engineering. With rocket electronics, most of the work happens on the bench long before launch day, and everything has to come together the one time it really matters.</p>
         <p class="reveal reveal-d4">I'm looking for a spring or summer 2027 co-op in hardware, avionics, embedded systems, or radio work.</p>

@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=16">
+  <link rel="stylesheet" href="../css/style.css?v=18">
   <style>
     /* ─── FIRMWARE PAGE ─────────────────────────────────── */
 
@@ -208,7 +208,7 @@
   <!-- ── FLIGHT REPLAY ────────────────────────────────────── -->
   <section class="fw-wide" aria-labelledby="replay-h">
     <h2 class="sec-lbl" id="replay-h">Flight replay</h2>
-    <p class="fw-lead">This is a recorded flight run through my flight logic. The gold line is the smoothed altitude the code works with, and the faint line under it is the raw altitude from the barometer. The circles mark where the code called launch, apogee, and landing. Hover over the chart or tap it to see the time, height, and flight state at any point.</p>
+    <p class="fw-lead">This is a recorded flight run through my flight logic. The green line is the smoothed altitude the code works with, and the pink line under it is the raw altitude from the barometer. The circles mark where the code called launch, apogee, and landing. Hover over the chart or tap it to see the time, height, and flight state at any point.</p>
 
     <div class="fr-card">
       <div class="fr-card-head">
@@ -310,7 +310,7 @@
   <section class="fw-sec reveal" aria-labelledby="code-h">
     <h2 class="sec-lbl" id="code-h">Code highlights</h2>
 
-    <p class="fw-code-lbl">The low-pass filter that turns the raw altitude into the smoothed gold line on the chart. Each new reading moves the output 10% of the way toward it.</p>
+    <p class="fw-code-lbl">The low-pass filter that turns the raw altitude into the smoothed green line on the chart. Each new reading moves the output 10% of the way toward it.</p>
     <pre class="fw-pre"><code>float lowPassPosition(float position) {
     constexpr float alpha = 0.1;
     static bool initialized = false;
