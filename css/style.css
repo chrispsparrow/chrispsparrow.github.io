@@ -920,7 +920,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ============================================================
    COMING SOON  (Selected Work sub-section)
    Salmon accent (--soon-accent / --soon-text) is used only here.
-   Compact dashed cards: no cover image, no viewer, no tags, not clickable.
+   Compact dashed cards: no cover image, no viewer, no tags. The card itself
+   isn't clickable, but a card can end with one text link (.soon-link).
    ============================================================ */
 .coming-soon {
   background: var(--bg);
@@ -1010,6 +1011,20 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   line-height: 1.75;
   margin: 0;
 }
+/* A plain text link under the description, underlined in the salmon accent */
+.soon-link-row { margin: 1rem 0 0; }
+.soon-link {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--soon-accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.soon-link:hover { color: var(--soon-text); }
+.soon-link:focus-visible { outline: 2px solid var(--soon-accent); outline-offset: 2px; }
 /* Small salmon dot before "In progress" — slow pulse, hidden from AT */
 .soon-dot {
   width: 8px;

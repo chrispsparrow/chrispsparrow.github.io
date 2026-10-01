@@ -34,7 +34,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -298,6 +298,17 @@
           <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
           <p class="soon-meta">AerospaceNU, solo project, started September 2026</p>
           <p class="soon-desc">I'm building a receiver that picks up live data radioed down from our team's rockets during flight. It decodes the data and sends it over Bluetooth to a laptop or phone, so we can track the rockets in real time. Right now I'm choosing the radio parts and antenna, designing the circuit board in KiCad, and writing the code that receives the data.</p>
+        </article>
+
+        <article class="soon-card reveal reveal-d2" id="flight-console">
+          <svg class="soon-border" aria-hidden="true" focusable="false">
+            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
+          </svg>
+          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
+          <h4 class="soon-title">Flight Console</h4>
+          <p class="soon-meta">Solo project, started September 2026</p>
+          <p class="soon-desc">I'm building a web page that replays rocket flights on a map. It shows each rocket's track, altitude and speed, and marks events like liftoff, apogee and landing as they happen. For now it plays a simulated flight, made by running my GPS and radio board's firmware on a PC with a simulated GPS feed. Later I want it to show live flights coming in from the ground station.</p>
+          <p class="soon-link-row"><a class="soon-link" href="flight-console/">Open the Flight Console</a></p>
         </article>
       </div>
     </div>
