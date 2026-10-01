@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    Flight Console page: the launcher (flight library) and the console that
+    plays a flight. The markup here is mostly empty mount points. js/main.js
+    decides which view to show from the ?flight= part of the URL and fills
+    them in with the view modules in js/views/.
+    Uses: ../css/style.css (site styles), flight-console.css (page styles),
+    Leaflet and Chart.js from cdnjs (optional, the page works without them),
+    ../js/main.js (site nav menu) and js/main.js (this page).
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight Console | Dogtooth Systems</title>
+  <meta name="description" content="A page I built to replay rocket flights on a map, with altitude, speed and flight events. For now it plays a simulated flight from my GPS and radio board firmware.">
+  <meta property="og:site_name" content="Dogtooth Systems">
+  <meta property="og:title" content="Flight Console | Dogtooth Systems">
+  <meta property="og:description" content="A page I built to replay rocket flights on a map, with altitude, speed and flight events. For now it plays a simulated flight from my GPS and radio board firmware.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=19">
+  <!-- Leaflet 1.9.4 map styles. The integrity hash was computed from the downloaded file. -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+        integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="flight-console.css?v=1">
+  <!-- With JavaScript off, hide the "Loading..." line (the noscript note explains). -->
+  <noscript><style>.fc-page #fc-message { display: none; }</style></noscript>
+</head>
+<body class="fc-page">
+
+  <!-- ── SITE NAV (copied from the home page, paths point up one folder) ── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="/" class="nav-name" aria-label="Christopher Sparrow, home page">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#skills">Skills</a>
+      <a href="../#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <main id="fc-main" class="fc-main">
+
+    <!-- ── LAUNCHER: shown at /flight-console/ with no ?flight= ── -->
+    <section id="fc-launcher" class="fc-launcher" aria-labelledby="fc-launcher-title" hidden>
+      <header class="fc-launch-head">
+        <h1 id="fc-launcher-title" class="fc-launch-title">Flight Console</h1>
+        <p class="fc-launch-intro">The Flight Console plays back telemetry from my rocket avionics boards. It shows each rocket's position on a map, its altitude and speed, and the events of the flight. Every flight in the library says whether it is simulated or real.</p>
+        <p class="fc-launch-intro">My GPS and radio board doesn't sense apogee or the parachutes opening. The console figures those out from the altitude data, and every event says how it was found. If a board reports an event itself, the console shows that too.</p>
+      </header>
+      <div id="fc-launch-notes" class="fc-launch-notes" role="status"></div>
+
+      <section class="fc-launch-section" aria-labelledby="fc-featured-title">
+        <h2 id="fc-featured-title" class="fc-section-title">Featured flight</h2>
+        <div id="fc-featured"></div>
+      </section>
+
+      <section class="fc-launch-section" aria-labelledby="fc-library-title">
+        <h2 id="fc-library-title" class="fc-section-title">Flight library</h2>
+        <div id="fc-library"></div>
+      </section>
+
+      <section class="fc-launch-section" aria-labelledby="fc-live-title">
+        <h2 id="fc-live-title" class="fc-section-title">Live tracking</h2>
+        <div class="fc-card fc-live-card">
+          <p>Live tracking will connect this page to my ground station over USB or Bluetooth, so I can follow a rocket during a real launch and find it after landing. It will work in Chrome or Edge on a laptop.</p>
+          <div class="fc-live-row">
+            <button type="button" class="fc-btn fc-btn-primary" disabled aria-describedby="fc-live-why">Start live flight</button>
+            <p id="fc-live-why" class="fc-live-why">Not available yet. Live tracking is coming in a later update.</p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── CONSOLE: shown for /flight-console/?flight=<id> ── -->
+    <section id="fc-console" class="fc-console" aria-label="Flight console" hidden>
+      <div id="fc-mission"></div>
+      <div id="fc-rocketbar"></div>
+      <!-- Wide screens: map and controls on the left, stats and log on the
+           right, chart and debug below. Phones: one column in the order
+           stats, controls, map, chart, log, debug (set in the CSS). -->
+      <div class="fc-grid">
+        <div class="fc-col fc-col-main">
+          <div id="fc-map" class="fc-area-map"></div>
+          <div id="fc-controls" class="fc-area-controls"></div>
+        </div>
+        <div class="fc-col fc-col-side">
+          <div id="fc-stats" class="fc-area-stats"></div>
+          <div id="fc-log" class="fc-area-log"></div>
+        </div>
+        <div id="fc-chart" class="fc-area-chart"></div>
+        <div id="fc-debug" class="fc-area-debug"></div>
+      </div>
+    </section>
+
+    <!-- ── MESSAGE: loading, unknown flight, or a library that didn't load.
+         Visible from the start, so the page never sits empty while (or if)
+         the page's code fails to load. js/main.js takes over from here. ── -->
+    <section id="fc-message" class="fc-message" aria-live="polite">
+      <p class="fc-wait">Loading the Flight Console...</p>
+    </section>
+
+    <noscript>
+      <p class="fc-noscript">The Flight Console needs JavaScript to load and play flights.</p>
+    </noscript>
+  </main>
+
+  <!-- ── FOOTER (copied from the home page, paths point up one folder) ── -->
+  <footer role="contentinfo">
+    <img
+      src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+      alt="Dogtooth Systems logo, a dogtooth tuna"
+      class="footer-logo"
+      width="180"
+    >
+    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="../#work">Work</a>
+      <a href="../#about">About</a>
+      <a href="../#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
+    </nav>
+    <div class="footer-social" aria-label="Social links">
+      <a href="https://www.linkedin.com/in/chrispsparrow" target="_blank" rel="noopener" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <a href="https://github.com/chrispsparrow" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+    </div>
+  </footer>
+
+  <!-- Map and chart libraries, pinned versions from cdnjs. Integrity hashes
+       were computed from the downloaded files. "async" means they never hold
+       up the page: if one is slow or blocked, the console still runs and the
+       map or chart shows a plain fallback instead. -->
+  <script id="fc-lib-leaflet" async
+          src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"
+          integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+          crossorigin="anonymous" referrerpolicy="no-referrer"
+          onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
+  <script id="fc-lib-chart" async
+          src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+          integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD"
+          crossorigin="anonymous" referrerpolicy="no-referrer"
+          onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
+  <script type="module" src="js/main.js?v=1" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
+  <!-- If the page's code fails to download, or is still missing after 15 s,
+       say so instead of leaving an empty page. -->
+  <script>
+    function fcLoadProblem(text) {
+      if (window.fcStarted) return;
+      var box = document.getElementById('fc-message');
+      box.hidden = false;
+      box.innerHTML = '';
+      var p = document.createElement('p');
+      p.className = 'fc-wait';
+      p.textContent = text;
+      box.appendChild(p);
+    }
+    setTimeout(function () {
+      fcLoadProblem('The Flight Console is taking a long time to load. If nothing appears, refresh the page.');
+    }, 15000);
+  </script>
+  <!-- Site script: runs the nav menu on phones. -->
+  <script src="../js/main.js?v=10"></script>
+</body>
+</html>

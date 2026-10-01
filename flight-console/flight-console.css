@@ -1,0 +1,555 @@
+/* ============================================================
+   flight-console.css
+   Styles for the Flight Console page only (flight-console/index.html).
+   Everything is scoped under .fc-page (the page's <body> class), so none
+   of it can leak into the rest of the site. It reuses the site's font and
+   color variables from ../css/style.css and adds no new fonts.
+
+   Readability outdoors: near-white text on a dark ground, amber for the
+   most important numbers, no thin weights, no low-contrast grey on values,
+   and tabular (fixed-width) digits on every number that changes.
+   ============================================================ */
+
+.fc-page {
+  --fc-bg: #0d1014;
+  --fc-panel: #161a20;
+  --fc-panel-2: #1e232b;
+  --fc-line: rgba(244, 242, 237, 0.16);
+  --fc-line-strong: rgba(244, 242, 237, 0.32);
+  --fc-text: var(--hero-text);          /* #F4F2ED, about 16:1 on the panels */
+  --fc-label: #D2CEC5;                  /* labels, about 11:1 on the panels */
+  --fc-amber: #FFB547;                  /* the most important numbers */
+  --fc-good: #5BE38A;                   /* "Fix" (always shown with the word) */
+  --fc-bad: #FF7A7A;                    /* "No fix" (always shown with the words) */
+  --fc-teal: #2DD4BF;                   /* ground station */
+  --fc-radius: 6px;
+  background: var(--fc-bg);
+}
+
+/* Site nav: in normal flow and opaque on this page (like the PCB page), so
+   it always reads above the dark console. */
+.fc-page #nav {
+  position: static;
+  background: rgba(243, 241, 236, 0.97);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+}
+@media (max-width: 640px) {
+  .fc-page #nav { padding: 0.9rem 1rem; }
+}
+
+.fc-page .fc-main {
+  background: var(--fc-bg);
+  color: var(--fc-text);
+  padding: clamp(1.25rem, 3vw, 2.25rem) clamp(0.75rem, 2.5vw, 2rem) clamp(2.5rem, 5vw, 4rem);
+  min-height: 70vh;
+}
+/* The hidden attribute must win over the display rules below. */
+.fc-page [hidden] { display: none !important; }
+
+.fc-page .fc-main :focus-visible {
+  outline: 2px solid var(--fc-amber);
+  outline-offset: 2px;
+}
+.fc-page .fc-main a { color: var(--fc-amber); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Every changing number keeps the same width per digit. */
+.fc-page .fc-num,
+.fc-page .fc-clock,
+.fc-page .fc-big-value,
+.fc-page .fc-stat-value,
+.fc-page .fc-time,
+.fc-page .fc-chip-meta,
+.fc-page .fc-log-time,
+.fc-page .fc-fact-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   Buttons
+   ------------------------------------------------------------ */
+.fc-page .fc-btn {
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--fc-text);
+  background: var(--fc-panel-2);
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 4px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  min-height: 2.5rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fc-page .fc-btn:hover:not(:disabled) { background: #2a303a; border-color: var(--fc-label); }
+.fc-page .fc-btn[aria-pressed="true"] {
+  background: var(--fc-amber);
+  border-color: var(--fc-amber);
+  color: #17150F;
+}
+.fc-page .fc-btn-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #17150F;
+}
+.fc-page .fc-btn-primary:hover:not(:disabled) { background: var(--fc-amber); border-color: var(--fc-amber); }
+.fc-page .fc-btn-lg { font-size: 1.1rem; padding: 0.8rem 1.6rem; min-height: 3rem; }
+.fc-page .fc-btn:disabled {
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--fc-label);
+  border-style: dashed;
+}
+.fc-page .fc-main a.fc-btn { display: inline-flex; align-items: center; text-decoration: none; color: var(--fc-text); }
+.fc-page .fc-main a.fc-btn-primary { color: #17150F; }
+.fc-page .fc-seg { display: inline-flex; gap: 0; }
+.fc-page .fc-seg .fc-btn { border-radius: 0; }
+.fc-page .fc-seg .fc-btn + .fc-btn { margin-left: -1px; }
+.fc-page .fc-seg .fc-btn:first-child { border-radius: 4px 0 0 4px; }
+.fc-page .fc-seg .fc-btn:last-child { border-radius: 0 4px 4px 0; }
+
+/* A rocket's color dot. */
+.fc-page .fc-dot {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  background: var(--dot, #fff);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+/* Small labels that carry real information ("Simulated flight"). */
+.fc-page .fc-flag {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fc-text);
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+}
+.fc-page .fc-flag--sim { border-color: var(--fc-amber); color: var(--fc-amber); }
+.fc-page .fc-flag--real { border-color: var(--fc-good); color: var(--fc-good); }
+.fc-page .fc-flag--warn { border-color: var(--fc-bad); color: var(--fc-bad); }
+
+.fc-page .fc-card {
+  position: relative;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+/* ------------------------------------------------------------
+   Launcher
+   ------------------------------------------------------------ */
+.fc-page .fc-launcher { max-width: 1100px; margin: 0 auto; }
+.fc-page .fc-launch-head { max-width: 760px; margin-bottom: 1.75rem; }
+.fc-page .fc-launch-title {
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  line-height: 1.05;
+  color: var(--fc-text);
+  margin-bottom: 1rem;
+}
+.fc-page .fc-launch-intro { font-size: 1.08rem; line-height: 1.65; color: var(--fc-text); margin-bottom: 0.8rem; }
+.fc-page .fc-launch-notes:empty { display: none; }
+.fc-page .fc-note {
+  border-left: 3px solid var(--fc-amber);
+  background: var(--fc-panel);
+  padding: 0.7rem 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--fc-text);
+}
+.fc-page .fc-launch-section { margin-top: 2.25rem; }
+.fc-page .fc-section-title {
+  font-size: 1.35rem;
+  color: var(--fc-text);
+  margin-bottom: 0.9rem;
+}
+.fc-page .fc-flight-card { display: flex; flex-direction: column; gap: 0.8rem; }
+.fc-page .fc-flight-card--featured {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 1.25rem 2rem;
+  padding: clamp(1.25rem, 3.5vw, 2.25rem);
+  border-color: rgba(200, 145, 58, 0.45);
+}
+.fc-page .fc-flight-card--featured .hero-corner { width: 26px; height: 26px; }
+.fc-page .fc-flight-title { font-size: 1.25rem; line-height: 1.25; color: var(--fc-text); }
+.fc-page .fc-flight-card--featured .fc-flight-title { font-size: clamp(1.5rem, 3.2vw, 2.1rem); }
+.fc-page .fc-flight-sub { color: var(--fc-label); font-size: 0.98rem; }
+.fc-page .fc-flight-desc { color: var(--fc-text); line-height: 1.6; }
+.fc-page .fc-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1.25rem;
+  margin: 0;
+}
+.fc-page .fc-fact-label { color: var(--fc-label); font-size: 0.9rem; }
+.fc-page .fc-fact-value { color: var(--fc-amber); font-size: 1.5rem; font-weight: 600; line-height: 1.2; }
+.fc-page .fc-flight-card--featured .fc-fact-value { font-size: clamp(1.75rem, 3.4vw, 2.3rem); }
+.fc-page .fc-ft { display: block; font-size: 0.55em; color: var(--fc-label); font-weight: 500; margin-top: 0.15em; }
+.fc-page .fc-flight-actions { margin-top: auto; padding-top: 0.4rem; }
+.fc-page .fc-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1rem;
+}
+.fc-page .fc-empty { color: var(--fc-text); }
+.fc-page .fc-live-card p { color: var(--fc-text); line-height: 1.6; max-width: 70ch; }
+.fc-page .fc-live-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; margin-top: 1rem; }
+.fc-page .fc-live-why { color: var(--fc-label); margin: 0; }
+
+/* ------------------------------------------------------------
+   Messages (loading, unknown flight, library failed)
+   ------------------------------------------------------------ */
+.fc-page .fc-message { max-width: 720px; margin: 2rem auto; }
+.fc-page .fc-message h1 { font-size: 1.8rem; color: var(--fc-text); margin-bottom: 0.8rem; }
+.fc-page .fc-message p { color: var(--fc-text); line-height: 1.6; margin-bottom: 0.9rem; }
+.fc-page .fc-noscript { max-width: 720px; margin: 2rem auto; color: var(--fc-text); }
+
+/* ------------------------------------------------------------
+   Console layout
+   ------------------------------------------------------------ */
+.fc-page .fc-console { max-width: 1480px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.9rem; }
+/* Two columns that stretch to the same height: the map grows to fill the
+   left one and the event log grows to fill the right one. */
+.fc-page .fc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 390px);
+  gap: 0.9rem;
+  align-items: stretch;
+}
+.fc-page .fc-col { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
+.fc-page .fc-area-map { flex: 1 1 auto; display: flex; flex-direction: column; }
+.fc-page .fc-area-log { flex: 1 1 0; min-height: 300px; display: flex; flex-direction: column; }
+.fc-page .fc-area-chart,
+.fc-page .fc-area-debug { grid-column: 1 / -1; }
+.fc-page .fc-area-debug:empty { display: none; }
+
+/* Phones and narrow windows: one column, most useful things first. The
+   column wrappers step aside (display: contents) so "order" can mix them. */
+@media (max-width: 900px) {
+  .fc-page .fc-grid { grid-template-columns: minmax(0, 1fr); }
+  .fc-page .fc-col { display: contents; }
+  .fc-page .fc-area-stats { order: 1; }
+  .fc-page .fc-area-controls { order: 2; }
+  .fc-page .fc-area-map { order: 3; }
+  .fc-page .fc-area-chart { order: 4; }
+  .fc-page .fc-area-log { order: 5; min-height: 0; }
+  .fc-page .fc-area-debug { order: 6; }
+}
+
+.fc-page .fc-panel {
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  padding: 0.9rem 1rem;
+}
+.fc-page .fc-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.7rem;
+}
+.fc-page .fc-panel-title { font-size: 1.05rem; color: var(--fc-text); }
+.fc-page .fc-wait { color: var(--fc-label); }
+
+/* ------------------------------------------------------------
+   Mission header
+   ------------------------------------------------------------ */
+.fc-page .fc-mission {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem 1.5rem;
+  align-items: center;
+}
+.fc-page .fc-mission-rocket {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  line-height: 1.15;
+  color: var(--fc-text);
+}
+.fc-page .fc-mission-phase { font-size: 1.1rem; font-weight: 600; color: var(--fc-text); margin-top: 0.2rem; }
+.fc-page .fc-mission-lines { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+.fc-page .fc-source { color: var(--fc-label); font-size: 0.95rem; }
+.fc-page .fc-mission-flags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.fc-page .fc-mission-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; }
+.fc-page .fc-clock {
+  font-family: var(--font-text);
+  font-size: clamp(2.4rem, 7vw, 4rem);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--fc-amber);
+  white-space: nowrap;
+}
+.fc-page .fc-clock-label { color: var(--fc-label); font-size: 0.9rem; text-align: right; }
+.fc-page .fc-mission-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; align-items: center; }
+/* Always rendered (even when empty) so screen readers announce "Link copied". */
+.fc-page .fc-copy-status { color: var(--fc-good); font-weight: 600; font-size: 0.95rem; }
+.fc-page .fc-copy-fallback { width: 100%; font: inherit; padding: 0.4rem; background: var(--fc-panel-2); color: var(--fc-text); border: 1px solid var(--fc-line-strong); }
+@media (max-width: 640px) {
+  .fc-page .fc-mission { grid-template-columns: minmax(0, 1fr); }
+  .fc-page .fc-mission-side { align-items: flex-start; }
+  .fc-page .fc-clock-label { text-align: left; }
+  .fc-page .fc-mission-actions { justify-content: flex-start; }
+}
+
+/* ------------------------------------------------------------
+   Rocket bar
+   ------------------------------------------------------------ */
+.fc-page .fc-rocketbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+@media (max-width: 900px) {
+  /* The padding leaves room for the keyboard focus ring, which the
+     sideways scrolling would otherwise clip. */
+  .fc-page .fc-rocketbar { flex-wrap: nowrap; overflow-x: auto; padding: 4px 4px 0.4rem; scrollbar-width: thin; }
+}
+.fc-page .fc-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+  text-align: left;
+  font-family: var(--font-text);
+  color: var(--fc-text);
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+.fc-page .fc-chip:hover { border-color: var(--fc-label); }
+.fc-page .fc-chip[aria-pressed="true"] { border-color: var(--chip, var(--fc-amber)); box-shadow: inset 0 0 0 1px var(--chip, var(--fc-amber)); background: var(--fc-panel-2); }
+.fc-page .fc-chip-name { font-weight: 600; font-size: 0.98rem; white-space: nowrap; }
+.fc-page .fc-chip-meta { display: flex; flex-wrap: wrap; gap: 0.1rem 0.7rem; font-size: 0.85rem; color: var(--fc-label); }
+.fc-page .fc-fix-ok { color: var(--fc-good); font-weight: 600; }
+.fc-page .fc-fix-no { color: var(--fc-bad); font-weight: 600; }
+.fc-page .fc-chip--flash { animation: fc-flash 1.4s ease-out; }
+@keyframes fc-flash {
+  0%, 30% { background: var(--chip, var(--fc-amber)); color: #17150F; }
+  100% { background: var(--fc-panel); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-page .fc-chip--flash { animation: none; outline: 2px solid var(--chip, var(--fc-amber)); }
+}
+
+/* ------------------------------------------------------------
+   Stats panel
+   ------------------------------------------------------------ */
+.fc-page .fc-stats-top {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1rem;
+  margin-bottom: 0.9rem;
+}
+.fc-page .fc-big-label { color: var(--fc-label); font-size: 0.88rem; }
+.fc-page .fc-big-value { font-size: 1.9rem; font-weight: 600; line-height: 1.15; color: var(--fc-text); }
+.fc-page .fc-big-value.fc-amber { color: var(--fc-amber); }
+.fc-page .fc-big-unit { font-size: 0.55em; font-weight: 500; color: var(--fc-label); margin-left: 0.25em; }
+/* Long values ("1 min 5 s ago") may wrap instead of spilling out of the cell. */
+.fc-page .fc-big-value { min-width: 0; overflow-wrap: anywhere; }
+/* In the big number block, feet go on their own line under the meters. */
+.fc-page .fc-big-value .fc-big-unit { display: block; margin-left: 0; margin-top: 0.1em; font-size: 0.5em; }
+.fc-page .fc-big-value .fc-big-unit:empty { display: none; }
+.fc-page .fc-stat-section { border-top: 1px solid var(--fc-line); padding-top: 0.65rem; margin-top: 0.65rem; }
+/* An h3, so it keeps the site's heading font (Space Grotesk). */
+.fc-page .fc-stat-section-title { font-size: 1rem; color: var(--fc-text); margin-bottom: 0.45rem; }
+.fc-page .fc-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 0;
+}
+.fc-page .fc-stat { min-width: 0; }
+.fc-page .fc-stat--wide { grid-column: 1 / -1; }
+.fc-page .fc-stat-label { color: var(--fc-label); font-size: 0.84rem; }
+.fc-page .fc-stat-value { color: var(--fc-text); font-size: 1.12rem; font-weight: 600; overflow-wrap: anywhere; }
+.fc-page .fc-stat-value.fc-amber { color: var(--fc-amber); }
+/* Small text after a value (feet, or "last reading 2 min ago") stays readable. */
+.fc-page .fc-stat-value .fc-big-unit { font-size: 0.75em; }
+.fc-page .fc-sensors-line { color: var(--fc-label); font-size: 0.9rem; margin-top: 0.7rem; }
+.fc-page .fc-stat-note { color: var(--fc-label); font-size: 0.88rem; margin-top: 0.35rem; }
+.fc-page .fc-extra { margin-top: 0.7rem; }
+.fc-page .fc-extra summary { cursor: pointer; color: var(--fc-text); font-weight: 600; font-size: 0.92rem; }
+.fc-page .fc-extra dl { margin-top: 0.5rem; }
+/* Phones: the main numbers stay at least 1.75rem, as asked, and shrink
+   toward that on very narrow screens so they fit their column. */
+@media (max-width: 900px) {
+  .fc-page .fc-big-value { font-size: clamp(1.75rem, 8vw, 2rem); }
+}
+
+/* ------------------------------------------------------------
+   Map
+   ------------------------------------------------------------ */
+.fc-page .fc-mapbox { flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.5rem; }
+.fc-page .fc-map-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.fc-page .fc-follow { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 600; cursor: pointer; }
+.fc-page .fc-follow input { width: 1.15rem; height: 1.15rem; accent-color: var(--fc-amber); }
+.fc-page .fc-map-frame {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: clamp(360px, 58vh, 640px);
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  overflow: hidden;
+  background: var(--fc-panel);
+}
+.fc-page .fc-map-canvas { position: absolute; inset: 0; }
+/* The frame clips anything outside it, so the map's focus ring goes inside. */
+.fc-page .fc-map-canvas:focus-visible { outline-offset: -3px; }
+.fc-page .fc-map-legend {
+  position: absolute;
+  right: 0.6rem;
+  top: 0.6rem;
+  z-index: 800;
+  background: rgba(13, 16, 20, 0.88);
+  border: 1px solid var(--fc-line);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--fc-text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  pointer-events: none;
+}
+.fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.45rem; }
+@media (max-width: 640px) {
+  .fc-page .fc-map-legend { font-size: 0.72rem; padding: 0.3rem 0.45rem; gap: 0.1rem; }
+  .fc-page .fc-legend-line { width: 18px; }
+}
+.fc-page .fc-legend-line { width: 26px; height: 0; border-top: 3px solid var(--fc-text); }
+.fc-page .fc-legend-line--dash { border-top-style: dashed; }
+.fc-page .fc-legend-ring { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--fc-teal); }
+.fc-page .fc-legend-ring--pad { border-color: var(--pad, #F4F2ED); }
+.fc-page .fc-map-status { color: var(--fc-label); font-size: 0.9rem; }
+.fc-page .fc-map-wait {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--fc-label); text-align: center; padding: 1rem;
+}
+.fc-page .fc-nomap { position: absolute; inset: 0; overflow: auto; padding: 1rem; }
+.fc-page .fc-nomap-title { font-size: 1.15rem; color: var(--fc-text); margin-bottom: 0.3rem; }
+.fc-page .fc-nomap-note { color: var(--fc-label); margin-bottom: 0.9rem; }
+.fc-page .fc-nomap-list { list-style: none; display: grid; gap: 0.7rem; }
+.fc-page .fc-nomap-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem 1rem;
+  align-items: center;
+  background: var(--fc-panel-2);
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius);
+  padding: 0.7rem 0.9rem;
+}
+.fc-page .fc-arrow { width: 56px; height: 56px; grid-row: span 3; }
+.fc-page .fc-nomap-name { display: flex; align-items: center; gap: 0.45rem; font-weight: 600; }
+.fc-page .fc-nomap-line { color: var(--fc-text); font-size: 0.95rem; }
+
+/* Leaflet on a dark page */
+.fc-page .leaflet-container { background: #0b0d10; font-family: var(--font-text); }
+.fc-page .leaflet-container a { color: var(--fc-amber); }
+.fc-page .leaflet-control-attribution {
+  background: rgba(13, 16, 20, 0.85);
+  color: var(--fc-label);
+}
+.fc-page .leaflet-control-zoom a {
+  font-family: var(--font-text);
+  background: var(--fc-panel-2);
+  color: var(--fc-text);
+  border-color: var(--fc-line);
+}
+.fc-page .leaflet-control-zoom a:hover { background: #2a303a; }
+.fc-page .leaflet-tooltip.fc-tip {
+  background: rgba(13, 16, 20, 0.92);
+  color: var(--fc-text);
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+.fc-page .leaflet-tooltip.fc-tip::before { display: none; }
+.fc-page .leaflet-tooltip.fc-tip--gs { border-color: var(--fc-teal); }
+
+/* ------------------------------------------------------------
+   Controls
+   ------------------------------------------------------------ */
+.fc-page .fc-controls { display: flex; flex-direction: column; gap: 0.7rem; }
+.fc-page .fc-controls-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.8rem; }
+.fc-page .fc-play { min-width: 6.5rem; }
+.fc-page .fc-scrub-wrap { display: flex; align-items: center; gap: 0.8rem; flex: 1 1 260px; min-width: 0; }
+.fc-page .fc-scrub { flex: 1 1 auto; min-width: 0; accent-color: var(--fc-amber); height: 2rem; cursor: pointer; }
+.fc-page .fc-time { font-weight: 600; white-space: nowrap; color: var(--fc-text); }
+.fc-page .fc-jumps-label { color: var(--fc-label); font-size: 0.9rem; }
+.fc-page .fc-jumps { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.fc-page .fc-jumps .fc-btn { font-size: 0.88rem; padding: 0.4rem 0.7rem; min-height: 2.25rem; }
+
+/* ------------------------------------------------------------
+   Altitude chart
+   ------------------------------------------------------------ */
+.fc-page .fc-chart-wrap { position: relative; height: clamp(220px, 32vh, 320px); }
+.fc-page .fc-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+.fc-page .fc-chart-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  text-align: center; color: var(--fc-label); padding: 1rem; pointer-events: none;
+}
+.fc-page .fc-chart-fallback p { color: var(--fc-text); margin-bottom: 0.4rem; }
+.fc-page .fc-chart-fallback ul { list-style: none; display: grid; gap: 0.35rem; }
+.fc-page .fc-chart-fallback li { display: flex; align-items: center; gap: 0.5rem; }
+
+/* ------------------------------------------------------------
+   Event log
+   ------------------------------------------------------------ */
+.fc-page .fc-log-panel { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.fc-page .fc-log-region { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.fc-page .fc-log-list {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.25rem;
+}
+.fc-page .fc-log-item {
+  border-left: 3px solid var(--dot, var(--fc-line-strong));
+  padding: 0.35rem 0 0.35rem 0.65rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+.fc-page .fc-log-top { display: flex; flex-wrap: wrap; gap: 0.2rem 0.7rem; align-items: baseline; }
+.fc-page .fc-log-rocket { font-weight: 600; color: var(--dot, var(--fc-text)); }
+.fc-page .fc-log-time { font-weight: 600; color: var(--fc-amber); }
+.fc-page .fc-log-msg { color: var(--fc-text); font-size: 0.95rem; line-height: 1.45; }
+.fc-page .fc-log-empty { color: var(--fc-label); }
+@media (max-width: 900px) {
+  .fc-page .fc-map-frame { flex: none; min-height: 0; height: clamp(300px, 55vh, 460px); }
+  .fc-page .fc-log-region { flex: none; }
+  .fc-page .fc-log-list { flex: none; max-height: 420px; }
+}
+
+/* ------------------------------------------------------------
+   Debug panel
+   ------------------------------------------------------------ */
+.fc-page .fc-debug summary { cursor: pointer; font-weight: 600; color: var(--fc-text); }
+.fc-page .fc-debug-body { margin-top: 0.8rem; display: grid; gap: 0.8rem; }
+.fc-page .fc-debug-body p { color: var(--fc-text); }
+.fc-page .fc-debug-list { list-style: none; display: grid; gap: 0.4rem; }
+.fc-page .fc-debug-list li { color: var(--fc-text); font-variant-numeric: tabular-nums; }
+.fc-page .fc-debug-list strong { color: var(--fc-amber); }
+
+/* ------------------------------------------------------------
+   Launcher on phones
+   ------------------------------------------------------------ */
+@media (max-width: 760px) {
+  .fc-page .fc-flight-card--featured { grid-template-columns: minmax(0, 1fr); }
+  .fc-page .fc-library-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,0 +1,4 @@
+# Keep flight logs byte for byte as the firmware wrote them, with the "\r\n"
+# line endings a board sends, instead of letting Git convert them. The page
+# reads either kind of line ending, so this only keeps the copies exact.
+*.log -text

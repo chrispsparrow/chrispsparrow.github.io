@@ -1,0 +1,499 @@
+
+DOGTOOTH_V1_FIRMWARE flight computer, Avionics GPS Radio v2 (SIMULATED GPS)
+Built Sep 30 2026 17:57:04
+SIM launch site: 35.1234567, -117.1234567, 700.0 m MSL (placeholder values in src/sim/SimGps.h)
+SIM profile: pad 30 s, boost 3 s, coast 22 s, apogee 2 s, drogue 108 s, main 50 s, then landed. Peak 3000 m AGL.
+SIM GPS fix during boost: lost (DOGTOOTH_SIM_BOOST_FIX_LOSS=1)
+Radio: OFF, held in reset. Packets are printed as hex, not transmitted.
+SIM PKT sim_s=0 phase=pad seq=0 len=34 hex=01 01 00 00 E8 03 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 00 E8 6E 03 EA A0
+t=1.0s SIM sim_s=0 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=146 nmea_bad=0 | RADIO off (sim), printed=1
+SIM PKT sim_s=1 phase=pad seq=1 len=34 hex=01 01 01 00 D0 07 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 E8 EB 6E 03 C2 33
+t=2.0s SIM sim_s=1 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=292 nmea_bad=0 | RADIO off (sim), printed=2
+SIM PKT sim_s=2 phase=pad seq=2 len=34 hex=01 01 02 00 B8 0B 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 D0 EF 6E 03 9B C9
+t=3.0s SIM sim_s=2 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=438 nmea_bad=0 | RADIO off (sim), printed=3
+SIM PKT sim_s=3 phase=pad seq=3 len=34 hex=01 01 03 00 A0 0F 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 B8 F3 6E 03 74 5F
+t=4.0s SIM sim_s=3 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=584 nmea_bad=0 | RADIO off (sim), printed=4
+SIM PKT sim_s=4 phase=pad seq=4 len=34 hex=01 01 04 00 88 13 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 A0 F7 6E 03 4D F5
+t=5.0s SIM sim_s=4 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=730 nmea_bad=0 | RADIO off (sim), printed=5
+SIM PKT sim_s=5 phase=pad seq=5 len=34 hex=01 01 05 00 70 17 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 88 FB 6E 03 26 8B
+t=6.0s SIM sim_s=5 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=876 nmea_bad=0 | RADIO off (sim), printed=6
+SIM PKT sim_s=6 phase=pad seq=6 len=34 hex=01 01 06 00 58 1B 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 70 FF 6E 03 FF 21
+t=7.0s SIM sim_s=6 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1022 nmea_bad=0 | RADIO off (sim), printed=7
+SIM PKT sim_s=7 phase=pad seq=7 len=34 hex=01 01 07 00 40 1F 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 58 03 6F 03 D9 B9
+t=8.0s SIM sim_s=7 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1168 nmea_bad=0 | RADIO off (sim), printed=8
+SIM PKT sim_s=8 phase=pad seq=8 len=34 hex=01 01 08 00 28 23 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 40 07 6F 03 B2 4F
+t=9.0s SIM sim_s=8 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1314 nmea_bad=0 | RADIO off (sim), printed=9
+SIM PKT sim_s=9 phase=pad seq=9 len=34 hex=01 01 09 00 10 27 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 28 0B 6F 03 8B E5
+t=10.0s SIM sim_s=9 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1460 nmea_bad=0 | RADIO off (sim), printed=10
+SIM PKT sim_s=10 phase=pad seq=10 len=34 hex=01 01 0A 00 F8 2A 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 10 0F 6F 03 63 60
+t=11.0s SIM sim_s=10 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1606 nmea_bad=0 | RADIO off (sim), printed=11
+SIM PKT sim_s=11 phase=pad seq=11 len=34 hex=01 01 0B 00 E0 2E 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 F8 12 6F 03 3B F3
+t=12.0s SIM sim_s=11 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1752 nmea_bad=0 | RADIO off (sim), printed=12
+SIM PKT sim_s=12 phase=pad seq=12 len=34 hex=01 01 0C 00 C8 32 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 E0 16 6F 03 14 89
+t=13.0s SIM sim_s=12 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=1898 nmea_bad=0 | RADIO off (sim), printed=13
+SIM PKT sim_s=13 phase=pad seq=13 len=34 hex=01 01 0D 00 B0 36 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 C8 1A 6F 03 ED 1F
+t=14.0s SIM sim_s=13 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2044 nmea_bad=0 | RADIO off (sim), printed=14
+SIM PKT sim_s=14 phase=pad seq=14 len=34 hex=01 01 0E 00 98 3A 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 B0 1E 6F 03 C6 B5
+t=15.0s SIM sim_s=14 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2190 nmea_bad=0 | RADIO off (sim), printed=15
+SIM PKT sim_s=15 phase=pad seq=15 len=34 hex=01 01 0F 00 80 3E 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 98 22 6F 03 9F 4B
+t=16.0s SIM sim_s=15 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2336 nmea_bad=0 | RADIO off (sim), printed=16
+SIM PKT sim_s=16 phase=pad seq=16 len=34 hex=01 01 10 00 68 42 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 80 26 6F 03 78 E1
+t=17.0s SIM sim_s=16 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2482 nmea_bad=0 | RADIO off (sim), printed=17
+SIM PKT sim_s=17 phase=pad seq=17 len=34 hex=01 01 11 00 50 46 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 68 2A 6F 03 51 77
+t=18.0s SIM sim_s=17 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2628 nmea_bad=0 | RADIO off (sim), printed=18
+SIM PKT sim_s=18 phase=pad seq=18 len=34 hex=01 01 12 00 38 4A 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 50 2E 6F 03 2A 0D
+t=19.0s SIM sim_s=18 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2774 nmea_bad=0 | RADIO off (sim), printed=19
+SIM PKT sim_s=19 phase=pad seq=19 len=34 hex=01 01 13 00 20 4E 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 38 32 6F 03 03 A3
+t=20.0s SIM sim_s=19 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=2920 nmea_bad=0 | RADIO off (sim), printed=20
+SIM PKT sim_s=20 phase=pad seq=20 len=34 hex=01 01 14 00 08 52 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 20 36 6F 03 DC 39
+t=21.0s SIM sim_s=20 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3066 nmea_bad=0 | RADIO off (sim), printed=21
+SIM PKT sim_s=21 phase=pad seq=21 len=34 hex=01 01 15 00 F0 55 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 08 3A 6F 03 B4 B4
+t=22.0s SIM sim_s=21 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3212 nmea_bad=0 | RADIO off (sim), printed=22
+SIM PKT sim_s=22 phase=pad seq=22 len=34 hex=01 01 16 00 D8 59 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 F0 3D 6F 03 8C 47
+t=23.0s SIM sim_s=22 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3358 nmea_bad=0 | RADIO off (sim), printed=23
+SIM PKT sim_s=23 phase=pad seq=23 len=34 hex=01 01 17 00 C0 5D 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 D8 41 6F 03 65 DD
+t=24.0s SIM sim_s=23 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3504 nmea_bad=0 | RADIO off (sim), printed=24
+SIM PKT sim_s=24 phase=pad seq=24 len=34 hex=01 01 18 00 A8 61 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 C0 45 6F 03 3E 73
+t=25.0s SIM sim_s=24 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3650 nmea_bad=0 | RADIO off (sim), printed=25
+SIM PKT sim_s=25 phase=pad seq=25 len=34 hex=01 01 19 00 90 65 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 A8 49 6F 03 17 09
+t=26.0s SIM sim_s=25 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3796 nmea_bad=0 | RADIO off (sim), printed=26
+SIM PKT sim_s=26 phase=pad seq=26 len=34 hex=01 01 1A 00 78 69 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 90 4D 6F 03 F0 9F
+t=27.0s SIM sim_s=26 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=3942 nmea_bad=0 | RADIO off (sim), printed=27
+SIM PKT sim_s=27 phase=pad seq=27 len=34 hex=01 01 1B 00 60 6D 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 78 51 6F 03 C9 35
+t=28.0s SIM sim_s=27 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4088 nmea_bad=0 | RADIO off (sim), printed=28
+SIM PKT sim_s=28 phase=pad seq=28 len=34 hex=01 01 1C 00 48 71 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 60 55 6F 03 A2 CB
+t=29.0s SIM sim_s=28 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4234 nmea_bad=0 | RADIO off (sim), printed=29
+SIM PKT sim_s=29 phase=pad seq=29 len=34 hex=01 01 1D 00 30 75 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 48 59 6F 03 7B 61
+t=30.0s SIM sim_s=29 phase=pad GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4380 nmea_bad=0 | RADIO off (sim), printed=30
+SIM PKT sim_s=30 phase=boost seq=30 len=34 hex=01 01 1E 00 18 79 00 00 07 00 0F 27 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 30 5D 6F 03 26 D2
+t=31.0s SIM sim_s=30 phase=boost GPS fix=yes sats=0 hdop=99.99 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4462 nmea_bad=0 | RADIO off (sim), printed=31
+SIM PKT sim_s=31 phase=boost seq=31 len=34 hex=01 01 1F 00 00 7D 00 00 04 00 0F 27 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 18 61 6F 03 FC 20
+t=32.0s SIM sim_s=31 phase=boost GPS fix=no sats=0 hdop=99.99 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4544 nmea_bad=0 | RADIO off (sim), printed=32
+SIM PKT sim_s=32 phase=boost seq=32 len=34 hex=01 01 20 00 E8 80 00 00 04 00 0F 27 06 6A EF 14 FA 60 30 BA 70 11 01 00 00 00 00 00 00 65 6F 03 D4 9B
+t=33.0s SIM sim_s=32 phase=boost GPS fix=no sats=0 hdop=99.99 lat=35.1234566 lon=-117.1234566 alt_m=700.00 model=sim nmea_chars=4626 nmea_bad=0 | RADIO off (sim), printed=33
+SIM PKT sim_s=33 phase=coast seq=33 len=34 hex=01 01 21 00 D0 84 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 10 9E 01 00 00 00 00 00 E8 68 6F 03 0A 2A
+t=34.0s SIM sim_s=33 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=1060.00 model=sim nmea_chars=4773 nmea_bad=0 | RADIO off (sim), printed=34
+SIM PKT sim_s=34 phase=coast seq=34 len=34 hex=01 01 22 00 B8 88 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA B4 F9 01 00 00 00 00 00 D0 6C 6F 03 E2 59
+t=35.0s SIM sim_s=34 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=1294.60 model=sim nmea_chars=4920 nmea_bad=0 | RADIO off (sim), printed=35
+SIM PKT sim_s=35 phase=coast seq=35 len=34 hex=01 01 23 00 A0 8C 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 0C 51 02 00 00 00 00 00 B8 70 6F 03 6C E1
+t=36.0s SIM sim_s=35 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=1518.20 model=sim nmea_chars=5067 nmea_bad=0 | RADIO off (sim), printed=36
+SIM PKT sim_s=36 phase=coast seq=36 len=34 hex=01 01 24 00 88 90 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 22 A4 02 00 00 00 00 00 A0 74 6F 03 AE 10
+t=37.0s SIM sim_s=36 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=1730.90 model=sim nmea_chars=5214 nmea_bad=0 | RADIO off (sim), printed=37
+SIM PKT sim_s=37 phase=coast seq=37 len=34 hex=01 01 25 00 70 94 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA F6 F2 02 00 00 00 00 00 88 78 6F 03 A9 F0
+t=38.0s SIM sim_s=37 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=1932.70 model=sim nmea_chars=5361 nmea_bad=0 | RADIO off (sim), printed=38
+SIM PKT sim_s=38 phase=coast seq=38 len=34 hex=01 01 26 00 58 98 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 88 3D 03 00 00 00 00 00 70 7C 6F 03 60 A1
+t=39.0s SIM sim_s=38 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2123.60 model=sim nmea_chars=5508 nmea_bad=0 | RADIO off (sim), printed=39
+SIM PKT sim_s=39 phase=coast seq=39 len=34 hex=01 01 27 00 40 9C 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA D8 83 03 00 00 00 00 00 58 80 6F 03 CF F9
+t=40.0s SIM sim_s=39 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2303.60 model=sim nmea_chars=5655 nmea_bad=0 | RADIO off (sim), printed=40
+SIM PKT sim_s=40 phase=coast seq=40 len=34 hex=01 01 28 00 28 A0 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA E6 C5 03 00 00 00 00 00 40 84 6F 03 F8 0D
+t=41.0s SIM sim_s=40 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2472.70 model=sim nmea_chars=5802 nmea_bad=0 | RADIO off (sim), printed=41
+SIM PKT sim_s=41 phase=coast seq=41 len=34 hex=01 01 29 00 10 A4 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA B2 03 04 00 00 00 00 00 28 88 6F 03 DC E7
+t=42.0s SIM sim_s=41 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2630.90 model=sim nmea_chars=5949 nmea_bad=0 | RADIO off (sim), printed=42
+SIM PKT sim_s=42 phase=coast seq=42 len=34 hex=01 01 2A 00 F8 A7 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 3C 3D 04 00 00 00 00 00 10 8C 6F 03 78 58
+t=43.0s SIM sim_s=42 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2778.20 model=sim nmea_chars=6096 nmea_bad=0 | RADIO off (sim), printed=43
+SIM PKT sim_s=43 phase=coast seq=43 len=34 hex=01 01 2B 00 E0 AB 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 84 72 04 00 00 00 00 00 F8 8F 6F 03 CD 92
+t=44.0s SIM sim_s=43 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=2914.60 model=sim nmea_chars=6243 nmea_bad=0 | RADIO off (sim), printed=44
+SIM PKT sim_s=44 phase=coast seq=44 len=34 hex=01 01 2C 00 C8 AF 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 80 A3 04 00 00 00 00 00 E0 93 6F 03 D3 13
+t=45.0s SIM sim_s=44 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3040.00 model=sim nmea_chars=6390 nmea_bad=0 | RADIO off (sim), printed=45
+SIM PKT sim_s=45 phase=coast seq=45 len=34 hex=01 01 2D 00 B0 B3 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 44 D0 04 00 00 00 00 00 C8 97 6F 03 9D C8
+t=46.0s SIM sim_s=45 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3154.60 model=sim nmea_chars=6537 nmea_bad=0 | RADIO off (sim), printed=46
+SIM PKT sim_s=46 phase=coast seq=46 len=34 hex=01 01 2E 00 98 B7 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA BC F8 04 00 00 00 00 00 B0 9B 6F 03 16 B6
+t=47.0s SIM sim_s=46 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3258.20 model=sim nmea_chars=6684 nmea_bad=0 | RADIO off (sim), printed=47
+SIM PKT sim_s=47 phase=coast seq=47 len=34 hex=01 01 2F 00 80 BB 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA F2 1C 05 00 00 00 00 00 98 9F 6F 03 4A 6A
+t=48.0s SIM sim_s=47 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3350.90 model=sim nmea_chars=6831 nmea_bad=0 | RADIO off (sim), printed=48
+SIM PKT sim_s=48 phase=coast seq=48 len=34 hex=01 01 30 00 68 BF 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA E6 3C 05 00 00 00 00 00 80 A3 6F 03 37 D0
+t=49.0s SIM sim_s=48 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3432.70 model=sim nmea_chars=6978 nmea_bad=0 | RADIO off (sim), printed=49
+SIM PKT sim_s=49 phase=coast seq=49 len=34 hex=01 01 31 00 50 C3 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 98 58 05 00 00 00 00 00 68 A7 6F 03 DE F2
+t=50.0s SIM sim_s=49 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3503.60 model=sim nmea_chars=7125 nmea_bad=0 | RADIO off (sim), printed=50
+SIM PKT sim_s=50 phase=coast seq=50 len=34 hex=01 01 32 00 38 C7 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 08 70 05 00 00 00 00 00 50 AB 6F 03 3F D0
+t=51.0s SIM sim_s=50 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3563.60 model=sim nmea_chars=7272 nmea_bad=0 | RADIO off (sim), printed=51
+SIM PKT sim_s=51 phase=coast seq=51 len=34 hex=01 01 33 00 20 CB 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 36 83 05 00 00 00 00 00 38 AF 6F 03 59 5F
+t=52.0s SIM sim_s=51 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3612.70 model=sim nmea_chars=7419 nmea_bad=0 | RADIO off (sim), printed=52
+SIM PKT sim_s=52 phase=coast seq=52 len=34 hex=01 01 34 00 08 CF 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 22 92 05 00 00 00 00 00 20 B3 6F 03 2D AA
+t=53.0s SIM sim_s=52 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3650.90 model=sim nmea_chars=7566 nmea_bad=0 | RADIO off (sim), printed=53
+SIM PKT sim_s=53 phase=coast seq=53 len=34 hex=01 01 35 00 F0 D2 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA CC 9C 05 00 00 00 00 00 08 B7 6F 03 B9 8B
+t=54.0s SIM sim_s=53 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3678.20 model=sim nmea_chars=7713 nmea_bad=0 | RADIO off (sim), printed=54
+SIM PKT sim_s=54 phase=coast seq=54 len=34 hex=01 01 36 00 D8 D6 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 34 A3 05 00 00 00 00 00 F0 BA 6F 03 00 4B
+t=55.0s SIM sim_s=54 phase=coast GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3694.60 model=sim nmea_chars=7860 nmea_bad=0 | RADIO off (sim), printed=55
+SIM PKT sim_s=55 phase=apogee seq=55 len=34 hex=01 01 37 00 C0 DA 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 50 A5 05 00 00 00 00 00 D8 BE 6F 03 F7 47
+t=56.0s SIM sim_s=55 phase=apogee GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3700.00 model=sim nmea_chars=8007 nmea_bad=0 | RADIO off (sim), printed=56
+SIM PKT sim_s=56 phase=apogee seq=56 len=34 hex=01 01 38 00 A8 DE 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 50 A5 05 00 00 00 00 00 C0 C2 6F 03 D0 DD
+t=57.0s SIM sim_s=56 phase=apogee GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3700.00 model=sim nmea_chars=8154 nmea_bad=0 | RADIO off (sim), printed=57
+SIM PKT sim_s=57 phase=drogue seq=57 len=34 hex=01 01 39 00 90 E2 00 00 07 0A 5A 00 06 6A EF 14 FA 60 30 BA 50 A5 05 00 F4 01 28 23 A8 C6 6F 03 E9 B9
+t=58.0s SIM sim_s=57 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234566 alt_m=3700.00 model=sim nmea_chars=8302 nmea_bad=0 | RADIO off (sim), printed=58
+SIM PKT sim_s=58 phase=drogue seq=58 len=34 hex=01 01 3A 00 78 E6 00 00 07 0A 5A 00 06 6A EF 14 20 63 30 BA 8C 9B 05 00 F4 01 28 23 90 CA 6F 03 1D 3E
+t=59.0s SIM sim_s=58 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1234016 alt_m=3675.00 model=sim nmea_chars=8450 nmea_bad=0 | RADIO off (sim), printed=59
+SIM PKT sim_s=59 phase=drogue seq=59 len=34 hex=01 01 3B 00 60 EA 00 00 07 0A 5A 00 06 6A EF 14 46 65 30 BA C8 91 05 00 F4 01 28 23 78 CE 6F 03 50 B4
+t=60.0s SIM sim_s=59 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1233466 alt_m=3650.00 model=sim nmea_chars=8598 nmea_bad=0 | RADIO off (sim), printed=60
+SIM PKT sim_s=60 phase=drogue seq=60 len=34 hex=01 01 3C 00 48 EE 00 00 07 0A 5A 00 06 6A EF 14 6A 67 30 BA 04 88 05 00 F4 01 28 23 60 D2 6F 03 82 15
+t=61.0s SIM sim_s=60 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1232918 alt_m=3625.00 model=sim nmea_chars=8746 nmea_bad=0 | RADIO off (sim), printed=61
+SIM PKT sim_s=61 phase=drogue seq=61 len=34 hex=01 01 3D 00 30 F2 00 00 07 0A 5A 00 06 6A EF 14 90 69 30 BA 40 7E 05 00 F4 01 28 23 48 D6 6F 03 B5 8B
+t=62.0s SIM sim_s=61 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1232368 alt_m=3600.00 model=sim nmea_chars=8894 nmea_bad=0 | RADIO off (sim), printed=62
+SIM PKT sim_s=62 phase=drogue seq=62 len=34 hex=01 01 3E 00 18 F6 00 00 07 0A 5A 00 06 6A EF 14 B6 6B 30 BA 7C 74 05 00 F4 01 28 23 30 DA 6F 03 E8 01
+t=63.0s SIM sim_s=62 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1231818 alt_m=3575.00 model=sim nmea_chars=9042 nmea_bad=0 | RADIO off (sim), printed=63
+SIM PKT sim_s=63 phase=drogue seq=63 len=34 hex=01 01 3F 00 00 FA 00 00 07 0A 5A 00 06 6A EF 14 DC 6D 30 BA B8 6A 05 00 F4 01 28 23 18 DE 6F 03 1B 77
+t=64.0s SIM sim_s=63 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1231268 alt_m=3550.00 model=sim nmea_chars=9190 nmea_bad=0 | RADIO off (sim), printed=64
+SIM PKT sim_s=64 phase=drogue seq=64 len=34 hex=01 01 40 00 E8 FD 00 00 07 0A 5A 00 06 6A EF 14 02 70 30 BA F4 60 05 00 F4 01 28 23 00 E2 6F 03 4E E1
+t=65.0s SIM sim_s=64 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1230718 alt_m=3525.00 model=sim nmea_chars=9338 nmea_bad=0 | RADIO off (sim), printed=65
+SIM PKT sim_s=65 phase=drogue seq=65 len=34 hex=01 01 41 00 D0 01 01 00 07 0A 5A 00 06 6A EF 14 28 72 30 BA 30 57 05 00 F4 01 28 23 E8 E5 6F 03 82 79
+t=66.0s SIM sim_s=65 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1230168 alt_m=3500.00 model=sim nmea_chars=9486 nmea_bad=0 | RADIO off (sim), printed=66
+SIM PKT sim_s=66 phase=drogue seq=66 len=34 hex=01 01 42 00 B8 05 01 00 07 0A 5A 00 06 6A EF 14 4E 74 30 BA 6C 4D 05 00 F4 01 28 23 D0 E9 6F 03 B5 EF
+t=67.0s SIM sim_s=66 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1229618 alt_m=3475.00 model=sim nmea_chars=9634 nmea_bad=0 | RADIO off (sim), printed=67
+SIM PKT sim_s=67 phase=drogue seq=67 len=34 hex=01 01 43 00 A0 09 01 00 07 0A 5A 00 06 6A EF 14 74 76 30 BA A8 43 05 00 F4 01 28 23 B8 ED 6F 03 E8 65
+t=68.0s SIM sim_s=67 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1229068 alt_m=3450.00 model=sim nmea_chars=9782 nmea_bad=0 | RADIO off (sim), printed=68
+SIM PKT sim_s=68 phase=drogue seq=68 len=34 hex=01 01 44 00 88 0D 01 00 07 0A 5A 00 06 6A EF 14 98 78 30 BA E4 39 05 00 F4 01 28 23 A0 F1 6F 03 19 BB
+t=69.0s SIM sim_s=68 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1228520 alt_m=3425.00 model=sim nmea_chars=9930 nmea_bad=0 | RADIO off (sim), printed=69
+SIM PKT sim_s=69 phase=drogue seq=69 len=34 hex=01 01 45 00 70 11 01 00 07 0A 5A 00 06 6A EF 14 BE 7A 30 BA 20 30 05 00 F4 01 28 23 88 F5 6F 03 4D 3C
+t=70.0s SIM sim_s=69 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1227970 alt_m=3400.00 model=sim nmea_chars=10078 nmea_bad=0 | RADIO off (sim), printed=70
+SIM PKT sim_s=70 phase=drogue seq=70 len=34 hex=01 01 46 00 58 15 01 00 07 0A 5A 00 06 6A EF 14 E4 7C 30 BA 5C 26 05 00 F4 01 28 23 70 F9 6F 03 80 B2
+t=71.0s SIM sim_s=70 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1227420 alt_m=3375.00 model=sim nmea_chars=10226 nmea_bad=0 | RADIO off (sim), printed=71
+SIM PKT sim_s=71 phase=drogue seq=71 len=34 hex=01 01 47 00 40 19 01 00 07 0A 5A 00 06 6A EF 14 0A 7F 30 BA 98 1C 05 00 F4 01 28 23 58 FD 6F 03 B4 37
+t=72.0s SIM sim_s=71 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1226870 alt_m=3350.00 model=sim nmea_chars=10374 nmea_bad=0 | RADIO off (sim), printed=72
+SIM PKT sim_s=72 phase=drogue seq=72 len=34 hex=01 01 48 00 28 1D 01 00 07 0A 5A 00 06 6A EF 14 2F 81 30 BA D4 12 05 00 F4 01 28 23 40 01 70 03 E7 9F
+t=73.0s SIM sim_s=72 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1226321 alt_m=3325.00 model=sim nmea_chars=10522 nmea_bad=0 | RADIO off (sim), printed=73
+SIM PKT sim_s=73 phase=drogue seq=73 len=34 hex=01 01 49 00 10 21 01 00 07 0A 5A 00 06 6A EF 14 55 83 30 BA 10 09 05 00 F4 01 28 23 28 05 70 03 1B 20
+t=74.0s SIM sim_s=73 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1225771 alt_m=3300.00 model=sim nmea_chars=10670 nmea_bad=0 | RADIO off (sim), printed=74
+SIM PKT sim_s=74 phase=drogue seq=74 len=34 hex=01 01 4A 00 F8 24 01 00 07 0A 5A 00 06 6A EF 14 7B 85 30 BA 4C FF 04 00 F4 01 28 23 10 09 70 03 4C 71
+t=75.0s SIM sim_s=74 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1225221 alt_m=3275.00 model=sim nmea_chars=10818 nmea_bad=0 | RADIO off (sim), printed=75
+SIM PKT sim_s=75 phase=drogue seq=75 len=34 hex=01 01 4B 00 E0 28 01 00 07 0A 5A 00 06 6A EF 14 A1 87 30 BA 88 F5 04 00 F4 01 28 23 F8 0C 70 03 7E E4
+t=76.0s SIM sim_s=75 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1224671 alt_m=3250.00 model=sim nmea_chars=10966 nmea_bad=0 | RADIO off (sim), printed=76
+SIM PKT sim_s=76 phase=drogue seq=76 len=34 hex=01 01 4C 00 C8 2C 01 00 07 0A 5A 00 06 6A EF 14 C7 89 30 BA C4 EB 04 00 F4 01 28 23 E0 10 70 03 B1 5A
+t=77.0s SIM sim_s=76 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1224121 alt_m=3225.00 model=sim nmea_chars=11114 nmea_bad=0 | RADIO off (sim), printed=77
+SIM PKT sim_s=77 phase=drogue seq=77 len=34 hex=01 01 4D 00 B0 30 01 00 07 0A 5A 00 06 6A EF 14 ED 8B 30 BA 00 E2 04 00 F4 01 28 23 C8 14 70 03 E5 DB
+t=78.0s SIM sim_s=77 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1223571 alt_m=3200.00 model=sim nmea_chars=11262 nmea_bad=0 | RADIO off (sim), printed=78
+SIM PKT sim_s=78 phase=drogue seq=78 len=34 hex=01 01 4E 00 98 34 01 00 07 0A 5A 00 06 6A EF 14 13 8E 30 BA 3C D8 04 00 F4 01 28 23 B0 18 70 03 19 60
+t=79.0s SIM sim_s=78 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1223021 alt_m=3175.00 model=sim nmea_chars=11410 nmea_bad=0 | RADIO off (sim), printed=79
+SIM PKT sim_s=79 phase=drogue seq=79 len=34 hex=01 01 4F 00 80 38 01 00 07 0A 5A 00 06 6A EF 14 39 90 30 BA 78 CE 04 00 F4 01 28 23 98 1C 70 03 4C D6
+t=80.0s SIM sim_s=79 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1222471 alt_m=3150.00 model=sim nmea_chars=11558 nmea_bad=0 | RADIO off (sim), printed=80
+SIM PKT sim_s=80 phase=drogue seq=80 len=34 hex=01 01 50 00 68 3C 01 00 07 0A 5A 00 06 6A EF 14 5F 92 30 BA B4 C4 04 00 F4 01 28 23 80 20 70 03 7F 4C
+t=81.0s SIM sim_s=80 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1221921 alt_m=3125.00 model=sim nmea_chars=11706 nmea_bad=0 | RADIO off (sim), printed=81
+SIM PKT sim_s=81 phase=drogue seq=81 len=34 hex=01 01 51 00 50 40 01 00 07 0A 5A 00 06 6A EF 14 83 94 30 BA F0 BA 04 00 F4 01 28 23 68 24 70 03 B0 A2
+t=82.0s SIM sim_s=81 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1221373 alt_m=3100.00 model=sim nmea_chars=11854 nmea_bad=0 | RADIO off (sim), printed=82
+SIM PKT sim_s=82 phase=drogue seq=82 len=34 hex=01 01 52 00 38 44 01 00 07 0A 5A 00 06 6A EF 14 A9 96 30 BA 2C B1 04 00 F4 01 28 23 50 28 70 03 E4 23
+t=83.0s SIM sim_s=82 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1220823 alt_m=3075.00 model=sim nmea_chars=12002 nmea_bad=0 | RADIO off (sim), printed=83
+SIM PKT sim_s=83 phase=drogue seq=83 len=34 hex=01 01 53 00 20 48 01 00 07 0A 5A 00 06 6A EF 14 CF 98 30 BA 68 A7 04 00 F4 01 28 23 38 2C 70 03 17 99
+t=84.0s SIM sim_s=83 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1220273 alt_m=3050.00 model=sim nmea_chars=12150 nmea_bad=0 | RADIO off (sim), printed=84
+SIM PKT sim_s=84 phase=drogue seq=84 len=34 hex=01 01 54 00 08 4C 01 00 07 0A 5A 00 06 6A EF 14 F5 9A 30 BA A4 9D 04 00 F4 01 28 23 20 30 70 03 4A 0F
+t=85.0s SIM sim_s=84 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1219723 alt_m=3025.00 model=sim nmea_chars=12298 nmea_bad=0 | RADIO off (sim), printed=85
+SIM PKT sim_s=85 phase=drogue seq=85 len=34 hex=01 01 55 00 F0 4F 01 00 07 0A 5A 00 06 6A EF 14 1B 9D 30 BA E0 93 04 00 F4 01 28 23 08 34 70 03 7D 79
+t=86.0s SIM sim_s=85 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1219173 alt_m=3000.00 model=sim nmea_chars=12446 nmea_bad=0 | RADIO off (sim), printed=86
+SIM PKT sim_s=86 phase=drogue seq=86 len=34 hex=01 01 56 00 D8 53 01 00 07 0A 5A 00 06 6A EF 14 41 9F 30 BA 1C 8A 04 00 F4 01 28 23 F0 37 70 03 B0 F7
+t=87.0s SIM sim_s=86 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1218623 alt_m=2975.00 model=sim nmea_chars=12594 nmea_bad=0 | RADIO off (sim), printed=87
+SIM PKT sim_s=87 phase=drogue seq=87 len=34 hex=01 01 57 00 C0 57 01 00 07 0A 5A 00 06 6A EF 14 67 A1 30 BA 58 80 04 00 F4 01 28 23 D8 3B 70 03 E3 6D
+t=88.0s SIM sim_s=87 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1218073 alt_m=2950.00 model=sim nmea_chars=12742 nmea_bad=0 | RADIO off (sim), printed=88
+SIM PKT sim_s=88 phase=drogue seq=88 len=34 hex=01 01 58 00 A8 5B 01 00 07 0A 5A 00 06 6A EF 14 8D A3 30 BA 94 76 04 00 F4 01 28 23 C0 3F 70 03 16 E3
+t=89.0s SIM sim_s=88 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1217523 alt_m=2925.00 model=sim nmea_chars=12890 nmea_bad=0 | RADIO off (sim), printed=89
+SIM PKT sim_s=89 phase=drogue seq=89 len=34 hex=01 01 59 00 90 5F 01 00 07 0A 5A 00 06 6A EF 14 B1 A5 30 BA D0 6C 04 00 F4 01 28 23 A8 43 70 03 47 39
+t=90.0s SIM sim_s=89 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1216975 alt_m=2900.00 model=sim nmea_chars=13038 nmea_bad=0 | RADIO off (sim), printed=90
+SIM PKT sim_s=90 phase=drogue seq=90 len=34 hex=01 01 5A 00 78 63 01 00 07 0A 5A 00 06 6A EF 14 D7 A7 30 BA 0C 63 04 00 F4 01 28 23 90 47 70 03 7B BA
+t=91.0s SIM sim_s=90 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1216425 alt_m=2875.00 model=sim nmea_chars=13186 nmea_bad=0 | RADIO off (sim), printed=91
+SIM PKT sim_s=91 phase=drogue seq=91 len=34 hex=01 01 5B 00 60 67 01 00 07 0A 5A 00 06 6A EF 14 FD A9 30 BA 48 59 04 00 F4 01 28 23 78 4B 70 03 AE 30
+t=92.0s SIM sim_s=91 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1215875 alt_m=2850.00 model=sim nmea_chars=13334 nmea_bad=0 | RADIO off (sim), printed=92
+SIM PKT sim_s=92 phase=drogue seq=92 len=34 hex=01 01 5C 00 48 6B 01 00 07 0A 5A 00 06 6A EF 14 23 AC 30 BA 84 4F 04 00 F4 01 28 23 60 4F 70 03 E2 B5
+t=93.0s SIM sim_s=92 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1215325 alt_m=2825.00 model=sim nmea_chars=13482 nmea_bad=0 | RADIO off (sim), printed=93
+SIM PKT sim_s=93 phase=drogue seq=93 len=34 hex=01 01 5D 00 30 6F 01 00 07 0A 5A 00 06 6A EF 14 49 AE 30 BA C0 45 04 00 F4 01 28 23 48 53 70 03 15 2B
+t=94.0s SIM sim_s=93 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1214775 alt_m=2800.00 model=sim nmea_chars=13630 nmea_bad=0 | RADIO off (sim), printed=94
+SIM PKT sim_s=94 phase=drogue seq=94 len=34 hex=01 01 5E 00 18 73 01 00 07 0A 5A 00 06 6A EF 14 6E B0 30 BA FC 3B 04 00 F4 01 28 23 30 57 70 03 47 91
+t=95.0s SIM sim_s=94 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1214226 alt_m=2775.00 model=sim nmea_chars=13778 nmea_bad=0 | RADIO off (sim), printed=95
+SIM PKT sim_s=95 phase=drogue seq=95 len=34 hex=01 01 5F 00 00 77 01 00 07 0A 5A 00 06 6A EF 14 94 B2 30 BA 38 32 04 00 F4 01 28 23 18 5B 70 03 7B 12
+t=96.0s SIM sim_s=95 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1213676 alt_m=2750.00 model=sim nmea_chars=13926 nmea_bad=0 | RADIO off (sim), printed=96
+SIM PKT sim_s=96 phase=drogue seq=96 len=34 hex=01 01 60 00 E8 7A 01 00 07 0A 5A 00 06 6A EF 14 BA B4 30 BA 74 28 04 00 F4 01 28 23 00 5F 70 03 AD 6D
+t=97.0s SIM sim_s=96 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1213126 alt_m=2725.00 model=sim nmea_chars=14074 nmea_bad=0 | RADIO off (sim), printed=97
+SIM PKT sim_s=97 phase=drogue seq=97 len=34 hex=01 01 61 00 D0 7E 01 00 07 0A 5A 00 06 6A EF 14 E0 B6 30 BA B0 1E 04 00 F4 01 28 23 E8 62 70 03 DF E0
+t=98.0s SIM sim_s=97 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1212576 alt_m=2700.00 model=sim nmea_chars=14222 nmea_bad=0 | RADIO off (sim), printed=98
+SIM PKT sim_s=98 phase=drogue seq=98 len=34 hex=01 01 62 00 B8 82 01 00 07 0A 5A 00 06 6A EF 14 06 B9 30 BA EC 14 04 00 F4 01 28 23 D0 66 70 03 13 65
+t=99.0s SIM sim_s=98 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1212026 alt_m=2675.00 model=sim nmea_chars=14370 nmea_bad=0 | RADIO off (sim), printed=99
+SIM PKT sim_s=99 phase=drogue seq=99 len=34 hex=01 01 63 00 A0 86 01 00 07 0A 5A 00 06 6A EF 14 2C BB 30 BA 28 0B 04 00 F4 01 28 23 B8 6A 70 03 47 E6
+t=100.0s SIM sim_s=99 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1211476 alt_m=2650.00 model=sim nmea_chars=14518 nmea_bad=0 | RADIO off (sim), printed=100
+SIM PKT sim_s=100 phase=drogue seq=100 len=34 hex=01 01 64 00 88 8A 01 00 07 0A 5A 00 06 6A EF 14 52 BD 30 BA 64 01 04 00 F4 01 28 23 A0 6E 70 03 7A 5C
+t=101.0s SIM sim_s=100 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1210926 alt_m=2625.00 model=sim nmea_chars=14666 nmea_bad=0 | RADIO off (sim), printed=101
+SIM PKT sim_s=101 phase=drogue seq=101 len=34 hex=01 01 65 00 70 8E 01 00 07 0A 5A 00 06 6A EF 14 78 BF 30 BA A0 F7 03 00 F4 01 28 23 88 72 70 03 AC C8
+t=102.0s SIM sim_s=101 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1210376 alt_m=2600.00 model=sim nmea_chars=14814 nmea_bad=0 | RADIO off (sim), printed=102
+SIM PKT sim_s=102 phase=drogue seq=102 len=34 hex=01 01 66 00 58 92 01 00 07 0A 5A 00 06 6A EF 14 9C C1 30 BA DC ED 03 00 F4 01 28 23 70 76 70 03 DD 1E
+t=103.0s SIM sim_s=102 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1209828 alt_m=2575.00 model=sim nmea_chars=14962 nmea_bad=0 | RADIO off (sim), printed=103
+SIM PKT sim_s=103 phase=drogue seq=103 len=34 hex=01 01 67 00 40 96 01 00 07 0A 5A 00 06 6A EF 14 C2 C3 30 BA 18 E4 03 00 F4 01 28 23 58 7A 70 03 11 9F
+t=104.0s SIM sim_s=103 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1209278 alt_m=2550.00 model=sim nmea_chars=15110 nmea_bad=0 | RADIO off (sim), printed=104
+SIM PKT sim_s=104 phase=drogue seq=104 len=34 hex=01 01 68 00 28 9A 01 00 07 0A 5A 00 06 6A EF 14 E8 C5 30 BA 54 DA 03 00 F4 01 28 23 40 7E 70 03 44 15
+t=105.0s SIM sim_s=104 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1208728 alt_m=2525.00 model=sim nmea_chars=15258 nmea_bad=0 | RADIO off (sim), printed=105
+SIM PKT sim_s=105 phase=drogue seq=105 len=34 hex=01 01 69 00 10 9E 01 00 07 0A 5A 00 06 6A EF 14 0E C8 30 BA 90 D0 03 00 F4 01 28 23 28 82 70 03 78 9A
+t=106.0s SIM sim_s=105 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1208178 alt_m=2500.00 model=sim nmea_chars=15406 nmea_bad=0 | RADIO off (sim), printed=106
+SIM PKT sim_s=106 phase=drogue seq=106 len=34 hex=01 01 6A 00 F8 A1 01 00 07 0A 5A 00 06 6A EF 14 34 CA 30 BA CC C6 03 00 F4 01 28 23 10 86 70 03 AA F5
+t=107.0s SIM sim_s=106 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1207628 alt_m=2475.00 model=sim nmea_chars=15554 nmea_bad=0 | RADIO off (sim), printed=107
+SIM PKT sim_s=107 phase=drogue seq=107 len=34 hex=01 01 6B 00 E0 A5 01 00 07 0A 5A 00 06 6A EF 14 5A CC 30 BA 08 BD 03 00 F4 01 28 23 F8 89 70 03 DD 73
+t=108.0s SIM sim_s=107 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1207078 alt_m=2450.00 model=sim nmea_chars=15702 nmea_bad=0 | RADIO off (sim), printed=108
+SIM PKT sim_s=108 phase=drogue seq=108 len=34 hex=01 01 6C 00 C8 A9 01 00 07 0A 5A 00 06 6A EF 14 80 CE 30 BA 44 B3 03 00 F4 01 28 23 E0 8D 70 03 10 E9
+t=109.0s SIM sim_s=108 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1206528 alt_m=2425.00 model=sim nmea_chars=15850 nmea_bad=0 | RADIO off (sim), printed=109
+SIM PKT sim_s=109 phase=drogue seq=109 len=34 hex=01 01 6D 00 B0 AD 01 00 07 0A 5A 00 06 6A EF 14 A6 D0 30 BA 80 A9 03 00 F4 01 28 23 C8 91 70 03 43 5F
+t=110.0s SIM sim_s=109 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1205978 alt_m=2400.00 model=sim nmea_chars=15998 nmea_bad=0 | RADIO off (sim), printed=110
+SIM PKT sim_s=110 phase=drogue seq=110 len=34 hex=01 01 6E 00 98 B1 01 00 07 0A 5A 00 06 6A EF 14 CC D2 30 BA BC 9F 03 00 F4 01 28 23 B0 95 70 03 76 D5
+t=111.0s SIM sim_s=110 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1205428 alt_m=2375.00 model=sim nmea_chars=16146 nmea_bad=0 | RADIO off (sim), printed=111
+SIM PKT sim_s=111 phase=drogue seq=111 len=34 hex=01 01 6F 00 80 B5 01 00 07 0A 5A 00 06 6A EF 14 F0 D4 30 BA F8 95 03 00 F4 01 28 23 98 99 70 03 A7 2B
+t=112.0s SIM sim_s=111 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1204880 alt_m=2350.00 model=sim nmea_chars=16294 nmea_bad=0 | RADIO off (sim), printed=112
+SIM PKT sim_s=112 phase=drogue seq=112 len=34 hex=01 01 70 00 68 B9 01 00 07 0A 5A 00 06 6A EF 14 16 D7 30 BA 34 8C 03 00 F4 01 28 23 80 9D 70 03 DC BB
+t=113.0s SIM sim_s=112 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1204330 alt_m=2325.00 model=sim nmea_chars=16442 nmea_bad=0 | RADIO off (sim), printed=113
+SIM PKT sim_s=113 phase=drogue seq=113 len=34 hex=01 01 71 00 50 BD 01 00 07 0A 5A 00 06 6A EF 14 3C D9 30 BA 70 82 03 00 F4 01 28 23 68 A1 70 03 0F 31
+t=114.0s SIM sim_s=113 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1203780 alt_m=2300.00 model=sim nmea_chars=16590 nmea_bad=0 | RADIO off (sim), printed=114
+SIM PKT sim_s=114 phase=drogue seq=114 len=34 hex=01 01 72 00 38 C1 01 00 07 0A 5A 00 06 6A EF 14 62 DB 30 BA AC 78 03 00 F4 01 28 23 50 A5 70 03 42 A7
+t=115.0s SIM sim_s=114 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1203230 alt_m=2275.00 model=sim nmea_chars=16738 nmea_bad=0 | RADIO off (sim), printed=115
+SIM PKT sim_s=115 phase=drogue seq=115 len=34 hex=01 01 73 00 20 C5 01 00 07 0A 5A 00 06 6A EF 14 87 DD 30 BA E8 6E 03 00 F4 01 28 23 38 A9 70 03 74 0D
+t=116.0s SIM sim_s=115 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1202681 alt_m=2250.00 model=sim nmea_chars=16886 nmea_bad=0 | RADIO off (sim), printed=116
+SIM PKT sim_s=116 phase=drogue seq=116 len=34 hex=01 01 74 00 08 C9 01 00 07 0A 5A 00 06 6A EF 14 AD DF 30 BA 24 65 03 00 F4 01 28 23 20 AD 70 03 A8 8E
+t=117.0s SIM sim_s=116 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1202131 alt_m=2225.00 model=sim nmea_chars=17034 nmea_bad=0 | RADIO off (sim), printed=117
+SIM PKT sim_s=117 phase=drogue seq=117 len=34 hex=01 01 75 00 F0 CC 01 00 07 0A 5A 00 06 6A EF 14 D3 E1 30 BA 60 5B 03 00 F4 01 28 23 08 B1 70 03 DA E9
+t=118.0s SIM sim_s=117 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1201581 alt_m=2200.00 model=sim nmea_chars=17182 nmea_bad=0 | RADIO off (sim), printed=118
+SIM PKT sim_s=118 phase=drogue seq=118 len=34 hex=01 01 76 00 D8 D0 01 00 07 0A 5A 00 06 6A EF 14 F9 E3 30 BA 9C 51 03 00 F4 01 28 23 F0 B4 70 03 0C 5C
+t=119.0s SIM sim_s=118 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1201031 alt_m=2175.00 model=sim nmea_chars=17330 nmea_bad=0 | RADIO off (sim), printed=119
+SIM PKT sim_s=119 phase=drogue seq=119 len=34 hex=01 01 77 00 C0 D4 01 00 07 0A 5A 00 06 6A EF 14 1F E6 30 BA D8 47 03 00 F4 01 28 23 D8 B8 70 03 40 E1
+t=120.0s SIM sim_s=119 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1200481 alt_m=2150.00 model=sim nmea_chars=17478 nmea_bad=0 | RADIO off (sim), printed=120
+SIM PKT sim_s=120 phase=drogue seq=120 len=34 hex=01 01 78 00 A8 D8 01 00 07 0A 5A 00 06 6A EF 14 45 E8 30 BA 14 3E 03 00 F4 01 28 23 C0 BC 70 03 74 62
+t=121.0s SIM sim_s=120 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1199931 alt_m=2125.00 model=sim nmea_chars=17626 nmea_bad=0 | RADIO off (sim), printed=121
+SIM PKT sim_s=121 phase=drogue seq=121 len=34 hex=01 01 79 00 90 DC 01 00 07 0A 5A 00 06 6A EF 14 6B EA 30 BA 50 34 03 00 F4 01 28 23 A8 C0 70 03 A7 D8
+t=122.0s SIM sim_s=121 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1199381 alt_m=2100.00 model=sim nmea_chars=17774 nmea_bad=0 | RADIO off (sim), printed=122
+SIM PKT sim_s=122 phase=drogue seq=122 len=34 hex=01 01 7A 00 78 E0 01 00 07 0A 5A 00 06 6A EF 14 91 EC 30 BA 8C 2A 03 00 F4 01 28 23 90 C4 70 03 DA 4E
+t=123.0s SIM sim_s=122 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1198831 alt_m=2075.00 model=sim nmea_chars=17922 nmea_bad=0 | RADIO off (sim), printed=123
+SIM PKT sim_s=123 phase=drogue seq=123 len=34 hex=01 01 7B 00 60 E4 01 00 07 0A 5A 00 06 6A EF 14 B7 EE 30 BA C8 20 03 00 F4 01 28 23 78 C8 70 03 0D C4
+t=124.0s SIM sim_s=123 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1198281 alt_m=2050.00 model=sim nmea_chars=18070 nmea_bad=0 | RADIO off (sim), printed=124
+SIM PKT sim_s=124 phase=drogue seq=124 len=34 hex=01 01 7C 00 48 E8 01 00 07 0A 5A 00 06 6A EF 14 DB F0 30 BA 04 17 03 00 F4 01 28 23 60 CC 70 03 3F 25
+t=125.0s SIM sim_s=124 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1197733 alt_m=2025.00 model=sim nmea_chars=18218 nmea_bad=0 | RADIO off (sim), printed=125
+SIM PKT sim_s=125 phase=drogue seq=125 len=34 hex=01 01 7D 00 30 EC 01 00 07 0A 5A 00 06 6A EF 14 01 F3 30 BA 40 0D 03 00 F4 01 28 23 48 D0 70 03 73 AA
+t=126.0s SIM sim_s=125 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1197183 alt_m=2000.00 model=sim nmea_chars=18366 nmea_bad=0 | RADIO off (sim), printed=126
+SIM PKT sim_s=126 phase=drogue seq=126 len=34 hex=01 01 7E 00 18 F0 01 00 07 0A 5A 00 06 6A EF 14 27 F5 30 BA 7C 03 03 00 F4 01 28 23 30 D4 70 03 A6 20
+t=127.0s SIM sim_s=126 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1196633 alt_m=1975.00 model=sim nmea_chars=18514 nmea_bad=0 | RADIO off (sim), printed=127
+SIM PKT sim_s=127 phase=drogue seq=127 len=34 hex=01 01 7F 00 00 F4 01 00 07 0A 5A 00 06 6A EF 14 4D F7 30 BA B8 F9 02 00 F4 01 28 23 18 D8 70 03 D8 8C
+t=128.0s SIM sim_s=127 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1196083 alt_m=1950.00 model=sim nmea_chars=18662 nmea_bad=0 | RADIO off (sim), printed=128
+SIM PKT sim_s=128 phase=drogue seq=128 len=34 hex=01 01 80 00 E8 F7 01 00 07 0A 5A 00 06 6A EF 14 73 F9 30 BA F4 EF 02 00 F4 01 28 23 00 DC 70 03 0A E7
+t=129.0s SIM sim_s=128 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1195533 alt_m=1925.00 model=sim nmea_chars=18810 nmea_bad=0 | RADIO off (sim), printed=129
+SIM PKT sim_s=129 phase=drogue seq=129 len=34 hex=01 01 81 00 D0 FB 01 00 07 0A 5A 00 06 6A EF 14 99 FB 30 BA 30 E6 02 00 F4 01 28 23 E8 DF 70 03 3D 65
+t=130.0s SIM sim_s=129 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1194983 alt_m=1900.00 model=sim nmea_chars=18958 nmea_bad=0 | RADIO off (sim), printed=130
+SIM PKT sim_s=130 phase=drogue seq=130 len=34 hex=01 01 82 00 B8 FF 01 00 07 0A 5A 00 06 6A EF 14 BF FD 30 BA 6C DC 02 00 F4 01 28 23 D0 E3 70 03 70 DB
+t=131.0s SIM sim_s=130 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1194433 alt_m=1875.00 model=sim nmea_chars=19106 nmea_bad=0 | RADIO off (sim), printed=131
+SIM PKT sim_s=131 phase=drogue seq=131 len=34 hex=01 01 83 00 A0 03 02 00 07 0A 5A 00 06 6A EF 14 E5 FF 30 BA A8 D2 02 00 F4 01 28 23 B8 E7 70 03 A4 6B
+t=132.0s SIM sim_s=131 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1193883 alt_m=1850.00 model=sim nmea_chars=19254 nmea_bad=0 | RADIO off (sim), printed=132
+SIM PKT sim_s=132 phase=drogue seq=132 len=34 hex=01 01 84 00 88 07 02 00 07 0A 5A 00 06 6A EF 14 09 02 31 BA E4 C8 02 00 F4 01 28 23 A0 EB 70 03 D7 DE
+t=133.0s SIM sim_s=132 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1193335 alt_m=1825.00 model=sim nmea_chars=19402 nmea_bad=0 | RADIO off (sim), printed=133
+SIM PKT sim_s=133 phase=drogue seq=133 len=34 hex=01 01 85 00 70 0B 02 00 07 0A 5A 00 06 6A EF 14 2F 04 31 BA 20 BF 02 00 F4 01 28 23 88 EF 70 03 0B 5F
+t=134.0s SIM sim_s=133 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1192785 alt_m=1800.00 model=sim nmea_chars=19550 nmea_bad=0 | RADIO off (sim), printed=134
+SIM PKT sim_s=134 phase=drogue seq=134 len=34 hex=01 01 86 00 58 0F 02 00 07 0A 5A 00 06 6A EF 14 55 06 31 BA 5C B5 02 00 F4 01 28 23 70 F3 70 03 3E D5
+t=135.0s SIM sim_s=134 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1192235 alt_m=1775.00 model=sim nmea_chars=19698 nmea_bad=0 | RADIO off (sim), printed=135
+SIM PKT sim_s=135 phase=drogue seq=135 len=34 hex=01 01 87 00 40 13 02 00 07 0A 5A 00 06 6A EF 14 7B 08 31 BA 98 AB 02 00 F4 01 28 23 58 F7 70 03 71 4B
+t=136.0s SIM sim_s=135 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1191685 alt_m=1750.00 model=sim nmea_chars=19846 nmea_bad=0 | RADIO off (sim), printed=136
+SIM PKT sim_s=136 phase=drogue seq=136 len=34 hex=01 01 88 00 28 17 02 00 07 0A 5A 00 06 6A EF 14 A0 0A 31 BA D4 A1 02 00 F4 01 28 23 40 FB 70 03 A3 B1
+t=137.0s SIM sim_s=136 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1191136 alt_m=1725.00 model=sim nmea_chars=19994 nmea_bad=0 | RADIO off (sim), printed=137
+SIM PKT sim_s=137 phase=drogue seq=137 len=34 hex=01 01 89 00 10 1B 02 00 07 0A 5A 00 06 6A EF 14 C6 0C 31 BA 10 98 02 00 F4 01 28 23 28 FF 70 03 D7 32
+t=138.0s SIM sim_s=137 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1190586 alt_m=1700.00 model=sim nmea_chars=20142 nmea_bad=0 | RADIO off (sim), printed=138
+SIM PKT sim_s=138 phase=drogue seq=138 len=34 hex=01 01 8A 00 F8 1E 02 00 07 0A 5A 00 06 6A EF 14 EC 0E 31 BA 4C 8E 02 00 F4 01 28 23 10 03 71 03 0A 8F
+t=139.0s SIM sim_s=138 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1190036 alt_m=1675.00 model=sim nmea_chars=20290 nmea_bad=0 | RADIO off (sim), printed=139
+SIM PKT sim_s=139 phase=drogue seq=139 len=34 hex=01 01 8B 00 E0 22 02 00 07 0A 5A 00 06 6A EF 14 12 11 31 BA 88 84 02 00 F4 01 28 23 F8 06 71 03 3D 11
+t=140.0s SIM sim_s=139 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1189486 alt_m=1650.00 model=sim nmea_chars=20438 nmea_bad=0 | RADIO off (sim), printed=140
+SIM PKT sim_s=140 phase=drogue seq=140 len=34 hex=01 01 8C 00 C8 26 02 00 07 0A 5A 00 06 6A EF 14 38 13 31 BA C4 7A 02 00 F4 01 28 23 E0 0A 71 03 70 87
+t=141.0s SIM sim_s=140 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1188936 alt_m=1625.00 model=sim nmea_chars=20586 nmea_bad=0 | RADIO off (sim), printed=141
+SIM PKT sim_s=141 phase=drogue seq=141 len=34 hex=01 01 8D 00 B0 2A 02 00 07 0A 5A 00 06 6A EF 14 5E 15 31 BA 00 71 02 00 F4 01 28 23 C8 0E 71 03 A4 08
+t=142.0s SIM sim_s=141 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1188386 alt_m=1600.00 model=sim nmea_chars=20734 nmea_bad=0 | RADIO off (sim), printed=142
+SIM PKT sim_s=142 phase=drogue seq=142 len=34 hex=01 01 8E 00 98 2E 02 00 07 0A 5A 00 06 6A EF 14 84 17 31 BA 3C 67 02 00 F4 01 28 23 B0 12 71 03 D7 7E
+t=143.0s SIM sim_s=142 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1187836 alt_m=1575.00 model=sim nmea_chars=20882 nmea_bad=0 | RADIO off (sim), printed=143
+SIM PKT sim_s=143 phase=drogue seq=143 len=34 hex=01 01 8F 00 80 32 02 00 07 0A 5A 00 06 6A EF 14 AA 19 31 BA 78 5D 02 00 F4 01 28 23 98 16 71 03 0A F4
+t=144.0s SIM sim_s=143 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1187286 alt_m=1550.00 model=sim nmea_chars=21030 nmea_bad=0 | RADIO off (sim), printed=144
+SIM PKT sim_s=144 phase=drogue seq=144 len=34 hex=01 01 90 00 68 36 02 00 07 0A 5A 00 06 6A EF 14 D0 1B 31 BA B4 53 02 00 F4 01 28 23 80 1A 71 03 3D 6A
+t=145.0s SIM sim_s=144 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1186736 alt_m=1525.00 model=sim nmea_chars=21178 nmea_bad=0 | RADIO off (sim), printed=145
+SIM PKT sim_s=145 phase=drogue seq=145 len=34 hex=01 01 91 00 50 3A 02 00 07 0A 5A 00 06 6A EF 14 F4 1D 31 BA F0 49 02 00 F4 01 28 23 68 1E 71 03 6E C0
+t=146.0s SIM sim_s=145 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1186188 alt_m=1500.00 model=sim nmea_chars=21326 nmea_bad=0 | RADIO off (sim), printed=146
+SIM PKT sim_s=146 phase=drogue seq=146 len=34 hex=01 01 92 00 38 3E 02 00 07 0A 5A 00 06 6A EF 14 1A 20 31 BA 2C 40 02 00 F4 01 28 23 50 22 71 03 A3 50
+t=147.0s SIM sim_s=146 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1185638 alt_m=1475.00 model=sim nmea_chars=21474 nmea_bad=0 | RADIO off (sim), printed=147
+SIM PKT sim_s=147 phase=drogue seq=147 len=34 hex=01 01 93 00 20 42 02 00 07 0A 5A 00 06 6A EF 14 40 22 31 BA 68 36 02 00 F4 01 28 23 38 26 71 03 D6 C6
+t=148.0s SIM sim_s=147 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1185088 alt_m=1450.00 model=sim nmea_chars=21622 nmea_bad=0 | RADIO off (sim), printed=148
+SIM PKT sim_s=148 phase=drogue seq=148 len=34 hex=01 01 94 00 08 46 02 00 07 0A 5A 00 06 6A EF 14 66 24 31 BA A4 2C 02 00 F4 01 28 23 20 2A 71 03 09 3C
+t=149.0s SIM sim_s=148 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1184538 alt_m=1425.00 model=sim nmea_chars=21770 nmea_bad=0 | RADIO off (sim), printed=149
+SIM PKT sim_s=149 phase=drogue seq=149 len=34 hex=01 01 95 00 F0 49 02 00 07 0A 5A 00 06 6A EF 14 8C 26 31 BA E0 22 02 00 F4 01 28 23 08 2E 71 03 3B 97
+t=150.0s SIM sim_s=149 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1183988 alt_m=1400.00 model=sim nmea_chars=21918 nmea_bad=0 | RADIO off (sim), printed=150
+SIM PKT sim_s=150 phase=drogue seq=150 len=34 hex=01 01 96 00 D8 4D 02 00 07 0A 5A 00 06 6A EF 14 B2 28 31 BA 1C 19 02 00 F4 01 28 23 F0 31 71 03 6E 15
+t=151.0s SIM sim_s=150 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1183438 alt_m=1375.00 model=sim nmea_chars=22066 nmea_bad=0 | RADIO off (sim), printed=151
+SIM PKT sim_s=151 phase=drogue seq=151 len=34 hex=01 01 97 00 C0 51 02 00 07 0A 5A 00 06 6A EF 14 D8 2A 31 BA 58 0F 02 00 F4 01 28 23 D8 35 71 03 A1 8B
+t=152.0s SIM sim_s=151 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1182888 alt_m=1350.00 model=sim nmea_chars=22214 nmea_bad=0 | RADIO off (sim), printed=152
+SIM PKT sim_s=152 phase=drogue seq=152 len=34 hex=01 01 98 00 A8 55 02 00 07 0A 5A 00 06 6A EF 14 FE 2C 31 BA 94 05 02 00 F4 01 28 23 C0 39 71 03 D4 01
+t=153.0s SIM sim_s=152 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1182338 alt_m=1325.00 model=sim nmea_chars=22362 nmea_bad=0 | RADIO off (sim), printed=153
+SIM PKT sim_s=153 phase=drogue seq=153 len=34 hex=01 01 99 00 90 59 02 00 07 0A 5A 00 06 6A EF 14 22 2F 31 BA D0 FB 01 00 F4 01 28 23 A8 3D 71 03 05 5C
+t=154.0s SIM sim_s=153 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1181790 alt_m=1300.00 model=sim nmea_chars=22510 nmea_bad=0 | RADIO off (sim), printed=154
+SIM PKT sim_s=154 phase=drogue seq=154 len=34 hex=01 01 9A 00 78 5D 02 00 07 0A 5A 00 06 6A EF 14 48 31 31 BA 0C F2 01 00 F4 01 28 23 90 41 71 03 39 DD
+t=155.0s SIM sim_s=154 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1181240 alt_m=1275.00 model=sim nmea_chars=22658 nmea_bad=0 | RADIO off (sim), printed=155
+SIM PKT sim_s=155 phase=drogue seq=155 len=34 hex=01 01 9B 00 60 61 02 00 07 0A 5A 00 06 6A EF 14 6E 33 31 BA 48 E8 01 00 F4 01 28 23 78 45 71 03 6C 53
+t=156.0s SIM sim_s=155 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1180690 alt_m=1250.00 model=sim nmea_chars=22806 nmea_bad=0 | RADIO off (sim), printed=156
+SIM PKT sim_s=156 phase=drogue seq=156 len=34 hex=01 01 9C 00 48 65 02 00 07 0A 5A 00 06 6A EF 14 94 35 31 BA 84 DE 01 00 F4 01 28 23 60 49 71 03 9F C9
+t=157.0s SIM sim_s=156 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1180140 alt_m=1225.00 model=sim nmea_chars=22954 nmea_bad=0 | RADIO off (sim), printed=157
+SIM PKT sim_s=157 phase=drogue seq=157 len=34 hex=01 01 9D 00 30 69 02 00 07 0A 5A 00 06 6A EF 14 BA 37 31 BA C0 D4 01 00 F4 01 28 23 48 4D 71 03 D2 3F
+t=158.0s SIM sim_s=157 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1179590 alt_m=1200.00 model=sim nmea_chars=23102 nmea_bad=0 | RADIO off (sim), printed=158
+SIM PKT sim_s=158 phase=drogue seq=158 len=34 hex=01 01 9E 00 18 6D 02 00 07 0A 5A 00 06 6A EF 14 DF 39 31 BA FC CA 01 00 F4 01 28 23 30 51 71 03 04 A5
+t=159.0s SIM sim_s=158 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1179041 alt_m=1175.00 model=sim nmea_chars=23250 nmea_bad=0 | RADIO off (sim), printed=159
+SIM PKT sim_s=159 phase=drogue seq=159 len=34 hex=01 01 9F 00 00 71 02 00 07 0A 5A 00 06 6A EF 14 05 3C 31 BA 38 C1 01 00 F4 01 28 23 18 55 71 03 39 35
+t=160.0s SIM sim_s=159 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1178491 alt_m=1150.00 model=sim nmea_chars=23398 nmea_bad=0 | RADIO off (sim), printed=160
+SIM PKT sim_s=160 phase=drogue seq=160 len=34 hex=01 01 A0 00 E8 74 02 00 07 0A 5A 00 06 6A EF 14 2B 3E 31 BA 74 B7 01 00 F4 01 28 23 00 59 71 03 6B 90
+t=161.0s SIM sim_s=160 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1177941 alt_m=1125.00 model=sim nmea_chars=23546 nmea_bad=0 | RADIO off (sim), printed=161
+SIM PKT sim_s=161 phase=drogue seq=161 len=34 hex=01 01 A1 00 D0 78 02 00 07 0A 5A 00 06 6A EF 14 51 40 31 BA B0 AD 01 00 F4 01 28 23 E8 5C 71 03 9D 03
+t=162.0s SIM sim_s=161 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1177391 alt_m=1100.00 model=sim nmea_chars=23694 nmea_bad=0 | RADIO off (sim), printed=162
+SIM PKT sim_s=162 phase=drogue seq=162 len=34 hex=01 01 A2 00 B8 7C 02 00 07 0A 5A 00 06 6A EF 14 77 42 31 BA EC A3 01 00 F4 01 28 23 D0 60 71 03 D0 79
+t=163.0s SIM sim_s=162 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1176841 alt_m=1075.00 model=sim nmea_chars=23842 nmea_bad=0 | RADIO off (sim), printed=163
+SIM PKT sim_s=163 phase=drogue seq=163 len=34 hex=01 01 A3 00 A0 80 02 00 07 0A 5A 00 06 6A EF 14 9D 44 31 BA 28 9A 01 00 F4 01 28 23 B8 64 71 03 04 FA
+t=164.0s SIM sim_s=163 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1176291 alt_m=1050.00 model=sim nmea_chars=23990 nmea_bad=0 | RADIO off (sim), printed=164
+SIM PKT sim_s=164 phase=drogue seq=164 len=34 hex=01 01 A4 00 88 84 02 00 07 0A 5A 00 06 6A EF 14 C3 46 31 BA 64 90 01 00 F4 01 28 23 A0 68 71 03 37 70
+t=165.0s SIM sim_s=164 phase=drogue GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1175741 alt_m=1025.00 model=sim nmea_chars=24138 nmea_bad=0 | RADIO off (sim), printed=165
+SIM PKT sim_s=165 phase=main seq=165 len=34 hex=01 01 A5 00 70 88 02 00 07 0A 5A 00 06 6A EF 14 E9 48 31 BA A0 86 01 00 F4 01 28 23 88 6C 71 03 6A E6
+t=166.0s SIM sim_s=165 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1175191 alt_m=1000.00 model=sim nmea_chars=24286 nmea_bad=0 | RADIO off (sim), printed=166
+SIM PKT sim_s=166 phase=main seq=166 len=34 hex=01 01 A6 00 58 8C 02 00 07 0A 5A 00 06 6A EF 14 0D 4B 31 BA 48 84 01 00 F4 01 28 23 70 70 71 03 10 B3
+t=167.0s SIM sim_s=166 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1174643 alt_m=994.00 model=sim nmea_chars=24433 nmea_bad=0 | RADIO off (sim), printed=167
+SIM PKT sim_s=167 phase=main seq=167 len=34 hex=01 01 A7 00 40 90 02 00 07 0A 5A 00 06 6A EF 14 33 4D 31 BA F0 81 01 00 F4 01 28 23 58 74 71 03 B6 86
+t=168.0s SIM sim_s=167 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1174093 alt_m=988.00 model=sim nmea_chars=24580 nmea_bad=0 | RADIO off (sim), printed=168
+SIM PKT sim_s=168 phase=main seq=168 len=34 hex=01 01 A8 00 28 94 02 00 07 0A 5A 00 06 6A EF 14 59 4F 31 BA 98 7F 01 00 F4 01 28 23 40 78 71 03 5D 64
+t=169.0s SIM sim_s=168 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1173543 alt_m=982.00 model=sim nmea_chars=24727 nmea_bad=0 | RADIO off (sim), printed=169
+SIM PKT sim_s=169 phase=main seq=169 len=34 hex=01 01 A9 00 10 98 02 00 07 0A 5A 00 06 6A EF 14 7F 51 31 BA 40 7D 01 00 F4 01 28 23 28 7C 71 03 04 42
+t=170.0s SIM sim_s=169 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1172993 alt_m=976.00 model=sim nmea_chars=24874 nmea_bad=0 | RADIO off (sim), printed=170
+SIM PKT sim_s=170 phase=main seq=170 len=34 hex=01 01 AA 00 F8 9B 02 00 07 0A 5A 00 06 6A EF 14 A5 53 31 BA E8 7A 01 00 F4 01 28 23 10 80 71 03 A9 FA
+t=171.0s SIM sim_s=170 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1172443 alt_m=970.00 model=sim nmea_chars=25021 nmea_bad=0 | RADIO off (sim), printed=171
+SIM PKT sim_s=171 phase=main seq=171 len=34 hex=01 01 AB 00 E0 9F 02 00 07 0A 5A 00 06 6A EF 14 CB 55 31 BA 90 78 01 00 F4 01 28 23 F8 83 71 03 4F D5
+t=172.0s SIM sim_s=171 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1171893 alt_m=964.00 model=sim nmea_chars=25168 nmea_bad=0 | RADIO off (sim), printed=172
+SIM PKT sim_s=172 phase=main seq=172 len=34 hex=01 01 AC 00 C8 A3 02 00 07 0A 5A 00 06 6A EF 14 F1 57 31 BA 38 76 01 00 F4 01 28 23 E0 87 71 03 F6 B3
+t=173.0s SIM sim_s=172 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1171343 alt_m=958.00 model=sim nmea_chars=25315 nmea_bad=0 | RADIO off (sim), printed=173
+SIM PKT sim_s=173 phase=main seq=173 len=34 hex=01 01 AD 00 B0 A7 02 00 07 0A 5A 00 06 6A EF 14 17 5A 31 BA E0 73 01 00 F4 01 28 23 C8 8B 71 03 9D 95
+t=174.0s SIM sim_s=173 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1170793 alt_m=952.00 model=sim nmea_chars=25462 nmea_bad=0 | RADIO off (sim), printed=174
+SIM PKT sim_s=174 phase=main seq=174 len=34 hex=01 01 AE 00 98 AB 02 00 07 0A 5A 00 06 6A EF 14 3D 5C 31 BA 88 71 01 00 F4 01 28 23 B0 8F 71 03 44 73
+t=175.0s SIM sim_s=174 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1170243 alt_m=946.00 model=sim nmea_chars=25609 nmea_bad=0 | RADIO off (sim), printed=175
+SIM PKT sim_s=175 phase=main seq=175 len=34 hex=01 01 AF 00 80 AF 02 00 07 0A 5A 00 06 6A EF 14 61 5E 31 BA 30 6F 01 00 F4 01 28 23 98 93 71 03 E9 31
+t=176.0s SIM sim_s=175 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1169695 alt_m=940.00 model=sim nmea_chars=25756 nmea_bad=0 | RADIO off (sim), printed=176
+SIM PKT sim_s=176 phase=main seq=176 len=34 hex=01 01 B0 00 68 B3 02 00 07 0A 5A 00 06 6A EF 14 87 60 31 BA D8 6C 01 00 F4 01 28 23 80 97 71 03 8F 04
+t=177.0s SIM sim_s=176 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1169145 alt_m=934.00 model=sim nmea_chars=25903 nmea_bad=0 | RADIO off (sim), printed=177
+SIM PKT sim_s=177 phase=main seq=177 len=34 hex=01 01 B1 00 50 B7 02 00 07 0A 5A 00 06 6A EF 14 AD 62 31 BA 80 6A 01 00 F4 01 28 23 68 9B 71 03 36 E2
+t=178.0s SIM sim_s=177 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1168595 alt_m=928.00 model=sim nmea_chars=26050 nmea_bad=0 | RADIO off (sim), printed=178
+SIM PKT sim_s=178 phase=main seq=178 len=34 hex=01 01 B2 00 38 BB 02 00 07 0A 5A 00 06 6A EF 14 D3 64 31 BA 28 68 01 00 F4 01 28 23 50 9F 71 03 DD C0
+t=179.0s SIM sim_s=178 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1168045 alt_m=922.00 model=sim nmea_chars=26197 nmea_bad=0 | RADIO off (sim), printed=179
+SIM PKT sim_s=179 phase=main seq=179 len=34 hex=01 01 B3 00 20 BF 02 00 07 0A 5A 00 06 6A EF 14 F8 66 31 BA D0 65 01 00 F4 01 28 23 38 A3 71 03 82 83
+t=180.0s SIM sim_s=179 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1167496 alt_m=916.00 model=sim nmea_chars=26344 nmea_bad=0 | RADIO off (sim), printed=180
+SIM PKT sim_s=180 phase=main seq=180 len=34 hex=01 01 B4 00 08 C3 02 00 07 0A 5A 00 06 6A EF 14 1E 69 31 BA 78 63 01 00 F4 01 28 23 20 A7 71 03 2A 70
+t=181.0s SIM sim_s=180 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1166946 alt_m=910.00 model=sim nmea_chars=26491 nmea_bad=0 | RADIO off (sim), printed=181
+SIM PKT sim_s=181 phase=main seq=181 len=34 hex=01 01 B5 00 F0 C6 02 00 07 0A 5A 00 06 6A EF 14 44 6B 31 BA 20 61 01 00 F4 01 28 23 08 AB 71 03 D0 33
+t=182.0s SIM sim_s=181 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1166396 alt_m=904.00 model=sim nmea_chars=26638 nmea_bad=0 | RADIO off (sim), printed=182
+SIM PKT sim_s=182 phase=main seq=182 len=34 hex=01 01 B6 00 D8 CA 02 00 07 0A 5A 00 06 6A EF 14 6A 6D 31 BA C8 5E 01 00 F4 01 28 23 F0 AE 71 03 75 03
+t=183.0s SIM sim_s=182 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1165846 alt_m=898.00 model=sim nmea_chars=26785 nmea_bad=0 | RADIO off (sim), printed=183
+SIM PKT sim_s=183 phase=main seq=183 len=34 hex=01 01 B7 00 C0 CE 02 00 07 0A 5A 00 06 6A EF 14 90 6F 31 BA 70 5C 01 00 F4 01 28 23 D8 B2 71 03 1C E1
+t=184.0s SIM sim_s=183 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1165296 alt_m=892.00 model=sim nmea_chars=26932 nmea_bad=0 | RADIO off (sim), printed=184
+SIM PKT sim_s=184 phase=main seq=184 len=34 hex=01 01 B8 00 A8 D2 02 00 07 0A 5A 00 06 6A EF 14 B6 71 31 BA 18 5A 01 00 F4 01 28 23 C0 B6 71 03 C3 BF
+t=185.0s SIM sim_s=184 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1164746 alt_m=886.00 model=sim nmea_chars=27079 nmea_bad=0 | RADIO off (sim), printed=185
+SIM PKT sim_s=185 phase=main seq=185 len=34 hex=01 01 B9 00 90 D6 02 00 07 0A 5A 00 06 6A EF 14 DC 73 31 BA C0 57 01 00 F4 01 28 23 A8 BA 71 03 69 92
+t=186.0s SIM sim_s=185 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1164196 alt_m=880.00 model=sim nmea_chars=27226 nmea_bad=0 | RADIO off (sim), printed=186
+SIM PKT sim_s=186 phase=main seq=186 len=34 hex=01 01 BA 00 78 DA 02 00 07 0A 5A 00 06 6A EF 14 02 76 31 BA 68 55 01 00 F4 01 28 23 90 BE 71 03 11 7F
+t=187.0s SIM sim_s=186 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1163646 alt_m=874.00 model=sim nmea_chars=27373 nmea_bad=0 | RADIO off (sim), printed=187
+SIM PKT sim_s=187 phase=main seq=187 len=34 hex=01 01 BB 00 60 DE 02 00 07 0A 5A 00 06 6A EF 14 26 78 31 BA 10 53 01 00 F4 01 28 23 78 C2 71 03 B6 3D
+t=188.0s SIM sim_s=187 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1163098 alt_m=868.00 model=sim nmea_chars=27520 nmea_bad=0 | RADIO off (sim), printed=188
+SIM PKT sim_s=188 phase=main seq=188 len=34 hex=01 01 BC 00 48 E2 02 00 07 0A 5A 00 06 6A EF 14 4C 7A 31 BA B8 50 01 00 F4 01 28 23 60 C6 71 03 5C 10
+t=189.0s SIM sim_s=188 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1162548 alt_m=862.00 model=sim nmea_chars=27667 nmea_bad=0 | RADIO off (sim), printed=189
+SIM PKT sim_s=189 phase=main seq=189 len=34 hex=01 01 BD 00 30 E6 02 00 07 0A 5A 00 06 6A EF 14 72 7C 31 BA 60 4E 01 00 F4 01 28 23 48 CA 71 03 03 EE
+t=190.0s SIM sim_s=189 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1161998 alt_m=856.00 model=sim nmea_chars=27814 nmea_bad=0 | RADIO off (sim), printed=190
+SIM PKT sim_s=190 phase=main seq=190 len=34 hex=01 01 BE 00 18 EA 02 00 07 0A 5A 00 06 6A EF 14 98 7E 31 BA 08 4C 01 00 F4 01 28 23 30 CE 71 03 AA CC
+t=191.0s SIM sim_s=190 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1161448 alt_m=850.00 model=sim nmea_chars=27961 nmea_bad=0 | RADIO off (sim), printed=191
+SIM PKT sim_s=191 phase=main seq=191 len=34 hex=01 01 BF 00 00 EE 02 00 07 0A 5A 00 06 6A EF 14 BE 80 31 BA B0 49 01 00 F4 01 28 23 18 D2 71 03 50 9F
+t=192.0s SIM sim_s=191 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1160898 alt_m=844.00 model=sim nmea_chars=28108 nmea_bad=0 | RADIO off (sim), printed=192
+SIM PKT sim_s=192 phase=main seq=192 len=34 hex=01 01 C0 00 E8 F1 02 00 07 0A 5A 00 06 6A EF 14 E4 82 31 BA 58 47 01 00 F4 01 28 23 00 D6 71 03 F6 62
+t=193.0s SIM sim_s=192 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1160348 alt_m=838.00 model=sim nmea_chars=28255 nmea_bad=0 | RADIO off (sim), printed=193
+SIM PKT sim_s=193 phase=main seq=193 len=34 hex=01 01 C1 00 D0 F5 02 00 07 0A 5A 00 06 6A EF 14 0A 85 31 BA 00 45 01 00 F4 01 28 23 E8 D9 71 03 9D 4C
+t=194.0s SIM sim_s=193 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1159798 alt_m=832.00 model=sim nmea_chars=28402 nmea_bad=0 | RADIO off (sim), printed=194
+SIM PKT sim_s=194 phase=main seq=194 len=34 hex=01 01 C2 00 B8 F9 02 00 07 0A 5A 00 06 6A EF 14 30 87 31 BA A8 42 01 00 F4 01 28 23 D0 DD 71 03 43 1F
+t=195.0s SIM sim_s=194 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1159248 alt_m=826.00 model=sim nmea_chars=28549 nmea_bad=0 | RADIO off (sim), printed=195
+SIM PKT sim_s=195 phase=main seq=195 len=34 hex=01 01 C3 00 A0 FD 02 00 07 0A 5A 00 06 6A EF 14 56 89 31 BA 50 40 01 00 F4 01 28 23 B8 E1 71 03 EA FD
+t=196.0s SIM sim_s=195 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1158698 alt_m=820.00 model=sim nmea_chars=28696 nmea_bad=0 | RADIO off (sim), printed=196
+SIM PKT sim_s=196 phase=main seq=196 len=34 hex=01 01 C4 00 88 01 03 00 07 0A 5A 00 06 6A EF 14 7A 8B 31 BA F8 3D 01 00 F4 01 28 23 A0 E5 71 03 8F CA
+t=197.0s SIM sim_s=196 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1158150 alt_m=814.00 model=sim nmea_chars=28843 nmea_bad=0 | RADIO off (sim), printed=197
+SIM PKT sim_s=197 phase=main seq=197 len=34 hex=01 01 C5 00 70 05 03 00 07 0A 5A 00 06 6A EF 14 A0 8D 31 BA A0 3B 01 00 F4 01 28 23 88 E9 71 03 36 A8
+t=198.0s SIM sim_s=197 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1157600 alt_m=808.00 model=sim nmea_chars=28990 nmea_bad=0 | RADIO off (sim), printed=198
+SIM PKT sim_s=198 phase=main seq=198 len=34 hex=01 01 C6 00 58 09 03 00 07 0A 5A 00 06 6A EF 14 C6 8F 31 BA 48 39 01 00 F4 01 28 23 70 ED 71 03 DD 86
+t=199.0s SIM sim_s=198 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1157050 alt_m=802.00 model=sim nmea_chars=29137 nmea_bad=0 | RADIO off (sim), printed=199
+SIM PKT sim_s=199 phase=main seq=199 len=34 hex=01 01 C7 00 40 0D 03 00 07 0A 5A 00 06 6A EF 14 EC 91 31 BA F0 36 01 00 F4 01 28 23 58 F1 71 03 83 59
+t=200.0s SIM sim_s=199 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1156500 alt_m=796.00 model=sim nmea_chars=29284 nmea_bad=0 | RADIO off (sim), printed=200
+SIM PKT sim_s=200 phase=main seq=200 len=34 hex=01 01 C8 00 28 11 03 00 07 0A 5A 00 06 6A EF 14 11 94 31 BA 98 34 01 00 F4 01 28 23 40 F5 71 03 2A 36
+t=201.0s SIM sim_s=200 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1155951 alt_m=790.00 model=sim nmea_chars=29431 nmea_bad=0 | RADIO off (sim), printed=201
+SIM PKT sim_s=201 phase=main seq=201 len=34 hex=01 01 C9 00 10 15 03 00 07 0A 5A 00 06 6A EF 14 37 96 31 BA 40 32 01 00 F4 01 28 23 28 F9 71 03 D1 14
+t=202.0s SIM sim_s=201 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1155401 alt_m=784.00 model=sim nmea_chars=29578 nmea_bad=0 | RADIO off (sim), printed=202
+SIM PKT sim_s=202 phase=main seq=202 len=34 hex=01 01 CA 00 F8 18 03 00 07 0A 5A 00 06 6A EF 14 5D 98 31 BA E8 2F 01 00 F4 01 28 23 10 FD 71 03 76 CC
+t=203.0s SIM sim_s=202 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1154851 alt_m=778.00 model=sim nmea_chars=29725 nmea_bad=0 | RADIO off (sim), printed=203
+SIM PKT sim_s=203 phase=main seq=203 len=34 hex=01 01 CB 00 E0 1C 03 00 07 0A 5A 00 06 6A EF 14 83 9A 31 BA 90 2D 01 00 F4 01 28 23 F8 00 72 03 1D A9
+t=204.0s SIM sim_s=203 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1154301 alt_m=772.00 model=sim nmea_chars=29872 nmea_bad=0 | RADIO off (sim), printed=204
+SIM PKT sim_s=204 phase=main seq=204 len=34 hex=01 01 CC 00 C8 20 03 00 07 0A 5A 00 06 6A EF 14 A9 9C 31 BA 38 2B 01 00 F4 01 28 23 E0 04 72 03 C4 87
+t=205.0s SIM sim_s=204 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1153751 alt_m=766.00 model=sim nmea_chars=30019 nmea_bad=0 | RADIO off (sim), printed=205
+SIM PKT sim_s=205 phase=main seq=205 len=34 hex=01 01 CD 00 B0 24 03 00 07 0A 5A 00 06 6A EF 14 CF 9E 31 BA E0 28 01 00 F4 01 28 23 C8 08 72 03 6A 5A
+t=206.0s SIM sim_s=205 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1153201 alt_m=760.00 model=sim nmea_chars=30166 nmea_bad=0 | RADIO off (sim), printed=206
+SIM PKT sim_s=206 phase=main seq=206 len=34 hex=01 01 CE 00 98 28 03 00 07 0A 5A 00 06 6A EF 14 F5 A0 31 BA 88 26 01 00 F4 01 28 23 B0 0C 72 03 11 38
+t=207.0s SIM sim_s=206 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1152651 alt_m=754.00 model=sim nmea_chars=30313 nmea_bad=0 | RADIO off (sim), printed=207
+SIM PKT sim_s=207 phase=main seq=207 len=34 hex=01 01 CF 00 80 2C 03 00 07 0A 5A 00 06 6A EF 14 1B A3 31 BA 30 24 01 00 F4 01 28 23 98 10 72 03 B9 25
+t=208.0s SIM sim_s=207 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1152101 alt_m=748.00 model=sim nmea_chars=30460 nmea_bad=0 | RADIO off (sim), printed=208
+SIM PKT sim_s=208 phase=main seq=208 len=34 hex=01 01 D0 00 68 30 03 00 07 0A 5A 00 06 6A EF 14 41 A5 31 BA D8 21 01 00 F4 01 28 23 80 14 72 03 5F F8
+t=209.0s SIM sim_s=208 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1151551 alt_m=742.00 model=sim nmea_chars=30607 nmea_bad=0 | RADIO off (sim), printed=209
+SIM PKT sim_s=209 phase=main seq=209 len=34 hex=01 01 D1 00 50 34 03 00 07 0A 5A 00 06 6A EF 14 65 A7 31 BA 80 1F 01 00 F4 01 28 23 68 18 72 03 04 B6
+t=210.0s SIM sim_s=209 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1151003 alt_m=736.00 model=sim nmea_chars=30754 nmea_bad=0 | RADIO off (sim), printed=210
+SIM PKT sim_s=210 phase=main seq=210 len=34 hex=01 01 D2 00 38 38 03 00 07 0A 5A 00 06 6A EF 14 8B A9 31 BA 28 1D 01 00 F4 01 28 23 50 1C 72 03 AB 94
+t=211.0s SIM sim_s=210 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1150453 alt_m=730.00 model=sim nmea_chars=30901 nmea_bad=0 | RADIO off (sim), printed=211
+SIM PKT sim_s=211 phase=main seq=211 len=34 hex=01 01 D3 00 20 3C 03 00 07 0A 5A 00 06 6A EF 14 B1 AB 31 BA D0 1A 01 00 F4 01 28 23 38 20 72 03 51 67
+t=212.0s SIM sim_s=211 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1149903 alt_m=724.00 model=sim nmea_chars=31048 nmea_bad=0 | RADIO off (sim), printed=212
+SIM PKT sim_s=212 phase=main seq=212 len=34 hex=01 01 D4 00 08 40 03 00 07 0A 5A 00 06 6A EF 14 D7 AD 31 BA 78 18 01 00 F4 01 28 23 20 24 72 03 F8 45
+t=213.0s SIM sim_s=212 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1149353 alt_m=718.00 model=sim nmea_chars=31195 nmea_bad=0 | RADIO off (sim), printed=213
+SIM PKT sim_s=213 phase=main seq=213 len=34 hex=01 01 D5 00 F0 43 03 00 07 0A 5A 00 06 6A EF 14 FD AF 31 BA 20 16 01 00 F4 01 28 23 08 28 72 03 9E 08
+t=214.0s SIM sim_s=213 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1148803 alt_m=712.00 model=sim nmea_chars=31342 nmea_bad=0 | RADIO off (sim), printed=214
+SIM PKT sim_s=214 phase=main seq=214 len=34 hex=01 01 D6 00 D8 47 03 00 07 0A 5A 00 06 6A EF 14 23 B2 31 BA C8 13 01 00 F4 01 28 23 F0 2B 72 03 44 E7
+t=215.0s SIM sim_s=214 phase=main GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1148253 alt_m=706.00 model=sim nmea_chars=31489 nmea_bad=0 | RADIO off (sim), printed=215
+SIM PKT sim_s=215 phase=landed seq=215 len=34 hex=01 01 D7 00 C0 4B 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 D8 2F 72 03 AB 7F
+t=216.0s SIM sim_s=215 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=31635 nmea_bad=0 | RADIO off (sim), printed=216
+SIM PKT sim_s=216 phase=landed seq=216 len=34 hex=01 01 D8 00 A8 4F 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 C0 33 72 03 84 15
+t=217.0s SIM sim_s=216 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=31781 nmea_bad=0 | RADIO off (sim), printed=217
+SIM PKT sim_s=217 phase=landed seq=217 len=34 hex=01 01 D9 00 90 53 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 A8 37 72 03 5D AB
+t=218.0s SIM sim_s=217 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=31927 nmea_bad=0 | RADIO off (sim), printed=218
+SIM PKT sim_s=218 phase=landed seq=218 len=34 hex=01 01 DA 00 78 57 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 90 3B 72 03 36 41
+t=219.0s SIM sim_s=218 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32073 nmea_bad=0 | RADIO off (sim), printed=219
+SIM PKT sim_s=219 phase=landed seq=219 len=34 hex=01 01 DB 00 60 5B 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 78 3F 72 03 0F D7
+t=220.0s SIM sim_s=219 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32219 nmea_bad=0 | RADIO off (sim), printed=220
+SIM PKT sim_s=220 phase=landed seq=220 len=34 hex=01 01 DC 00 48 5F 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 60 43 72 03 E8 6D
+t=221.0s SIM sim_s=220 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32365 nmea_bad=0 | RADIO off (sim), printed=221
+SIM PKT sim_s=221 phase=landed seq=221 len=34 hex=01 01 DD 00 30 63 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 48 47 72 03 C1 03
+t=222.0s SIM sim_s=221 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32511 nmea_bad=0 | RADIO off (sim), printed=222
+SIM PKT sim_s=222 phase=landed seq=222 len=34 hex=01 01 DE 00 18 67 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 30 4B 72 03 9A 99
+t=223.0s SIM sim_s=222 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32657 nmea_bad=0 | RADIO off (sim), printed=223
+SIM PKT sim_s=223 phase=landed seq=223 len=34 hex=01 01 DF 00 00 6B 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 18 4F 72 03 73 2F
+t=224.0s SIM sim_s=223 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32803 nmea_bad=0 | RADIO off (sim), printed=224
+SIM PKT sim_s=224 phase=landed seq=224 len=34 hex=01 01 E0 00 E8 6E 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 00 53 72 03 4B AA
+t=225.0s SIM sim_s=224 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=32949 nmea_bad=0 | RADIO off (sim), printed=225
+SIM PKT sim_s=225 phase=landed seq=225 len=34 hex=01 01 E1 00 D0 72 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 E8 56 72 03 23 3D
+t=226.0s SIM sim_s=225 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33095 nmea_bad=0 | RADIO off (sim), printed=226
+SIM PKT sim_s=226 phase=landed seq=226 len=34 hex=01 01 E2 00 B8 76 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 D0 5A 72 03 FC D3
+t=227.0s SIM sim_s=226 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33241 nmea_bad=0 | RADIO off (sim), printed=227
+SIM PKT sim_s=227 phase=landed seq=227 len=34 hex=01 01 E3 00 A0 7A 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 B8 5E 72 03 D5 69
+t=228.0s SIM sim_s=227 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33387 nmea_bad=0 | RADIO off (sim), printed=228
+SIM PKT sim_s=228 phase=landed seq=228 len=34 hex=01 01 E4 00 88 7E 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 A0 62 72 03 AE FF
+t=229.0s SIM sim_s=228 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33533 nmea_bad=0 | RADIO off (sim), printed=229
+SIM PKT sim_s=229 phase=landed seq=229 len=34 hex=01 01 E5 00 70 82 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 88 66 72 03 87 95
+t=230.0s SIM sim_s=229 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33679 nmea_bad=0 | RADIO off (sim), printed=230
+SIM PKT sim_s=230 phase=landed seq=230 len=34 hex=01 01 E6 00 58 86 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 70 6A 72 03 60 2B
+t=231.0s SIM sim_s=230 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33825 nmea_bad=0 | RADIO off (sim), printed=231
+SIM PKT sim_s=231 phase=landed seq=231 len=34 hex=01 01 E7 00 40 8A 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 58 6E 72 03 39 C1
+t=232.0s SIM sim_s=231 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=33971 nmea_bad=0 | RADIO off (sim), printed=232
+SIM PKT sim_s=232 phase=landed seq=232 len=34 hex=01 01 E8 00 28 8E 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 40 72 72 03 12 57
+t=233.0s SIM sim_s=232 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34117 nmea_bad=0 | RADIO off (sim), printed=233
+SIM PKT sim_s=233 phase=landed seq=233 len=34 hex=01 01 E9 00 10 92 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 28 76 72 03 EB ED
+t=234.0s SIM sim_s=233 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34263 nmea_bad=0 | RADIO off (sim), printed=234
+SIM PKT sim_s=234 phase=landed seq=234 len=34 hex=01 01 EA 00 F8 95 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 10 7A 72 03 C3 68
+t=235.0s SIM sim_s=234 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34409 nmea_bad=0 | RADIO off (sim), printed=235
+SIM PKT sim_s=235 phase=landed seq=235 len=34 hex=01 01 EB 00 E0 99 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 F8 7D 72 03 9B FB
+t=236.0s SIM sim_s=235 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34555 nmea_bad=0 | RADIO off (sim), printed=236
+SIM PKT sim_s=236 phase=landed seq=236 len=34 hex=01 01 EC 00 C8 9D 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 E0 81 72 03 74 91
+t=237.0s SIM sim_s=236 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34701 nmea_bad=0 | RADIO off (sim), printed=237
+SIM PKT sim_s=237 phase=landed seq=237 len=34 hex=01 01 ED 00 B0 A1 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 C8 85 72 03 4D 27
+t=238.0s SIM sim_s=237 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34847 nmea_bad=0 | RADIO off (sim), printed=238
+SIM PKT sim_s=238 phase=landed seq=238 len=34 hex=01 01 EE 00 98 A5 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 B0 89 72 03 26 BD
+t=239.0s SIM sim_s=238 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=34993 nmea_bad=0 | RADIO off (sim), printed=239
+SIM PKT sim_s=239 phase=landed seq=239 len=34 hex=01 01 EF 00 80 A9 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 98 8D 72 03 FF 53
+t=240.0s SIM sim_s=239 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35139 nmea_bad=0 | RADIO off (sim), printed=240
+SIM PKT sim_s=240 phase=landed seq=240 len=34 hex=01 01 F0 00 68 AD 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 80 91 72 03 D8 E9
+t=241.0s SIM sim_s=240 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35285 nmea_bad=0 | RADIO off (sim), printed=241
+SIM PKT sim_s=241 phase=landed seq=241 len=34 hex=01 01 F1 00 50 B1 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 68 95 72 03 B1 7F
+t=242.0s SIM sim_s=241 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35431 nmea_bad=0 | RADIO off (sim), printed=242
+SIM PKT sim_s=242 phase=landed seq=242 len=34 hex=01 01 F2 00 38 B5 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 50 99 72 03 8A 15
+t=243.0s SIM sim_s=242 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35577 nmea_bad=0 | RADIO off (sim), printed=243
+SIM PKT sim_s=243 phase=landed seq=243 len=34 hex=01 01 F3 00 20 B9 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 38 9D 72 03 63 AB
+t=244.0s SIM sim_s=243 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35723 nmea_bad=0 | RADIO off (sim), printed=244
+SIM PKT sim_s=244 phase=landed seq=244 len=34 hex=01 01 F4 00 08 BD 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 20 A1 72 03 3C 41
+t=245.0s SIM sim_s=244 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=35869 nmea_bad=0 | RADIO off (sim), printed=245
+SIM PKT sim_s=245 phase=landed seq=245 len=34 hex=01 01 F5 00 F0 C0 03 00 07 0A 5A 00 06 6A EF 14 49 B4 31 BA 70 11 01 00 00 00 00 00 08 A5 72 03 14 BC
+t=246.0s SIM sim_s=245 phase=landed GPS fix=yes sats=10 hdop=0.90 lat=35.1234566 lon=-117.1147703 alt_m=700.00 model=sim nmea_chars=36015 nmea_bad=0 | RADIO off (sim), printed=246

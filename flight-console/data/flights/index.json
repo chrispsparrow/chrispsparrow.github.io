@@ -1,0 +1,36 @@
+{
+  "flights": [
+    {
+      "id": "gps-board-sim-01",
+      "title": "GPS and radio board simulated flight",
+      "date": "2026-09-30",
+      "kind": "simulated",
+      "featured": true,
+      "description": "This log came from my firmware's own GPS parser and packet code, running on a PC with a simulated GPS feed. The packets have the same format the board sends over the radio.",
+      "site": "Placeholder launch site",
+      "rockets": [
+        {
+          "rocketId": "1",
+          "name": "GPS and radio board",
+          "board": "SAMD21, SAM-M8Q GPS and E22 LoRa radio",
+          "file": "pc_sim_flight.log"
+        }
+      ],
+      "summary": {
+        "rocketCount": 1,
+        "maxAglM": 3000,
+        "flightDurationS": 184,
+        "sensors": [
+          "gps"
+        ],
+        "events": [
+          "liftoff",
+          "apogee",
+          "drogue",
+          "main",
+          "landed"
+        ]
+      }
+    }
+  ]
+}
