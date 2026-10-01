@@ -112,10 +112,10 @@ export const GROUND_STATION = Object.freeze({
 });
 
 // ------------------------------------------------------------------
-// Playback (player.js and controls.js)
+// Playback (player.js and the altitude timeline, timeline.js)
 // ------------------------------------------------------------------
 
-// Speed buttons shown under the map, as multiples of real time.
+// Speed buttons under the altitude timeline, as multiples of real time.
 export const PLAYBACK_SPEEDS = Object.freeze([1, 5, 20]);
 // Speed a flight starts playing at when it is opened.
 export const DEFAULT_SPEED = 5;
@@ -133,7 +133,7 @@ export const MAX_FRAME_STEP_S = 0.25;
 // no "GPS fix", a hollow map marker with the age of its last good fix.
 export const LINK_STALE_S = 5;
 // Altitude and vertical speed older than this (s) are marked as old in the
-// stats panel instead of looking live.
+// readings panel, the altitude tape and the map label instead of looking live.
 export const ALTITUDE_STALE_S = 1.5;
 // Vertical speeds smaller than this (m/s) show with no up or down arrow.
 export const LEVEL_VSPEED_MPS = 0.05;
@@ -146,32 +146,42 @@ export const COURSE_MIN_SPEED_MPS = 0.5;
 // (times per second). Lower numbers save battery on phones.
 // ------------------------------------------------------------------
 
-// Mission header (clock, phase, flags).
+// Mission header (clock, flags) and the phase strip.
 export const HEADER_MAX_FPS = 10;
 // Rocket chips.
 export const ROCKET_BAR_MAX_FPS = 8;
-// Stats panel.
+// Readings panel and altitude tape.
 export const STATS_MAX_FPS = 10;
 // Map markers, tracks and the no-map panel.
 export const MAP_MAX_FPS = 12;
-// Event log.
+// Mission timeline (the event list).
 export const LOG_MAX_FPS = 8;
 // Debug panel (only while it is open).
 export const DEBUG_MAX_FPS = 4;
-// Play button, scrub bar position and time.
+// Altitude timeline: the playhead, the played part of the curve, the play
+// button and the time.
 export const CONTROLS_MAX_FPS = 20;
-// Seeks while the scrub bar is being dragged.
+// Seeks while the altitude timeline is being dragged.
 export const SCRUB_SEEKS_PER_S = 30;
+// How far (s of recording time) the arrow keys move the playhead when the
+// altitude timeline has keyboard focus, and how far Page Up and Page Down
+// (or Shift with an arrow key) move it.
+export const TIMELINE_KEY_STEP_S = 1;
+export const TIMELINE_KEY_BIG_STEP_S = 10;
 
 // ------------------------------------------------------------------
 // Small view settings
 // ------------------------------------------------------------------
 
-// How long (ms) "Link copied" stays next to the copy button.
+// How long (ms) "Link copied" shows on the copy button.
 export const LINK_COPIED_MS = 2500;
-// The event log follows new entries only if you are within this many
+// The mission timeline follows new entries only if you are within this many
 // pixels of the bottom (so reading older entries isn't interrupted).
 export const LOG_AUTOSCROLL_PX = 48;
+// The newest entry in the mission timeline shows a "Now" tag while the
+// playhead is within this many seconds (of flight data) after the event was
+// confirmed. After that it stays highlighted, without the tag.
+export const EVENT_NOW_S = 10;
 
 // ------------------------------------------------------------------
 // Map (map-view.js)
@@ -229,7 +239,7 @@ export const DEFAULT_MAP_LAYER = 'satellite';
 export const MAP_LAYER_STORAGE_KEY = 'fc-map-layer';
 // A dark outline under tracks, markers and the ground station line, so they
 // stay easy to see on bright photos.
-export const HALO_COLOR = '#0B0D10';
+export const HALO_COLOR = '#04080F';
 export const HALO_OPACITY = 0.7;
 // Outline width (px) on each side of a line or ring.
 export const HALO_WIDTH_PX = 1.5;
@@ -239,53 +249,51 @@ export const TILE_FAIL_COUNT = 3;
 // satellite layer gives way to the dark map, and the dark map to the no-map
 // panel. The Esri key check gives up after the same time.
 export const TILE_FAIL_TIMEOUT_MS = 8000;
-// How long (ms) to wait for Leaflet or Chart.js to download before giving up.
+// How long (ms) to wait for Leaflet to download before giving up.
 export const LIBRARY_LOAD_TIMEOUT_MS = 10000;
 // Zoom level used when there is only one point to show.
 export const MAP_DEFAULT_ZOOM = 15;
-// Rocket marker size (px), for other rockets and the focused one.
-export const MARKER_RADIUS_PX = 7;
-export const MARKER_RADIUS_FOCUSED_PX = 10;
-// Track line width (px), for other rockets and the focused one.
+// Rocket icon height (px), for other rockets and the focused one.
+export const ROCKET_ICON_PX = 22;
+export const ROCKET_ICON_FOCUSED_PX = 30;
+// Track line width (px), for other rockets and the focused one. The focused
+// rocket's track is gold (TRACK_COLOR), the others use their own colors.
 export const TRACK_WEIGHT_PX = 2;
 export const TRACK_WEIGHT_FOCUSED_PX = 3.5;
-// The first view fits the pad(s) and ground station with this much room (px) around them...
+// The first view fits the pad(s) and ground station with this much room (px)
+// around them, on top of whatever the floating panels cover...
 export const FIT_PADDING_PX = 60;
 // ...without zooming in closer than this.
 export const FIT_MAX_ZOOM = 17;
 // "Follow rocket" pans once the focused rocket gets this close (px) to the
-// map's edge. Kept smaller than FIT_PADDING_PX so the first view stays put.
+// map's edge or a floating panel. Kept smaller than FIT_PADDING_PX so the
+// first view stays put.
 export const FOLLOW_EDGE_PX = 40;
-
-// ------------------------------------------------------------------
-// Chart (alt-chart.js)
-// ------------------------------------------------------------------
-
-// Seconds of pad data drawn before liftoff (shown as negative flight time).
-export const CHART_PAD_S = 10;
-// Most chart redraws per second while a flight plays.
-export const CHART_MAX_FPS = 8;
 
 // ------------------------------------------------------------------
 // Colors
 // ------------------------------------------------------------------
 
-// Rocket colors, handed out in order. Chosen to stand apart on the dark
-// map and chart. Amber is left out on purpose: it marks important numbers.
+// Rocket colors, handed out in order. Chosen to stand apart on the map and
+// the altitude timeline. Some colors are left out on purpose, because they
+// already mean something on this page: gold (the focused rocket and the
+// most important numbers), green (only the labels on the map), teal (the
+// ground station) and coral or red (no GPS fix and other warnings).
 export const ROCKET_PALETTE = Object.freeze([
-  '#39FF14', // neon green (the site's chart green)
-  '#FF2BD6', // neon pink (the site's chart pink)
-  '#38BDF8', // sky blue
   '#C084FC', // violet
-  '#FB923C', // orange
-  '#F87171', // red
+  '#38BDF8', // sky blue
+  '#FF2BD6', // neon pink (the site's chart pink)
   '#E5E7EB', // light grey
-  '#A3E635', // lime
+  '#FB923C', // orange
+  '#818CF8', // indigo
 ]);
-// Ground station marker and line.
-export const GROUND_STATION_COLOR = '#2DD4BF';
-// Launch pad marker.
-export const PAD_COLOR = '#F4F2ED';
+// The focused rocket's track on the map and its played curve on the altitude
+// timeline (the page's gold).
+export const TRACK_COLOR = '#D4A843';
+// Ground station icon and line (the page's teal).
+export const GROUND_STATION_COLOR = '#3FB8A8';
+// Launch pad icon (the page's off-white).
+export const PAD_COLOR = '#E8E6DF';
 
 // ------------------------------------------------------------------
 // Flight library (library.js)

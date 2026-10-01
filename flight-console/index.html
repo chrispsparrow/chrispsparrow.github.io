@@ -7,8 +7,8 @@
     decides which view to show from the ?flight= part of the URL and fills
     them in with the view modules in js/views/.
     Uses: ../css/style.css (site styles), flight-console.css (page styles),
-    Leaflet and Chart.js from cdnjs (optional, the page works without them),
-    ../js/main.js (site nav menu) and js/main.js (this page).
+    Leaflet from cdnjs (optional, the page works without it), the Share Tech
+    Mono font for the map labels, ../js/main.js (site nav menu) and js/main.js (this page).
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,13 +29,13 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=20">
   <!-- Leaflet 1.9.4 map styles. The integrity hash was computed from the downloaded file. -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
         integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
         crossorigin="anonymous" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="flight-console.css?v=2">
+  <link rel="stylesheet" href="flight-console.css?v=3">
   <!-- With JavaScript off, hide the "Loading..." line (the noscript note explains). -->
   <noscript><style>.fc-page #fc-message { display: none; }</style></noscript>
 </head>
@@ -58,55 +58,261 @@
 
   <main id="fc-main" class="fc-main">
 
-    <!-- ── LAUNCHER: shown at /flight-console/ with no ?flight= ── -->
+    <!-- ── LAUNCHER: shown at /flight-console/ with no ?flight= ──
+         The fixed text and drawings live here. js/views/launcher.js fills in
+         the parts that come from the flight library (index.json): the hero
+         buttons, the apogee label on the arc, the featured flight card, the
+         "Watch a flight" link and the library list. -->
     <section id="fc-launcher" class="fc-launcher" aria-labelledby="fc-launcher-title" hidden>
-      <header class="fc-launch-head">
-        <h1 id="fc-launcher-title" class="fc-launch-title">Flight Console</h1>
-        <p class="fc-launch-intro">The Flight Console plays back telemetry from my rocket avionics boards. It shows each rocket's position on a map, its altitude and speed, and the events of the flight. Every flight in the library says whether it is simulated or real.</p>
-        <p class="fc-launch-intro">My GPS and radio board doesn't sense apogee or the parachutes opening. The console figures those out from the altitude data, and every event says how it was found. If a board reports an event itself, the console shows that too.</p>
+
+      <!-- Hero: the title on the left, the flight arc on the right, faint
+           sea-floor contour lines behind both. -->
+      <header class="fc-hero">
+        <!-- Contour lines, made once by a small script (marching squares over
+             a smooth made-up height field, then smoothed). Every fifth line
+             is a little brighter, like the index lines on a chart. -->
+        <div class="fc-hero-contours" aria-hidden="true">
+          <svg viewBox="0 0 1600 720" preserveAspectRatio="xMidYMid slice" focusable="false">
+            <g fill="none">
+              <path class="fc-contour" d="M507 464c6-3 15-6 19-1 8 8 12 21 12 32 1 11-5 20-9 30-7 14-14 28-22 42-11 18-23 36-35 53-10 14-20 28-31 41-9 10-18 19-28 28-6 5-12 9-19 13-7 4-15 8-23 9-14 3-29 4-43 4-8-1-17-3-25-5-8-3-16-6-24-9-7-4-14-8-20-12-6-5-12-10-16-16-5-6-10-12-12-20-2-9-3-19-1-28 2-10 7-19 12-27 7-9 15-17 24-24 19-13 40-25 61-35 59-27 119-52 180-75zM219 728c-7-5-15-10-23-16-7-6-14-13-20-20-5-6-9-13-13-20-2-5-4-11-5-17-1-7-1-15 0-22 1-6 3-12 5-18 3-7 7-14 12-20 5-8 12-15 19-22 9-8 20-17 31-24 13-9 27-17 41-23 49-21 99-38 148-60 41-19 79-45 121-63 13-6 27-9 41-10 7 0 17 0 21 6 10 14 16 32 17 49 1 14-4 27-10 40-7 18-17 36-28 52-42 64-87 125-131 188M152 728c-8-7-16-13-23-21-5-6-10-12-14-18-3-6-5-12-7-18-2-7-3-15-3-23 0-8 1-16 4-23 2-8 6-15 10-22 5-8 11-16 17-23 8-8 16-16 25-23 12-10 24-19 37-27 14-8 28-15 43-21 54-22 110-37 163-61 47-21 90-49 136-72 10-4 20-7 30-9 7-2 15-3 22-2 10 1 21 3 31 8 8 5 15 13 19 21 6 12 10 25 11 38 1 13-1 26-3 39-2 8-5 15-9 22-4 9-9 17-15 25-30 42-64 81-92 124-18 27-32 57-47 86M1608 720c-13 2-26 7-40 7-15 0-29-4-43-8-6-2-11-5-15-9-5-3-10-7-12-12-4-8-7-17-7-26-1-7 1-15 4-22 1-5 4-11 7-16 4-6 9-12 15-17 5-6 11-11 17-15 7-4 14-8 22-10 6-2 13-2 20-2 6 1 12 2 18 4 5 2 9 6 14 8M75 728c-6-7-13-14-18-21-4-7-8-14-10-21-3-10-5-20-5-30 0-8 2-15 4-22 2-8 6-15 10-22 4-9 10-17 16-24 7-9 15-17 23-25 10-9 20-17 31-25 14-10 29-19 44-28 14-8 28-15 43-21 62-22 126-37 187-62 51-21 97-51 147-76 8-3 16-5 25-7 9-2 19-2 28-2 7 0 14 1 20 2 6 2 12 3 17 7 10 6 20 12 27 21 11 14 19 30 26 46 4 7 5 16 7 24 1 6 1 13-1 19-1 8-4 16-8 23-3 7-7 14-12 20-24 29-51 56-75 85-12 15-24 30-34 46-9 13-16 27-23 41-8 17-14 35-21 52M1432 728c-2-11-5-21-5-32 0-10 2-19 5-29 3-11 8-22 14-33 8-13 17-26 27-37 10-12 20-22 32-32 10-9 22-16 33-23 11-6 23-11 35-13 11-3 23-2 35-3M-8 511c31-15 62-32 93-46 23-10 46-19 69-27 19-6 37-11 56-15 40-9 81-14 121-24 19-4 38-8 56-16 51-22 99-51 150-74 7-4 16-5 24-6 10-2 21-3 31-3 10 0 20 1 30 3 9 1 17 3 25 6 14 7 28 14 41 23 33 23 64 48 94 74 9 8 16 16 22 26 3 7 5 15 4 22 0 6-2 11-5 16-4 7-9 13-15 18-32 27-67 49-99 77-19 16-37 33-52 52-12 15-21 33-30 50-4 10-7 20-9 30-2 10-2 21-3 31M1334 728c5-13 8-27 14-40 6-15 14-29 22-42 10-16 21-32 33-47 12-15 24-29 37-43 13-14 26-27 41-39 14-13 28-25 44-36 14-10 29-20 44-28 13-7 26-11 39-17M-8 450c52-14 102-31 155-43 54-11 110-16 165-26 18-3 36-7 53-12 18-6 35-13 51-21 30-15 57-34 87-49 11-6 23-9 35-12 10-3 20-4 30-4 11 0 21 0 32 1 11 1 22 3 33 6 10 3 21 6 30 11 55 32 109 66 162 102 9 7 17 16 24 24 3 5 7 10 7 16 1 10 0 20-3 30-3 7-9 13-15 17-37 25-77 46-114 70-11 7-21 16-31 24-10 9-20 19-29 29-7 8-14 17-20 27-5 9-10 17-13 27-3 10-6 21-7 31-1 10 0 20 0 30M1300 728c7-14 14-29 21-42 9-15 19-30 29-44 12-17 25-34 38-50 13-16 26-32 41-47 29-28 58-54 88-80 14-13 30-23 46-34 14-10 30-18 45-28M377-8c8 8 16 18 25 25 9 8 19 14 30 19 9 5 19 9 29 11 11 3 23 4 35 5 13 0 25-2 37-4 13-2 26-4 39-8 47-15 93-32 140-48M-8 395c16 0 31 0 47-2 42-5 83-12 125-17 39-4 78-6 116-11 21-2 42-5 63-11 18-4 36-10 52-19 31-16 59-37 89-55 7-4 14-7 22-10 7-2 14-4 21-5 12-1 24-2 36-1 15 1 29 3 44 6 12 3 25 6 37 10 11 4 23 9 33 15 28 15 53 33 80 48 24 14 50 25 74 38 10 5 20 12 30 19 6 4 11 9 16 15 6 5 10 11 14 18 3 5 5 11 7 16 1 5 2 10 1 15 0 6-1 13-4 19-5 8-12 15-20 20-39 21-81 36-120 56-13 7-26 16-38 26-11 8-21 16-30 26-9 10-17 21-24 32-5 9-9 19-12 29-2 10-3 20-3 30 0 9 3 17 5 26M1268 728c23-31 44-63 67-93 26-32 53-64 82-94 24-26 50-51 77-75 37-33 76-63 114-95M307-8c13 17 23 36 37 52 14 15 29 30 45 43 15 12 32 23 49 31 10 5 22 8 34 9 12 0 25-3 37-7 38-13 76-31 114-45 24-9 48-17 73-23 20-6 40-9 60-12 37-4 75-2 111-8 34-7 65-22 98-31 14-4 27-6 41-9M-8 351c13 2 27 4 40 5 19 0 37 0 56-1 59-2 117-4 176-9 23-2 46-4 68-10 20-5 39-13 58-22 10-5 19-12 28-20 20-17 38-37 59-53 5-4 11-6 17-8 6-1 12-2 17-1 17 2 34 5 50 10 31 8 62 18 92 29 13 5 25 12 38 18 25 14 50 31 76 44 30 16 63 27 93 43 14 7 27 15 38 26 10 8 19 19 26 30 6 11 10 22 13 34 1 6 1 13-1 19-3 9-8 18-14 25-4 4-9 8-14 10-41 15-84 27-125 43-13 5-25 12-37 19-11 8-22 15-32 25-9 9-18 18-26 29-6 11-11 22-14 34-3 10-3 20-1 29 2 10 7 19 11 29M1233 728c55-61 108-123 165-182 52-55 109-104 162-158 18-17 32-37 48-55M236-8c11 21 21 42 34 62 22 34 48 65 70 98 7 12 15 23 20 36 4 12 6 24 7 36 0 8-2 15-5 22-2 6-5 11-9 15-5 6-10 11-17 15-8 5-17 10-27 13-10 4-21 6-31 7-13 2-25 4-38 4-53 0-107 0-160-2-16-1-32-3-48-6-13-2-27-7-40-10M784 728c-11-6-23-11-33-19-7-6-12-15-17-23-2-4-3-9-3-14 0-5 0-11 2-15 3-9 7-19 14-26 10-11 23-21 36-28 15-8 31-13 47-18 16-4 33-6 50-7 29-1 58 1 87-1 8 0 16-3 23-6 6-3 10-8 13-13 3-4 5-10 5-16 2-11 1-23 0-34-1-11-4-23-7-33-4-12-8-24-13-34-6-11-12-21-19-31-6-9-14-17-22-25-8-8-17-15-27-21-13-9-27-16-42-22-39-15-80-24-118-42-46-22-89-49-132-76-7-4-12-10-16-16-4-5-7-11-8-17-1-4-2-10 0-15 1-6 3-12 7-17 4-6 10-12 15-16 8-6 16-12 25-16 11-5 23-10 34-14 11-4 22-7 33-8 19-3 39-5 58-4 32 3 64 11 96 14 11 2 21 2 32 1 9-1 18-2 26-5 32-10 62-26 95-34 43-10 89-11 132-20 19-4 36-11 53-19 27-14 53-31 80-46M1117 728c4-6 8-12 13-18 4-4 8-8 13-11 28-13 57-21 84-35 19-10 37-23 53-36 18-14 34-29 51-45 53-53 107-107 159-161 13-13 26-27 38-42 8-11 16-22 23-33 6-10 11-21 16-33 8-21 12-45 21-66 5-11 13-20 20-30M209-8c10 20 20 41 31 60 24 43 51 83 74 126 3 5 5 11 6 17 2 7 3 14 2 21-2 9-5 19-10 27-5 7-11 11-18 15-7 4-15 7-23 9-23 4-47 8-71 9-42 1-83-1-125-4-16-1-32-4-48-8-12-2-23-6-35-10M1608 179c-8 8-17 16-25 24-5 6-10 12-12 20-10 31-13 65-24 96-7 18-17 36-28 51-20 26-42 50-64 73-47 48-96 96-146 142-17 16-35 30-55 41-16 10-34 16-51 21-9 3-18 3-27 4-10 0-21 0-31-1-11-2-21-4-32-8-7-2-14-6-21-10-6-4-12-9-17-15-4-7-9-13-11-21-13-38-23-78-36-116-5-16-11-31-18-46-6-12-13-24-21-35-6-10-14-18-22-26-8-8-16-16-26-22-9-7-19-13-30-18-11-5-23-9-35-13-31-9-64-15-94-26-24-9-46-22-69-35-14-7-26-16-39-25-8-6-15-12-21-19-4-5-8-10-9-16-2-7-3-15-1-22 2-6 5-12 10-16 6-7 14-13 22-17 10-5 19-9 29-12 11-3 21-6 32-6 20-1 41-1 61 2 34 5 67 19 102 24 12 2 26 1 38-2 33-11 63-30 97-40 38-11 77-13 116-21 14-3 29-7 42-12 15-6 30-13 43-22 33-20 64-42 96-63M863 728c-15-5-29-10-43-16-11-5-22-10-31-17-6-5-12-10-15-17-3-7-4-15-2-22 1-7 6-15 11-21 7-7 15-12 24-16 11-6 23-10 35-12 12-3 25-4 38-4 13 0 26 1 40 3 15 2 30 6 44 10 14 4 28 9 41 15 9 4 18 9 25 15 6 4 12 10 16 16 3 6 5 12 7 18 1 8 2 16 2 24-1 8-4 16-6 24M185-8c29 57 61 113 87 171 5 12 7 25 7 37-1 9-5 17-11 24-4 7-11 10-18 14-8 4-17 7-25 8-24 3-49 6-73 6-30 1-61-2-91-4-11-2-23-4-35-7-11-3-23-8-34-11M1608 145c-13 12-27 24-39 36-6 7-12 15-17 23-4 8-6 17-7 26-4 25-5 52-9 77-2 11-7 20-11 30-4 8-9 17-15 25-16 21-32 42-50 62-33 34-66 67-100 100-24 22-48 43-73 63-9 7-19 13-29 19-9 4-18 9-28 12-8 3-17 5-25 6-11 1-22 1-33 0-9-1-17-4-25-7-8-3-15-6-21-11-8-5-15-11-22-18-6-7-12-15-17-23-6-10-11-21-16-32-17-40-30-81-48-120-6-14-16-27-25-39-8-11-17-21-26-30-8-8-17-15-27-21-10-7-20-13-32-17-39-10-80-14-119-25-19-5-37-15-55-24-12-6-23-14-34-22-7-6-14-13-20-20-4-5-7-10-8-16-1-6 0-14 3-20 2-5 6-9 10-13 7-4 14-8 21-11 8-3 17-5 25-7 8-1 16-2 24-2 17 2 33 3 49 8 33 9 63 24 95 34 8 2 16 3 24 3 8-1 16-1 23-4 35-15 66-38 101-51 38-13 79-15 118-25 17-4 33-10 48-17 11-5 21-11 31-17 25-18 48-38 72-56 15-10 31-19 47-29M845 641c6-2 13-4 19-5 8-1 16-2 24-1 10 0 20 2 29 4 8 2 16 5 23 9 7 3 14 7 20 12 5 3 9 7 12 12 3 5 8 11 7 16-2 9-8 18-16 23-8 4-18 2-26 2-14-1-27-4-40-7-12-3-23-7-35-12-7-3-14-7-20-12-5-3-9-7-11-13-2-5-1-12 1-17 3-5 8-8 13-11zM162-8c22 50 48 99 68 150 5 11 6 22 6 34-1 8-4 16-8 23-3 5-8 9-13 12-7 4-15 8-23 9-21 5-43 8-64 8-25 1-50 0-75-4-21-4-41-12-61-19M1608 99c-6 10-11 21-19 30-13 14-28 25-41 39-5 5-11 11-14 18-4 7-7 15-8 23-1 23 2 47 0 71-1 14-3 28-8 41-7 17-16 33-26 47-14 20-30 39-47 57-36 37-72 73-110 106-21 19-44 36-68 52-11 7-22 11-34 15-8 2-17 4-25 4-10 1-20 1-30-1-10-2-19-6-28-11-10-5-19-12-27-21-9-9-18-20-24-32-23-47-41-97-63-145-7-14-15-27-24-40-17-26-51-45-52-76-1-29 28-51 47-73 11-13 27-22 42-30 12-8 25-13 39-17 36-11 73-17 109-28 15-4 31-10 45-18 12-6 23-14 34-22 25-20 47-44 73-63 18-13 39-22 58-33M739 176c7-3 14-3 21-4 8 0 16 0 23 2 16 4 32 10 46 17 9 4 17 9 25 15 7 6 15 12 21 19 4 5 10 10 8 15-5 10-16 17-27 22-9 4-20 3-30 2-14-1-27-3-40-7-10-2-19-6-28-11-10-6-20-12-28-20-5-6-10-12-12-19-1-6-1-13 3-18 4-7 11-10 18-13zM105-8c9 16 20 31 27 48 8 17 15 35 19 53 3 11 4 23 3 35-1 7-3 16-8 22-6 8-14 14-22 17-14 6-29 8-44 8-15 0-31-1-46-6-15-4-28-12-42-18M1468 16c11-2 22-2 33 0 8 1 16 4 24 8 6 3 13 8 17 14 5 8 7 17 8 26 1 5 0 10-2 15-1 6-3 13-8 18-15 16-33 30-48 47-6 5-11 11-12 19-3 8-3 18-1 27 4 18 13 36 17 54 3 12 4 24 4 36 0 10-1 20-4 29-3 12-7 23-13 34-9 15-19 29-30 42-14 17-30 34-46 50-20 20-41 39-62 58-16 14-32 27-50 38-11 8-23 15-36 20-10 4-20 7-31 9-8 1-17 2-25 0-10-2-20-5-29-10-10-5-19-13-27-21-9-10-16-22-22-34-7-12-12-26-17-39-12-31-23-63-33-95-4-13-8-25-10-38-2-9-3-18-3-27 0-9 1-18 3-26 2-8 5-16 10-23 6-10 13-19 22-26 10-9 21-17 33-22 47-19 96-33 142-50 16-6 30-13 44-21 9-4 16-10 23-17 13-14 23-30 36-44 8-8 16-16 25-23 10-6 20-13 31-17 12-5 24-9 37-11zM-8 26c5-5 9-11 15-15 7-4 15-8 23-10 4-1 10-1 14-1 6 1 13 3 18 6 7 4 13 8 18 14 5 6 10 12 13 19 5 9 9 18 12 27 2 7 3 15 3 22 1 5 1 10-1 15-1 6-3 12-7 17-3 5-8 8-14 11-5 2-11 4-17 5-8 1-16 0-24-1-6-1-13-3-19-5-7-4-14-8-20-12-5-4-9-10-14-15M1379 144c8-2 17-2 26 0 5 1 10 4 14 8 11 11 21 23 30 35 9 13 17 26 24 40 5 9 8 19 11 29 2 8 3 16 3 24 0 8-1 16-2 24-3 10-6 20-11 30-7 14-16 26-26 39-11 14-24 28-37 42-19 19-38 37-58 54-16 14-32 27-50 39-11 7-23 14-35 20-10 4-20 7-30 9-9 1-19 1-28 0-8-2-16-4-23-8-8-5-16-11-22-18-7-7-12-14-17-23-6-10-11-21-16-32-5-14-10-28-14-42-7-28-14-57-19-86-1-11 0-21 1-32 2-10 5-21 9-30 4-8 8-14 13-20 5-6 10-12 16-16 14-10 29-20 45-27 31-13 63-24 95-33 33-10 67-19 101-26zM1307 184c12-3 25-5 37-6 11-1 21-1 32 1 9 1 18 3 26 6 9 4 18 9 26 15 9 7 17 15 24 25 6 7 11 16 14 25 4 10 6 20 7 31 0 10-2 21-5 31-3 11-9 23-15 33-7 11-15 22-24 32-14 15-28 30-43 45-16 14-31 27-48 40-12 10-24 19-38 26-10 7-20 12-32 16-9 3-18 5-28 6-8 1-16 0-24-2-7-2-15-6-22-10-6-4-11-10-16-16-5-6-9-12-13-19-4-9-9-19-12-29-7-25-13-52-17-78-2-11-1-23 0-34 0-9 1-18 4-26 5-13 10-26 19-37 9-12 21-22 34-30 17-11 35-19 53-27 20-8 41-13 61-18zM1316 200c9-2 19-3 28-3 10-1 21 0 31 1 10 2 20 5 30 9 7 4 13 8 19 13 8 6 14 13 20 20 5 7 8 14 11 21 2 9 3 18 4 27 0 7-1 14-3 20-3 10-7 19-12 28-7 11-15 22-24 32-11 13-23 25-35 37-14 12-29 24-44 36-11 8-22 16-34 22-10 6-21 12-33 15-8 3-17 4-26 5-7 0-14-1-20-3-6-2-11-5-16-8-5-3-9-7-13-11-4-6-9-13-12-20-4-7-8-15-10-23-4-19-8-39-10-58-1-10 0-20 1-30 1-8 2-17 5-25 5-13 11-26 19-37 8-11 18-20 28-28 15-10 30-18 47-25 15-7 32-11 49-15z"/>
+              <path class="fc-contour fc-contour--index" d="M-8 592c12-11 22-23 35-33 13-11 26-22 40-31 17-11 33-22 50-31 16-9 32-17 48-24 20-8 39-15 59-21 54-16 111-24 164-44 55-22 106-56 160-80 13-5 27-7 40-8 12-1 24 0 36 3 12 3 25 7 36 14 12 7 24 18 34 29 17 18 33 37 47 57 4 5 6 11 8 17 1 5 2 11 1 16-1 7-3 13-7 19-3 7-8 13-13 19-28 28-58 54-86 82-14 15-28 31-40 48-11 16-21 33-29 51-7 17-10 35-15 53M1377 728c2-13 2-26 6-38 4-13 9-27 16-39 7-14 15-27 24-40 10-14 21-27 33-39 11-13 23-25 36-36 13-11 27-21 42-30 11-8 24-14 37-19 12-5 25-7 37-10M267-8c12 20 23 41 37 60 26 35 57 66 84 100 8 11 15 22 21 34 3 6 5 13 6 20 1 7 2 14 1 21-2 9-5 17-8 25-3 7-8 13-13 19-6 7-13 14-20 20-8 5-17 10-26 14-9 4-19 8-30 10-13 3-26 6-39 7-64 3-128 4-192 4-19 0-37-2-56-4-13-2-27-5-40-8M726 728c-7-7-15-14-20-22-4-8-7-17-7-26 0-10 1-19 5-28 5-11 11-20 19-29 11-11 23-20 35-29 14-8 29-15 43-20 15-6 30-10 45-13 27-6 54-8 81-14 8-2 16-5 23-9 5-2 10-6 13-11 4-5 6-10 8-16 2-7 2-15 2-23-1-7-2-15-4-22-3-9-6-19-11-28-4-8-10-17-16-24-6-8-12-14-19-21-7-6-15-12-23-17-12-7-24-14-36-19-33-14-66-24-98-39-30-14-58-33-88-48-25-13-51-23-76-36-8-5-17-10-24-16-6-4-13-9-16-16-5-8-7-17-8-26 0-7 3-14 7-19 5-8 12-15 19-21 9-7 19-14 29-19 14-8 29-14 44-20 14-5 28-10 43-13 21-5 42-9 64-10 35-1 69 4 104 5 11 0 22 0 32-3 39-10 76-28 116-36 47-10 95-10 142-17 13-2 25-7 37-12 15-5 29-13 44-19M1184 728c36-29 74-56 108-88 82-78 160-160 238-242 16-16 31-34 43-53 14-23 23-48 35-72M136-8c11 22 23 44 33 67 8 19 16 39 22 59 3 11 5 22 4 34 0 8-3 16-8 23-2 5-7 9-12 12-5 3-10 6-16 8-8 3-16 5-25 6-10 2-20 3-30 3-19-1-39-1-58-5-19-4-36-12-54-19M1526-8c9 4 19 6 27 11 8 6 15 12 20 20 5 6 9 13 11 21 2 9 2 18 2 27 0 7-2 13-4 18-3 8-7 15-12 21-15 17-33 31-48 48-5 6-10 12-13 19-3 7-4 15-4 23 1 19 6 38 8 58 0 10 1 19 0 29-1 8-2 17-5 25-3 10-7 19-11 29-7 11-14 23-22 34-12 15-24 29-37 43-36 36-73 71-111 106-11 10-23 19-36 27-10 7-20 13-30 18-10 4-19 8-30 10-7 2-15 3-23 3-10 0-20-1-30-4-9-3-18-8-26-14-8-5-15-12-21-19-7-9-15-18-19-29-31-68-61-138-88-208-3-9-4-19-4-28 0-9 1-19 5-27 5-13 13-24 22-34 10-12 22-21 35-29 12-7 25-13 39-17 32-11 66-18 99-29 16-5 31-11 46-18 12-6 23-14 33-23 19-16 34-35 52-52 10-9 20-17 32-24 13-9 27-16 41-22 14-6 28-9 41-13M1339 224c9-1 17-1 26 0 6 1 13 2 18 4 11 5 22 10 32 17 4 4 8 9 11 13 3 5 5 11 7 16 1 7 2 14 1 22 0 6-2 12-4 18-3 7-7 14-11 21-5 8-11 16-18 22-18 17-36 34-56 48-15 10-32 17-49 24-7 2-15 3-23 3-5 0-11-1-17-4-8-4-16-10-22-18-6-8-10-18-12-27-3-13-4-26-3-39 0-14 3-28 8-41 4-11 10-21 18-30 7-9 15-17 25-23 9-7 20-13 31-17 12-4 25-7 38-9z"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="fc-hero-text">
+          <h1 id="fc-launcher-title" class="fc-hero-title">Flight Console</h1>
+          <p class="fc-hero-lede">Replay my rocket avionics flights: where the rocket went, how high it got, and what happened along the way.</p>
+          <div id="fc-hero-actions" class="fc-hero-actions"></div>
+        </div>
+
+        <!-- The flight arc: straight up from the launch rail, over the top at
+             apogee, then drifting down and to the right under the parachutes.
+             The dashed part just above the rail is the motor burn, when the
+             real flight's GPS had no fix. A mask draws the whole arc once
+             when the launcher first opens (the launcher part of flight-console.css). The apogee label
+             comes from the featured flight's summary (launcher.js). -->
+        <div class="fc-hero-art" aria-hidden="true">
+          <svg class="fc-arc" viewBox="0 0 600 520" focusable="false">
+            <defs>
+              <linearGradient id="fc-arc-ground-fade" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="590" y2="0">
+                <stop class="fc-arc-ground-stop" offset="0" stop-opacity="0"/>
+                <stop class="fc-arc-ground-stop" offset="0.25" stop-opacity="0.45"/>
+                <stop class="fc-arc-ground-stop" offset="0.8" stop-opacity="0.45"/>
+                <stop class="fc-arc-ground-stop" offset="1" stop-opacity="0"/>
+              </linearGradient>
+              <mask id="fc-arc-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="600" height="520">
+                <path class="fc-arc-reveal" pathLength="1" d="M120 446V388C120 296 126 160 143 104C153 72 166 61 181 61C201 61 216 74 230 93C300 190 450 360 500 430C510 444 528 460 554 470"/>
+              </mask>
+            </defs>
+            <path class="fc-arc-ground" d="M40 470H590"/>
+            <g mask="url(#fc-arc-mask)">
+              <path class="fc-arc-halo" d="M120 446V388C120 296 126 160 143 104C153 72 166 61 181 61C201 61 216 74 230 93C300 190 450 360 500 430C510 444 528 460 554 470"/>
+              <path class="fc-arc-nofix" d="M120 446V388"/>
+              <path class="fc-arc-line" d="M120 388C120 296 126 160 143 104C153 72 166 61 181 61C201 61 216 74 230 93C300 190 450 360 500 430C510 444 528 460 554 470"/>
+            </g>
+            <!-- Launch rail on its stand, the same drawing as the map's pad icon. -->
+            <g class="fc-arc-pad" transform="translate(120 470) scale(1.15) translate(-11 -21)">
+              <path class="fc-arc-pad-halo" d="M11 1.5V18M11 11L4.5 21M11 11L17.5 21M11 11L13.6 19.6"/>
+              <path class="fc-arc-pad-line" d="M11 1.5V18M11 11L4.5 21M11 11L17.5 21M11 11L13.6 19.6"/>
+              <rect class="fc-arc-pad-plate" x="8.5" y="18" width="5" height="3"/>
+            </g>
+            <g class="fc-arc-apogee">
+              <circle class="fc-arc-dot" cx="181.0" cy="61.0" r="5"/>
+              <text class="fc-arc-label" x="203" y="45" hidden><tspan class="fc-arc-label-k">Apogee</tspan> <tspan id="fc-arc-apogee" class="fc-arc-label-v"></tspan></text>
+            </g>
+            <path class="fc-arc-landing" d="M554 461V479"/>
+          </svg>
+        </div>
       </header>
+
       <div id="fc-launch-notes" class="fc-launch-notes" role="status"></div>
 
-      <section class="fc-launch-section" aria-labelledby="fc-featured-title">
-        <h2 id="fc-featured-title" class="fc-section-title">Featured flight</h2>
+      <!-- Featured flight -->
+      <section class="fc-launch-section fc-featured-section" aria-labelledby="fc-featured-title">
+        <h2 id="fc-featured-title" class="sr-only">Featured flight</h2>
         <div id="fc-featured"></div>
       </section>
 
+      <!-- How it works: a side view of the whole system, then one short
+           column per part. -->
+      <section id="fc-how" class="fc-launch-section fc-how" aria-labelledby="fc-how-title">
+        <h2 id="fc-how-title" class="fc-section-title" tabindex="-1">How it works</h2>
+        <p class="fc-section-sub">From the rocket in the sky to the map on your screen.</p>
+        <figure class="fc-how-figure">
+          <!-- Side view of the whole system, drawn in place (no image file).
+               The beam dashes travel in the arrow direction (the launcher part of flight-console.css),
+               only when motion is allowed. Phones swap the beam labels for
+               larger horizontal ones (the -wide and -narrow classes). -->
+          <svg class="fc-how-art" viewBox="0 24 1000 416" role="img" focusable="false" aria-label="A side view drawing of how it works. A rocket climbing in the night sky sends its GPS position over LoRa radio at 900 MHz to a ground station radio tower. The ground station passes the data to a laptop over Bluetooth or USB, and the laptop shows the flight on a map.">
+            <defs>
+              <linearGradient id="fc-how-sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#070b14"/>
+                <stop offset="1" stop-color="#15213b"/>
+              </linearGradient>
+              <marker id="fc-how-arrow-gold" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto">
+                <path class="fc-how-arrow fc-how-arrow--radio" d="M0.5 0.8L9.5 5L0.5 9.2Z"/>
+              </marker>
+              <marker id="fc-how-arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto">
+                <path class="fc-how-arrow fc-how-arrow--link" d="M0.5 0.8L9.5 5L0.5 9.2Z"/>
+              </marker>
+              <clipPath id="fc-how-screen-clip">
+                <rect x="761" y="271" width="132" height="72" rx="2"/>
+              </clipPath>
+            </defs>
+
+            <!-- Sky, stars and the ground -->
+            <rect class="fc-how-sky" width="1000" height="440"/>
+            <g class="fc-how-stars">
+              <circle cx="58" cy="42" r="1.3" opacity="0.55"/>
+              <circle cx="138" cy="94" r="0.9" opacity="0.35"/>
+              <circle cx="96" cy="206" r="1" opacity="0.3"/>
+              <circle cx="298" cy="52" r="1.4" opacity="0.55"/>
+              <circle cx="392" cy="26" r="0.9" opacity="0.35"/>
+              <circle cx="452" cy="104" r="1.1" opacity="0.4"/>
+              <circle cx="350" cy="292" r="0.8" opacity="0.22"/>
+              <circle cx="566" cy="58" r="1.3" opacity="0.5"/>
+              <circle cx="618" cy="168" r="0.9" opacity="0.28"/>
+              <circle cx="706" cy="34" r="1" opacity="0.45"/>
+              <circle cx="784" cy="102" r="1.5" opacity="0.55"/>
+              <circle cx="862" cy="44" r="0.9" opacity="0.35"/>
+              <circle cx="936" cy="124" r="1.2" opacity="0.45"/>
+              <circle cx="972" cy="66" r="0.8" opacity="0.3"/>
+              <circle cx="904" cy="214" r="0.9" opacity="0.28"/>
+              <circle cx="40" cy="300" r="0.9" opacity="0.22"/>
+              <circle cx="250" cy="250" r="0.8" opacity="0.22"/>
+            </g>
+            <path class="fc-how-ground" d="M0 374C170 362 360 380 540 370S850 356 1000 366V440H0Z"/>
+            <path class="fc-how-ground-edge" d="M0 374C170 362 360 380 540 370S850 356 1000 366"/>
+
+            <!-- Rocket, tilted a little as it climbs, with a dotted trail -->
+            <path class="fc-how-trail" d="M191 138C179 214 152 292 126 370"/>
+            <g class="fc-how-rocket" transform="translate(200 100) rotate(14) scale(2.3) translate(-10 -15)">
+              <g class="fc-how-rocket-halo">
+                <path d="M10 1C13.4 3.6 15 7.2 15 11V25.5H5V11C5 7.2 6.6 3.6 10 1Z"/>
+                <path d="M5 16.5L1.2 23.5V28.5L5 25.5Z"/>
+                <path d="M15 16.5L18.8 23.5V28.5L15 25.5Z"/>
+                <path d="M7.2 25.5H12.8L12 28.5H8Z"/>
+              </g>
+              <g class="fc-how-rocket-body">
+                <path d="M10 1C13.4 3.6 15 7.2 15 11V25.5H5V11C5 7.2 6.6 3.6 10 1Z"/>
+                <path d="M5 16.5L1.2 23.5V28.5L5 25.5Z"/>
+                <path d="M15 16.5L18.8 23.5V28.5L15 25.5Z"/>
+                <path d="M7.2 25.5H12.8L12 28.5H8Z"/>
+              </g>
+              <circle class="fc-how-rocket-window" cx="10" cy="13.5" r="2.2"/>
+            </g>
+
+            <!-- LoRa radio beams, rocket to ground station -->
+            <path class="fc-how-beam fc-how-beam--radio fc-how-beam--soft" d="M222 158Q334 184 446 252"/>
+            <path class="fc-how-beam fc-how-beam--radio" d="M232 138Q350 160 460 230" marker-end="url(#fc-how-arrow-gold)"/>
+
+            <!-- Ground station: an A-frame radio mast with braces, a dot on
+                 top and signal arcs (the map's tower icon, bigger) -->
+            <g class="fc-how-tower" transform="translate(500 368) scale(5) translate(-13 -30)">
+              <g class="fc-how-tower-halo">
+                <path d="M6 30L13 11M20 30L13 11M8.2 24H17.8M10.4 18H15.6M8.2 24L15.6 18M17.8 24L10.4 18M6 30L17.8 24M20 30L8.2 24"/>
+                <path d="M9.56 7.09A4.2 4.2 0 0 1 16.44 7.09M7.33 4.74A7.4 7.4 0 0 1 18.67 4.74"/>
+              </g>
+              <g class="fc-how-tower-line">
+                <path d="M6 30L13 11M20 30L13 11M8.2 24H17.8M10.4 18H15.6M8.2 24L15.6 18M17.8 24L10.4 18M6 30L17.8 24M20 30L8.2 24"/>
+                <path d="M9.56 7.09A4.2 4.2 0 0 1 16.44 7.09M7.33 4.74A7.4 7.4 0 0 1 18.67 4.74"/>
+              </g>
+              <circle class="fc-how-tower-dot" cx="13" cy="9.5" r="1.3"/>
+            </g>
+
+            <!-- Bluetooth or USB link, ground station to laptop -->
+            <path class="fc-how-beam fc-how-beam--link" d="M542 262Q648 258 744 298" marker-end="url(#fc-how-arrow-blue)"/>
+
+            <!-- Laptop, with a tiny satellite map and a gold track on screen -->
+            <g class="fc-how-laptop">
+              <rect class="fc-how-laptop-lid" x="752" y="262" width="150" height="90" rx="7"/>
+              <g clip-path="url(#fc-how-screen-clip)">
+                <rect class="fc-how-sat" x="761" y="271" width="132" height="72"/>
+                <path class="fc-how-sat-patch fc-how-sat-patch--a" d="M761 271H818L806 302L761 309Z"/>
+                <path class="fc-how-sat-patch fc-how-sat-patch--b" d="M838 271H893V306L852 296Z"/>
+                <path class="fc-how-sat-patch fc-how-sat-patch--c" d="M781 343L800 318L846 322L866 343Z"/>
+                <path class="fc-how-sat-road" d="M761 330C800 322 828 300 893 288"/>
+                <path class="fc-how-sat-track" d="M792 330C804 322 806 310 820 304S850 300 864 288"/>
+                <circle class="fc-how-sat-pad" cx="792" cy="330" r="2.6"/>
+                <circle class="fc-how-sat-land" cx="864" cy="288" r="2.6"/>
+              </g>
+              <path class="fc-how-laptop-base" d="M738 352H916L930 364Q931 368 926 368H728Q723 368 724 364Z"/>
+            </g>
+
+            <!-- Labels. Wide screens: beam labels follow the beams. Phones:
+                 larger, level beam labels in the open sky. -->
+            <g class="fc-how-labels">
+              <text class="fc-how-label fc-how-label--obj fc-how-label--rocket" x="226" y="196">Rocket</text>
+              <text class="fc-how-label fc-how-label--obj" x="500" y="404">Ground station</text>
+              <text class="fc-how-label fc-how-label--obj" x="827" y="404">Laptop</text>
+              <text class="fc-how-label fc-how-label--radio fc-how-wide" transform="translate(344 158) rotate(21)">LoRa radio, 900 MHz</text>
+              <text class="fc-how-label fc-how-label--link fc-how-wide" transform="translate(642 252) rotate(6)">Bluetooth or USB</text>
+              <text class="fc-how-label fc-how-label--radio fc-how-narrow" x="352" y="112"><tspan x="352">LoRa radio,</tspan><tspan x="352" dy="1.15em">900 MHz</tspan></text>
+              <text class="fc-how-label fc-how-label--link fc-how-narrow" x="700" y="226">Bluetooth or USB</text>
+            </g>
+          </svg>
+        </figure>
+        <ul class="fc-how-parts">
+          <li class="fc-how-part fc-how-part--board">
+            <h3 class="fc-how-part-title">GPS and radio board</h3>
+            <p>Rides in the rocket. Reads its GPS position every second and radios it down.</p>
+            <a class="fc-how-link" href="../projects/avionics-pcb.html">View the board</a>
+          </li>
+          <li class="fc-how-part fc-how-part--station">
+            <h3 class="fc-how-part-title">Ground station</h3>
+            <p>Catches the radio signal and hands the data to a laptop over Bluetooth or USB.</p>
+            <a class="fc-how-link" href="../#ground-station">In progress</a>
+          </li>
+          <li class="fc-how-part fc-how-part--page">
+            <h3 class="fc-how-part-title">This page</h3>
+            <p>Turns the data into a live map, altitude chart, and flight events.</p>
+            <!-- launcher.js points this at the featured flight. -->
+            <a id="fc-how-watch" class="fc-how-link" href="./" hidden>Watch a flight</a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Flight library -->
       <section class="fc-launch-section" aria-labelledby="fc-library-title">
         <h2 id="fc-library-title" class="fc-section-title">Flight library</h2>
         <div id="fc-library"></div>
       </section>
 
-      <section class="fc-launch-section" aria-labelledby="fc-live-title">
-        <h2 id="fc-live-title" class="fc-section-title">Live tracking</h2>
+      <!-- Live tracking -->
+      <section class="fc-launch-section fc-live" aria-labelledby="fc-live-title">
         <div class="fc-card fc-live-card">
-          <p>Live tracking will connect this page to my ground station over USB or Bluetooth, so I can follow a rocket during a real launch and find it after landing. It will work in Chrome or Edge on a laptop.</p>
-          <div class="fc-live-row">
-            <button type="button" class="fc-btn fc-btn-primary" disabled aria-describedby="fc-live-why">Start live flight</button>
-            <p id="fc-live-why" class="fc-live-why">Not available yet. Live tracking is coming in a later update.</p>
-          </div>
+          <h2 id="fc-live-title" class="fc-live-title"><span class="fc-live-dot" aria-hidden="true"></span><span class="fc-live-status">In progress</span><span class="sr-only">,</span><span class="fc-live-sep" aria-hidden="true">·</span>Live tracking</h2>
+          <p class="fc-live-text">Once my ground station is done, this page will follow rockets during real launches.</p>
         </div>
       </section>
     </section>
 
-    <!-- ── CONSOLE: shown for /flight-console/?flight=<id> ── -->
+    <!-- ── CONSOLE: shown for /flight-console/?flight=<id> ──
+         Wide screens: the header, phase strip and map on top, with the
+         altitude tape and readings floating over the map, then the altitude
+         timeline, then the mission timeline next to the flight details and
+         detection check. Phones: one column, with the readings and tape
+         moved below the map (set in the CSS). -->
     <section id="fc-console" class="fc-console" aria-label="Flight console" hidden>
-      <div id="fc-mission"></div>
-      <div id="fc-rocketbar"></div>
-      <!-- Wide screens: map and controls on the left, stats and log on the
-           right, chart and debug below. Phones: one column in the order
-           stats, controls, map, chart, log, debug (set in the CSS). -->
-      <div class="fc-grid">
-        <div class="fc-col fc-col-main">
-          <div id="fc-map" class="fc-area-map"></div>
-          <div id="fc-controls" class="fc-area-controls"></div>
+      <div id="fc-mission" class="fc-area-head"></div>
+      <div id="fc-rocketbar" class="fc-area-rockets"></div>
+      <div id="fc-phases" class="fc-area-phases"></div>
+      <!-- The map, with panels floating over it. data-fc-cover marks the
+           panels that cover part of the map, so the map keeps the rocket
+           out from under them. -->
+      <div class="fc-stage">
+        <div id="fc-map" class="fc-stage-map"></div>
+        <div id="fc-stats" class="fc-stage-readings" data-fc-cover></div>
+        <div id="fc-tape" class="fc-stage-tape" data-fc-cover></div>
+      </div>
+      <div id="fc-timeline" class="fc-area-timeline"></div>
+      <div class="fc-lower">
+        <div id="fc-log" class="fc-area-log"></div>
+        <div class="fc-lower-side">
+          <div id="fc-info" class="fc-area-info"></div>
+          <div id="fc-debug" class="fc-area-debug"></div>
         </div>
-        <div class="fc-col fc-col-side">
-          <div id="fc-stats" class="fc-area-stats"></div>
-          <div id="fc-log" class="fc-area-log"></div>
-        </div>
-        <div id="fc-chart" class="fc-area-chart"></div>
-        <div id="fc-debug" class="fc-area-debug"></div>
       </div>
     </section>
 
@@ -147,21 +353,16 @@
     </div>
   </footer>
 
-  <!-- Map and chart libraries, pinned versions from cdnjs. Integrity hashes
-       were computed from the downloaded files. "async" means they never hold
-       up the page: if one is slow or blocked, the console still runs and the
-       map or chart shows a plain fallback instead. -->
+  <!-- The map library, a pinned version from cdnjs. The integrity hash was
+       computed from the downloaded file. "async" means it never holds up the
+       page: if it is slow or blocked, the console still runs and the map
+       shows a plain fallback instead. -->
   <script id="fc-lib-leaflet" async
           src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"
           integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
           crossorigin="anonymous" referrerpolicy="no-referrer"
           onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
-  <script id="fc-lib-chart" async
-          src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
-          integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD"
-          crossorigin="anonymous" referrerpolicy="no-referrer"
-          onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
-  <script type="module" src="js/main.js?v=1" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
+  <script type="module" src="js/main.js?v=2" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
   <!-- If the page's code fails to download, or is still missing after 15 s,
        say so instead of leaving an empty page. -->
   <script>

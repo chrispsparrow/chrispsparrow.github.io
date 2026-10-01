@@ -10,8 +10,8 @@
 // The store never depends on the player. A live source can feed the store
 // directly and this file is simply not used.
 //
-// Used by: main.js (creates it), controls.js and mission-header.js (read its
-// state and call play, pause, seek). No DOM, but it uses the browser's
+// Used by: main.js (creates it) and timeline.js (reads its state and calls
+// play, pause, seek). No DOM, but it uses the browser's
 // requestAnimationFrame when it exists.
 
 import { PLAYBACK_SPEEDS, DEFAULT_SPEED, MAX_FRAME_STEP_S } from './config.js';
@@ -132,7 +132,7 @@ export function createPlayer({
     play();
   }
 
-  // The scrub bar pauses playback while it is being dragged.
+  // Dragging on the altitude timeline pauses playback while it lasts.
   function beginScrub() {
     if (scrubbing) return;
     scrubbing = true;

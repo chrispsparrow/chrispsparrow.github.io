@@ -1,9 +1,11 @@
 // add_flight.mjs
 // Adds a flight to the Flight Console library. It copies the data file(s)
 // into data/flights/<id>/ (the originals are only read, never changed or
-// deleted), runs them through the SAME parser.js and detector.js the page
-// uses to fill in the summary, and adds or updates the entry in
-// data/flights/index.json, newest date first.
+// deleted), runs them through the SAME parser.js, detector.js and store.js
+// the page uses to fill in the summary, and adds or updates the entry in
+// data/flights/index.json, newest date first. The summary includes a
+// simplified track and altitude line for the launcher's featured card, so
+// the launcher never has to download a flight's data files.
 //
 // Everything is checked before anything is written, so a mistake in the
 // command never leaves half a flight behind.
@@ -40,7 +42,10 @@ import { validateManifest, validateEntry, buildFlight } from '../js/library.js';
 import { parseFile } from '../js/parser.js';
 import { detectAll, FLIGHT_EVENT_TYPES } from '../js/detector.js';
 import { GROUPS } from '../js/schema.js';
-import { KNOWN_ROCKETS } from '../js/fleet.js';
+import { KNOWN_ROCKETS, createFleet } from '../js/fleet.js';
+import { createStore } from '../js/store.js';
+import { distanceM } from '../js/geo.js';
+import { LINK_STALE_S } from '../js/config.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FLIGHTS_DIR = path.resolve(HERE, '..', 'data', 'flights');
@@ -188,6 +193,187 @@ for (const r of draft.entry.rockets) {
   report.push({ rocket: r, count: own.length, events, state, duration, durationFrom });
 }
 
+// ------------------------------------------------------------------
+// The launcher's featured card: a small map of the track, an altitude line,
+// how far the rocket drifted from the pad and how far it got from the
+// ground station. A store fed the whole flight (the same code the console
+// runs) supplies them, so the track only ever holds good GPS positions and
+// the altitude line only real readings. Both break (a gap) wherever the GPS
+// had no fix, and wherever nothing came in for longer than LINK_STALE_S (a
+// radio silence), so neither is ever drawn as solid across missing data.
+// With several rockets they describe the one that flew highest.
+// ------------------------------------------------------------------
+// Most points kept in the track and in the altitude line.
+const SUMMARY_MAX_POINTS = 60;
+// Seconds of the altitude line kept before liftoff and after landing.
+const PROFILE_EDGE_S = 10;
+
+const round = (v, digits) => (Number.isFinite(v) ? Number(v.toFixed(digits)) : null);
+
+// Ramer-Douglas-Peucker: the indexes of the points to keep so the line
+// never moves more than eps from the original. distance(p, a, b) is how far
+// p is from the straight line a-b.
+function simplifyIndexes(points, eps, distance) {
+  if (points.length <= 2) return points.map((_, i) => i);
+  const keep = new Set([0, points.length - 1]);
+  const stack = [[0, points.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let worst = -1;
+    let worstDist = 0;
+    for (let i = a + 1; i < b; i++) {
+      const dist = distance(points[i], points[a], points[b]);
+      if (dist > worstDist) { worstDist = dist; worst = i; }
+    }
+    if (worst !== -1 && worstDist > eps) {
+      keep.add(worst);
+      stack.push([a, worst], [worst, b]);
+    }
+  }
+  return [...keep].sort((x, y) => x - y);
+}
+
+// How far p is from the segment a-b, in the same units as x and y.
+function segmentDistance(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const f = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + f * dx), p.y - (a.y + f * dy));
+}
+
+// Simplifies runs of points to fit in SUMMARY_MAX_POINTS. Each run is
+// { pts, gapAfterT }: its points (with x and y for measuring) and, for the
+// altitude line, when the gap after it starts. The tolerance goes up until
+// everything fits, and every run keeps its first and last point, so the gaps
+// stay where they were. If there are so many gaps that even that doesn't
+// fit (a GPS that keeps dropping out), the shortest runs between two gaps
+// are left out, so their stretch is drawn as part of one longer gap, never
+// as a solid line. extraPerGap counts the altitude line's [t, null] entries.
+function simplifyRuns(runs, startEps, { mustKeep = () => false, extraPerGap = 0 } = {}) {
+  const count = (list) => list.reduce((n, run) => n + run.pts.length, 0) + extraPerGap * Math.max(0, list.length - 1);
+  let live = runs.filter((run) => run.pts.length);
+  for (;;) {
+    let eps = startEps;
+    let kept = live;
+    for (let tries = 0; tries < 60; tries++) {
+      kept = live.map((run) => {
+        const idx = new Set(simplifyIndexes(run.pts, eps, segmentDistance));
+        run.pts.forEach((p, i) => { if (mustKeep(p)) idx.add(i); });
+        return { ...run, pts: [...idx].sort((x, y) => x - y).map((i) => run.pts[i]) };
+      });
+      if (count(kept) <= SUMMARY_MAX_POINTS) return kept;
+      eps *= 1.5;
+    }
+    // Still too many: leave out the shortest run between two gaps (never
+    // the first or last run, or one with a point that must stay).
+    let drop = -1;
+    for (let i = 1; i < live.length - 1; i++) {
+      if (live[i].pts.some(mustKeep)) continue;
+      if (drop === -1 || live[i].pts.length < live[drop].pts.length) drop = i;
+    }
+    if (drop === -1) return kept;
+    live = live.filter((_, i) => i !== drop);
+  }
+}
+
+function summarizePicture(rocket, gs) {
+  const d = rocket.derived;
+  const out = { trackRocketId: rocket.id, track: null, trackGaps: [], padPoint: null, landingPoint: null, altProfile: null, driftM: null, maxGsDistanceM: null };
+
+  // Track: good positions only, split into runs wherever the GPS had no fix
+  // or no position came in for longer than LINK_STALE_S, with repeats of the
+  // same spot (sitting on the pad) dropped.
+  const origin = rocket.track[0];
+  if (origin) {
+    const kx = 111320 * Math.cos((origin.lat * Math.PI) / 180);
+    const runs = [];
+    let prevT = null;
+    for (const p of rocket.track) {
+      const silent = prevT !== null && p.t - prevT > LINK_STALE_S;
+      prevT = p.t;
+      if (!runs.length || p.gapBefore || silent) runs.push({ pts: [], gapAfterT: null });
+      const run = runs[runs.length - 1].pts;
+      const last = run[run.length - 1];
+      if (!last || last.lat !== p.lat || last.lon !== p.lon) {
+        run.push({ lat: p.lat, lon: p.lon, x: (p.lon - origin.lon) * kx, y: (p.lat - origin.lat) * 110540 });
+      }
+    }
+    const kept = simplifyRuns(runs, 0.5);
+    out.track = [];
+    for (const run of kept) {
+      if (out.track.length) out.trackGaps.push(out.track.length);
+      for (const p of run.pts) out.track.push([round(p.lat, 6), round(p.lon, 6)]);
+    }
+    let farthest = 0;
+    for (const p of rocket.track) farthest = Math.max(farthest, distanceM(gs.lat, gs.lon, p.lat, p.lon));
+    out.maxGsDistanceM = round(farthest, 0);
+  }
+
+  // Pad and landing: the pad is the last good position before liftoff (as
+  // the console draws it), the landing point the first good position from
+  // the moment the landing was detected. Drift is the distance between them.
+  if (rocket.padPosition) out.padPoint = [round(rocket.padPosition.lat, 6), round(rocket.padPosition.lon, 6)];
+  const landed = d?.events?.landed;
+  const landing = landed ? rocket.track.find((p) => p.t >= landed.t - 1e-6) : null;
+  if (landing) out.landingPoint = [round(landing.lat, 6), round(landing.lon, 6)];
+  if (rocket.padPosition && landing) {
+    out.driftM = round(distanceM(rocket.padPosition.lat, rocket.padPosition.lon, landing.lat, landing.lon), 0);
+  }
+
+  // Altitude line: seconds from liftoff (from the first reading if there is
+  // no liftoff) and meters above the ground level frozen at liftoff, from
+  // PROFILE_EDGE_S before liftoff to PROFILE_EDGE_S after landing. A reading
+  // that should have had an altitude and didn't, or no reading at all for
+  // longer than LINK_STALE_S, becomes [t, null]: a break.
+  const series = rocket.altSeries;
+  if (series.length && Number.isFinite(d?.groundRef)) {
+    const zero = d.liftoffT ?? series[0].t;
+    const from = d.liftoffT !== null ? d.liftoffT - PROFILE_EDGE_S : -Infinity;
+    const to = landed ? landed.t + PROFILE_EDGE_S : Infinity;
+    const inWindow = series.filter((p) => p.t >= from && p.t <= to);
+    const span = Math.max(1e-6, inWindow.length ? inWindow[inWindow.length - 1].t - inWindow[0].t : 1);
+    const top = Math.max(1, d.maxAgl ?? 1);
+    const runs = [];
+    let open = null;
+    let prevT = null;
+    for (const p of inWindow) {
+      const silent = prevT !== null && p.t - prevT > LINK_STALE_S;
+      if (open && (p.alt === null || silent)) {
+        open.gapAfterT = (p.alt === null ? p.t : prevT + LINK_STALE_S) - zero;
+        open = null;
+      }
+      prevT = p.t;
+      if (p.alt === null) continue;
+      if (!open) { open = { pts: [], gapAfterT: null }; runs.push(open); }
+      const t = p.t - zero;
+      const agl = p.alt - d.groundRef;
+      open.pts.push({ t, agl, x: t / span, y: agl / top });
+    }
+    if (runs.length) {
+      const peak = Math.max(...runs.flatMap((run) => run.pts.map((p) => p.agl)));
+      const kept = simplifyRuns(runs, 0.0005, { mustKeep: (p) => p.agl === peak, extraPerGap: 1 });
+      out.altProfile = [];
+      kept.forEach((run, i) => {
+        for (const p of run.pts) out.altProfile.push([round(p.t, 1), round(p.agl, 1)]);
+        if (i < kept.length - 1) out.altProfile.push([round(run.gapAfterT ?? run.pts[run.pts.length - 1].t, 1), null]);
+      });
+    }
+  }
+  return out;
+}
+
+const scan = createStore({ fleet: createFleet() });
+for (const r of draft.entry.rockets) scan.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
+scan.addSamples(flight.samples
+  .filter((s) => Number.isFinite(s.t))
+  .map((s, i) => ({ s, i }))
+  .sort((a, b) => a.s.t - b.s.t || a.i - b.i)
+  .map((x) => x.s), { quiet: true });
+const highest = report.reduce((best, r) => (Number.isFinite(r.state.maxAgl) && (!best || r.state.maxAgl > best.state.maxAgl) ? r : best), null) ?? report[0];
+const gsNow = scan.getGroundStation();
+const picture = summarizePicture(scan.getRocket(highest.rocket.rocketId), gsNow);
+
 const entry = {
   id,
   title,
@@ -203,6 +389,10 @@ const entry = {
     flightDurationS: round1(flightDurationS),
     sensors: GROUPS.filter((g) => sensors.has(g)),
     events: FLIGHT_EVENT_TYPES.filter((e) => eventTypes.has(e)),
+    ...picture,
+    // True when the ground station distances use the demo position in
+    // config.js, because the data had no ground station GPS packets.
+    gsDemo: gsNow.source === 'config',
   },
 };
 const finalCheck = validateEntry(entry);
@@ -235,7 +425,10 @@ for (const r of report) {
 }
 console.log(`  bad rows skipped: ${flight.badRows}`);
 for (const f of flight.files) for (const note of f.notes ?? []) console.log(`  note: ${note}`);
-console.log(`  summary: ${JSON.stringify(entry.summary)}`);
+const { track, trackGaps, altProfile, ...shortSummary } = entry.summary;
+console.log(`  summary: ${JSON.stringify(shortSummary)}`);
+console.log(`  featured card picture from rocket ${picture.trackRocketId}: track ${track?.length ?? 0} points` +
+  `${trackGaps.length ? ` (GPS gaps before points ${trackGaps.join(', ')})` : ''}, altitude line ${altProfile?.length ?? 0} points`);
 if (entry.featured) console.log('  this is now the featured flight');
 if (!entry.description) console.log('  note: no --description given, the launcher will show none');
 if (check.problems.length) {

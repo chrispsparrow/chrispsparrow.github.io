@@ -1,6 +1,7 @@
 // dom.js
-// Tiny helpers the views share for building page elements and for limiting
-// how often a view redraws while a flight plays.
+// Tiny helpers the views share for building page elements (HTML and SVG),
+// for limiting how often a view redraws while a flight plays, and for
+// drawing events the same way everywhere.
 // Used by: every file in js/views/ and main.js.
 
 // Creates an element. attrs sets properties and attributes:
@@ -45,6 +46,51 @@ export function setChildren(el, ...children) {
 export function setText(el, text) {
   const value = String(text ?? '');
   if (el.textContent !== value) el.textContent = value;
+}
+
+// Creates an SVG element (svg, path, circle, ...). Attributes are set as
+// they are, children work like h().
+//   svg('circle', { cx: 4, cy: 4, r: 3, class: 'fc-x' })
+const SVG_NS = 'http://www.w3.org/2000/svg';
+export function svg(tag, attrs = {}, ...children) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs ?? {})) {
+    if (value === null || value === undefined || value === false) continue;
+    if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value);
+    else el.setAttribute(key, value === true ? '' : String(value));
+  }
+  append(el, children);
+  return el;
+}
+
+// True when the viewer asked for less motion. Read fresh each time, so a
+// change in the system setting applies without a reload.
+export function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
+// How an event was found, as the timeline markers and the mission timeline
+// draw it: 'reported' (a filled dot), 'detected' (a gold ring) or 'inferred'
+// (a dashed ring, also used for anything estimated). A liftoff whose time is
+// estimated counts as estimated. state is that rocket's detector state.
+export function eventMarkerKind(event, state) {
+  if (event.basis === 'reported') return 'reported';
+  if (event.basis === 'inferred') return 'inferred';
+  if (event.type === 'liftoff' && state?.liftoffEstimated) return 'estimated';
+  return 'detected';
+}
+
+// Plain words for each kind, for tooltips and screen readers.
+export const MARKER_KIND_TEXT = Object.freeze({
+  reported: 'reported by the board',
+  detected: 'detected from altitude',
+  inferred: 'inferred from the descent rate',
+  estimated: 'time estimated',
+});
+
+// The CSS class for a kind's dot (estimated uses the dashed ring too).
+export function markerClass(kind) {
+  return `fc-basis fc-basis--${kind === 'estimated' ? 'inferred' : kind}`;
 }
 
 // A colored dot for a rocket. Decorative: the name next to it is the label.

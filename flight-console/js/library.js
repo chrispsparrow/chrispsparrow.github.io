@@ -58,7 +58,24 @@ export function flightFileUrl(flightId, file, base = LIBRARY_BASE) {
 // ------------------------------------------------------------------
 
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
-const numberOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
+const numberOrNull = (v) => (isNumber(v) ? v : null);
+
+// Summary shapes for the launcher's map picture and altitude line. Anything
+// with the wrong shape becomes null, so the launcher just leaves that part
+// out instead of breaking.
+// [lat, lon], inside the range a web map can draw (Web Mercator stops at
+// about 85 degrees north and south).
+const pointOrNull = (v) => (Array.isArray(v) && v.length === 2 && v.every(isNumber) &&
+  Math.abs(v[0]) <= 85.05 && Math.abs(v[1]) <= 180 ? [v[0], v[1]] : null);
+// [[lat, lon], ...]
+const pointListOrNull = (v) => (Array.isArray(v) && v.length > 0 && v.every((p) => pointOrNull(p)) ? v.map(pointOrNull) : null);
+// [[seconds, meters or null], ...]. null meters marks a gap with no altitude.
+const profileOrNull = (v) => (Array.isArray(v) && v.length > 0 &&
+  v.every((p) => Array.isArray(p) && p.length === 2 && isNumber(p[0]) && (p[1] === null || isNumber(p[1])))
+  ? v.map((p) => [p[0], p[1]]) : null);
+// [index, ...] into the track list.
+const indexListOrNull = (v) => (Array.isArray(v) && v.every((i) => Number.isInteger(i) && i >= 0) ? v.slice() : null);
 
 function isSafeFileName(name) {
   return isText(name) && !/[\\/]/.test(name) && !name.startsWith('.') && !name.includes('..');
@@ -119,6 +136,19 @@ export function validateEntry(raw) {
         flightDurationS: numberOrNull(summary.flightDurationS),
         sensors: stringList(summary.sensors),
         events: stringList(summary.events),
+        // For the launcher's featured card (see add_flight.mjs). They all
+        // describe one rocket, trackRocketId: the one that flew highest.
+        trackRocketId: isText(summary.trackRocketId) ? summary.trackRocketId : null,
+        track: pointListOrNull(summary.track),
+        trackGaps: indexListOrNull(summary.trackGaps) ?? [],
+        padPoint: pointOrNull(summary.padPoint),
+        landingPoint: pointOrNull(summary.landingPoint),
+        altProfile: profileOrNull(summary.altProfile),
+        driftM: numberOrNull(summary.driftM),
+        maxGsDistanceM: numberOrNull(summary.maxGsDistanceM),
+        // Only an explicit false means a real ground station position. A
+        // hand-written entry that leaves it out is treated as the demo one.
+        gsDemo: summary.gsDemo !== false,
       },
     },
   };

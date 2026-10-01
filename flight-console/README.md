@@ -20,7 +20,7 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 
 `js/main.js` reads the address bar.
 
-- `/flight-console/` with nothing after it shows the launcher: the featured flight, the rest of the library, and the live tracking card.
+- `/flight-console/` with nothing after it shows the launcher: the hero with the demo flight button, the featured flight, how it works, the flight library, and the live tracking card. The launcher only downloads `index.json`, never a flight's data files.
 - `/flight-console/?flight=gps-board-sim-01` skips the launcher and opens the console for that flight.
 - If the id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a link back to all flights. The message says whether it looks like a connection problem or a missing or damaged file on the site.
 - Until `main.js` starts, the page says "Loading the Flight Console...". If the page's own code fails to download, a small script in `index.html` says so instead of leaving the page empty.
@@ -34,16 +34,18 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 3. `player.js` sorts every rocket's samples by time and feeds them to the store as its clock runs. At 5x speed it feeds five seconds of data per second of real time, and it never skips a sample.
 4. `store.js` files the sample under its rocket and hands it to that rocket's own detector.
 5. `detector.js` updates ground level, altitude above ground and vertical speed, and returns any new events, like "Apogee detected".
-6. The store tells every view something changed. Each view reads what it needs from the store and redraws: the map moves the marker, the chart adds a point, the log adds the event, the stats panel updates its numbers.
+6. The store tells every view something changed. Each view reads what it needs from the store and redraws: the map moves the rocket and its label, the readings and the altitude tape update their numbers, the phase strip moves on, the timeline's playhead moves, and the mission timeline adds the event.
 
 The views never talk to each other. They only read the store, so a live source can later feed the store directly and every view still works.
+
+When a flight opens, `main.js` also runs the whole flight once through a second, hidden store (the "pre-scan"). That gives the altitude timeline each rocket's whole altitude curve and the events to mark on it, and gives the altitude tape its top value, before playback gets there. Nothing from the pre-scan reaches the live store, so the readings, the map and the mission timeline only ever show what has happened up to the playhead.
 
 ## Files
 
 ### Page
 
-- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the launcher's fixed text, empty spots the views fill in, and the script tags for Leaflet, Chart.js and `js/main.js`.
-- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. It reuses the site's fonts and colors.
+- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the launcher's fixed text and drawings (the hero's contour lines and flight arc, and the How it works picture), empty spots the views fill in, and the script tags for Leaflet and `js/main.js`. It also loads the Share Tech Mono font, used only for the green labels on the map.
+- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. It starts with the page's color and font settings (the design tokens, as CSS variables) and the shared pieces like buttons, panels and the event dots, then has one part per screen area: launcher, console top, map, readings and tape, altitude timeline, and the panels under it. Every animation only runs when the viewer hasn't asked for less motion.
 - `README.md`: this guide.
 - `.gitignore`: keeps `js/config.local.js` out of Git.
 
@@ -60,7 +62,7 @@ The views never talk to each other. They only read the store, so a live source c
 - `js/schema.js`: the channel registry. It lists every value a board can send, which sensor group it belongs to, its label and unit, and the names different files use for it. It also has `hasGoodPosition()`, the test every rocket position goes through before the page trusts it. Ground station packets use a lighter check (a fix plus latitude and longitude) because they may not carry an altitude.
 - `js/parser.js`: the only code that understands file formats. It reads CSV files, JSON lines (including ground station position packets), and my firmware's serial output: `SIM PKT` hex lines from the simulator and `PKT` key=value lines from the bench_rx receiver. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that the console shows under the data source.
 - `js/library.js`: loads and checks `index.json`, skipping broken entries without breaking the rest, and loads one flight's files.
-- `js/fleet.js`: who each rocket is: name, color and board. A rocket ID nobody registered gets the next color and a plain name.
+- `js/fleet.js`: who each rocket is: name, map label name (`callsign`), color and board. My board's map label is "DOGTOOTH GPS RADIO". Any other rocket's label is its name in capitals. A rocket ID nobody registered gets the next color and a plain name.
 - `js/geo.js`: distance and bearing between two positions, compass names, and number, time and distance formatting.
 - `js/detector.js`: works out ground level, altitude above ground, vertical speed and the flight events, one sample at a time. Vertical speed only exists once the readings cover a full `VSPEED_AVG_S` window, so one noisy reading at 20 Hz can't swing it. (A single reading more than `LIFTOFF_AGL_M` above the pad still counts as liftoff, as the rule says.) Before liftoff the console waits to see the rocket sit still for `PAD_CONFIRM_S` before it trusts the readings as a pad. If the data instead starts with the rocket already moving one way for a while, or a "pad" keeps sinking below itself, the data began in flight. The console then says so, uses `GROUND_ELEV_FALLBACK_M` for ground level, and marks both as estimated. A short log that starts just before launch still keeps its pad readings.
 - `js/store.js`: holds everything the console knows right now: rockets, samples, events, detectors, the ground station and which rocket is focused. Views subscribe to it.
@@ -69,17 +71,22 @@ The views never talk to each other. They only read the store, so a live source c
 
 ### Views (they draw parts of the page)
 
-- `js/views/dom.js`: small helpers for building page elements and limiting how often a view redraws.
-- `js/views/launcher.js`: the launcher's flight cards and notes.
-- `js/views/mission-header.js`: the focused rocket's name, the big flight clock, the phase, the data source, and the "All flights" and "Copy link to this flight" buttons.
-- `js/views/rocket-bar.js`: one chip per rocket. Click one to focus it.
-- `js/views/map-view.js`: the Leaflet map, with the "Satellite" and "Dark map" buttons and the "Labels" checkbox, or the "No map" panel if Leaflet or the map tiles can't load.
-- `js/views/stats-panel.js`: the numbers for the focused rocket, one section per sensor group it actually sent.
-- `js/views/event-log.js`: every event in time order.
-- `js/views/alt-chart.js`: the altitude chart, with its own small plugin for event lines and the time cursor.
-- `js/views/controls.js`: play, pause, speed, the scrub bar and the jump buttons.
+- `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, and drawing an event's dot by how it was found.
+- `js/views/icons.js`: the drawings the page shares: the rocket (always pointing straight up, since no board sends orientation), the launch rail, the ground station tower, and the button icons.
+- `js/views/launcher.js`: the launcher: the hero's buttons and the apogee label on its flight arc (from the featured flight's summary), the featured flight card, the flight library rows, and the notes when the library didn't load.
+- `js/views/launcher-map.js`: the featured card's small map picture. It draws the track right away as a plain map drawing, then swaps in Esri satellite imagery only after the Esri key check passes and every tile has loaded. If the tiles or Leaflet fail, the drawing stays.
+- `js/views/esri.js`: asks Esri once whether it accepts the satellite key. The console map and the launcher's map picture share the answer, so a visit only asks once.
+- `js/views/mission-header.js`: the "All flights" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
+- `js/views/rocket-bar.js`: one chip per rocket, only for flights with 2 or more rockets. Click one to focus it.
+- `js/views/phase-strip.js`: the six phases across the top (Pad, Ascent, Apogee, Drogue, Main, Landed), driven only by the detector. Drogue and Main have dashed bars because they are inferred.
+- `js/views/map-view.js`: the Leaflet map, with the "Satellite" and "Dark map" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load.
+- `js/views/stats-panel.js`: the readings panel floating over the map (under it on phones): altitude, vertical speed, ground speed, GPS and last packet, with everything else under "More readings", one section per sensor group the rocket actually sent.
+- `js/views/alt-tape.js`: the altitude tape on the left edge of the map (a thin strip on phones), from 0 to the rocket's highest point in the pre-scan, with the altitude now and the highest point so far.
+- `js/views/timeline.js`: the altitude timeline under the map. It shows the focused rocket's whole altitude curve (gold up to the playhead), other rockets as thin lines, and event markers that jump to their event. Click, drag or use the arrow keys to move through the flight. Play, pause and the speed buttons sit under it.
+- `js/views/event-log.js`: the mission timeline: every event in time order on a line, each dot drawn by how the event was found, with the newest one in gold. It shows a "Now" tag while the playhead is on that event. Screen readers only hear events that arrive during normal playback, never the whole list again after a seek.
+- `js/views/flight-info.js`: the "About this flight" panel: the flight's title, simulated or real, description, date, launch site, boards, data files with reading and bad line counts, and any notes from the parser.
 - `js/views/debug-panel.js`: the "Detection check" section for simulated flights.
-- `js/main.js`: picks launcher or console from the address, loads the data, and connects the store, player and views.
+- `js/main.js`: picks launcher or console from the address, loads the data, runs the pre-scan, and connects the store, player and views.
 
 ### Tools (run with Node from the website folder)
 
@@ -105,11 +112,20 @@ Each flight in the `flights` list has these fields:
   - `timeOffsetS` (optional): seconds added to that file's times, to line up boards whose clocks started at different moments.
 - `summary`: filled in by `add_flight.mjs` from the real data.
   - `rocketCount`: how many rockets.
-  - `maxAglM`: the highest altitude above ground, in meters.
+  - `maxAglM`: the highest altitude above ground, in meters. The launcher's "Apogee" numbers and the label on the hero's flight arc come from it.
   - `flightDurationS`: seconds from liftoff to landing, or the whole data span if either wasn't detected.
   - `sensors`: the sensor groups found, like `["gps"]`.
   - `events`: the flight events detected.
-  - Any summary value can be `null`. The launcher shows `--` for it.
+  - The rest feed the launcher's featured card, so the launcher never has to download a flight's data files. They all describe one rocket, the one that flew highest:
+    - `trackRocketId`: which rocket that is.
+    - `track`: its path as `[latitude, longitude]` pairs, simplified to at most 60 points. Only good GPS positions are in it.
+    - `trackGaps`: the places in `track` where the GPS had no fix, or nothing came in for longer than `LINK_STALE_S` (a radio silence). Each number is the index of the first point after a gap, so the line from the point before it is drawn dashed. If the GPS drops out so often that every gap won't fit in 60 points, the shortest stretches between gaps join the gap around them, so missing data is never drawn as a solid line.
+    - `padPoint` and `landingPoint`: `[latitude, longitude]` of the launch pad (the last good position before liftoff) and the landing point (the first good position once the landing was detected). `null` if there was no pad or no detected landing.
+    - `altProfile`: its altitude as `[seconds from liftoff, meters above ground]` pairs, simplified to at most 60 points, from 10 s before liftoff to 10 s after landing. A pair with `null` meters marks a gap with no altitude reading (no fix, or a radio silence longer than `LINK_STALE_S`), which the launcher draws as a break.
+    - `driftM`: meters from the pad to the landing point.
+    - `maxGsDistanceM`: the farthest the rocket got from the ground station, in meters.
+    - `gsDemo`: `true` when those ground station distances use the demo ground station position from `config.js`, because the data had no ground station GPS packets. The launcher says so next to the number.
+  - Any summary value can be `null`. The launcher shows `--` for it, or leaves out the map picture or altitude line.
 
 ## Adding a flight
 
@@ -119,7 +135,8 @@ Each flight in the `flights` list has these fields:
    `node flight-console/tools/add_flight.mjs --id my-flight-01 --title "My first real flight" --kind real --date 2026-10-18 --file "C:\path\to\flight.log" --rocket-name "GPS and radio board" --board "SAMD21, SAM-M8Q GPS and E22 LoRa radio" --site "Launch site name" --description "One or two plain sentences."`
 
    Add `--featured` to make it the featured flight (this clears the flag on the others). Add `--replace` to overwrite a flight that already has that id.
-3. The tool checks everything first: the id and date, the file names, the rocket IDs, and that every rocket has readable data. If anything is wrong it stops and writes nothing. Then it copies the file into `data/flights/my-flight-01/`, runs it through the same parser and detector the page uses, fills in the summary, and updates `index.json`. It prints what it found.
+3. The tool checks everything first: the id and date, the file names, the rocket IDs, and that every rocket has readable data. If anything is wrong it stops and writes nothing. Then it copies the file into `data/flights/my-flight-01/`, runs it through the same parser, detector and store the page uses, fills in the summary (including the simplified track and altitude line for the featured card), and updates `index.json`. It prints what it found.
+   To redo the summary for a flight that's already in the library (after a change to the detector or the tool), run the same command again with `--replace`. The `--file` has to point at a copy outside `data/flights/`, since the tool won't copy a file onto itself. The copy is byte for byte, so the log in the library doesn't change.
 4. Run `node flight-console/tools/check_detection.mjs my-flight-01` to see the detected events.
 5. Refresh the launcher. The new flight is there.
 
@@ -142,6 +159,12 @@ All of these are in `js/config.js`.
 - `DEFAULT_MAP_LAYER`: the map background a first-time viewer sees (`'satellite'` or `'dark'`).
 - `SATELLITE_MAX_NATIVE_ZOOM`: the deepest zoom with real Esri photos (19). Closer zooms scale those photos up.
 - `HALO_COLOR`, `HALO_OPACITY` and `HALO_WIDTH_PX`: the thin dark outline under tracks and markers that keeps them visible on photos.
+- `TRACK_COLOR`, `GROUND_STATION_COLOR` and `PAD_COLOR`: the focused rocket's gold track, the teal ground station and the off-white launch rail. `ROCKET_PALETTE` gives each rocket its own color (its dot, and its track while another rocket is focused). It leaves out gold, green, teal and red on purpose, because those already mean something on the page.
+- `ROCKET_ICON_PX` and `ROCKET_ICON_FOCUSED_PX`: the rocket icon's height on the map, for other rockets and the focused one.
+- `TIMELINE_KEY_STEP_S` and `TIMELINE_KEY_BIG_STEP_S`: how far the arrow keys (and Shift with an arrow, or Page Up and Page Down) move the playhead on the altitude timeline.
+- `EVENT_NOW_S`: how long after an event the mission timeline's "Now" tag stays on it.
+- `LINK_STALE_S` also decides where a radio silence breaks the altitude timeline's curve and makes the map's track dashed.
+- The page's colors and fonts (the design tokens) are CSS variables at the top of `flight-console.css`.
 
 ## Map keys
 
@@ -171,16 +194,17 @@ To set up another computer, create `flight-console/js/config.local.js` with this
 
 ## What the page promises
 
-- It never shows a made-up position. With no GPS fix it says "No GPS fix" and shows how old the last good position is. A rocket that stops sending shows "No recent packets" the same way.
-- Old numbers never look live. When there is no new altitude, the last one loses its amber color and says how old it is, and vertical speed shows `--`.
+- It never shows a made-up position. With no GPS fix it says "No GPS fix" and shows how old the last good position is. A rocket that stops sending shows "No recent packets" the same way. The distance to the ground station then says "Last known". On the map and the altitude timeline, a stretch with no position or no altitude (no fix, or nothing heard for longer than `LINK_STALE_S`) is dashed or left as a break, never drawn as measured.
+- Old numbers never look live. When there is no new altitude, the last one loses its gold color and says how old it is, and vertical speed shows `--`. On the map, the rocket turns grey and hollow at its last good position and its label says "NO GPS FIX" with the age.
+- It never shows orientation it doesn't have. The rocket icon always points straight up.
 - It only shows values a board actually sent. Missing values show `--`, never 0, and a sensor section only appears if that rocket sent that sensor.
-- Every event says how it was found: "reported" (the board said so), "detected" (measured from altitude) or "inferred" (worked out from the descent rate).
+- Every event says how it was found: "reported" (the board said so), "detected" (measured from altitude) or "inferred" (worked out from the descent rate). The timeline markers and the mission timeline draw it the same way: a filled dot for reported, a gold ring for detected, and a dashed ring for inferred or estimated.
 - It always says where the data came from and whether the flight is simulated or real.
-- If the satellite photos can't load, the map switches to the dark map and says so. If the dark map can't load either, or Leaflet or Chart.js can't load, the map and chart switch to plain text versions and everything else keeps running. After a tile failure, the "No map" panel has both background buttons to try again.
+- If the satellite photos can't load, the map switches to the dark map and says so. If the dark map can't load either, or Leaflet can't load, the map switches to a plain text version and everything else keeps running. After a tile failure, the "No map" panel has both background buttons to try again. The altitude timeline is plain SVG, so it needs no library.
 
 ## Where later features plug in
 
-- A 3D view: add it to `VIEW_MODES` in `js/views/map-view.js`, next to the map.
+- A 3D view: add it to `VIEW_MODES` in `js/views/map-view.js`. The view switcher sits in the map's top left controls and only appears once there is more than one view, so today there is no switcher and no 3D button.
 - Live tracking over Web Serial or Web Bluetooth: read lines from the ground station and pass each one to `parseSerialLine()` or `parseJsonLine()` in `parser.js`. When a line gives back a sample, pass `result.sample` to `store.addSample()`. Skip lines where `parseSerialLine()` returns a kind other than `"sample"`, or where `parseJsonLine()` returns null. Board restarts are only handled by `parseSerialLog()`, which reads a whole file, so live code would need its own check for that. The player isn't needed for live data.
 - Ground station position: `parseJsonLine()` already accepts `{"type":"gs","lat":..,"lon":..,"alt":..,"fix":1}`, and the store uses it as soon as one arrives.
-- New sensors: add channels to `js/schema.js`. The parser and the stats panel pick them up without other changes, including new GPS channels (listed under the GPS rows the panel lays out itself) and new sensor groups.
+- New sensors: add channels to `js/schema.js`. The parser and the readings panel pick them up without other changes, including new GPS channels (listed under the GPS rows the panel lays out itself) and new sensor groups, which show under "More readings".

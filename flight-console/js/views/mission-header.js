@@ -1,50 +1,58 @@
 // mission-header.js
-// The top of the console: the focused rocket's name and color, a big flight
-// clock (T+m:ss, or "On pad"), its current phase, where the data came from
-// and whether the flight is simulated or real, plus the "All flights" and
-// "Copy link to this flight" buttons.
+// The top of the console. On the left: an "All flights" link back to the
+// launcher, the focused rocket's name and color, and small labels that say
+// whether the flight is simulated or real, plus the honesty flags ("Data
+// starts in flight", "Ground level estimated"). On the right: a "Copy link"
+// button and a big gold flight clock (T+m:ss, or "On pad") that stops at
+// the landing, with a caption that says when the liftoff time was only
+// estimated.
+// Where the data came from is shown in "About this flight" (flight-info.js).
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler } from './dom.js';
-import { formatFlightClock } from '../geo.js';
+import { uiIcon, iconNode } from './icons.js';
+import { formatFlightClock, MISSING } from '../geo.js';
 
 export function createMissionHeader(root, ctx) {
   const { store, flight, config } = ctx;
   const entry = flight.entry;
+  const isReal = entry.kind === 'real';
 
-  const dot = h('span', { class: 'fc-dot', 'aria-hidden': 'true' });
-  const name = h('span', {});
-  const phase = h('p', { class: 'fc-mission-phase' });
+  // Back to the launcher. A plain click goes through navigate() so the page
+  // doesn't reload. Middle click or Ctrl+click still opens a new tab.
+  const back = h('a', {
+    class: 'fc-mission-back',
+    href: launcherHref(ctx.link),
+    onclick: (e) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      ctx.navigate({ launcher: true });
+    },
+  }, iconNode(uiIcon('arrowLeft', 18)), 'All flights');
+
+  const dot = h('span', { class: 'fc-dot fc-mission-dot', 'aria-hidden': 'true' });
+  const name = h('span', { class: 'fc-mission-name' });
   const flags = h('div', { class: 'fc-mission-flags' });
-  const clock = h('div', { class: 'fc-clock' });
-  const clockLabel = h('div', { class: 'fc-clock-label' });
-  const copyStatus = h('span', { class: 'fc-copy-status', role: 'status' });
-  const copyFallback = h('div', { hidden: true });
+  const clock = h('p', { class: 'fc-mission-clock' });
+  const caption = h('p', { class: 'fc-mission-caption' });
 
-  const files = flight.files.map((f) => f.file).join(', ');
-  const readings = flight.files.reduce((sum, f) => sum + f.sampleCount, 0);
-  const badText = flight.badRows === 1 ? '1 bad line skipped' : `${flight.badRows} bad lines skipped`;
-
-  const copyButton = h('button', { type: 'button', class: 'fc-btn', onclick: copyLink }, 'Copy link to this flight');
-  const allButton = h('button', { type: 'button', class: 'fc-btn', onclick: () => ctx.navigate({ launcher: true }) }, 'All flights');
+  // The button keeps both labels stacked in the same spot and shows one, so
+  // it never changes width when "Link copied" appears.
+  const copyButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm fc-mission-copy', onclick: copyLink },
+    h('span', { class: 'fc-copy-face fc-copy-face--idle' }, iconNode(uiIcon('link', 17)), 'Copy link'),
+    h('span', { class: 'fc-copy-face fc-copy-face--done' }, iconNode(uiIcon('check', 17)), 'Link copied'));
+  // Always in the page (even when empty) so screen readers announce it.
+  const copyStatus = h('span', { class: 'sr-only', role: 'status' });
+  const copyFallback = h('div', { class: 'fc-mission-fallback', hidden: true });
 
   setChildren(root, h('header', { class: 'fc-mission' },
-    h('div', { class: 'fc-mission-main' },
-      h('h1', { class: 'fc-mission-rocket' }, dot, name),
-      phase,
-      flags,
-      h('div', { class: 'fc-mission-lines' },
-        // "(simulated)" or "(real)" unless the title already says it.
-        h('p', { class: 'fc-source' }, entry.title.toLowerCase().includes(entry.kind)
-          ? `Source: ${entry.title}`
-          : `Source: ${entry.title} (${entry.kind})`),
-        h('p', { class: 'fc-source' }, `Data file${flight.files.length === 1 ? '' : 's'}: ${files}, ${readings} readings, ${badText}`),
-        // Anything the parser or library had to adjust, said plainly.
-        (flight.notes ?? []).map((note) => h('p', { class: 'fc-source' }, note)))),
-    h('div', { class: 'fc-mission-side' },
-      h('div', {}, clock, clockLabel),
-      h('div', { class: 'fc-mission-actions' }, allButton, copyButton, copyStatus),
-      copyFallback)));
+    h('div', { class: 'fc-mission-nav' }, back),
+    h('div', { class: 'fc-mission-actions' }, copyButton, copyStatus),
+    h('div', { class: 'fc-mission-id' },
+      h('h1', { class: 'fc-mission-title' }, dot, name),
+      flags),
+    h('div', { class: 'fc-mission-time' }, clock, caption),
+    copyFallback));
 
   let copyTimer = null;
   async function copyLink() {
@@ -59,50 +67,83 @@ export function createMissionHeader(root, ctx) {
     } catch { copied = false; }
     if (!copied) copied = copyWithSelection(ctx.link);
     if (copied) {
+      copyButton.classList.add('fc-mission-copy--done');
       setText(copyStatus, 'Link copied');
-      copyTimer = setTimeout(() => setText(copyStatus, ''), config.LINK_COPIED_MS);
+      copyTimer = setTimeout(() => {
+        copyButton.classList.remove('fc-mission-copy--done');
+        setText(copyStatus, '');
+      }, config.LINK_COPIED_MS);
     } else {
-      // The browser blocked copying, so show the link to copy by hand.
+      // The browser blocked copying, so show the link to copy by hand,
+      // already selected.
+      copyButton.classList.remove('fc-mission-copy--done');
       setText(copyStatus, '');
+      const field = h('input', {
+        id: 'fc-copy-field',
+        class: 'fc-mission-field',
+        type: 'text',
+        readOnly: true,
+        value: ctx.link,
+        onfocus: (e) => e.target.select(),
+      });
       setChildren(copyFallback,
-        h('label', { class: 'fc-source', for: 'fc-copy-field' }, 'Copying was blocked. Here is the link:'),
-        h('input', { id: 'fc-copy-field', class: 'fc-copy-fallback', type: 'text', readOnly: true, value: ctx.link, onfocus: (e) => e.target.select() }));
+        h('label', { class: 'fc-mission-field-label', for: 'fc-copy-field' }, 'Copying was blocked. Here is the link:'),
+        field);
       copyFallback.hidden = false;
+      field.focus({ preventScroll: true });
+      field.select();
     }
   }
 
   function render() {
     const rocket = store.getFocused();
     const d = rocket?.derived;
-    dot.style.setProperty('--dot', rocket?.profile.color ?? '#fff');
+    dot.style.setProperty('--dot', rocket?.profile.color ?? 'var(--fc-muted)');
     setText(name, rocket?.profile.name ?? 'No rocket yet');
-    setText(phase, d ? d.phaseLabel : 'Waiting for data');
 
-    const now = store.getNow();
+    // The clock: "--" until there is data, "On pad" before liftoff, then
+    // the time since liftoff on the store's clock. Once the landing is
+    // detected it stops at the landing time, so it agrees with the phase
+    // strip and the launcher's flight time.
+    let state;
+    const landed = d?.events?.landed;
     if (!d || d.phase === 'waiting') {
-      setText(clock, '--');
-      setText(clockLabel, 'Flight time starts at liftoff');
+      state = 'idle';
+      setText(clock, MISSING);
+      setText(caption, 'Starts at liftoff');
     } else if (d.liftoffT === null) {
+      state = 'pad';
       setText(clock, 'On pad');
-      setText(clockLabel, 'Flight time starts at liftoff');
+      setText(caption, 'Starts at liftoff');
+    } else if (landed) {
+      state = 'landed';
+      setText(clock, formatFlightClock(Math.max(0, landed.t - d.liftoffT)));
+      setText(caption, d.liftoffEstimated ? 'Total flight time, liftoff estimated' : 'Total flight time');
     } else {
-      setText(clock, formatFlightClock(Math.max(0, (now ?? d.lastT) - d.liftoffT)));
-      setText(clockLabel, d.liftoffEstimated ? 'Flight time, liftoff estimated' : 'Flight time');
+      state = 'running';
+      const now = store.getNow() ?? d.lastT;
+      setText(clock, formatFlightClock(Math.max(0, now - d.liftoffT)));
+      setText(caption, d.liftoffEstimated ? 'Flight time, liftoff estimated' : 'Flight time');
     }
+    if (clock.dataset.state !== state) clock.dataset.state = state;
 
-    const wanted = [[entry.kind === 'real' ? 'Real flight' : 'Simulated flight', entry.kind === 'real' ? 'fc-flag--real' : 'fc-flag--sim']];
-    if (d?.startedInFlight) wanted.push(['Data starts in flight', 'fc-flag--warn']);
-    else if (d?.liftoffEstimated) wanted.push(['Liftoff time estimated', '']);
-    if (d?.groundEstimated) wanted.push(['Ground level estimated', 'fc-flag--warn']);
+    // Labels: simulated or real, then anything the console had to estimate.
+    const wanted = [[isReal ? 'Real flight' : 'Simulated flight', isReal ? 'fc-pill--real' : 'fc-pill--sim']];
+    if (d?.startedInFlight) wanted.push(['Data starts in flight', 'fc-pill--warn']);
+    if (d?.groundEstimated) wanted.push(['Ground level estimated', 'fc-pill--warn']);
     const key = wanted.map((w) => w[0]).join('|');
     if (flags.dataset.key !== key) {
       flags.dataset.key = key;
-      setChildren(flags, wanted.map(([text, cls]) => h('span', { class: `fc-flag ${cls}` }, text)));
+      setChildren(flags, wanted.map(([text, cls]) => h('span', { class: `fc-pill ${cls}` }, text)));
     }
   }
 
   const scheduler = createScheduler(render, { maxFps: config.HEADER_MAX_FPS });
-  const unsubscribe = store.subscribe(() => scheduler.schedule());
+  const unsubscribe = store.subscribe((change) => {
+    // A new focus or a fresh start shows at once. Playback can wait a frame.
+    if (change.type === 'focus' || change.type === 'reset' || change.type === 'clear') scheduler.flush();
+    else scheduler.schedule();
+  });
   render();
 
   return {
@@ -112,6 +153,14 @@ export function createMissionHeader(root, ctx) {
       clearTimeout(copyTimer);
     },
   };
+}
+
+// The launcher's address: this flight's link without the ?flight= part.
+function launcherHref(link) {
+  const url = new URL(link, window.location.href);
+  url.search = '';
+  url.hash = '';
+  return url.href;
 }
 
 // Older way to copy text, for browsers without the clipboard API.

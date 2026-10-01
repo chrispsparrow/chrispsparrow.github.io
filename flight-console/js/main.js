@@ -17,32 +17,34 @@ import { loadManifest, loadFlight } from './library.js';
 import { createStore } from './store.js';
 import { createPlayer } from './player.js';
 import { createFleet } from './fleet.js';
-import { detectAll } from './detector.js';
 import { h, setChildren } from './views/dom.js';
 import { createLauncher } from './views/launcher.js';
 import { createMissionHeader } from './views/mission-header.js';
 import { createRocketBar } from './views/rocket-bar.js';
+import { createPhaseStrip } from './views/phase-strip.js';
 import { createMapView } from './views/map-view.js';
+import { createAltTape } from './views/alt-tape.js';
 import { createStatsPanel } from './views/stats-panel.js';
+import { createTimeline } from './views/timeline.js';
 import { createEventLog } from './views/event-log.js';
-import { createAltChart } from './views/alt-chart.js';
-import { createControls } from './views/controls.js';
+import { createFlightInfo } from './views/flight-info.js';
 import { createDebugPanel } from './views/debug-panel.js';
 
 const PAGE_TITLE = 'Flight Console | Dogtooth Systems';
 const $ = (id) => document.getElementById(id);
 const sections = { launcher: $('fc-launcher'), console: $('fc-console'), message: $('fc-message') };
-const MOUNTS = ['fc-mission', 'fc-rocketbar', 'fc-stats', 'fc-controls', 'fc-map', 'fc-chart', 'fc-log', 'fc-debug'];
+const MOUNTS = ['fc-mission', 'fc-rocketbar', 'fc-phases', 'fc-map', 'fc-tape', 'fc-stats', 'fc-timeline', 'fc-log', 'fc-info', 'fc-debug'];
 
 // Tells the load-failure check in index.html that this module started.
 window.fcStarted = true;
 
 // ------------------------------------------------------------------
-// Map and chart libraries. Checked fresh for every console that opens:
+// The map library (Leaflet). Checked fresh for every console that opens,
+// and once for the launcher's map picture:
 //   ready  resolves to the library, or to null if it failed or took longer
-//          than LIBRARY_LOAD_TIMEOUT_MS, so the console never waits on it.
+//          than LIBRARY_LOAD_TIMEOUT_MS, so nothing ever waits on it.
 //   late   resolves if the library finishes loading after that, so the map
-//          or chart can switch from its fallback to the real view.
+//          can switch from its fallback to the real view.
 // ------------------------------------------------------------------
 function watchLibrary(globalName, scriptId) {
   const script = $(scriptId);
@@ -121,7 +123,19 @@ function navigate(target) {
   if (url.href !== window.location.href) {
     window.history.pushState(target.flight ? { flight: target.flight } : {}, '', url);
   }
+  moveFocus = true;
   route();
+}
+
+// After switching screens inside the page (not on the first load), keyboard
+// focus moves to the new screen's main heading, so it isn't left behind on
+// a link that just disappeared.
+let moveFocus = false;
+function focusHeading(el) {
+  if (!moveFocus || !el) return;
+  moveFocus = false;
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+  el.focus({ preventScroll: true });
 }
 
 // A link that goes through navigate() on a plain click, but still works
@@ -157,7 +171,8 @@ async function route() {
   if (session && id !== null && id.trim() === session.id) return;
   const token = ++routeToken;
   closeConsole();
-  window.scrollTo(0, 0);
+  // A new screen starts at the top at once, never with a smooth scroll.
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   if (id === null || id.trim() === '') await showLauncher(token);
   else await openFlight(id.trim(), token);
 }
@@ -169,24 +184,29 @@ async function showLauncher(token) {
     launcher = createLauncher(sections.launcher, {
       hrefFor: (id) => flightUrl(id).href,
       onWatch: (id) => navigate({ flight: id }),
+      config,
+      libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet') },
     });
   }
   launcher.renderLoading();
   const manifest = await getManifest();
   if (token !== routeToken) return;
   launcher.render(manifest);
+  focusHeading($('fc-launcher-title'));
 }
 
 function showMessage(title, paragraphs, { retry = false } = {}) {
   show('message');
   const actions = h('p', { class: 'fc-message-actions' },
-    internalLink('See all flights', { launcher: true }, 'fc-btn fc-btn-primary'),
+    internalLink('See all flights', { launcher: true }, 'fc-btn fc-btn--gold'),
     retry ? ' ' : null,
     retry ? h('button', { type: 'button', class: 'fc-btn', onclick: () => route() }, 'Try again') : null);
+  const heading = h('h1', {}, title);
   setChildren(sections.message, h('div', { class: 'fc-card' },
-    h('h1', {}, title),
+    heading,
     paragraphs.map((p) => h('p', {}, p)),
     actions));
+  focusHeading(heading);
 }
 
 async function openFlight(id, token) {
@@ -256,18 +276,11 @@ function startConsole(entry, flight) {
   const store = createStore({ fleet: createFleet() });
   for (const r of entry.rockets) store.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
 
-  // Pre-scan: a separate detector runs over each rocket's whole flight, only
-  // so the jump buttons know where the events are. These results are never
-  // shown in the log.
-  const byRocket = new Map();
+  // A rocket in the data that the manifest doesn't list is added now, in the
+  // order it first appears, so every view knows it before playback reaches
+  // its first reading.
   for (const s of flight.samples) {
-    if (s.type === 'gs') continue;
-    if (!byRocket.has(s.rocketId)) byRocket.set(s.rocketId, []);
-    byRocket.get(s.rocketId).push(s);
-  }
-  for (const [rocketId, samples] of byRocket) {
-    if (!store.getRocket(rocketId)) store.registerRocket({ id: rocketId });
-    store.setPrescan(rocketId, detectAll(samples).events);
+    if (s.type !== 'gs' && !store.getRocket(s.rocketId)) store.registerRocket({ id: s.rocketId });
   }
 
   const player = createPlayer({ store });
@@ -275,8 +288,11 @@ function startConsole(entry, flight) {
     store,
     player,
     config,
-    libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet'), chart: watchLibrary('Chart', 'fc-lib-chart') },
+    libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet') },
     tileKey,
+    // Each rocket's whole-flight altitude curve and events, for the timeline
+    // and the altitude tape's scale. See prescanFlight() below.
+    prescan: prescanFlight(entry, flight.samples),
     flight: {
       entry,
       truth: flight.truth,
@@ -293,11 +309,13 @@ function startConsole(entry, flight) {
   const makers = [
     ['fc-mission', createMissionHeader],
     ['fc-rocketbar', createRocketBar],
-    ['fc-stats', createStatsPanel],
-    ['fc-controls', createControls],
+    ['fc-phases', createPhaseStrip],
     ['fc-map', createMapView],
-    ['fc-chart', createAltChart],
+    ['fc-tape', createAltTape],
+    ['fc-stats', createStatsPanel],
+    ['fc-timeline', createTimeline],
     ['fc-log', createEventLog],
+    ['fc-info', createFlightInfo],
     ['fc-debug', createDebugPanel],
   ];
   const views = [];
@@ -313,9 +331,47 @@ function startConsole(entry, flight) {
   }
 
   session = { id: entry.id, store, player, views };
+  focusHeading(sections.console.querySelector('h1'));
   player.load(flight.samples);
   player.setSpeed(config.DEFAULT_SPEED);
   player.play();
+}
+
+// ------------------------------------------------------------------
+// Whole-flight pre-scan for the timeline. A second store, never shown,
+// takes the whole flight at once (in the same order the player uses), so
+// every rocket's full altitude curve and events are known before playback
+// gets there. It is a separate copy with its own detectors: nothing it
+// works out reaches the live store, and the live views never read it as
+// "now". Returns rocketId -> {
+//   profile    [{ t, agl }] one point per altitude reading, in data time.
+//              agl is null where a reading should have had an altitude and
+//              didn't (a GPS fix gap), which the timeline draws as a break.
+//              Heights use the ground level frozen at liftoff.
+//   events     every event the detector found, in order
+//   state      the detector's final state (maxAgl, liftoffT, events, ...)
+// }
+// ------------------------------------------------------------------
+function prescanFlight(entry, samples) {
+  const scan = createStore({ fleet: createFleet() });
+  for (const r of entry.rockets) scan.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
+  const ordered = samples
+    .filter((s) => s && Number.isFinite(s.t))
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => a.s.t - b.s.t || a.i - b.i)
+    .map((x) => x.s);
+  scan.addSamples(ordered, { quiet: true });
+  const out = new Map();
+  for (const rocket of scan.getRockets()) {
+    const state = rocket.derived;
+    const ground = state?.groundRef;
+    const profile = Number.isFinite(ground)
+      ? rocket.altSeries.map((p) => Object.freeze({ t: p.t, agl: p.alt === null ? null : p.alt - ground }))
+      : [];
+    out.set(rocket.id, Object.freeze({ profile: Object.freeze(profile), events: Object.freeze(rocket.events.slice()), state }));
+  }
+  scan.clearAll();
+  return out;
 }
 
 function closeConsole() {
@@ -329,5 +385,8 @@ function closeConsole() {
   session = null;
 }
 
-window.addEventListener('popstate', () => route());
+window.addEventListener('popstate', () => {
+  moveFocus = true;
+  route();
+});
 route();
