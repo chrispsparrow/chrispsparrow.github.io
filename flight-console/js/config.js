@@ -193,11 +193,51 @@ export const TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/
 export const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
   '&copy; <a href="https://carto.com/attributions">CARTO</a>';
-// Deepest zoom level CARTO serves.
+// Deepest zoom level CARTO serves, and the map's deepest zoom.
 export const TILE_MAX_ZOOM = 20;
+
+// Esri key for the satellite layer (ArcGIS Location Platform API key, with
+// only the Basemaps privilege). Esri only accepts it from pages on
+// dogtoothsystems.com, www.dogtoothsystems.com, chrispsparrow.github.io and
+// http://localhost:8000, so it is safe to publish. It does not work on
+// 127.0.0.1 or other ports.
+// It expires 9/30/2027. Renew it from the Esri Location Platform dashboard
+// and paste the new key here. If the key is rejected (expired, for example),
+// the map shows the dark map and says satellite imagery isn't available.
+export const ESRI_API_KEY = 'AAPTa2ur8bkfWxnXJzQ0kE6tVFA..K7Cdcxmt2hOIPTg9jtq0S_app4Zim_RkWEv37WmqCo-ktduo__CT6Ovtut5VPqQymnxSMRBoDhiX3k6bNlWKXesPV3pqBd-sZhkDThC7upNMpLWJXqfVsIkVfkAaWW-CbepDr7QwbWv3NYC1mc9T_JpLN6zRqF79VZ9HPs9AMKKVlBP9dYjL1tSG0hEs_roNAzKqKmNIFGVnUQfluAeTLLE_p1M_fIRYlfX8E8bty26HbkSFL3ySxlS1jRnKAQ..AT1_caklFlpC';
+// Esri World Imagery photos, 256 px tiles. Esri tile addresses put y before x.
+export const SATELLITE_URL = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token={key}';
+// Deepest zoom with real imagery. Zoom 19 had photos at every US launch site
+// I checked, and zoom 20 had none, so closer zooms scale up zoom 19 tiles.
+export const SATELLITE_MAX_NATIVE_ZOOM = 19;
+// Esri's labels for imagery (roads, road names, places and borders) from the
+// Static Basemap Tiles service. These tiles are 512 px, one zoom level
+// "behind" the 256 px tiles, which map-view.js allows for.
+export const SATELLITE_LABELS_URL = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token={key}';
+// Asked once before the satellite layer goes on, to check that Esri accepts
+// the key. Esri answers with the labels style's details, or an error.
+export const ESRI_KEY_CHECK_URL = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static?token={key}';
+// Required credits. Esri asks for "Powered by Esri" on every map that uses
+// its services, plus each layer's data credit (copied from the services'
+// own copyright text, September 2026).
+export const ESRI_POWERED_BY = 'Powered by <a href="https://www.esri.com">Esri</a>';
+export const SATELLITE_ATTRIBUTION = 'Source: Esri, Vantor, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community';
+export const SATELLITE_LABELS_ATTRIBUTION = 'Sources: Esri, TomTom, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors, and the GIS User Community';
+// The map background a first-time viewer sees: 'satellite' or 'dark'.
+export const DEFAULT_MAP_LAYER = 'satellite';
+// Where the browser remembers the viewer's choice (localStorage).
+export const MAP_LAYER_STORAGE_KEY = 'fc-map-layer';
+// A dark outline under tracks, markers and the ground station line, so they
+// stay easy to see on bright photos.
+export const HALO_COLOR = '#0B0D10';
+export const HALO_OPACITY = 0.7;
+// Outline width (px) on each side of a line or ring.
+export const HALO_WIDTH_PX = 1.5;
 // More tile errors than this, with no tile loaded at all...
 export const TILE_FAIL_COUNT = 3;
-// ...within this many milliseconds, and the map switches to the no-map panel.
+// ...within this many milliseconds, and that layer counts as failed: the
+// satellite layer gives way to the dark map, and the dark map to the no-map
+// panel. The Esri key check gives up after the same time.
 export const TILE_FAIL_TIMEOUT_MS = 8000;
 // How long (ms) to wait for Leaflet or Chart.js to download before giving up.
 export const LIBRARY_LOAD_TIMEOUT_MS = 10000;

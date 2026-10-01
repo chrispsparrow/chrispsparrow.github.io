@@ -12,7 +12,7 @@ The page loads its data with `fetch`, which browsers block for files opened stra
 2. Run `python -m http.server 8000`.
 3. Open http://localhost:8000/flight-console/ in a browser.
 
-The map background needs my local CARTO key on this computer (see "Map keys" below). Without it, everything else works and the map draws tracks on a plain dark background.
+The satellite map works at exactly http://localhost:8000, because that address is on the Esri key's list. On 127.0.0.1 or any other port, Esri turns the key down and the page shows the dark map instead, with a note. The dark map needs my local CARTO key on this computer (see "Map keys" below). Without it, everything else works and the dark map draws tracks on a plain background.
 
 On the live site the same page is at https://www.dogtoothsystems.com/flight-console/.
 
@@ -55,7 +55,7 @@ The views never talk to each other. They only read the store, so a live source c
 
 ### Code that works without a page (Node can run it too)
 
-- `js/config.js`: every number and setting I might want to change: detection thresholds, the demo ground station position, playback speeds, the map tile address and key, timeouts and colors. Each one has a short comment.
+- `js/config.js`: every number and setting I might want to change: detection thresholds, the demo ground station position, playback speeds, the map tile addresses, keys and credits, timeouts and colors. Each one has a short comment.
 - `js/config.local.js`: my local CARTO map key, only on my laptop. Git ignores it (see "Map keys").
 - `js/schema.js`: the channel registry. It lists every value a board can send, which sensor group it belongs to, its label and unit, and the names different files use for it. It also has `hasGoodPosition()`, the test every rocket position goes through before the page trusts it. Ground station packets use a lighter check (a fix plus latitude and longitude) because they may not carry an altitude.
 - `js/parser.js`: the only code that understands file formats. It reads CSV files, JSON lines (including ground station position packets), and my firmware's serial output: `SIM PKT` hex lines from the simulator and `PKT` key=value lines from the bench_rx receiver. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that the console shows under the data source.
@@ -73,7 +73,7 @@ The views never talk to each other. They only read the store, so a live source c
 - `js/views/launcher.js`: the launcher's flight cards and notes.
 - `js/views/mission-header.js`: the focused rocket's name, the big flight clock, the phase, the data source, and the "All flights" and "Copy link to this flight" buttons.
 - `js/views/rocket-bar.js`: one chip per rocket. Click one to focus it.
-- `js/views/map-view.js`: the Leaflet map, or the "No map" panel if Leaflet or the map tiles can't load.
+- `js/views/map-view.js`: the Leaflet map, with the "Satellite" and "Dark map" buttons and the "Labels" checkbox, or the "No map" panel if Leaflet or the map tiles can't load.
 - `js/views/stats-panel.js`: the numbers for the focused rocket, one section per sensor group it actually sent.
 - `js/views/event-log.js`: every event in time order.
 - `js/views/alt-chart.js`: the altitude chart, with its own small plugin for event lines and the time cursor.
@@ -137,11 +137,28 @@ All of these are in `js/config.js`.
 - `GROUND_STATION`: the demo ground station position, 1 km southwest of the simulator's placeholder pad. Once the real ground station sends its own GPS position, the page uses that instead and says so.
 - `LINK_STALE_S` and `ALTITUDE_STALE_S`: how long before a quiet rocket, or an old altitude, is shown as old instead of live.
 - The `..._MAX_FPS` values: how often each part of the console redraws during playback.
-- `TILE_API_KEY`: the public CARTO map key for the live site. See "Map keys" below.
+- `TILE_API_KEY`: the public CARTO key for the dark map on the live site. See "Map keys" below.
+- `ESRI_API_KEY`: the Esri key for the satellite map. It expires 9/30/2027. See "Map keys" below.
+- `DEFAULT_MAP_LAYER`: the map background a first-time viewer sees (`'satellite'` or `'dark'`).
+- `SATELLITE_MAX_NATIVE_ZOOM`: the deepest zoom with real Esri photos (19). Closer zooms scale those photos up.
+- `HALO_COLOR`, `HALO_OPACITY` and `HALO_WIDTH_PX`: the thin dark outline under tracks and markers that keeps them visible on photos.
 
 ## Map keys
 
-The map background comes from CARTO's "Dark Matter" tiles, and CARTO wants a key on every tile request. Without a key, every tile is a picture that says "API key required". I have two keys.
+The map has two backgrounds, picked with the "Satellite" and "Dark map" buttons on the map. Satellite is the default. The browser remembers each viewer's choice (in localStorage). If the browser blocks storage, the choice just isn't remembered.
+
+### Satellite (Esri)
+
+The photos come from Esri's World Imagery service, and the "Labels" layer (roads, road names, places and borders) comes from Esri's Static Basemap Tiles service. Both need the Esri key in `ESRI_API_KEY` in `js/config.js`.
+
+- It is an ArcGIS Location Platform key with only the Basemaps privilege. In Esri's dashboard it is limited to dogtoothsystems.com, www.dogtoothsystems.com, chrispsparrow.github.io and http://localhost:8000, so it is safe to publish.
+- It expires 9/30/2027. To renew it, make a new key (or extend this one) in the Esri Location Platform dashboard and paste it into `ESRI_API_KEY`.
+- Before showing any photos, the page asks Esri once whether it accepts the key. If Esri says no (an expired key, for example), or the photos keep failing to load, the page switches to the dark map and says satellite imagery isn't available right now. The viewer's choice stays "Satellite", so the next visit tries again.
+- Esri asks for "Powered by Esri" and each layer's data credit on the map. Those are in `js/config.js` (`ESRI_POWERED_BY`, `SATELLITE_ATTRIBUTION`, `SATELLITE_LABELS_ATTRIBUTION`). The page shows them only while the satellite map is on. The credit line shows one line and opens in full on hover, keyboard focus or a tap.
+
+### Dark map (CARTO)
+
+The dark map comes from CARTO's "Dark Matter" tiles, and CARTO wants a key on every tile request. Without a key, every tile is a picture that says "API key required". I have two CARTO keys.
 
 - The public key is in `TILE_API_KEY` in `js/config.js`. In CARTO's dashboard it is limited to pages on dogtoothsystems.com, www.dogtoothsystems.com and chrispsparrow.github.io. CARTO checks which page asked for each tile (the Referer), so the key only works on my site and is safe to publish. CARTO refuses it on localhost.
 - The local key is for previewing on my laptop. It goes in `js/config.local.js` as `TILE_API_KEY_LOCAL`. That file is listed in `flight-console/.gitignore`, so Git never commits it and it never reaches the live site.
@@ -159,7 +176,7 @@ To set up another computer, create `flight-console/js/config.local.js` with this
 - It only shows values a board actually sent. Missing values show `--`, never 0, and a sensor section only appears if that rocket sent that sensor.
 - Every event says how it was found: "reported" (the board said so), "detected" (measured from altitude) or "inferred" (worked out from the descent rate).
 - It always says where the data came from and whether the flight is simulated or real.
-- If Leaflet, Chart.js or the map tiles can't load, the map and chart switch to plain text versions and everything else keeps running.
+- If the satellite photos can't load, the map switches to the dark map and says so. If the dark map can't load either, or Leaflet or Chart.js can't load, the map and chart switch to plain text versions and everything else keeps running. After a tile failure, the "No map" panel has both background buttons to try again.
 
 ## Where later features plug in
 

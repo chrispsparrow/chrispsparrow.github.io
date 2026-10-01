@@ -404,11 +404,42 @@
 .fc-page .fc-map-canvas { position: absolute; inset: 0; }
 /* The frame clips anything outside it, so the map's focus ring goes inside. */
 .fc-page .fc-map-canvas:focus-visible { outline-offset: -3px; }
-.fc-page .fc-map-legend {
+/* Top right corner of the map: the background buttons, then the legend. */
+.fc-page .fc-map-panel {
   position: absolute;
   right: 0.6rem;
   top: 0.6rem;
   z-index: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+.fc-page .fc-layer-pick {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.6rem;
+  background: rgba(13, 16, 20, 0.88);
+  border: 1px solid var(--fc-line);
+  border-radius: 4px;
+  padding: 0.35rem 0.45rem;
+}
+.fc-page .fc-layer-pick .fc-btn { min-height: 2rem; padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+.fc-page .fc-labels-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fc-text);
+  cursor: pointer;
+}
+.fc-page .fc-labels-toggle input { width: 1rem; height: 1rem; accent-color: var(--fc-amber); }
+.fc-page .fc-map-legend {
   background: rgba(13, 16, 20, 0.88);
   border: 1px solid var(--fc-line);
   border-radius: 4px;
@@ -424,6 +455,10 @@
 @media (max-width: 640px) {
   .fc-page .fc-map-legend { font-size: 0.72rem; padding: 0.3rem 0.45rem; gap: 0.1rem; }
   .fc-page .fc-legend-line { width: 18px; }
+  .fc-page .fc-map-panel { gap: 0.3rem; }
+  .fc-page .fc-layer-pick { padding: 0.3rem 0.35rem; gap: 0.3rem 0.45rem; }
+  .fc-page .fc-layer-pick .fc-btn { min-height: 1.9rem; padding: 0.25rem 0.55rem; font-size: 0.78rem; }
+  .fc-page .fc-labels-toggle { font-size: 0.78rem; gap: 0.3rem; }
 }
 .fc-page .fc-legend-line { width: 26px; height: 0; border-top: 3px solid var(--fc-text); }
 .fc-page .fc-legend-line--dash { border-top-style: dashed; }
@@ -451,14 +486,44 @@
 .fc-page .fc-arrow { width: 56px; height: 56px; grid-row: span 3; }
 .fc-page .fc-nomap-name { display: flex; align-items: center; gap: 0.45rem; font-weight: 600; }
 .fc-page .fc-nomap-line { color: var(--fc-text); font-size: 0.95rem; }
+/* After a tile failure the background buttons move into the no-map panel. */
+.fc-page .fc-nomap-retry { margin-bottom: 0.9rem; }
+.fc-page .fc-nomap-retry .fc-nomap-note { margin-bottom: 0.4rem; }
+.fc-page .fc-nomap .fc-layer-pick { display: inline-flex; }
 
 /* Leaflet on a dark page */
 .fc-page .leaflet-container { background: #0b0d10; font-family: var(--font-text); }
+/* The site's "svg { max-width: 100% }" squeezes the drawing layer of any map
+   pane except Leaflet's own overlay pane (which Leaflet exempts), so the
+   outline pane gets the same exemption. */
+.fc-page .leaflet-pane > svg { max-width: none; max-height: none; }
+/* On high-resolution screens the photos can show a thin light and dark seam
+   where two tiles meet (the map sits at a fraction of a pixel on the page).
+   Each photo is drawn half a pixel bigger so it overlaps its neighbor, with
+   normal blending (Leaflet's own "plus-lighter" blending would brighten the
+   overlap). The dark map is dark at the seams, so it doesn't need this. */
+.fc-page .fc-sat-tiles img.leaflet-tile {
+  mix-blend-mode: normal;
+  width: 256.5px !important;
+  height: 256.5px !important;
+}
 .fc-page .leaflet-container a { color: var(--fc-amber); }
 .fc-page .leaflet-control-attribution {
   background: rgba(13, 16, 20, 0.85);
   color: var(--fc-label);
+  /* The satellite credits are long, so the line is cut to fit (Esri's own
+     map tools do the same) and opens in full on hover, keyboard focus or a
+     tap. "Powered by Esri" comes first, so it always shows. */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.fc-page .leaflet-control-attribution:hover,
+.fc-page .leaflet-control-attribution:focus-within,
+.fc-page .leaflet-control-attribution.fc-credit-open { white-space: normal; }
+/* The credit line stops short of the distance scale in the other corner. */
+.fc-page .leaflet-bottom.leaflet-right { left: 7.5rem; }
 .fc-page .leaflet-control-zoom a {
   font-family: var(--font-text);
   background: var(--fc-panel-2);
