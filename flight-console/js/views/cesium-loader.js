@@ -1,7 +1,8 @@
 // cesium-loader.js
-// Downloads CesiumJS (the 3D globe library) only when the viewer asks for
-// the 3D view. Nothing here runs when the page opens, so a visit that stays
-// on the map never downloads it.
+// Downloads CesiumJS (the 3D globe library) when the 3D view opens: when a
+// flight opens on it (DEFAULT_VIEW in config.js) or the viewer clicks "3D".
+// Nothing here runs on the launcher, so a visit that never opens a flight
+// never downloads it.
 //
 // loadCesium() adds Cesium's stylesheet and script to the page and resolves
 // to the library once it is ready. There is only ever one download: calling

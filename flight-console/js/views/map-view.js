@@ -34,9 +34,10 @@
 //
 // The "3D" button next to "Satellite" and "Dark map" swaps the map for the
 // 3D view (globe-view.js) in the same spot. This file owns the switch: the
-// button, the browser's memory of the last choice, the "Load 3D view"
-// prompt, the loading and failure messages, and the three camera buttons.
-// Cesium is only downloaded when the viewer asks for 3D (cesium-loader.js).
+// button, which view a flight opens on, the loading and failure messages,
+// and the three camera buttons. A flight opens on DEFAULT_VIEW (config.js),
+// which is the 3D view, so Cesium downloads then (cesium-loader.js). After
+// the viewer picks a view, later flights in the same visit open on that.
 // The map stays alive underneath while 3D is showing, so switching back is
 // instant, and "Follow rocket" is one setting shared by both.
 //
@@ -48,7 +49,7 @@ import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING }
 import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR, iconNode } from './icons.js';
 import { checkEsriKey } from './esri.js';
 import { rocketHudLine } from './hud-text.js';
-import { loadCesium, cesiumIsLoaded } from './cesium-loader.js';
+import { loadCesium } from './cesium-loader.js';
 
 // The fix-gap line pattern: dash and space lengths in pixels.
 const GAP_DASH = '4 8';
@@ -98,6 +99,11 @@ const FOLLOW_PAN_MS = 600;
 
 const isLayer = (value) => value === 'satellite' || value === 'dark';
 
+// The view the viewer last picked, 'map' or '3d', or null before they have
+// picked one. It lasts for this visit only, so every visit starts on
+// DEFAULT_VIEW.
+let chosenView = null;
+
 export function createMapView(root, ctx) {
   const { store, config, libs } = ctx;
 
@@ -137,8 +143,7 @@ export function createMapView(root, ctx) {
 
   // The 3D view's box. It fills the same frame as the map. globeCanvas
   // holds Cesium's own elements, globeCredits its logo and data credits,
-  // and globePanel the "Load 3D view" prompt and the loading and failure
-  // messages.
+  // and globePanel the loading and failure messages.
   // (It can take keyboard focus: the arrow keys move its camera.)
   const globeCanvas = h('div', {
     class: 'fc-globe-canvas',
@@ -249,7 +254,7 @@ export function createMapView(root, ctx) {
 
   // Map or 3D
   let view = 'map';        // 'map' or '3d': which one the frame shows
-  let three = 'off';       // the 3D side: 'off', 'prompt', 'loading', 'ready' or 'failed'
+  let three = 'off';       // the 3D side: 'off', 'loading', 'ready' or 'failed'
   let threeGen = 0;        // goes up on every start, so an answer meant for an old one is ignored
   let globe = null;        // the 3D view once it is running (globe-view.js)
   let body = canvas;       // what the 2D side shows: the map or the no-map panel
@@ -630,23 +635,6 @@ export function createMapView(root, ctx) {
   // stays in place underneath while the 3D view is showing.
   // ------------------------------------------------------------------
 
-  // The viewer's last choice of view, if the browser kept it.
-  function readSavedView() {
-    try {
-      return window.localStorage.getItem(config.VIEW_STORAGE_KEY) === '3d' ? '3d' : 'map';
-    } catch {
-      return 'map';
-    }
-  }
-
-  function saveView(which) {
-    try {
-      window.localStorage.setItem(config.VIEW_STORAGE_KEY, which);
-    } catch {
-      // Not remembered. Nothing else changes.
-    }
-  }
-
   // Shows the pieces that belong to the view on screen now and hides the
   // rest. Called whenever the view, the map's state or the 3D side's state
   // changes.
@@ -701,9 +689,10 @@ export function createMapView(root, ctx) {
     target.focus({ preventScroll: true });
   }
 
-  // A click on "3D" or "Load 3D view".
+  // A click on "3D".
   function selectThree() {
-    keepFocus(() => openThree({ asked: true }));
+    chosenView = '3d';
+    keepFocus(() => openThree());
   }
 
   // The "Map" button and "Back to the map".
@@ -711,25 +700,17 @@ export function createMapView(root, ctx) {
     keepFocus(() => showMap());
   }
 
-  // Shows the 3D side and starts it if it isn't running. asked is false
-  // when a flight opens on the viewer's last choice. Then Cesium is never
-  // downloaded without a click: a "Load 3D view" button shows instead,
-  // unless Cesium is already here from an earlier flight in this visit.
-  function openThree({ asked }) {
+  // Shows the 3D side and starts it if it isn't running. Cesium downloads
+  // here the first time, whether a flight opened on 3D or the viewer
+  // clicked "3D".
+  function openThree() {
     const was = view;
     view = '3d';
-    if (asked) saveView('3d');
     if (globe) {
       // On screen first, so the view has a size to measure when it wakes up.
       applyView();
       globe.setActive(true);
-    } else if (three !== 'loading') {
-      if (asked || cesiumIsLoaded()) startThree();
-      else {
-        three = 'prompt';
-        showThreePanel('prompt');
-      }
-    }
+    } else if (three !== 'loading') startThree();
     applyView();
     if (was !== '3d') scheduler.schedule();
   }
@@ -739,7 +720,7 @@ export function createMapView(root, ctx) {
   function showMap() {
     if (view === 'map') return;
     view = 'map';
-    saveView('map');
+    chosenView = 'map';
     globe?.setActive(false);
     setText(globeSay, '');
     applyView();
@@ -828,8 +809,8 @@ export function createMapView(root, ctx) {
     globeDialogs.remove();
   }
 
-  // What the panel over the 3D view says: the prompt, "Loading", or why
-  // there is no 3D view.
+  // What the panel over the 3D view says: "Loading", or why there is no
+  // 3D view.
   function showThreePanel(kind) {
     if (kind === 'loading') {
       setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the 3D view...'));
@@ -837,16 +818,6 @@ export function createMapView(root, ctx) {
       return;
     }
     const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'Back to the map');
-    if (kind === 'prompt') {
-      setChildren(globePanel, h('div', { class: 'fc-globe-card' },
-        h('h3', { class: 'fc-nomap-title' }, '3D view'),
-        h('p', { class: 'fc-nomap-note' }, 'The 3D view is a bigger download than the map, so it only loads when you ask for it.'),
-        h('div', { class: 'fc-globe-actions' },
-          h('button', { type: 'button', class: 'fc-btn fc-btn--gold', onclick: () => selectThree() }, 'Load 3D view'),
-          back)));
-      setText(globeSay, '');
-      return;
-    }
     const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
     setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
       h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
@@ -1843,9 +1814,9 @@ export function createMapView(root, ctx) {
     scheduler.schedule();
   });
 
-  // If 3D was the viewer's last choice, the frame opens on the 3D side.
-  // Cesium still isn't downloaded until they ask (see openThree).
-  if (readSavedView() === '3d') openThree({ asked: false });
+  // The frame opens on the view the viewer last picked in this visit, or
+  // on DEFAULT_VIEW before they have picked one.
+  if ((chosenView ?? config.DEFAULT_VIEW) === '3d') openThree();
 
   return {
     destroy() {

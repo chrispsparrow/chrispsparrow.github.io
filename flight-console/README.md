@@ -81,9 +81,9 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 - `js/views/mission-header.js`: the "All flights" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with 2 or more rockets. Click one to focus it.
 - `js/views/phase-strip.js`: the six phases across the top (Pad, Ascent, Apogee, Drogue, Main, Landed), driven only by the detector. Drogue and Main have dashed bars because they are inferred.
-- `js/views/map-view.js`: the Leaflet map, with the "Satellite", "Dark map" and "3D" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load. It also owns the switch to the 3D view: the "3D" button, the browser's memory of the last choice, the "Load 3D view" prompt, the loading and failure messages, and the three camera buttons.
+- `js/views/map-view.js`: the Leaflet map, with the "Satellite", "Dark map" and "3D" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load. It also owns the switch to the 3D view: the "3D" button, which view a flight opens on, the loading and failure messages, and the three camera buttons.
 - `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer and draws the trails, the drop line, the rocket, launch rail and ground station icons, their labels, the line to the ground station and the event markers. It also looks up ground heights, moves the camera and keeps labels from overlapping. See "The 3D view".
-- `js/views/cesium-loader.js`: downloads CesiumJS, and only when a viewer asks for the 3D view.
+- `js/views/cesium-loader.js`: downloads CesiumJS when the 3D view opens.
 - `js/views/hud-text.js`: the words on a rocket's green label ("AGL 264 M", "NO GPS FIX · 4 S"), shared by the map and the 3D view so both always say the same thing.
 - `js/views/stats-panel.js`: the readings panel floating over the map (under it on phones): altitude, vertical speed, ground speed, GPS and last packet, with everything else under "More readings", one section per sensor group the rocket actually sent.
 - `js/views/alt-tape.js`: the altitude tape on the left edge of the map (a thin strip on phones), from 0 to the rocket's highest point in the pre-scan, with the altitude now and the highest point so far.
@@ -169,6 +169,7 @@ All of these are in `js/config.js`.
 - `TIMELINE_KEY_STEP_S` and `TIMELINE_KEY_BIG_STEP_S`: how far the arrow keys (and Shift with an arrow, or Page Up and Page Down) move the playhead on the altitude timeline.
 - `EVENT_NOW_S`: how long after an event the mission timeline's "Now" tag stays on it.
 - `LINK_STALE_S` also decides where a radio silence breaks the altitude timeline's curve and makes the map's track dashed.
+- `DEFAULT_VIEW`: the view a flight opens on (`'3d'` or `'map'`). See "The 3D view".
 - `CESIUM_VERSION`: the CesiumJS release the 3D view loads. `CESIUM_ION_TOKEN` is the Cesium ion token (see "Map keys").
 - `CESIUM_LOAD_TIMEOUT_MS` and `TERRAIN_SAMPLE_TIMEOUT_MS`: how long to wait for Cesium to download, and for the terrain and a ground height, before giving up. `GLOBE_READY_TIMEOUT_MS` is the longest the "Loading the 3D view..." panel stays up once Cesium has downloaded.
 - `PAD_RESAMPLE_M`: how far a launch pad has to move before its ground height is looked up again.
@@ -221,9 +222,10 @@ The "3D" button next to "Satellite" and "Dark map" swaps the map for a 3D view o
 
 ### Loading
 
-- CesiumJS is a big download (about 1.8 MB), so the page never loads it by itself. `js/views/cesium-loader.js` adds Cesium's script and stylesheet only when someone clicks "3D" or "Load 3D view".
+- A flight opens on the 3D view. That is `DEFAULT_VIEW` in `js/config.js`. Set it to `'map'` and a flight opens on the map instead.
+- CesiumJS is a big download (about 1.8 MB), so the launcher never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens: when a flight opens on it, or when someone clicks "3D".
 - It comes from Cesium's own release CDN, pinned to version 1.146 (`CESIUM_VERSION` in `js/config.js`).
-- The browser remembers whether the viewer last used the map or the 3D view. If it was 3D, the next flight opens on a "Load 3D view" button instead of downloading Cesium straight away, so a phone on a weak signal isn't made to download it without asking. If Cesium is already loaded from an earlier flight in the same visit, the 3D view just starts.
+- Once a viewer picks the map or the 3D view, later flights in the same visit open on that one. The choice isn't kept between visits, so every visit starts on `DEFAULT_VIEW`. With `'map'` there, Cesium only downloads after a click on "3D".
 - If Cesium can't load, the map area says "The 3D view needs internet to load. The map view still works." with a button back to the map. The rest of the console keeps running. A slow download isn't thrown away when the wait runs out, so a second click on "3D" picks up the same download.
 - If the browser takes the 3D view's graphics away while it runs (a phone left in the background can do this), the map area says the 3D view stopped working. The next click on "3D" starts a new one.
 - The map stays in place under the 3D view, paused, so switching back is instant. Leaving a flight destroys the Cesium viewer and lets go of its WebGL context, so opening many flights doesn't use more and more memory.

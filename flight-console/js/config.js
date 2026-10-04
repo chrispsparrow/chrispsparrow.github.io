@@ -276,8 +276,8 @@ export const FOLLOW_EDGE_PX = 40;
 // ------------------------------------------------------------------
 
 // The CesiumJS release the 3D view uses, pinned to this exact version. It
-// comes from Cesium's own release CDN, and only when a viewer asks for the
-// 3D view. To move to a newer release, change the number and check that
+// comes from Cesium's own release CDN, and only when the 3D view opens
+// (see DEFAULT_VIEW). To move to a newer release, change the number and check that
 // both addresses below still open.
 export const CESIUM_VERSION = '1.146';
 // The folder Cesium loads its own extra files from (its workers and assets).
@@ -294,11 +294,11 @@ export const CESIUM_LOAD_TIMEOUT_MS = 30000;
 // change anything in my ion account, and it never expires. That makes it
 // safe to publish here.
 export const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IlZCZlpOUEZ2TGM4RGFua2YiLCJqdGkiOiI4YTE3MTgzNS00OWI3LTRkZWUtYWY2My05YmQ0MjMxMDE1ZDQiLCJpZCI6NTEyNDgwLCJzdWIiOiJjaHJpc3BzcGFycm93IiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6ImRvZ3Rvb3Roc3lzdGVtcyBmbGlnaHQgY29uc29sZSIsImlhdCI6MTc5MDgwNDQ0OH0.w7czJXSDb0m3jKbuE_MjS1tzy0kj6FDvregkSO5zwdI';
-// Where the browser remembers whether the viewer last used the map or the
-// 3D view (localStorage). Cesium still never downloads by itself. If it is
-// already on the page from an earlier flight in the same visit, the 3D
-// view starts straight away.
-export const VIEW_STORAGE_KEY = 'fc-map-view';
+// The view a flight opens on: '3d' or 'map'. With '3d', Cesium downloads
+// as soon as a flight opens. With 'map', it waits for a click on "3D".
+// Once the viewer picks a view, the page keeps to it for the rest of the
+// visit. Nothing is kept between visits, so each visit starts here.
+export const DEFAULT_VIEW = '3d';
 // How long (ms) to wait for Cesium World Terrain to load, and then for
 // the ground height at a launch pad, before drawing with approximate
 // heights instead.

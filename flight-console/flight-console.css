@@ -1861,9 +1861,9 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
   pointer-events: none;
 }
 .fc-page .fc-globe-dialogs .cesium-credit-lightbox-overlay { pointer-events: auto; }
-/* The panel over the 3D view while it isn't running: the "Load 3D view"
-   prompt, "Loading", or why there is no 3D view. Like the no-map panel, it
-   keeps clear of the readings panel and the tape. */
+/* The panel over the 3D view while it isn't running: "Loading", or why
+   there is no 3D view. Like the no-map panel, it keeps clear of the
+   readings panel and the tape. */
 .fc-page .fc-globe-panel {
   position: absolute;
   inset: 0;
