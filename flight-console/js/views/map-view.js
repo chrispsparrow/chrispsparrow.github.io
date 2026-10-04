@@ -32,17 +32,23 @@
 // failure the panel offers both backgrounds to try again. If Leaflet shows
 // up late (slow connection), the real map takes over.
 //
-// Used by: main.js. Reads the store, never other views.
+// The "3D" button next to "Satellite" and "Dark map" swaps the map for the
+// 3D view (globe-view.js) in the same spot. This file owns the switch: the
+// button, the browser's memory of the last choice, the "Load 3D view"
+// prompt, the loading and failure messages, and the three camera buttons.
+// Cesium is only downloaded when the viewer asks for 3D (cesium-loader.js).
+// The map stays alive underneath while 3D is showing, so switching back is
+// instant, and "Follow rocket" is one setting shared by both.
+//
+// Used by: main.js. Reads the store, and the 3D view it starts (for its
+// notes and camera mode). Never other views.
 
 import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';
 import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js';
 import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR, iconNode } from './icons.js';
 import { checkEsriKey } from './esri.js';
-
-// The views the switcher offers. Only views that really work are listed.
-// A 3D view (CesiumJS) plugs in here later: add it to this list and the
-// switcher shows up at the start of the map controls.
-const VIEW_MODES = [{ id: 'map', label: 'Map' }];
+import { rocketHudLine } from './hud-text.js';
+import { loadCesium, cesiumIsLoaded } from './cesium-loader.js';
 
 // The fix-gap line pattern: dash and space lengths in pixels.
 const GAP_DASH = '4 8';
@@ -98,28 +104,59 @@ export function createMapView(root, ctx) {
   // ------------------------------------------------------------------
   // Page elements
   // ------------------------------------------------------------------
-  const followBox = h('input', { type: 'checkbox', checked: true, onchange: () => { follow = followBox.checked; scheduler.schedule(); } });
+  const followBox = h('input', { type: 'checkbox', checked: true, onchange: () => { setFollow(followBox.checked); scheduler.schedule(); } });
   const followLabel = h('label', { class: 'fc-map-check' }, followBox, 'Follow rocket');
-  // A group of toggle buttons, one per view, only once there is a choice.
-  const switcher = VIEW_MODES.length > 1
-    ? h('div', { class: 'fc-seg fc-map-views', role: 'group', 'aria-label': 'View' },
-      VIEW_MODES.map((m, i) => h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': String(i === 0) }, m.label)))
-    : null;
   const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': 'Map of rocket positions' });
   const waitBox = h('div', { class: 'fc-map-wait' }, 'Loading the map...');
 
-  // Map background: two buttons, and a labels switch while Satellite is on.
+  // Map background and view: Satellite and Dark map are the two map
+  // backgrounds, and 3D swaps the map for the 3D view. A labels switch
+  // shows while Satellite is on. "Map" only stands in for the two
+  // backgrounds while the map library is missing, as the way back from 3D.
   const satelliteBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'Satellite');
   const darkBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'Dark map');
+  const mapBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectMap() }, 'Map');
+  const threeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectThree() }, '3D');
   const labelsBox = h('input', { type: 'checkbox', checked: true, onchange: () => setLabels(labelsBox.checked) });
   const labelsLabel = h('label', { class: 'fc-map-check' }, labelsBox, 'Labels');
-  const layerPick = h('div', { class: 'fc-layer-pick', role: 'group', 'aria-label': 'Map background' },
-    h('div', { class: 'fc-seg' }, satelliteBtn, darkBtn), labelsLabel);
+  const layerSeg = h('div', { class: 'fc-seg' }, satelliteBtn, darkBtn, threeBtn);
+  const layerPick = h('div', { class: 'fc-layer-pick', role: 'group', 'aria-label': 'Map background and view' },
+    layerSeg, labelsLabel);
+
+  // The 3D camera buttons, in place of the "Follow rocket" checkbox while
+  // the 3D view is showing.
+  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, 'Follow rocket');
+  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, 'Whole flight');
+  const resetBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => { globe?.resetView(); updateCameraButtons(); } }, 'Reset view');
+  const cameraPick = h('div', { class: 'fc-seg fc-cam-pick', role: 'group', 'aria-label': '3D camera', hidden: true }, followBtn, wholeBtn, resetBtn);
 
   // Top left corner: the controls, with the map's notes under them.
-  const controls = h('div', { class: 'fc-map-controls fc-float' }, switcher, layerPick, followLabel);
+  const controls = h('div', { class: 'fc-map-controls fc-float' }, layerPick, followLabel, cameraPick);
   const status = h('p', { class: 'fc-map-status', role: 'status' });
   const topLeft = h('div', { class: 'fc-map-topleft' }, controls, status);
+
+  // The 3D view's box. It fills the same frame as the map. globeCanvas
+  // holds Cesium's own elements, globeCredits its logo and data credits,
+  // and globePanel the "Load 3D view" prompt and the loading and failure
+  // messages.
+  // (It can take keyboard focus: the arrow keys move its camera.)
+  const globeCanvas = h('div', {
+    class: 'fc-globe-canvas',
+    role: 'region',
+    tabindex: '0',
+    'aria-label': '3D view of the flight. The arrow keys move the camera around, and plus and minus zoom.',
+  });
+  const globeCredits = h('div', { class: 'fc-globe-credits' });
+  const globePanel = h('div', { class: 'fc-globe-panel', hidden: true });
+  // Screen readers hear the 3D side's messages from this one line. It is
+  // always in the page and only its words change, which is what they
+  // announce reliably.
+  const globeSay = h('p', { class: 'sr-only', role: 'status' });
+  const globeBox = h('div', { class: 'fc-globe', hidden: true }, globeCanvas, globeCredits, globePanel);
+  // Cesium's "Data attribution" dialog opens in this box. It goes on the
+  // stage, above the readings panel and the altitude tape, so they can't
+  // cover the data credits (see startThree).
+  const globeDialogs = h('div', { class: 'fc-globe-dialogs' });
 
   // The legend. Says "(demo position)" while the ground station is the
   // config placeholder. The dashed line covers both kinds of gap: no GPS
@@ -136,7 +173,7 @@ export function createMapView(root, ctx) {
 
   // The controls come first, so Tab reaches them before the map (and then
   // Leaflet's zoom buttons and credits). They float above it either way.
-  const frame = h('div', { class: 'fc-map-frame' }, topLeft, canvas, waitBox);
+  const frame = h('div', { class: 'fc-map-frame' }, topLeft, canvas, waitBox, globeBox, globeSay);
 
   setChildren(root, h('section', { class: 'fc-mapbox', 'aria-labelledby': 'fc-map-title' },
     h('h2', { class: 'sr-only', id: 'fc-map-title' }, 'Map'),
@@ -210,6 +247,14 @@ export function createMapView(root, ctx) {
   let cornerStyle = '';
   let controlsBottom = null;      // last value written to --fc-map-controls-bottom
 
+  // Map or 3D
+  let view = 'map';        // 'map' or '3d': which one the frame shows
+  let three = 'off';       // the 3D side: 'off', 'prompt', 'loading', 'ready' or 'failed'
+  let threeGen = 0;        // goes up on every start, so an answer meant for an old one is ignored
+  let globe = null;        // the 3D view once it is running (globe-view.js)
+  let body = canvas;       // what the 2D side shows: the map or the no-map panel
+  let retryBox = null;     // where the background buttons sit in the no-map panel
+
   // Map background
   let chosenLayer = readSavedLayer() ?? (isLayer(config.DEFAULT_MAP_LAYER) ? config.DEFAULT_MAP_LAYER : 'satellite');
   let shownLayer = null;   // 'satellite' or 'dark' while the map is up
@@ -243,7 +288,10 @@ export function createMapView(root, ctx) {
 
   // Puts the map (or the no-map panel) in the frame, after the controls.
   function showBody(el) {
-    setChildren(frame, topLeft, el);
+    waitBox.remove();
+    if (el !== body) body.replaceWith(el);
+    body = el;
+    applyView();
   }
 
   // ------------------------------------------------------------------
@@ -299,8 +347,7 @@ export function createMapView(root, ctx) {
       map.on('dragstart', () => {
         viewTouched = true;
         if (!follow) return;
-        follow = false;
-        followBox.checked = false;
+        setFollow(false);
       });
       // Zooming by hand keeps the first view from fitting itself again.
       map.on('zoomstart', () => {
@@ -312,6 +359,9 @@ export function createMapView(root, ctx) {
         // the viewer has already moved the map themselves.
         let lastSize = null;
         resizeObserver = new ResizeObserver(() => {
+          // Hidden behind the 3D view: there is no size to measure until
+          // the map is back (showMap measures it again).
+          if (view === '3d') return;
           map?.invalidateSize();
           const size = `${canvas.clientWidth}x${canvas.clientHeight}`;
           if (lastSize !== null && size !== lastSize && !viewTouched) fitted = false;
@@ -336,6 +386,7 @@ export function createMapView(root, ctx) {
     fitted = false;
     fitPads = 0;
     viewTouched = false;
+    applyView();
     showLayer(chosenLayer);
     redrawAll();
   }
@@ -395,11 +446,12 @@ export function createMapView(root, ctx) {
   }
 
   // A click on "Satellite" or "Dark map". In the no-map panel it brings the
-  // map back to try again.
+  // map back to try again. From the 3D view it also goes back to the map.
   function selectLayer(which) {
     chosenLayer = which;
     saveLayer(which);
     satelliteNote = '';
+    showMap();
     if (mode === 'fallback' && fallbackReason === 'tiles') {
       retryMap();
       return;
@@ -556,12 +608,251 @@ export function createMapView(root, ctx) {
   }
 
   // The pressed button shows the background on the map now (the dark map
-  // after a satellite failure, with a note saying why).
+  // after a satellite failure, with a note saying why), or 3D while the 3D
+  // view is showing.
   function updateLayerControls() {
-    const shown = mode === 'leaflet' ? shownLayer : null;
+    const in3d = view === '3d';
+    const shown = mode === 'leaflet' && !in3d ? shownLayer : null;
     satelliteBtn.setAttribute('aria-pressed', String(shown === 'satellite'));
     darkBtn.setAttribute('aria-pressed', String(shown === 'dark'));
+    mapBtn.setAttribute('aria-pressed', String(!in3d));
+    threeBtn.setAttribute('aria-pressed', String(in3d));
+    // Without the map library there are no backgrounds to pick, so one
+    // "Map" button stands in for them.
+    const noLibrary = mode === 'fallback' && fallbackReason === 'library';
+    const wanted = noLibrary ? [mapBtn, threeBtn] : [satelliteBtn, darkBtn, threeBtn];
+    if (wanted.length !== layerSeg.children.length || wanted.some((b, i) => layerSeg.children[i] !== b)) setChildren(layerSeg, wanted);
     labelsLabel.hidden = shown !== 'satellite';
+  }
+
+  // ------------------------------------------------------------------
+  // Map or 3D. The frame shows one of them. The map (or the no-map panel)
+  // stays in place underneath while the 3D view is showing.
+  // ------------------------------------------------------------------
+
+  // The viewer's last choice of view, if the browser kept it.
+  function readSavedView() {
+    try {
+      return window.localStorage.getItem(config.VIEW_STORAGE_KEY) === '3d' ? '3d' : 'map';
+    } catch {
+      return 'map';
+    }
+  }
+
+  function saveView(which) {
+    try {
+      window.localStorage.setItem(config.VIEW_STORAGE_KEY, which);
+    } catch {
+      // Not remembered. Nothing else changes.
+    }
+  }
+
+  // Shows the pieces that belong to the view on screen now and hides the
+  // rest. Called whenever the view, the map's state or the 3D side's state
+  // changes.
+  function applyView() {
+    const in3d = view === '3d';
+    const tilesFailed = mode === 'fallback' && fallbackReason === 'tiles';
+    body.hidden = in3d;
+    waitBox.hidden = in3d;
+    globeBox.hidden = !in3d;
+    // The panel covers the 3D view until it is running. Cesium's credits
+    // show with the view, not under the panel, where their links could
+    // take keyboard focus unseen.
+    globePanel.hidden = three === 'ready';
+    globeCredits.hidden = three !== 'ready';
+    globeDialogs.hidden = !in3d;
+    // After a tile failure the background buttons sit in the no-map panel.
+    // In 3D they come back to the corner, since they are the way back.
+    if (in3d && layerPick.parentNode !== controls) controls.insertBefore(layerPick, followLabel);
+    else if (!in3d && tilesFailed && retryBox && layerPick.parentNode !== retryBox) retryBox.append(layerPick);
+    controls.hidden = !in3d && (mode === 'loading' || tilesFailed);
+    followLabel.hidden = in3d || mode !== 'leaflet';
+    cameraPick.hidden = !(in3d && three === 'ready');
+    legend.hidden = in3d ? three !== 'ready' : mode !== 'leaflet';
+    updateLayerControls();
+    updateCameraButtons();
+  }
+
+  // "Follow rocket" is one setting, shared by the map's checkbox and the
+  // 3D view's button.
+  function setFollow(on) {
+    follow = Boolean(on);
+    if (followBox.checked !== follow) followBox.checked = follow;
+    globe?.setFollow(follow);
+    updateCameraButtons();
+  }
+
+  function updateCameraButtons() {
+    followBtn.setAttribute('aria-pressed', String(follow));
+    wholeBtn.setAttribute('aria-pressed', String(!follow && globe?.cameraMode() === 'whole'));
+  }
+
+  // Runs a view change and, if keyboard focus was on a button that the
+  // change removed, moves it to the button for the view now showing.
+  function keepFocus(change) {
+    const lost = globePanel.contains(document.activeElement) || body.contains(document.activeElement);
+    change();
+    // A button that was just hidden still counts as focused until the
+    // browser catches up, so check that it can actually be seen.
+    const now = document.activeElement;
+    if (!lost || (frame.contains(now) && now.getClientRects().length > 0)) return;
+    const target = [threeBtn, satelliteBtn, darkBtn, mapBtn].find((b) => b.isConnected && b.getAttribute('aria-pressed') === 'true') ?? threeBtn;
+    target.focus({ preventScroll: true });
+  }
+
+  // A click on "3D" or "Load 3D view".
+  function selectThree() {
+    keepFocus(() => openThree({ asked: true }));
+  }
+
+  // The "Map" button and "Back to the map".
+  function selectMap() {
+    keepFocus(() => showMap());
+  }
+
+  // Shows the 3D side and starts it if it isn't running. asked is false
+  // when a flight opens on the viewer's last choice. Then Cesium is never
+  // downloaded without a click: a "Load 3D view" button shows instead,
+  // unless Cesium is already here from an earlier flight in this visit.
+  function openThree({ asked }) {
+    const was = view;
+    view = '3d';
+    if (asked) saveView('3d');
+    if (globe) {
+      // On screen first, so the view has a size to measure when it wakes up.
+      applyView();
+      globe.setActive(true);
+    } else if (three !== 'loading') {
+      if (asked || cesiumIsLoaded()) startThree();
+      else {
+        three = 'prompt';
+        showThreePanel('prompt');
+      }
+    }
+    applyView();
+    if (was !== '3d') scheduler.schedule();
+  }
+
+  // Back to the map (or the no-map panel). The 3D view stays in memory,
+  // paused, so coming back to it is instant.
+  function showMap() {
+    if (view === 'map') return;
+    view = 'map';
+    saveView('map');
+    globe?.setActive(false);
+    setText(globeSay, '');
+    applyView();
+    if (mode === 'leaflet') {
+      map.invalidateSize();
+      scheduler.flush();
+    } else {
+      setText(status, '');
+      scheduler.schedule();
+    }
+  }
+
+  // Downloads Cesium and the 3D view's own code, then starts the view. The
+  // "Loading" panel stays up until the view says its first picture is in
+  // (the ground, and the rocket if there is one to draw).
+  function startThree() {
+    const gen = ++threeGen;
+    three = 'loading';
+    showThreePanel('loading');
+    Promise.all([loadCesium(), import('./globe-view.js')]).then(([Cesium, module]) => {
+      if (destroyed || gen !== threeGen) return;
+      // They went back to the map while it loaded. The next click on 3D
+      // starts it, with no download left to wait for.
+      if (view !== '3d') {
+        three = 'off';
+        return;
+      }
+      try {
+        root.closest('.fc-stage')?.append(globeDialogs);
+        globe = module.createGlobeView(globeCanvas, ctx, {
+          Cesium,
+          credits: globeCredits,
+          dialogs: globeDialogs,
+          follow,
+          covers: () => rectsOver(globeCanvas, [...coverElements(), controls, status, legend, globeCredits], []),
+          onReady: () => {
+            if (destroyed || gen !== threeGen) return;
+            three = 'ready';
+            setText(globeSay, '');
+            applyView();
+            scheduler.schedule();
+          },
+          onChange: () => scheduler.schedule(),
+          // Sliding the 3D view away from the rocket stops following it,
+          // as dragging the map does.
+          onFollowOff: () => setFollow(false),
+          onFail: (err) => {
+            if (!destroyed && gen === threeGen) failThree('stopped', err);
+          },
+        });
+      } catch (err) {
+        failThree('start', err);
+      }
+    }, (err) => {
+      if (destroyed || gen !== threeGen) return;
+      failThree('load', err);
+    });
+  }
+
+  const THREE_PROBLEMS = {
+    load: 'The 3D view needs internet to load. The map view still works.',
+    start: 'The 3D view couldn\'t start in this browser. The map view still works.',
+    stopped: 'The 3D view stopped working. The map view still works.',
+  };
+
+  function failThree(kind, err) {
+    console.warn('Flight Console: the 3D view is not available', err);
+    threeGen += 1;
+    destroyGlobe();
+    three = 'failed';
+    showThreePanel(kind);
+    applyView();
+    scheduler.schedule();
+  }
+
+  function destroyGlobe() {
+    try {
+      globe?.destroy();
+    } catch (err) {
+      console.warn('Flight Console: error closing the 3D view', err);
+    }
+    globe = null;
+    globeCanvas.replaceChildren();
+    globeCredits.replaceChildren();
+    globeDialogs.replaceChildren();
+    globeDialogs.remove();
+  }
+
+  // What the panel over the 3D view says: the prompt, "Loading", or why
+  // there is no 3D view.
+  function showThreePanel(kind) {
+    if (kind === 'loading') {
+      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the 3D view...'));
+      setText(globeSay, 'Loading the 3D view...');
+      return;
+    }
+    const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'Back to the map');
+    if (kind === 'prompt') {
+      setChildren(globePanel, h('div', { class: 'fc-globe-card' },
+        h('h3', { class: 'fc-nomap-title' }, '3D view'),
+        h('p', { class: 'fc-nomap-note' }, 'The 3D view is a bigger download than the map, so it only loads when you ask for it.'),
+        h('div', { class: 'fc-globe-actions' },
+          h('button', { type: 'button', class: 'fc-btn fc-btn--gold', onclick: () => selectThree() }, 'Load 3D view'),
+          back)));
+      setText(globeSay, '');
+      return;
+    }
+    const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
+    setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
+      h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
+      h('p', { class: 'fc-nomap-note' }, problem),
+      h('div', { class: 'fc-globe-actions' }, back)));
+    setText(globeSay, `No 3D view. ${problem}`);
   }
 
   // ------------------------------------------------------------------
@@ -579,11 +870,17 @@ export function createMapView(root, ctx) {
   // line count too.
   function coveredRects() {
     if (!map) return [];
-    const box = canvas.getBoundingClientRect();
     const leafletBits = ['.leaflet-control-zoom', '.leaflet-control-scale', '.leaflet-control-attribution'].map((sel) => canvas.querySelector(sel));
-    const out = [];
     const panels = coverElements();
-    for (const el of [...panels, controls, status, legend, ...leafletBits]) {
+    return rectsOver(canvas, [...panels, controls, status, legend, ...leafletBits], panels);
+  }
+
+  // The parts of elements that overlap boxEl, in boxEl's own pixels. The 3D
+  // view uses the same measuring for its labels.
+  function rectsOver(boxEl, elements, panels) {
+    const box = boxEl.getBoundingClientRect();
+    const out = [];
+    for (const el of elements) {
       if (!el || !el.isConnected) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
@@ -744,10 +1041,19 @@ export function createMapView(root, ctx) {
     gsLineHalo = null;
   }
 
+  // The legend says "(demo position)" while the ground station is the
+  // config placeholder. The 3D view shows the same legend, so this runs
+  // for both views.
+  function updateLegend() {
+    setText(legendGsText, store.getGroundStation().source === 'config' ? 'Ground station (demo position)' : 'Ground station');
+  }
+
   function redrawAll() {
     if (mode !== 'leaflet') return;
     clearRocketLayers();
-    drawLeaflet();
+    // Hidden behind the 3D view, the map has no size to draw into. It
+    // draws when it is back (showMap).
+    if (view === 'map') drawLeaflet();
   }
 
   // ------------------------------------------------------------------
@@ -793,46 +1099,6 @@ export function createMapView(root, ctx) {
     parts.el.style.setProperty('--h', `${hgt}px`);
   }
 
-  // The second line of a rocket's label: height above ground and vertical
-  // speed, each after its field code, or why its position is old and for
-  // how long: since the last packet of any kind, the last GPS data, or the
-  // last good fix, so it agrees with the readings panel.
-  function rocketLine2(rocket) {
-    const d = rocket.derived;
-    if (!store.hasFixNow(rocket)) {
-      let why = 'NO GPS FIX';
-      let since = rocket.lastGoodFix?.t;
-      if (store.isSilent(rocket)) {
-        why = 'NO RECENT PACKETS';
-        since = rocket.lastPacketT;
-      } else if (store.gpsIsQuiet(rocket)) {
-        why = 'NO GPS DATA';
-        since = rocket.latestByGroup.gps?.t;
-      }
-      return { altKey: '', alt: `${why} · ${hudAge(store.ageOf(since))}`, speed: '', warn: true };
-    }
-    const agl = d?.agl;
-    if (!Number.isFinite(agl)) return { altKey: 'AGL', alt: `${MISSING} M`, speed: '', warn: false };
-    // An old altitude has no live vertical speed, so only the last height shows.
-    if (store.altitudeIsOld(rocket)) return { altKey: 'LAST AGL', alt: `${formatNumber(agl, 0)} M`, speed: '', warn: false };
-    const v = d.vSpeed;
-    let speed = '';
-    if (Number.isFinite(v)) {
-      const arrow = v >= config.LEVEL_VSPEED_MPS ? '▲' : v <= -config.LEVEL_VSPEED_MPS ? '▼' : '';
-      speed = `${arrow}${formatNumber(Math.abs(v), 1)} M/S`;
-    }
-    return { altKey: 'AGL', alt: `${formatNumber(agl, 0)} M`, speed, warn: false };
-  }
-
-  // How old a position is, in whole seconds, or minutes once it is long.
-  function hudAge(seconds) {
-    if (!Number.isFinite(seconds)) return MISSING;
-    const s = Math.round(seconds);
-    if (s < 60) return `${s} S`;
-    const m = Math.floor(s / 60);
-    return m < 60 ? `${m} MIN` : `${Math.floor(m / 60)} H`;
-  }
-
   function buildPadIcon() {
     const label = h('span', { class: 'fc-hud fc-pad-label' }, h('span', { class: 'fc-hud-name' }, 'LAUNCH POINT'));
     const el = h('div', { class: 'fc-pad', 'aria-hidden': 'true' }, iconNode(padSvg()), label);
@@ -856,7 +1122,7 @@ export function createMapView(root, ctx) {
     const demoGs = gs.source === 'config';
 
     // Ground station
-    setText(legendGsText, demoGs ? 'Ground station (demo position)' : 'Ground station');
+    updateLegend();
     if (!gsMarker) {
       gsParts = buildGsIcon();
       gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, TOWER_SIZE, TOWER_ANCHOR, Z_OFFSET.gs)).addTo(map);
@@ -945,7 +1211,8 @@ export function createMapView(root, ctx) {
           if (layers.marker.options.zIndexOffset !== zIndex) layers.marker.setZIndexOffset(zIndex);
         }
         const parts = layers.parts;
-        const line2 = rocketLine2(rocket);
+        // The label's second line (hud-text.js, shared with the 3D view).
+        const line2 = rocketHudLine(store, config, rocket);
         sizeRocketIcon(parts, isFocused ? config.ROCKET_ICON_FOCUSED_PX : config.ROCKET_ICON_PX);
         parts.el.classList.toggle('fc-rkt--focus', isFocused);
         parts.el.classList.toggle('fc-rkt--nofix', line2.warn);
@@ -1428,12 +1695,16 @@ export function createMapView(root, ctx) {
   function statusText(focused) {
     const noFixAnywhere = store.getRockets().every((r) => !r.lastGoodFix);
     let focusNote = '';
+    const where = view === '3d' ? 'in the 3D view' : 'on the map';
     if (focused && !focused.lastGoodFix && !noFixAnywhere) {
-      if (focused.lastPacketT === null) focusNote = `${focused.profile.name} hasn't sent any data yet, so it isn't on the map.`;
-      else if (focused.sensorGroups.has('gps')) focusNote = `${focused.profile.name} has no GPS fix yet, so it isn't on the map.`;
-      else focusNote = `${focused.profile.name} has sent no GPS data, so it isn't on the map.`;
+      if (focused.lastPacketT === null) focusNote = `${focused.profile.name} hasn't sent any data yet, so it isn't ${where}.`;
+      else if (focused.sensorGroups.has('gps')) focusNote = `${focused.profile.name} has no GPS fix yet, so it isn't ${where}.`;
+      else focusNote = `${focused.profile.name} has sent no GPS data, so it isn't ${where}.`;
     }
-    return [noFixAnywhere ? 'No GPS fix yet, so there is no rocket to draw.' : '', focusNote, satelliteNote, labelsNote, noTilesNote]
+    // Each view adds its own notes: the map's backgrounds, or the 3D
+    // view's ground heights and imagery.
+    const viewNotes = view === '3d' ? globe?.notes() ?? [] : [satelliteNote, labelsNote, noTilesNote];
+    return [noFixAnywhere ? 'No GPS fix yet, so there is no rocket to draw.' : '', focusNote, ...viewNotes]
       .filter(Boolean).join(' ');
   }
 
@@ -1450,27 +1721,26 @@ export function createMapView(root, ctx) {
     removeMap();
     mode = 'fallback';
     fallbackReason = reason;
-    // Following and the legend mean nothing without a map, so they go away.
-    legend.hidden = true;
-    followLabel.hidden = true;
-    controls.hidden = !switcher;
+    // Following and the legend mean nothing without a map, so they go away
+    // (applyView, through showBody below).
     nomapList = h('ul', { class: 'fc-nomap-list' });
     gsRow = h('li', { class: 'fc-nomap-gs' });
     fallbackRows.clear();
     // After a tile failure, either background can be tried again. The
     // buttons move here from the map's corner, and back when the map returns.
-    const retry = reason === 'tiles'
-      ? h('div', { class: 'fc-nomap-retry' }, h('p', { class: 'fc-nomap-note' }, 'Try loading a map background again.'), layerPick)
+    retryBox = reason === 'tiles'
+      ? h('div', { class: 'fc-nomap-retry' }, h('p', { class: 'fc-nomap-note' }, 'Try loading a map background again, or use the 3D view.'))
       : null;
-    layerPick.hidden = reason !== 'tiles';
-    const panel = h('div', { class: 'fc-nomap' },
+    // Without the map library, the "Map" and "3D" buttons float over the
+    // panel's top left corner, so the panel starts below them.
+    const panel = h('div', { class: reason === 'library' ? 'fc-nomap fc-nomap--controls' : 'fc-nomap' },
       h('div', { class: 'fc-nomap-head' },
         h('h3', { class: 'fc-nomap-title' }, 'No map'),
         h('p', { class: 'fc-nomap-note' }, `${message} Map tiles need internet. Tracking still works.`),
-        retry),
+        retryBox),
       nomapList);
     showBody(panel);
-    setText(status, '');
+    if (view === 'map') setText(status, '');
     updateLayerControls();
     drawFallback();
   }
@@ -1480,6 +1750,7 @@ export function createMapView(root, ctx) {
     if (!L || destroyed) return;
     mode = 'loading';
     fallbackReason = null;
+    retryBox = null;
     controls.insertBefore(layerPick, followLabel);
     showBody(canvas);
     startLeaflet(L);
@@ -1552,7 +1823,13 @@ export function createMapView(root, ctx) {
   // Updates
   // ------------------------------------------------------------------
   const scheduler = createScheduler(() => {
-    if (mode === 'leaflet') drawLeaflet();
+    if (view === '3d') {
+      // The 3D view draws itself. Only the notes, the camera buttons and
+      // the legend's ground station line are drawn here.
+      setText(status, three === 'ready' ? statusText(store.getFocused()) : '');
+      updateCameraButtons();
+      updateLegend();
+    } else if (mode === 'leaflet') drawLeaflet();
     else if (mode === 'fallback') drawFallback();
   }, { maxFps: config.MAP_MAX_FPS });
 
@@ -1566,13 +1843,19 @@ export function createMapView(root, ctx) {
     scheduler.schedule();
   });
 
+  // If 3D was the viewer's last choice, the frame opens on the 3D side.
+  // Cesium still isn't downloaded until they ask (see openThree).
+  if (readSavedView() === '3d') openThree({ asked: false });
+
   return {
     destroy() {
       destroyed = true;
+      threeGen += 1;
       unsubscribe();
       scheduler.cancel();
       controlsObserver?.disconnect();
       root.closest('.fc-stage')?.style.removeProperty('--fc-map-controls-bottom');
+      destroyGlobe();
       removeMap();
     },
   };

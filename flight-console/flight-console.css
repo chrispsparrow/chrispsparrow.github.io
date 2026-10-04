@@ -1693,6 +1693,9 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
 }
 .fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-nomap { padding-left: 1.25rem; }
 .fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-nomap { padding-right: 1.25rem; }
+/* Without the map library, the "Map" and "3D" buttons float over the
+   panel's top left corner, so its first card starts below them. */
+.fc-page .fc-nomap--controls .fc-nomap-head { margin-top: 3rem; }
 .fc-page .fc-nomap-head {
   max-width: 40rem;
   margin-bottom: 1rem;
@@ -1762,17 +1765,146 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
   .fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-nomap { padding: 1rem; }
 }
 
-/* Phones: smaller controls with less padding, so Satellite, Dark map,
-   Labels and Follow rocket fit on one row. */
+/* Phones: smaller controls with less padding, so Satellite, Dark map, 3D,
+   Labels and Follow rocket fit on one row on most phones. (In the 3D view
+   the three camera buttons take a second row.) */
 @media (max-width: 760px) {
   .fc-page .fc-map-topleft { top: 8px; left: 8px; max-width: calc(100% - 16px); }
   .fc-page .fc-map-controls { gap: 3px; padding: 3px; }
   .fc-page .fc-map-controls .fc-layer-pick { gap: 3px; }
-  .fc-page .fc-map-controls .fc-btn--sm { font-size: 0.78rem; padding: 0.3rem 0.45rem; }
-  .fc-page .fc-map-check { font-size: 0.78rem; padding: 0 0.4rem; gap: 0.3rem; }
+  .fc-page .fc-map-controls .fc-btn--sm { font-size: 0.78rem; padding: 0.3rem 0.3rem; }
+  .fc-page .fc-map-check { font-size: 0.78rem; padding: 0 0.3rem; gap: 0.3rem; }
   .fc-page .fc-map-check input { width: 0.9rem; height: 0.9rem; }
   .fc-page .fc-mapbox .leaflet-control-scale { margin: 0 0 10px 10px; }
   .fc-page .fc-mapbox .leaflet-control-zoom { margin: 0 10px 8px 0; }
+}
+/* Small phones: a little less padding again, so the row still fits at
+   375 px wide. Narrower than that it wraps to two rows. */
+@media (max-width: 380px) {
+  .fc-page .fc-map-controls .fc-btn--sm { padding: 0.3rem 0.22rem; }
+  .fc-page .fc-map-check { padding: 0 0.22rem; gap: 0.25rem; }
+}
+
+/* ------------------------------------------------------------
+   3D view (js/views/globe-view.js, started by map-view.js). It fills the
+   same frame as the map, over it, and sits under the floating controls.
+   The map's own controls, notes and legend stay where they are. Cesium's
+   logo and data credits go in the bottom right corner, where the map's
+   credits are.
+   ------------------------------------------------------------ */
+.fc-page .fc-globe {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--fc-bg);
+}
+.fc-page .fc-globe-canvas { position: absolute; inset: 0; }
+/* Cesium's own stylesheet sizes its canvas and stops touches on it from
+   scrolling the page. Both are repeated here, so the view still fits and a
+   drag still turns the camera if that stylesheet didn't load. The page
+   scrolls from anywhere outside the view (the page margins beside it, and
+   everything above and below). */
+.fc-page .fc-globe-canvas .cesium-viewer,
+.fc-page .fc-globe-canvas .cesium-viewer-cesiumWidgetContainer,
+.fc-page .fc-globe-canvas .cesium-widget,
+.fc-page .fc-globe-canvas .cesium-widget canvas {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+.fc-page .fc-globe-canvas .cesium-widget canvas { display: block; touch-action: none; cursor: grab; }
+.fc-page .fc-globe-canvas.is-dragging .cesium-widget canvas { cursor: grabbing; }
+/* Keyboard focus on the 3D view (the arrow keys move its camera): the gold
+   ring goes around the frame, as it does for the map. */
+.fc-page .fc-main .fc-globe-canvas:focus-visible { outline: none; }
+.fc-page .fc-map-frame:has(.fc-globe-canvas:focus-visible) {
+  outline: 2px solid var(--fc-gold);
+  outline-offset: 2px;
+}
+/* Cesium's logo and credits. They are required, so they always show. */
+.fc-page .fc-globe-credits {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--fc-text-2);
+  background: color-mix(in srgb, var(--fc-bg) 88%, transparent);
+  border-top-left-radius: var(--fc-radius-sm);
+}
+.fc-page .fc-globe-credits:empty { display: none; }
+.fc-page .fc-globe-credits .cesium-widget-credits {
+  position: static;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px 8px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-shadow: none;
+}
+.fc-page .fc-globe-credits img { display: block; max-height: 22px; width: auto; }
+.fc-page .fc-main .fc-globe-credits a { color: var(--fc-gold); text-underline-offset: 2px; }
+/* Cesium's "Data attribution" dialog lists the terrain and imagery
+   credits. It opens in this box, which lies over the whole stage above the
+   readings panel and the altitude tape, so nothing covers it. The box
+   itself lets clicks through. Only the open dialog takes them. */
+.fc-page .fc-globe-dialogs {
+  position: absolute;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+}
+.fc-page .fc-globe-dialogs .cesium-credit-lightbox-overlay { pointer-events: auto; }
+/* The panel over the 3D view while it isn't running: the "Load 3D view"
+   prompt, "Loading", or why there is no 3D view. Like the no-map panel, it
+   keeps clear of the readings panel and the tape. */
+.fc-page .fc-globe-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 4.5rem calc(324px + 1.25rem) 1.25rem calc(82px + 1.25rem);
+  background-color: var(--fc-bg);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-globe-panel { padding-left: 1.25rem; }
+.fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-globe-panel { padding-right: 1.25rem; }
+.fc-page .fc-globe-wait { margin: 0; color: var(--fc-text-2); text-align: center; }
+.fc-page .fc-globe-card {
+  max-width: 30rem;
+  padding: 0.9rem 1rem;
+  background: var(--fc-float);
+  border: 1px solid var(--fc-border);
+  border-left: 3px solid var(--fc-gold);
+  border-radius: var(--fc-radius-sm);
+}
+.fc-page .fc-globe-card--warn { border-left-color: var(--fc-coral); }
+.fc-page .fc-globe-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+/* The 3D camera buttons, after a thin divider like the checkboxes have. */
+.fc-page .fc-map-controls .fc-cam-pick { padding-left: 4px; border-left: 1px solid var(--fc-border); }
+@media (max-width: 900px) {
+  .fc-page .fc-globe-panel,
+  .fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-globe-panel,
+  .fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-globe-panel { padding: 4rem 1rem 1rem; }
+  /* The readings and the tape sit under the map here, so the dialog only
+     covers the map's own box. */
+  .fc-page .fc-globe-dialogs { bottom: auto; height: clamp(460px, 78vh, 680px); }
+}
+@media (max-width: 760px) {
+  .fc-page .fc-map-controls .fc-cam-pick { padding-left: 3px; }
+  .fc-page .fc-globe-credits { font-size: 0.68rem; }
+  .fc-page .fc-globe-credits img { max-height: 18px; }
 }
 
 

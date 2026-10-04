@@ -152,7 +152,8 @@ export const HEADER_MAX_FPS = 10;
 export const ROCKET_BAR_MAX_FPS = 8;
 // Readings panel and altitude tape.
 export const STATS_MAX_FPS = 10;
-// Map markers, tracks and the no-map panel.
+// Map markers, tracks and the no-map panel, and everything drawn in the
+// 3D view.
 export const MAP_MAX_FPS = 12;
 // Mission timeline (the event list).
 export const LOG_MAX_FPS = 8;
@@ -269,6 +270,99 @@ export const FIT_MAX_ZOOM = 17;
 // map's edge or a floating panel. Kept smaller than FIT_PADDING_PX so the
 // first view stays put.
 export const FOLLOW_EDGE_PX = 40;
+
+// ------------------------------------------------------------------
+// 3D view (cesium-loader.js and globe-view.js)
+// ------------------------------------------------------------------
+
+// The CesiumJS release the 3D view uses, pinned to this exact version. It
+// comes from Cesium's own release CDN, and only when a viewer asks for the
+// 3D view. To move to a newer release, change the number and check that
+// both addresses below still open.
+export const CESIUM_VERSION = '1.146';
+// The folder Cesium loads its own extra files from (its workers and assets).
+export const CESIUM_BASE_URL = `https://cesium.com/downloads/cesiumjs/releases/${CESIUM_VERSION}/Build/Cesium/`;
+export const CESIUM_JS_URL = `${CESIUM_BASE_URL}Cesium.js`;
+export const CESIUM_CSS_URL = `${CESIUM_BASE_URL}Widgets/widgets.css`;
+// How long (ms) to wait for Cesium to download before giving up.
+export const CESIUM_LOAD_TIMEOUT_MS = 30000;
+// Cesium ion token, for Cesium World Terrain and ion's aerial imagery. It
+// is restricted to my sites: ion only accepts it from pages on
+// https://dogtoothsystems.com, https://www.dogtoothsystems.com,
+// https://chrispsparrow.github.io, http://localhost:8000 and
+// http://127.0.0.1:8000. It only has the assets:read scope, so it can't
+// change anything in my ion account, and it never expires. That makes it
+// safe to publish here.
+export const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IlZCZlpOUEZ2TGM4RGFua2YiLCJqdGkiOiI4YTE3MTgzNS00OWI3LTRkZWUtYWY2My05YmQ0MjMxMDE1ZDQiLCJpZCI6NTEyNDgwLCJzdWIiOiJjaHJpc3BzcGFycm93IiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6ImRvZ3Rvb3Roc3lzdGVtcyBmbGlnaHQgY29uc29sZSIsImlhdCI6MTc5MDgwNDQ0OH0.w7czJXSDb0m3jKbuE_MjS1tzy0kj6FDvregkSO5zwdI';
+// Where the browser remembers whether the viewer last used the map or the
+// 3D view (localStorage). Cesium still never downloads by itself. If it is
+// already on the page from an earlier flight in the same visit, the 3D
+// view starts straight away.
+export const VIEW_STORAGE_KEY = 'fc-map-view';
+// How long (ms) to wait for Cesium World Terrain to load, and then for
+// the ground height at a launch pad, before drawing with approximate
+// heights instead.
+export const TERRAIN_SAMPLE_TIMEOUT_MS = 8000;
+// Once Cesium has downloaded and the 3D view has started, the "Loading
+// the 3D view..." panel goes away when the first picture is in, or after
+// this long (ms) whatever has loaded by then. The download has its own
+// limit, CESIUM_LOAD_TIMEOUT_MS.
+export const GLOBE_READY_TIMEOUT_MS = 8000;
+// A launch pad that moves less than this (m) keeps the ground height
+// already looked up for it (GPS readings wander a little on the pad).
+export const PAD_RESAMPLE_M = 10;
+// The 3D view draws at most this many screen pixels per CSS pixel, so
+// phones with very sharp screens don't burn battery on detail nobody sees.
+export const GLOBE_MAX_PIXEL_RATIO = 2;
+// The starting camera: this many degrees clockwise from north (0 looks
+// north, with east on the right)...
+export const GLOBE_START_HEADING_DEG = 0;
+// ...at this pitch in degrees. Negative looks down, so -12 is 12 degrees
+// down from level. Keep it negative, or the camera starts under the
+// ground looking up...
+export const GLOBE_START_PITCH_DEG = -12;
+// ...from this many times the flight's highest point away, so the climb,
+// the highest point and the drift all fit...
+export const GLOBE_START_RANGE_PER_APOGEE = 3;
+// ...but never closer or farther than this (m). The first value is also
+// the distance when the highest point isn't known yet.
+export const GLOBE_START_RANGE_MIN_M = 1500;
+export const GLOBE_START_RANGE_MAX_M = 60000;
+// How close (m) and how far (m) the camera can zoom from what it looks at.
+export const GLOBE_ZOOM_MIN_M = 40;
+export const GLOBE_ZOOM_MAX_M = 400000;
+// How far the 3D camera turns for each pixel of a drag (degrees). Lower is
+// calmer. At 0.25, a drag across 720 px goes half way round.
+export const GLOBE_ORBIT_DEG_PER_PX = 0.25;
+// One notch of the mouse wheel moves the camera this many times closer or
+// farther. 1.2 is 20 percent a notch.
+export const GLOBE_ZOOM_PER_NOTCH = 1.2;
+// The arrow keys turn the camera this far sideways (degrees) and half as
+// far up or down. The + and - keys zoom by GLOBE_KEY_ZOOM.
+export const GLOBE_KEY_TURN_DEG = 10;
+export const GLOBE_KEY_ZOOM = 1.25;
+// The steepest and the flattest the camera can look (degrees). Negative
+// looks down, so -88 is almost straight down. A little above 0 lets it
+// look up at a rocket from below.
+export const GLOBE_PITCH_MIN_DEG = -88;
+export const GLOBE_PITCH_MAX_DEG = 30;
+// The camera stays at least this far (m) above the ground.
+export const GLOBE_GROUND_CLEARANCE_M = 15;
+// How long (ms) the camera takes to glide to a new view ("Follow rocket",
+// "Whole flight", "Reset view"). With less motion asked for, it jumps.
+export const GLOBE_MOVE_MS = 600;
+// "Whole flight" leaves this much room around everything it frames (1 is
+// a tight fit).
+export const GLOBE_FIT_MARGIN = 1.35;
+// Icons and labels keep their full size up to the first distance (m) and
+// shrink to the given fraction by the second, so a far view isn't crowded.
+export const GLOBE_ICON_NEAR_M = 20000;
+export const GLOBE_ICON_FAR_M = 400000;
+export const GLOBE_ICON_FAR_SCALE = 0.7;
+// The drop line from the focused rocket down to the ground: its color and
+// its width (px), not counting the thin dark outline.
+export const DROP_LINE_COLOR = '#E8E6DF';
+export const DROP_LINE_WIDTH_PX = 2;
 
 // ------------------------------------------------------------------
 // Colors

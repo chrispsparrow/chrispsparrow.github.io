@@ -8,7 +8,9 @@
     them in with the view modules in js/views/.
     Uses: ../css/style.css (site styles), flight-console.css (page styles),
     Leaflet from cdnjs (optional, the page works without it), the Share Tech
-    Mono font for the map labels, ../js/main.js (site nav menu) and js/main.js (this page).
+    Mono font for the green map and 3D labels, ../js/main.js (site nav menu) and js/main.js (this page).
+    CesiumJS, for the 3D view, has no tag here on purpose. js/views/cesium-loader.js
+    adds it only when a viewer asks for the 3D view.
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,7 +37,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
         integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
         crossorigin="anonymous" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="flight-console.css?v=3">
+  <link rel="stylesheet" href="flight-console.css?v=4">
   <!-- With JavaScript off, hide the "Loading..." line (the noscript note explains). -->
   <noscript><style>.fc-page #fc-message { display: none; }</style></noscript>
 </head>
@@ -362,7 +364,7 @@
           integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
           crossorigin="anonymous" referrerpolicy="no-referrer"
           onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
-  <script type="module" src="js/main.js?v=2" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
+  <script type="module" src="js/main.js?v=3" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
   <!-- If the page's code fails to download, or is still missing after 15 s,
        say so instead of leaving an empty page. -->
   <script>
