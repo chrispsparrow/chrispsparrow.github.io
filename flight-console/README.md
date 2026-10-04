@@ -22,7 +22,7 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 
 `js/main.js` reads the address bar.
 
-- `/flight-console/` with nothing after it shows the launcher: the hero with the demo flight button, the featured flight, how it works, the flight library, and the live tracking card. The launcher only downloads `index.json`, never a flight's data files.
+- `/flight-console/` with nothing after it shows the launcher: the hero with the demo flight button, the featured flight, how it works, the flight library, and the live tracking card. The launcher only downloads `index.json` and the featured flight's cover picture, never a flight's data files.
 - `/flight-console/?flight=gps-board-sim-01` skips the launcher and opens the console for that flight.
 - If the id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a link back to all flights. The message says whether it looks like a connection problem or a missing or damaged file on the site.
 - Until `main.js` starts, the page says "Loading the Flight Console...". If the page's own code fails to download, a small script in `index.html` says so instead of leaving the page empty.
@@ -55,6 +55,7 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 
 - `data/flights/index.json`: the flight library list (the "manifest"). A static site can't list its own folders, so this file is the only way the page knows which flights exist.
 - `data/flights/gps-board-sim-01/pc_sim_flight.log`: my simulated flight. It is a byte-for-byte copy of the log my firmware's PC sim dump program wrote.
+- `data/flights/gps-board-sim-01/cover-3d.webp`: that flight's cover picture for the launcher, a screenshot of its 3D view with the panels hidden. See "A flight's cover picture".
 - `data/flights/.gitattributes`: tells Git to leave the log files' line endings alone, so the copies stay exact.
 
 ### Code that works without a page (Node can run it too)
@@ -76,7 +77,7 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 - `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, and drawing an event's dot by how it was found.
 - `js/views/icons.js`: the drawings the page shares: the rocket (always pointing straight up, since no board sends orientation), the launch rail, the ground station tower, and the button icons.
 - `js/views/launcher.js`: the launcher: the hero's buttons and the apogee label on its flight arc (from the featured flight's summary), the featured flight card, the flight library rows, and the notes when the library didn't load.
-- `js/views/launcher-map.js`: the featured card's small map picture. It draws the track right away as a plain map drawing, then swaps in Esri satellite imagery only after the Esri key check passes and every tile has loaded. If the tiles or Leaflet fail, the drawing stays.
+- `js/views/launcher-map.js`: the featured card's picture. A flight with a `cover` in `index.json` shows that picture with its credit line. Any other flight, or a cover that didn't load, gets a small map picture. It draws the track right away as a plain map drawing, then swaps in Esri satellite imagery only after the Esri key check passes and every tile has loaded. If the tiles or Leaflet fail, the drawing stays.
 - `js/views/esri.js`: asks Esri once whether it accepts the satellite key. The console map and the launcher's map picture share the answer, so a visit only asks once.
 - `js/views/mission-header.js`: the "All flights" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with 2 or more rockets. Click one to focus it.
@@ -109,6 +110,10 @@ Each flight in the `flights` list has these fields:
 - `featured`: `true` for the one flight shown large on the launcher. Only one flight should have it.
 - `description`: one or two plain sentences.
 - `site`: the launch site's name.
+- `cover` (optional): a picture for the featured card, shown in place of its map picture. See "A flight's cover picture". It has:
+  - `file`: the picture's name inside the flight's folder.
+  - `alt`: what the picture shows, for screen readers.
+  - `credit`: the credit line for the picture's imagery and terrain. It shows on the picture.
 - `rockets`: one entry per rocket, each with:
   - `rocketId`: the rocket's ID. If only one rocket lists a file and the file holds one board ID, every sample in that file gets this ID. A file with several board IDs keeps them, so each rocket that lists it should use one of those IDs.
   - `name`: shown everywhere the rocket is named.
@@ -146,6 +151,22 @@ Each flight in the `flights` list has these fields:
 5. Refresh the launcher. The new flight is there.
 
 For a flight with several rockets in separate files, repeat `--file` once per rocket. The first `--rocket-name`, `--board` and `--rocket-id` go with the first `--file`, and so on. Every board sends node ID 1 until it gets its own number, so two boards' files need `--rocket-id` (for example `--rocket-id a --rocket-id b`). A single file that holds several rocket IDs, like a ground station log, becomes one rocket entry per ID automatically.
+
+## A flight's cover picture
+
+The featured card normally draws a small map of the flight's track. A flight can have a cover picture instead. The simulated flight's cover is a screenshot of its 3D view, taken partway down under the drogue.
+
+A cover is added by hand. The tool doesn't make one.
+
+1. Open the flight in the 3D view and take a screenshot with the panels out of the way. It has to be 5 wide by 6 tall (mine is 1400 by 1680 pixels) with the whole flight, labels included, inside the middle 62 percent of its width and 60 percent of its height. Leave plain ground and sky around that.
+2. Save it in the flight's folder, for example `data/flights/my-flight-01/cover-3d.webp`.
+3. Add `cover` to the flight's entry in `index.json`, with `file`, `alt` and `credit`.
+
+The shape matters because the card's picture area changes with the window. It is almost square on a laptop, tall and narrow in a small window, and wide on a phone. The page sizes the cover so its middle always fits, and the ground around it fills the rest. The numbers are in the `.fc-pic-cover` rules in `flight-console.css`. A cover with another shape needs those numbers changed.
+
+A screenshot of the 3D view uses Cesium ion's imagery and terrain, so it needs their credits. Open "Data attribution" in the 3D view at the same camera position and copy what it lists into `credit`. The credit shows as one line on the picture and opens in full on hover or a tap.
+
+If the cover file doesn't load, the card shows the map picture. Running `add_flight.mjs` with `--replace` keeps the flight's cover. If the flight's data changed, take a new screenshot, because the old one shows the old flight.
 
 ## Checking detection
 

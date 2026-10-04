@@ -1,5 +1,9 @@
 // launcher-map.js
-// The featured flight card's map picture: the flight track on Esri
+// The featured flight card's picture. A flight with a cover in the manifest
+// (entry.cover, a picture of the flight in the 3D view) shows that. Any
+// other flight, or a cover that didn't load, gets the map picture.
+//
+// The map picture is the flight track on Esri
 // satellite photos, small and not interactive (no dragging, zooming or
 // keyboard). It never makes the card wait for the map. A drawn version of
 // the same track (an SVG plan on a dark background, in the same Web
@@ -15,6 +19,7 @@
 import { h, svg, setChildren, createScheduler } from './dom.js';
 import { padSvg, PAD_SIZE, PAD_ANCHOR, iconNode } from './icons.js';
 import { formatDistance } from '../geo.js';
+import { flightFileUrl } from '../library.js';
 import { checkEsriKey } from './esri.js';
 
 // Room (px) kept around the track. The top is bigger because the launch
@@ -34,11 +39,65 @@ const LANDING_PX = 18;
 // The credit line's separator, the same as the console map's.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
 
-// entry is the featured manifest entry. Returns null when the summary has
-// no points at all (the card then leaves the picture out), otherwise
-// { el, refresh(), destroy() }. refresh() re-fits after the launcher was
-// hidden, in case the window changed size meanwhile.
-export function createFlightPicture(entry, { config, libs }) {
+// entry is the featured manifest entry. Returns null when there is no cover
+// and the summary has no points at all (the card then leaves the picture
+// out), otherwise { el, refresh(), destroy() }. refresh() re-fits after the
+// launcher was hidden, in case the window changed size meanwhile.
+export function createFlightPicture(entry, options) {
+  return entry.cover ? createCoverPicture(entry, options) : createMapPicture(entry, options);
+}
+
+// The gold corner marks on every picture.
+function cornerMarks() {
+  return ['tl', 'tr', 'bl', 'br'].map((c) => h('span', { class: `hero-corner ${c}`, 'aria-hidden': 'true' }));
+}
+
+// ------------------------------------------------------------------
+// The cover picture
+// ------------------------------------------------------------------
+
+// The flight's cover from its own folder, with the credit line its imagery
+// needs. The flight-console.css rules for .fc-pic-cover keep the middle of
+// the picture in view at every card size. If the file doesn't load, the map
+// picture takes its place.
+function createCoverPicture(entry, options) {
+  const { file, alt, credit } = entry.cover;
+  let dead = false;
+  let fallback = null;   // the map picture, made only if the cover failed
+
+  const img = h('img', { class: 'fc-pic-cover', src: flightFileUrl(entry.id, file), alt, decoding: 'async' });
+  // One line until it is hovered or tapped, like the map's credit line.
+  const creditLine = credit ? h('p', { class: 'fc-pic-credit' }, credit) : null;
+  creditLine?.addEventListener('click', () => creditLine.classList.toggle('fc-credit-open'));
+  const el = h('div', { class: 'fc-pic fc-pic--cover' }, img, creditLine, cornerMarks());
+
+  img.addEventListener('error', () => {
+    if (dead || fallback) return;
+    console.warn(`Flight Console: the cover picture ${file} did not load, so the map picture shows instead.`);
+    fallback = createMapPicture(entry, options);
+    if (fallback) {
+      el.replaceWith(fallback.el);
+    } else {
+      // No track to draw either: the picture area stays, empty.
+      img.remove();
+      creditLine?.remove();
+    }
+  });
+
+  return {
+    el,
+    refresh() { fallback?.refresh(); },
+    destroy() {
+      dead = true;
+      fallback?.destroy();
+    },
+  };
+}
+
+// ------------------------------------------------------------------
+// The map picture
+// ------------------------------------------------------------------
+function createMapPicture(entry, { config, libs }) {
   const s = entry.summary ?? {};
   const track = s.track ?? [];
   const gaps = new Set(s.trackGaps ?? []);
@@ -53,7 +112,7 @@ export function createFlightPicture(entry, { config, libs }) {
     plan,
     mapBox,
     h('p', { class: 'sr-only' }, describe(s, track, pad)),
-    ['tl', 'tr', 'bl', 'br'].map((c) => h('span', { class: `hero-corner ${c}`, 'aria-hidden': 'true' })));
+    cornerMarks());
 
   let L = null;
   let map = null;

@@ -574,8 +574,8 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
 }
 .fc-page .fc-feature--no-pic { grid-template-columns: minmax(0, 1fr); }
 
-/* The map picture: the drawn plan underneath, the satellite map on top
-   once its photos have loaded. */
+/* The card's picture. The map picture first: the drawn plan underneath,
+   the satellite map on top once its photos have loaded. */
 .fc-page .fc-pic {
   position: relative;
   min-height: 360px;
@@ -632,6 +632,61 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
 /* The bottom corners would sit on the scale and the credit line. */
 .fc-page .fc-pic .hero-corner.bl,
 .fc-page .fc-pic .hero-corner.br { display: none; }
+
+/* A flight's cover picture, in place of the map. The picture area changes
+   shape with the window (wide on a phone, tall and narrow on a small
+   laptop), and a plain crop would cut the flight off. So a cover is a
+   picture 5 wide by 6 tall with the flight in its middle: the middle
+   62 percent of its width and 60 percent of its height. That middle always
+   fits, and the ground around it fills whatever room is left. In the width
+   below, 1.2 is the picture's height over its width, and 0.72 is 0.6 times
+   1.2. The first two values keep the picture from ever leaving a gap.
+   Browsers without container units get a plain centered crop. */
+.fc-page .fc-pic--cover {
+  overflow: hidden;
+  container-type: size;
+}
+.fc-page .fc-pic-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+@supports (width: 1cqw) {
+  .fc-page .fc-pic-cover {
+    --fc-cover-w: max(100cqw, 100cqh / 1.2, min(100cqw / 0.62, 100cqh / 0.72));
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    width: var(--fc-cover-w);
+    height: calc(var(--fc-cover-w) * 1.2);
+    transform: translate(-50%, -50%);
+  }
+}
+/* The cover's credit line: one line, opening in full on hover or a tap,
+   like the map's. */
+.fc-page .fc-pic-credit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  max-width: min(100%, 24rem);
+  margin: 0;
+  padding: 0 6px;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  color: var(--fc-text-2);
+  background: color-mix(in srgb, var(--fc-bg) 88%, transparent);
+  border-top-left-radius: var(--fc-radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fc-page .fc-pic-credit:hover,
+.fc-page .fc-pic-credit.fc-credit-open { white-space: normal; }
 @media (prefers-reduced-motion: no-preference) {
   .fc-page .fc-pic-map { transition: opacity 0.6s ease, visibility 0s linear 0.6s; }
   .fc-page .fc-pic--live .fc-pic-map { transition: opacity 0.6s ease, visibility 0s; }
@@ -956,6 +1011,11 @@ html:has(body.fc-page) { scroll-padding-top: 1rem; }
     border-right: none;
     border-bottom: 1px solid var(--fc-border);
   }
+  /* A cover shows a flight from the side, so it needs more height than a
+     map does to keep its labels readable on a phone. A set height and not
+     min-height, which the aspect ratio would turn into a width wider than
+     the card. */
+  .fc-page .fc-pic--cover { aspect-ratio: auto; height: clamp(420px, 70vw, 520px); }
   .fc-page .fc-feature-stats,
   .fc-page .fc-feature--no-pic .fc-feature-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 

@@ -374,6 +374,10 @@ const highest = report.reduce((best, r) => (Number.isFinite(r.state.maxAgl) && (
 const gsNow = scan.getGroundStation();
 const picture = summarizePicture(scan.getRocket(highest.rocket.rocketId), gsNow);
 
+// A cover picture is added to index.json by hand (see the README), so a
+// --replace keeps the one the flight already had.
+const keptCover = existingIndex === -1 ? null : (manifest.flights[existingIndex]?.cover ?? null);
+
 const entry = {
   id,
   title,
@@ -382,6 +386,7 @@ const entry = {
   featured: Boolean(args['--featured']),
   description: args['--description'] ?? '',
   site: args['--site'] ?? null,
+  ...(keptCover ? { cover: keptCover } : {}),
   rockets: rockets.map(({ rocketId, name, board, file }) => ({ rocketId, name, board, file })),
   summary: {
     rocketCount: rockets.length,
@@ -429,6 +434,7 @@ const { track, trackGaps, altProfile, ...shortSummary } = entry.summary;
 console.log(`  summary: ${JSON.stringify(shortSummary)}`);
 console.log(`  featured card picture from rocket ${picture.trackRocketId}: track ${track?.length ?? 0} points` +
   `${trackGaps.length ? ` (GPS gaps before points ${trackGaps.join(', ')})` : ''}, altitude line ${altProfile?.length ?? 0} points`);
+if (keptCover) console.log(`  kept the cover picture ${keptCover.file ?? ''} from the old entry. If the flight's data changed, make a new one.`);
 if (entry.featured) console.log('  this is now the featured flight');
 if (!entry.description) console.log('  note: no --description given, the launcher will show none');
 if (check.problems.length) {

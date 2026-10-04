@@ -76,6 +76,12 @@ const profileOrNull = (v) => (Array.isArray(v) && v.length > 0 &&
   ? v.map((p) => [p[0], p[1]]) : null);
 // [index, ...] into the track list.
 const indexListOrNull = (v) => (Array.isArray(v) && v.every((i) => Number.isInteger(i) && i >= 0) ? v.slice() : null);
+// { file, alt, credit }: a picture in the flight's folder for the launcher's
+// featured card. Without a safe file name it becomes null, and the card
+// draws its map picture instead.
+const coverOrNull = (v) => (v && typeof v === 'object' && isSafeFileName(v.file)
+  ? { file: v.file, alt: isText(v.alt) ? v.alt.trim() : '', credit: isText(v.credit) ? v.credit.trim() : '' }
+  : null);
 
 function isSafeFileName(name) {
   return isText(name) && !/[\\/]/.test(name) && !name.startsWith('.') && !name.includes('..');
@@ -129,6 +135,8 @@ export function validateEntry(raw) {
       featured: raw.featured === true,
       description: isText(raw.description) ? raw.description.trim() : '',
       site: isText(raw.site) ? raw.site.trim() : null,
+      // Optional: the featured card shows this picture instead of its map.
+      cover: coverOrNull(raw.cover),
       rockets,
       summary: {
         rocketCount: numberOrNull(summary.rocketCount),

@@ -5,13 +5,14 @@
 // that comes from the flight library (index.json):
 //   - the hero buttons, "Watch the demo flight" and "How it works"
 //   - the apogee label on the hero arc, and the arc's one-time draw
-//   - the featured flight card: a map picture of the track
-//     (launcher-map.js), the altitude line, four stats and a Watch button
+//   - the featured flight card: the flight's cover picture or a map picture
+//     of its track (launcher-map.js), the altitude line, four stats and a
+//     Watch button
 //   - the "Watch a flight" link in How it works
 //   - the flight library, one row per flight
 //   - notes when the library didn't load or an entry had to be skipped
-// It only ever uses the manifest, never a flight's data files, so it loads
-// fast.
+// It only ever uses the manifest and the featured flight's cover picture,
+// never a flight's data files, so it loads fast.
 // Used by: main.js.
 
 import { h, svg, setChildren, formatDate, prefersReducedMotion } from './dom.js';
@@ -29,7 +30,7 @@ const SPARK_H = 100;
 
 // root is the launcher <section>. options.hrefFor(id) gives a flight's URL,
 // options.onWatch(id) opens it. config and libs.leaflet are for the
-// featured card's map picture.
+// featured card's picture.
 export function createLauncher(root, { hrefFor, onWatch, config, libs }) {
   const hero = root.querySelector('.fc-hero');
   const actions = root.querySelector('#fc-hero-actions');
@@ -44,7 +45,7 @@ export function createLauncher(root, { hrefFor, onWatch, config, libs }) {
   const libraryBox = root.querySelector('#fc-library');
 
   let shown = null;          // the manifest on screen now
-  let picture = null;        // the featured card's map picture
+  let picture = null;        // the featured card's picture
   let howWatchId = null;     // the flight the "Watch a flight" link opens
 
   // A button, not a #link: the site's script turns every #link into its
