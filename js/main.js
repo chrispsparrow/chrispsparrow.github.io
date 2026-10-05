@@ -51,12 +51,14 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 
   /* Only play the intro on a fresh entry or a reload of the main page — never
      when returning from one of our own project pages (e.g. clicking the name or
-     "← Selected Work"). We detect that via the referrer being a /projects/ page. */
+     "← Selected Work"). We detect that via the referrer being a /projects/ page
+     or the Flight Console. */
   let cameFromProject = false;
   try {
     if (document.referrer) {
       const ref = new URL(document.referrer);
-      cameFromProject = ref.origin === location.origin && ref.pathname.includes('/projects/');
+      cameFromProject = ref.origin === location.origin &&
+        (ref.pathname.includes('/projects/') || ref.pathname.includes('/flight-console/'));
     }
   } catch (_) { /* malformed referrer — treat as fresh entry */ }
   if (cameFromProject) { skipNow(); return; }
@@ -368,6 +370,15 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
       if (REDUCED && typeof mv.jumpCameraToGoal === 'function') mv.jumpCameraToGoal();
     });
   }
+})();
+
+/* ── FLIGHT CONSOLE PICTURE LINK ─────────────────────────── */
+/* The link over the picture is for a mouse click or a tap, and it is hidden
+   from screen readers, so it must never hold focus. A click still opens the
+   console. */
+(function () {
+  const open = document.querySelector('.console-open');
+  if (open) open.addEventListener('mousedown', (e) => e.preventDefault());
 })();
 
 /* ── HERO AMBIENT RIPPLE ─────────────────────────────────── */

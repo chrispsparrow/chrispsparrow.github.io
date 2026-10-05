@@ -168,6 +168,8 @@ A screenshot of the 3D view uses Cesium ion's imagery and terrain, so it needs t
 
 If the cover file doesn't load, the card shows the map picture. Running `add_flight.mjs` with `--replace` keeps the flight's cover. If the flight's data changed, take a new screenshot, because the old one shows the old flight.
 
+The home page's Flight Console slide shows the simulated flight's cover too. The picture in the site's `index.html` points straight at `data/flights/gps-board-sim-01/cover-3d.webp`, so a new screenshot saved under the same name shows up there by itself. The alt text and the credit on that slide are typed in by hand, copied from the flight's entry in `index.json`. A new screenshot usually needs new alt text, because the alt text describes what the picture shows. If the cover's file name, alt text or credit changes, update the home page to match.
+
 ## Checking detection
 
 `node flight-console/tools/check_detection.mjs gps-board-sim-01` prints the thresholds, every detected event, and, for simulated flights, how far each event is from the moment the simulator's phase really started. It flags anything more than 5 seconds off (change it with `--tolerance`), any event that fired twice, and any event that never fired.

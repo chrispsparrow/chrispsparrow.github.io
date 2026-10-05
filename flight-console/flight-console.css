@@ -15,10 +15,10 @@
    Design tokens
    ------------------------------------------------------------ */
 .fc-page {
-  --fc-bg: #0a0f1a;            /* page background */
-  --fc-panel: #111a2c;         /* cards and panels */
-  --fc-border: #2a3654;        /* panel borders */
-  --fc-divider: #1f2a40;       /* lines inside panels */
+  --fc-bg: #132a1d;            /* page background, the same deep green as the home page slide */
+  --fc-panel: #0b1912;         /* cards and panels */
+  --fc-border: #2c4a38;        /* panel borders */
+  --fc-divider: #1d3527;       /* lines inside panels */
   --fc-text: #e8e6df;          /* main text */
   --fc-text-2: #b8bfcc;        /* secondary text */
   --fc-muted: #9aa3b5;         /* muted text, passed or unknown things */
@@ -30,7 +30,7 @@
   --fc-hud-2: #b4ffc6;         /* the second, lighter line of a map label */
   --fc-hud-outline: #04140a;   /* the outline around map label text */
   --fc-ink: #0a0f1a;           /* text on gold */
-  --fc-float: rgba(10, 15, 26, 0.94); /* panels floating over the map */
+  --fc-float: rgba(11, 25, 18, 0.94); /* panels floating over the map */
   --fc-gold-soft: color-mix(in srgb, var(--fc-gold) 14%, transparent);
   --fc-radius: 10px;
   --fc-radius-sm: 6px;

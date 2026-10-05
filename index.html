@@ -34,7 +34,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -150,6 +150,7 @@
         <div class="card-meta">
           <span class="card-tag">AVIONICS</span>
           <span class="card-tag">CIRCUIT BOARD DESIGN</span>
+          <span class="card-tag">SOLO PROJECT</span>
         </div>
         <h3 class="work-row-title">Custom Avionics<br>GPS / Radio PCB</h3>
         <p class="work-row-desc">A circuit board I designed on my own for the Northeastern University Launch Initiative. It's built to track the rocket with GPS, save its position, and radio that data down to the ground.</p>
@@ -244,22 +245,61 @@
     </div>
   </section>
 
-  <!-- ── Toothpaste panel (pale mint) : info LEFT, photo RIGHT ── -->
-  <section id="panel-toothpaste" class="panel panel-toothpaste" aria-label="Assistive Toothpaste Dispenser">
+  <!-- ── Flight Console panel (deep green) : info LEFT, picture RIGHT ── -->
+  <section id="panel-flight-console" class="panel panel-flight-console" aria-label="Flight Console">
     <div class="panel-inner">
-      <a class="work-row-info reveal" href="projects/toothpaste.html"
-         aria-label="Assistive Toothpaste Dispenser, view the project">
+      <a class="work-row-info reveal" href="flight-console/"
+         aria-label="Open the Flight Console">
         <div class="card-meta">
-          <span class="card-tag">MECHANICAL</span>
-          <span class="card-tag">EMBEDDED</span>
-          <span class="card-tag">TEAM PROJECT</span>
+          <span class="card-tag">TELEMETRY</span>
+          <span class="card-tag">SOFTWARE</span>
+          <span class="card-tag">SOLO PROJECT</span>
         </div>
-        <h3 class="work-row-title">Assistive Toothpaste<br>Dispenser</h3>
-        <p class="work-row-desc">A wall-mounted dispenser that pushes out the right amount of toothpaste with one button press, made for people who have limited dexterity. On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico.</p>
-        <span class="card-cta">View Project →</span>
+        <h3 class="work-row-title">Flight Console</h3>
+        <p class="work-row-desc">A web page I built to replay rocket flights on a map or in a 3D view. It shows each rocket's track, altitude, and speed, and marks liftoff, apogee, and landing as they happen. For now it plays one simulated flight, made by running my GPS and radio board's firmware on a PC.</p>
+        <span class="card-cta">Open the Flight Console →</span>
       </a>
 
-      <a class="work-row-media project-card reveal reveal-d1" href="projects/toothpaste.html" data-swap
+      <!-- The picture is the Flight Console's own cover for this flight, so a new
+           cover shows up here too. Its alt text and credit are copied from that
+           flight's entry in flight-console/data/flights/index.json. Keep them the same.
+           The frame is a mount: the picture sits inside it, and the caption and the
+           credit sit on the strip under the picture, not on top of it.
+           The full credit opens over the bottom of the picture.
+           The link over the frame is for a mouse click or a tap. It is hidden from
+           keyboards and screen readers, which use the text link beside it. -->
+      <div class="work-row-media reveal reveal-d1">
+        <div class="card-frame card-console">
+          <span class="hero-corner tl" aria-hidden="true"></span>
+          <span class="hero-corner tr" aria-hidden="true"></span>
+          <span class="hero-corner bl" aria-hidden="true"></span>
+          <span class="hero-corner br" aria-hidden="true"></span>
+          <div class="console-shot">
+            <img class="console-pic"
+                 src="flight-console/data/flights/gps-board-sim-01/cover-3d.webp"
+                 width="1400" height="1680" loading="lazy" decoding="async"
+                 alt="The simulated flight in the Flight Console's 3D view, over desert terrain. A gold track climbs straight up from the launch point to apogee at 3,000 m. The rocket is on its way down at 1,750 m above ground, and a dashed line runs to it from the ground station.">
+          </div>
+          <a class="console-open" href="flight-console/" tabindex="-1" aria-hidden="true"></a>
+          <div class="console-foot">
+            <span class="console-caption" aria-hidden="true">Simulated flight in the 3D view</span>
+            <details class="console-credit">
+              <summary>Imagery and terrain from Cesium ion</summary>
+              <div class="console-credit-body">
+                <p>Imagery: Bing Maps, © 2026 Microsoft Corporation, © Mapbox, Earthstar Geographics SIO, © Maxar, © CNES (2026) Distribution Airbus DS.</p>
+                <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Toothpaste panel (pale mint) : photo LEFT, info RIGHT ── -->
+  <section id="panel-toothpaste" class="panel panel-toothpaste" aria-label="Assistive Toothpaste Dispenser">
+    <div class="panel-inner">
+      <a class="work-row-media project-card reveal" href="projects/toothpaste.html" data-swap
          aria-label="Assistive Toothpaste Dispenser, view the project">
         <div class="card-frame">
           <span class="hero-corner tl" aria-hidden="true"></span>
@@ -275,6 +315,18 @@
           <span class="card-hover-chip" aria-hidden="true">Hover or tap to see inside</span>
         </div>
       </a>
+
+      <a class="work-row-info reveal reveal-d1" href="projects/toothpaste.html"
+         aria-label="Assistive Toothpaste Dispenser, view the project">
+        <div class="card-meta">
+          <span class="card-tag">MECHANICAL</span>
+          <span class="card-tag">EMBEDDED</span>
+          <span class="card-tag">TEAM PROJECT</span>
+        </div>
+        <h3 class="work-row-title">Assistive Toothpaste<br>Dispenser</h3>
+        <p class="work-row-desc">A wall-mounted dispenser that pushes out the right amount of toothpaste with one button press, made for people who have limited dexterity. On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico.</p>
+        <span class="card-cta">View Project →</span>
+      </a>
     </div>
   </section>
 
@@ -286,7 +338,7 @@
   <section class="coming-soon" aria-label="Coming soon">
     <div class="coming-soon-inner">
       <h3 class="coming-soon-title reveal">Coming soon to dogtoothsystems.com</h3>
-      <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building right now. A full write-up is on the way.</p>
+      <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building now and what comes next. A full write-up is on the way.</p>
 
       <div class="coming-soon-grid">
         <article class="soon-card reveal reveal-d1" id="ground-station">
@@ -300,14 +352,14 @@
           <p class="soon-desc">I'm building a receiver that picks up live data radioed down from our team's rockets during flight. It decodes the data and sends it over Bluetooth to a laptop or phone, so we can track the rockets in real time. Right now I'm choosing the radio parts and antenna, designing the circuit board in KiCad, and writing the code that receives the data.</p>
         </article>
 
-        <article class="soon-card reveal reveal-d2" id="flight-console">
+        <article class="soon-card reveal reveal-d2" id="live-tracking">
           <svg class="soon-border" aria-hidden="true" focusable="false">
             <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
           </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
-          <h4 class="soon-title">Flight Console</h4>
-          <p class="soon-meta">Solo project, started September 2026</p>
-          <p class="soon-desc">I'm building a web page that replays rocket flights on a map. It shows each rocket's track, altitude and speed, and marks events like liftoff, apogee and landing as they happen. For now it plays a simulated flight, made by running my GPS and radio board's firmware on a PC with a simulated GPS feed. Later I want it to show live flights coming in from the ground station.</p>
+          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>Up next</p>
+          <h4 class="soon-title">Flight Console Live Tracking</h4>
+          <p class="soon-meta">Solo project, waiting on the ground station</p>
+          <p class="soon-desc">Next I want the Flight Console to follow a rocket live during a launch, using the data my ground station receives. That part has to wait until the ground station is finished. For now it replays one simulated flight, so you can open it and see what I have so far.</p>
           <p class="soon-link-row"><a class="soon-link" href="flight-console/">Open the Flight Console</a></p>
         </article>
       </div>
@@ -483,7 +535,7 @@
     const MV = customElements.get('model-viewer');
     MV.meshoptDecoderLocation = new URL('js/vendor/meshopt_decoder.js', document.baseURI).href;
   </script>
-  <script src="js/main.js?v=10"></script>
+  <script src="js/main.js?v=11"></script>
   <script src="js/flight-replay.js?v=2"></script>
 </body>
 </html>
