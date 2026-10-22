@@ -166,9 +166,11 @@
           <span class="hero-corner bl" aria-hidden="true"></span>
           <span class="hero-corner br" aria-hidden="true"></span>
 
+          <!-- The model file and its lighting (src, environment-image, tone-mapping,
+               exposure) come from js/board-look.js, which the avionics project page
+               also uses, so the two boards always look the same. -->
           <model-viewer
             id="av-viewer"
-            src="assets/Avionics%20PCB%20Files%20x2/avionics-pcb.min.glb?v=2"
             alt="3D model of my avionics circuit board. Drag to spin it around."
             camera-controls
             touch-action="pan-y"
@@ -182,9 +184,6 @@
             field-of-view="30deg"
             min-field-of-view="20deg"
             max-field-of-view="45deg"
-            environment-image="legacy"
-            tone-mapping="commerce"
-            exposure="1.05"
             shadow-intensity="1.1"
             shadow-softness="0.9"
             loading="lazy"
@@ -536,9 +535,13 @@
        decoder before the (lazy) model loads. No third-party CDN at runtime. -->
   <script type="module">
     import './js/vendor/model-viewer-4.3.1.min.js';
+    import { applyLookToModelViewer } from './js/board-look.js';
     await customElements.whenDefined('model-viewer');
     const MV = customElements.get('model-viewer');
     MV.meshoptDecoderLocation = new URL('js/vendor/meshopt_decoder.js', document.baseURI).href;
+    /* Model file and lighting shared with the avionics project page */
+    const card = document.getElementById('av-viewer');
+    if (card) applyLookToModelViewer(card);
   </script>
   <script src="js/main.js?v=11"></script>
   <script src="js/flight-replay.js?v=2"></script>

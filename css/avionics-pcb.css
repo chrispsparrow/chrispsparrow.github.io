@@ -1,0 +1,483 @@
+/* ============================================================
+   AVIONICS GPS AND RADIO PCB PAGE  (projects/avionics-pcb.html)
+   One dark background for the whole page. The page is a run of
+   full-screen slides. js/avionics-pcb.js fades each slide's
+   content in and out with the scroll and drives the 3D board
+   on the fixed canvas behind everything. js/view-slider.js runs
+   the two sideways sliders (schematic sheets, layout views).
+   ============================================================ */
+
+:root {
+  --av-bg: var(--hero-bg);          /* #0b0b0b, the same black as the hero and footer */
+  --av-text: #DAD5CA;               /* paragraphs, ~12:1 on the black */
+  --av-dim: var(--hero-text-muted); /* captions and small print, ~7:1 */
+  --av-slide-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+html { background: var(--av-bg); }
+body {
+  background: var(--av-bg);
+  color: var(--hero-text);
+}
+
+/* ── Nav on the dark page ─────────────────────────────────── */
+/* The shared nav is styled for the off-white pages. Here it sits on black,
+   so the text goes light and the scrolled bar goes dark instead of cream. */
+#nav .nav-name { color: var(--hero-text); }
+#nav .nav-name:hover { color: var(--gold); }
+#nav .nav-links a { color: var(--av-dim); }
+#nav .nav-links a:hover { color: var(--hero-text); }
+#nav .nav-links a.nav-resume { color: var(--gold); border-color: rgba(200,145,58,0.45); }
+#nav .nav-links a.nav-resume:hover { background: rgba(200,145,58,0.12); border-color: var(--gold); }
+#nav.scrolled {
+  background: rgba(11,11,11,0.82);
+  border-color: var(--dark-line);
+}
+#nav .nav-hamburger span { background: var(--hero-text); }
+@media (max-width: 640px) {
+  #nav .nav-links { background: var(--av-bg); }
+}
+
+/* ── The 3D board, fixed behind the slides ────────────────── */
+/* The script measures the space between the nav and the hero title and writes it
+   here as --band-top, --band-bottom (distance from the bottom) and --band-mid.
+   The board is fitted inside that band, so it never touches the title. */
+#board-stage {
+  --band-top: 96px;
+  --band-bottom: 30svh;
+  --band-mid: 40%;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;           /* the script turns this on while the board is showing */
+  opacity: 0;
+  transform-origin: 50% var(--band-mid);
+  will-change: opacity, transform;
+}
+#board-stage.draggable { cursor: grab; }
+#board-stage.draggable.dragging { cursor: grabbing; }
+#board-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y pinch-zoom; /* a finger on the board still scrolls and zooms the page */
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;                     /* the board fades in once it has loaded */
+  transition: opacity 0.9s ease;
+}
+#board-stage.loaded #board-canvas { opacity: 1; }
+/* Quiet loading line, and the photo that stands in if the model can't load */
+.board-note {
+  position: absolute;
+  left: 50%;
+  top: var(--band-mid);
+  transform: translate(-50%, -50%);
+  font-size: 0.9rem;
+  color: var(--av-dim);
+  pointer-events: none;           /* never sits between the mouse and the board */
+  transition: opacity 0.5s ease;
+}
+.board-note.hidden { opacity: 0; }
+.board-fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--band-top) 1.25rem var(--band-bottom);
+}
+#board-stage.fallback .board-fallback { display: flex; }
+#board-stage.fallback #board-canvas,
+#board-stage.fallback .board-note { display: none; }
+.board-fallback img {
+  max-height: 100%;
+  max-width: min(100%, 480px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* ── Slides ───────────────────────────────────────────────── */
+/* The slides sit over the fixed canvas. Their empty space lets the mouse
+   through to the board, so only the real content takes the pointer. */
+.slides { position: relative; z-index: 1; pointer-events: none; }
+
+.slide {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 6.5rem 2rem 4rem;
+  pointer-events: none;
+}
+.slide-inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  pointer-events: none;           /* the script adds will-change only while a slide is mid-fade */
+}
+.slide h1, .slide h2, .slide p, .slide figure, .slide ul, .slide a, .slide svg,
+.slide button { pointer-events: auto; }
+/* The script sets the opacity on each slide-inner. Reduced motion uses
+   a plain class and a short fade instead of the scroll-linked one. The shared
+   stylesheet shortens every transition under reduced motion, so the fade
+   duration is forced here: a fade is not movement. */
+.av-reduced .slide-inner { opacity: 0; transition: opacity 0.6s ease !important; }
+.av-reduced .slide-inner.in { opacity: 1; }
+
+.slide h1,
+.slide h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--hero-text);
+}
+.slide h2 { font-size: clamp(1.6rem, 2.8vw, 2.3rem); margin-bottom: 1.1rem; }
+.slide p {
+  font-size: clamp(1rem, 1.15vw, 1.12rem);
+  line-height: 1.75;
+  color: var(--av-text);
+  max-width: 34em;
+}
+.slide p + p { margin-top: 0.9rem; }
+
+/* Two-column slides: text one side, picture the other */
+.slide-split .slide-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+}
+.slide-split .slide-text { max-width: 520px; }
+.slide-split.photo-left .slide-inner { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+.slide-split.photo-left .slide-text { order: 2; }
+.slide-split.photo-left .slide-media { order: 1; }
+
+.slide-media { margin: 0; }
+/* width 100% plus height auto lets the browser reserve the picture's box from its
+   width and height attributes before it loads, so nothing shifts as lazy pictures
+   arrive. When the height cap bites, the picture is letterboxed inside the box. */
+.slide-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 76svh;
+  object-fit: contain;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+.slide-media figcaption {
+  margin-top: 0.7rem;
+  font-size: 0.85rem;
+  color: var(--av-dim);
+  text-align: center;
+}
+
+/* Links in the slide text. Funnel Sans tails (g, j, p, q, y) reach about 0.25em
+   below the baseline, so the underline sits just under them, in em so it scales
+   with the text. With skip-ink off the line never breaks around a letter. */
+.slide-text a {
+  color: var(--hero-text);
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 0.34em;
+  text-decoration-skip-ink: none;
+  transition: color 0.2s;
+}
+.slide-text a:hover { color: var(--gold); }
+.slide-text a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Slides 1 and 6, where the 3D board shows. Each is two screens tall. Its content
+   stays pinned for one screen of scrolling while the board turns over
+   (js/avionics-pcb.js), then it scrolls away like the other slides. The title or
+   the links sit at the bottom, under the board. */
+.slide.slide-pinned {
+  display: block;
+  height: 200svh;
+  padding: 0;
+  text-align: center;
+}
+.slide-pinned .slide-inner {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 6.5rem 2rem clamp(2.5rem, 7svh, 5rem);
+}
+.slide-close .slide-inner { padding-bottom: clamp(3rem, 9svh, 6rem); }
+/* If the 3D board cannot load, a still photo takes its place and nothing turns, so
+   nothing stays pinned (the script adds av-static) */
+.av-static .slide.slide-pinned { height: auto; }
+.av-static .slide-pinned .slide-inner { position: relative; }
+
+/* Slide 1: the board with only the title under it. The title is sized from the
+   window's width and height, and it wraps instead of ever running off the edge. */
+.slide-hero h1 {
+  font-size: clamp(1.45rem, min(0.8rem + 2.9vw, 6.2svh), 3.1rem);
+  max-width: 100%;
+  margin: 0 auto;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.slide-hero .hero-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Slide 3: schematic on the left, the key parts listed on the right. The drawing
+   gets the wider column (the selector has to outrank the photo-left rule above). */
+.slide-split.slide-schematic.photo-left .slide-inner { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); }
+.parts {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.parts li {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--av-text);
+}
+.parts strong {
+  display: block;
+  font-weight: 600;
+  color: var(--hero-text);
+  margin-bottom: 0.2rem;
+}
+
+/* Slide 4: size notes and the to-scale drawing on the left, layout views on the right */
+.scale-figure {
+  margin: 1.8rem 0 0;
+  max-width: 440px;
+}
+.scale-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.scale-figure .outline { fill: none; stroke: var(--hero-text); stroke-width: 0.5; }
+.scale-figure .cup { stroke: var(--gold); }
+/* The two labels are HTML, not SVG text, so they keep a readable size on phones.
+   The columns match the drawing: the board is centered 20.9% in, the cup 70.5% in. */
+.scale-labels {
+  display: grid;
+  grid-template-columns: 41.8fr 57.4fr;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--av-dim);
+  text-align: center;
+}
+
+/* ── Sideways sliders (slides 3 and 4) ────────────────────── */
+/* The arrows sit to the right of the slide's text */
+.slide-split .slide-text.has-nav {
+  max-width: 620px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: clamp(1rem, 2vw, 1.75rem);
+}
+.viewer-nav { display: flex; gap: 0.45rem; }
+.viewer-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(244,242,237,0.28);
+  background: transparent;
+  color: var(--hero-text);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.viewer-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.viewer-btn:hover { border-color: var(--gold); color: var(--gold); }
+.viewer-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+/* The back arrow shows once you have moved past the first view, and the next
+   arrow goes away on the last one. They keep their space, so nothing shifts. */
+.viewer-btn.is-off { visibility: hidden; }
+
+/* The frame stays the same size for every view, so the slide never moves up or
+   down while you slide through it */
+.slide-media.viewer { --viewer-max: 76svh; }
+.slide-layout .slide-media.viewer { --viewer-max: 78svh; }
+.slide-schematic .slide-media.viewer { --viewer-max: 80svh; }
+.viewer-window {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--ar);
+  max-height: var(--viewer-max);
+  overflow: hidden;
+  border-radius: 4px;
+  touch-action: pan-y pinch-zoom; /* vertical swipes scroll the page, sideways ones change the view */
+}
+.viewer-view,
+.viewer-caption {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  transition: transform 0.6s var(--av-slide-ease), visibility 0s linear 0.6s;
+}
+.viewer-view.is-before, .viewer-caption.is-before { transform: translateX(-100%); }
+.viewer-view.is-after,  .viewer-caption.is-after  { transform: translateX(100%); }
+.viewer-view.is-current, .viewer-caption.is-current {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.6s var(--av-slide-ease), visibility 0s;
+}
+.slide-media.viewer .viewer-view img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+/* Before the script runs (or if it doesn't) only the first view shows, with no arrows */
+.viewer:not(.is-ready) .viewer-view:first-child,
+.viewer:not(.is-ready) .viewer-caption:first-child { visibility: visible; transform: none; }
+.viewer-nav:not(.is-ready) { visibility: hidden; }
+.viewer-captions {
+  position: relative;
+  display: block;
+  height: 1.5rem;
+  margin-top: 0.7rem;
+  overflow: hidden;
+  font-size: 0.85rem;
+  line-height: 1.5rem;
+  color: var(--av-dim);
+  text-align: center;
+}
+
+/* Slide 5: a short note, then three photos in a row */
+.slide-build .slide-text { max-width: 640px; margin-bottom: 1.6rem; }
+.photo-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.6rem, 1.5vw, 1.2rem);
+  align-items: start;
+}
+.photo-row figure { margin: 0; }
+.photo-row img {
+  display: block;
+  width: 100%;
+  height: auto;                   /* the height attribute would otherwise pin it to 1350px */
+  aspect-ratio: 4 / 5;
+  max-height: 60svh;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.photo-row .bench img { object-position: 40% 60%; }
+.photo-row figcaption {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--av-dim);
+}
+
+/* Slide 6: the board comes back and turns over again, links sit at the bottom */
+.close-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem 2.2rem;
+}
+.quiet-link {
+  font-size: 0.95rem;
+  color: var(--av-dim);
+  text-decoration: underline;
+  text-decoration-color: rgba(200,145,58,0.55);
+  text-underline-offset: 0.34em;          /* under the letter tails, like the slide text links */
+  text-decoration-skip-ink: none;
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+.quiet-link:hover { color: var(--hero-text); text-decoration-color: var(--gold); }
+.quiet-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+
+/* ── Footer sits on top of the fixed canvas ───────────────── */
+footer { position: relative; z-index: 1; }
+
+/* ── Phones and narrow windows: photo on top, text under it ─ */
+@media (max-width: 860px) {
+  .slide { padding: 5.5rem 1.25rem 3rem; }
+  .slide-pinned .slide-inner { padding: 5.5rem 1.25rem clamp(2.5rem, 7svh, 5rem); }
+  .slide-close .slide-inner { padding-bottom: clamp(3rem, 9svh, 6rem); }
+  .slide-split .slide-inner,
+  .slide-split.photo-left .slide-inner,
+  .slide-split.slide-schematic.photo-left .slide-inner { grid-template-columns: 1fr; gap: 1.6rem; }
+  .slide-split .slide-media,
+  .slide-split.photo-left .slide-media { order: 1; }
+  .slide-split .slide-text,
+  .slide-split.photo-left .slide-text { order: 2; max-width: none; }
+  .slide-media img { max-height: 62svh; }
+  .slide-media.viewer,
+  .slide-layout .slide-media.viewer { --viewer-max: 62svh; }
+  .slide-schematic .slide-media.viewer { --viewer-max: 56svh; }
+  /* The arrows move up beside the heading, so the paragraphs keep the full width */
+  .slide-split .slide-text.has-nav { max-width: none; align-items: start; }
+  .slide-text.has-nav .slide-copy { display: contents; }
+  .slide-text.has-nav .slide-copy > * { grid-column: 1 / -1; }
+  .slide-text.has-nav .slide-copy > h2 { grid-column: 1; }
+  .slide-text.has-nav .viewer-nav { grid-column: 2; grid-row: 1; }
+  .photo-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .photo-row .bench { grid-column: 1 / -1; }
+  .photo-row .bench img { aspect-ratio: 16 / 9; object-position: 50% 60%; }
+  .scale-figure { max-width: 360px; }
+}
+@media (max-width: 560px) {
+  /* minmax(0, 1fr), not 1fr: a plain 1fr track grows to the photo's full pixel width.
+     The 4 / 5 ratio is the photos' own, so nothing is cropped at full width. */
+  .photo-row { grid-template-columns: minmax(0, 1fr); }
+  .photo-row img { max-height: none; }
+}
+
+/* Short, wide windows (small laptops): tighter spacing so each slide still fits.
+   This block comes last so it wins over the rules above at equal specificity. */
+@media (max-height: 700px) and (min-width: 861px) {
+  .slide { padding: 5.5rem 2rem 2.5rem; }
+  .slide h2 { margin-bottom: 0.7rem; }
+  .slide p { font-size: 0.98rem; line-height: 1.6; }
+  .slide-media img { max-height: 70svh; }
+  .slide-media.viewer,
+  .slide-layout .slide-media.viewer,
+  .slide-schematic .slide-media.viewer { --viewer-max: 66svh; }
+  .scale-figure { margin-top: 1.1rem; max-width: 300px; }
+  .slide-build .slide-text { margin-bottom: 1rem; }
+  .photo-row img { max-height: 46svh; }
+  .parts { gap: 0.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No turn with the scroll, so nothing needs to stay pinned */
+  .slide.slide-pinned { height: auto; }
+  .slide-pinned .slide-inner { position: relative; }
+  #board-stage { transition: opacity 0.6s ease !important; }
+  #board-canvas { transition: opacity 0.6s ease !important; }
+  .board-note, .quiet-link { transition: none; }
+  /* The sliders swap views with a short fade instead of sliding */
+  .viewer-view, .viewer-caption,
+  .viewer-view.is-before, .viewer-caption.is-before,
+  .viewer-view.is-after, .viewer-caption.is-after {
+    transform: none;
+    opacity: 0;
+    transition: opacity 0.35s ease, visibility 0s linear 0.35s !important;
+  }
+  .viewer-view.is-current, .viewer-caption.is-current,
+  .viewer:not(.is-ready) .viewer-view:first-child,
+  .viewer:not(.is-ready) .viewer-caption:first-child {
+    opacity: 1;
+    transition: opacity 0.35s ease, visibility 0s !important;
+  }
+}

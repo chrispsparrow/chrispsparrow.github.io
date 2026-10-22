@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Avionics GPS / Radio PCB | Christopher Sparrow</title>
-  <meta name="description" content="A four-layer circuit board I designed on my own in KiCad for AerospaceNU, Northeastern's rocket team. It's built to track the rocket with a u-blox SAM-M8Q GPS and send its position down to the ground over a 900 MHz LoRa radio.">
+  <title>Custom Avionics GPS and Radio PCB | Christopher Sparrow</title>
+  <meta name="description" content="A four-layer circuit board I designed on my own in KiCad for AerospaceNU, Northeastern's rocketry club. It is built to track the rocket with a u-blox SAM-M8Q GPS and send its position down to the ground over a 900 MHz LoRa radio.">
   <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -16,83 +16,33 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=21">
-  <style>
-    /* ─── AVIONICS PCB — FULL-SCREEN PDF VIEWER ─────────────── */
-
-    /* Flex column: site nav + back/download bar stack at the top, the PDF
-       iframe fills the remaining height. */
-    html { height: 100%; }
-    body {
-      height: 100vh;
-      margin: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+  <link rel="stylesheet" href="../css/avionics-pcb.css?v=6">
+  <!-- Three.js (pinned) for the 3D board, loaded by js/avionics-pcb.js. The preloads
+       let the browser fetch the modules and the model right away instead of one
+       after another as each file's imports are discovered. The model URL must match
+       BOARD_MODEL in js/board-look.js exactly, including the ?v= number. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/"
     }
-
-    /* Site nav in normal flow (not fixed) on this utility page; opaque and
-       compact regardless of scroll so it always reads over the PDF. */
-    #nav {
-      position: static;
-      flex: 0 0 auto;
-      padding: 1rem 2rem;
-      background: rgba(243, 241, 236, 0.96);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-    }
-
-    /* Secondary bar: back link + download */
-    .av-bar {
-      flex: 0 0 auto;
-      height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-    }
-    .av-back {
-      font-family: var(--font-text);
-      font-size: 0.88rem;
-      letter-spacing: normal;
-      color: var(--gold-text);
-      text-decoration: none;
-      transition: opacity 0.2s;
-    }
-    .av-back:hover { opacity: 0.7; }
-    .av-download {
-      font-family: var(--font-text);
-      font-size: 0.88rem;
-      letter-spacing: normal;
-      color: var(--gold-text);
-      border: 1px solid var(--gold-border);
-      padding: 0.3rem 0.85rem;
-      text-decoration: none;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    .av-download:hover { background: var(--gold-dim); border-color: var(--gold-text); }
-
-    .av-pdf-frame {
-      flex: 1 1 auto;
-      width: 100%;
-      min-height: 0;      /* allow the iframe to shrink inside the flex column */
-      border: none;
-      display: block;
-    }
-
-    @media (max-width: 640px) {
-      #nav     { padding: 0.9rem 1rem; }
-      .av-bar  { padding: 0 1rem; }
-    }
-  </style>
+  }
+  </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.core.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/loaders/GLTFLoader.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/utils/BufferGeometryUtils.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/utils/SkeletonUtils.js">
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/libs/meshopt_decoder.module.js">
+  <link rel="preload" href="../assets/Avionics%20PCB%20Files%20x2/avionics-pcb.min.glb?v=3" as="fetch" crossorigin>
 </head>
 <body>
 
-  <!-- ── SITE NAV (matches homepage; links back to home sections) ── -->
+  <!-- ── SITE NAV (same as the other pages) ──────────────── -->
   <nav id="nav" aria-label="Main navigation">
     <a href="../index.html" class="nav-name" aria-label="Christopher Sparrow, home page">Christopher Sparrow</a>
     <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
@@ -107,22 +57,205 @@
     </div>
   </nav>
 
-  <!-- ── BACK / DOWNLOAD BAR ───────────────────────────────── -->
-  <div class="av-bar">
-    <a href="../index.html#work" class="av-back">← Back to my projects</a>
-    <a href="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf"
-       download
-       target="_blank"
-       class="av-download">Download the PDF (2.5 MB) ↓</a>
+  <!-- ── THE 3D BOARD: one fixed canvas behind every slide ── -->
+  <div id="board-stage" aria-hidden="true">
+    <canvas id="board-canvas"></canvas>
+    <p class="board-note">Loading the 3D board</p>
+    <!-- The photo is only fetched if the model fails (the script moves data-src to src) -->
+    <div class="board-fallback">
+      <img data-src="../assets/avionics-page/bare-board-crop.jpg" width="740" height="925"
+           alt="The bare blue circuit board held between two fingers, with more boards behind it">
+    </div>
   </div>
 
-  <!-- ── FULL-SCREEN PDF ───────────────────────────────────── -->
-  <iframe
-    src="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf"
-    class="av-pdf-frame"
-    title="Case study for the Custom Avionics GPS / Radio PCB">
-  </iframe>
+  <main class="slides">
+
+    <!-- 1. Hero: the board, large and centered, and the title -->
+    <section class="slide slide-pinned slide-hero" aria-label="Custom Avionics GPS and Radio PCB">
+      <div class="slide-inner">
+        <h1>Custom Avionics<br> GPS and Radio PCB</h1>
+        <p class="hero-sr">A 3D model of the board sits above this title. On a computer you can drag it to turn it.</p>
+      </div>
+    </section>
+
+    <!-- 2. The board and why it exists -->
+    <section class="slide slide-split" aria-label="What the board does">
+      <div class="slide-inner">
+        <div class="slide-text">
+          <h2>What the board does</h2>
+          <p>I designed this board end to end for AerospaceNU, Northeastern's rocketry club. It tracks the rocket with GPS and sends its position over a 900 MHz LoRa radio to the <a href="../index.html#ground-station">ground station</a> I'm working on now.</p>
+          <p>Built for a compact avionics bay, so size and weight drove every part choice. The smallest part is about the size of a grain of sand.</p>
+        </div>
+        <figure class="slide-media">
+          <img src="../assets/avionics-page/bare-board-crop.jpg" width="740" height="925" loading="lazy" decoding="async"
+               alt="The bare blue circuit board held between two fingers, with more boards on the table behind it">
+        </figure>
+      </div>
+    </section>
+
+    <!-- 3. Schematic and the key parts. The arrows step through the overview and
+         then each sheet of the KiCad schematic (js/view-slider.js). -->
+    <section class="slide slide-split slide-schematic photo-left" aria-label="The schematic">
+      <div class="slide-inner">
+        <div class="slide-text has-nav">
+          <div class="slide-copy">
+            <h2>The schematic</h2>
+            <p>Integral components.</p>
+            <ul class="parts">
+              <li><strong>SAMD21 microcontroller</strong>Lots of useful pins and low power draw.</li>
+              <li><strong>u-blox SAM-M8Q GPS</strong>Built-in antenna and a small footprint.</li>
+              <li><strong>E22 LoRa radio</strong>Its footprint can take a more powerful E22 module later.</li>
+              <li><strong>LTC4412 power multiplexer</strong>Picks USB or the battery on its own, so the board is easy to bench test.</li>
+            </ul>
+          </div>
+          <div class="viewer-nav" data-viewer-for="schematic-views">
+            <button type="button" class="viewer-btn" data-dir="-1" aria-controls="schematic-views" aria-label="Previous sheet">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+            </button>
+            <button type="button" class="viewer-btn" data-dir="1" aria-controls="schematic-views" aria-label="Next sheet">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+            </button>
+          </div>
+        </div>
+        <figure class="slide-media viewer" id="schematic-views" data-viewer aria-roledescription="carousel" aria-label="Schematic sheets">
+          <div class="viewer-window" style="--ar: 2400 / 2109">
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Overview">
+              <img src="../assets/avionics-page/schematic.webp" width="2400" height="2109" loading="lazy" decoding="async"
+                   alt="The KiCad schematic drawn in light lines on black. The main sheet with the SAMD21 microcontroller is on the left, and the radio, GPS, and power multiplexer blocks are stacked on the right">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="MCU sheet">
+              <img src="../assets/avionics-page/schematic-mcu.webp" width="1748" height="2400" loading="lazy" decoding="async"
+                   alt="The main schematic sheet: the SAMD21 microcontroller with its pins, the clock crystal, decoupling capacitors, the analog supply filter, the reset button, and the boxes that link to the other sheets">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="GPS and radio sheet">
+              <img src="../assets/avionics-page/schematic-gps-radio.webp" width="2400" height="1015" loading="lazy" decoding="async"
+                   alt="The GPS and radio sheet: the E22 LoRa module wired to the SMA antenna jack on the left, and the SAM-M8Q GPS with its backup battery and lock LED on the right">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Power sheet">
+              <img src="../assets/avionics-page/schematic-power.webp" width="2287" height="2400" loading="lazy" decoding="async"
+                   alt="The power sheet: the battery connector, USB port with ESD protection, arming plug, the LTC4412 power multiplexer, and the 3.3 V regulator">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="SWD debug sheet">
+              <img src="../assets/avionics-page/schematic-swd.webp" width="2400" height="2000" loading="lazy" decoding="async"
+                   alt="The SWD debug sheet: the 10-pin debug header with 3.3 V, ground, SWDIO, SWCLK, and reset">
+            </div>
+          </div>
+          <figcaption class="viewer-captions" aria-hidden="true">
+            <span class="viewer-caption">Overview</span>
+            <span class="viewer-caption">MCU sheet</span>
+            <span class="viewer-caption">GPS and radio sheet</span>
+            <span class="viewer-caption">Power sheet</span>
+            <span class="viewer-caption">SWD debug sheet</span>
+          </figcaption>
+          <p class="sr-only" aria-live="polite" data-viewer-status></p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 4. Layout and size. The arrows switch between both sides, the front, and the back. -->
+    <section class="slide slide-split slide-layout" aria-label="Layout and size">
+      <div class="slide-inner">
+        <div class="slide-text has-nav">
+          <div class="slide-copy">
+            <h2>Layout and size</h2>
+            <p>The board is 37.9 mm by 52.1 mm, about 1,966 mm², similar in size to a Reese's cup.</p>
+            <p>It has four copper layers, which leaves room for a solid ground plane under the GPS and the antenna trace.</p>
+            <figure class="scale-figure">
+              <svg viewBox="0 0 100 56" role="img" aria-label="The board outline next to a circle the size of a Reese's cup, drawn to the same scale">
+                <rect class="outline" x="2" y="2" width="37.87" height="52.1" rx="3" ry="3"/>
+                <circle class="outline cup" cx="70.5" cy="28.05" r="22.5"/>
+              </svg>
+              <div class="scale-labels" aria-hidden="true"><span>my board</span><span>a Reese's cup</span></div>
+            </figure>
+          </div>
+          <div class="viewer-nav" data-viewer-for="layout-views">
+            <button type="button" class="viewer-btn" data-dir="-1" aria-controls="layout-views" aria-label="Previous view">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+            </button>
+            <button type="button" class="viewer-btn" data-dir="1" aria-controls="layout-views" aria-label="Next view">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+            </button>
+          </div>
+        </div>
+        <figure class="slide-media viewer" id="layout-views" data-viewer aria-roledescription="carousel" aria-label="Layout views">
+          <div class="viewer-window" style="--ar: 1200 / 1651">
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Both sides">
+              <img src="../assets/avionics-page/layout.webp" width="1200" height="1651" loading="lazy" decoding="async"
+                   alt="The PCB layout from KiCad on black: front copper in gold, back copper in blue, white silkscreen with the Dogtooth tuna, and the four mounting holes">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Front">
+              <img src="../assets/avionics-page/layout-front.webp" width="1200" height="1651" loading="lazy" decoding="async"
+                   alt="The front of the layout: gold copper pads and traces for the GPS module, the SAMD21, the power parts, and the USB port, with white silkscreen labels">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Back">
+              <img src="../assets/avionics-page/layout-back.webp" width="1200" height="1651" loading="lazy" decoding="async"
+                   alt="The back of the layout, seen from the back: blue copper pads for the E22 radio module and the SMA jack, a few traces, and white silkscreen with the Dogtooth logos">
+            </div>
+          </div>
+          <figcaption class="viewer-captions" aria-hidden="true">
+            <span class="viewer-caption">Both sides</span>
+            <span class="viewer-caption">Front</span>
+            <span class="viewer-caption">Back</span>
+          </figcaption>
+          <p class="sr-only" aria-live="polite" data-viewer-status></p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 5. Assembly and bring-up -->
+    <section class="slide slide-build" aria-label="Assembly and bring-up">
+      <div class="slide-inner">
+        <div class="slide-text">
+          <h2>Assembly and bring-up</h2>
+          <p>I hand placed every part and used a mix of reflow and hand soldering.</p>
+        </div>
+        <div class="photo-row">
+          <figure>
+            <img src="../assets/avionics-page/solder-paste.jpg" width="1080" height="1350" loading="lazy" decoding="async"
+                 alt="A board with solder paste on its pads, held up in front of the stencil jig, where spare boards are taped to the bench around an opening the size of the board">
+            <figcaption>Solder paste applied</figcaption>
+          </figure>
+          <figure>
+            <img src="../assets/avionics-page/assembled.jpg" width="1080" height="1350" loading="lazy" decoding="async"
+                 alt="The board on a blue bench mat with its front side parts in place, including the GPS module, microcontroller, debug header, and micro USB port">
+            <figcaption>Front side components placed</figcaption>
+          </figure>
+          <figure class="bench">
+            <img src="../assets/avionics-page/bench.jpg" width="1600" height="901" loading="lazy" decoding="async"
+                 alt="The assembled board under the ring light of a bench microscope, with a multimeter and probes beside it">
+            <figcaption>On the bench for testing</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Close: the board comes back showing its back side and turns over to its front, with the files under it -->
+    <section class="slide slide-pinned slide-close" aria-label="Design files">
+      <div class="slide-inner">
+        <nav class="close-links" aria-label="Design files and more projects">
+          <a class="quiet-link" href="../assets/Avionics%20PCB%20Files%20x2/Sparrow_Avionics_PCB.pdf" target="_blank" rel="noopener">Download the full design files (PDF)</a>
+          <a class="quiet-link" href="../index.html#work">Back to my projects</a>
+        </nav>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER (same as the other pages) ───────────────── -->
+  <footer role="contentinfo">
+    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
+         alt="Dogtooth Systems logo, a dogtooth tuna" class="footer-logo" width="180">
+    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="../index.html#work">Work</a>
+      <a href="../index.html#about">About</a>
+      <a href="../index.html#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
+    </nav>
+  </footer>
 
   <script src="../js/main.js?v=11"></script>
+  <script type="module" src="../js/view-slider.js?v=1"></script>
+  <script type="module" src="../js/avionics-pcb.js?v=4"></script>
 </body>
 </html>
