@@ -4,7 +4,8 @@
    full-screen slides. js/avionics-pcb.js fades each slide's
    content in and out with the scroll and drives the 3D board
    on the fixed canvas behind everything. js/view-slider.js runs
-   the two sideways sliders (schematic sheets, layout views).
+   the sideways sliders (board photos, schematic sheets, layout
+   views, and the three photo slots on the assembly slide).
    ============================================================ */
 
 :root {
@@ -270,7 +271,7 @@ body {
   text-align: center;
 }
 
-/* ── Sideways sliders (slides 3 and 4) ────────────────────── */
+/* ── Sideways sliders (slides 2 to 5) ────────────────────── */
 /* The arrows sit to the right of the slide's text */
 .slide-split .slide-text.has-nav {
   max-width: 620px;
@@ -346,6 +347,23 @@ body {
   -webkit-user-drag: none;
   user-select: none;
 }
+/* Photo sliders (slide 2): the frame is exactly the photos' shape, so when the height
+   cap bites it gets narrower instead of leaving empty space beside the photo. Every
+   photo in a slider is cropped to the same shape, so nothing jumps between them. */
+.slide-media.photo-viewer .viewer-window {
+  width: min(100%, calc(var(--viewer-max) * var(--ar)));
+  margin: 0 auto;
+}
+.slide-media.photo-viewer .viewer-view img,
+.photo-slot .viewer-view img { object-fit: cover; }
+/* A photo shown whole (the microscope shot is taller than 4:5). It keeps its own
+   shape, centered in the frame, so nothing is cut off and the frame stays the same. */
+.slide-media.photo-viewer .viewer-view.fit-whole img {
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 4px;
+}
 /* Before the script runs (or if it doesn't) only the first view shows, with no arrows */
 .viewer:not(.is-ready) .viewer-view:first-child,
 .viewer:not(.is-ready) .viewer-caption:first-child { visibility: visible; transform: none; }
@@ -362,30 +380,58 @@ body {
   text-align: center;
 }
 
-/* Slide 5: a short note, then three photos in a row */
+/* Slide 5: a short note, then three small photo sliders in a row. Each slot has its
+   own arrows under its photo, on the right, with a short label on the left.
+   The photos always keep their 4:5 shape, so nothing gets cut off. In a short window
+   the row gets narrower instead, so no photo is taller than --slot-h. */
 .slide-build .slide-text { max-width: 640px; margin-bottom: 1.6rem; }
 .photo-row {
+  --slot-h: 60svh;
+  --row-gap: clamp(0.6rem, 1.5vw, 1.2rem);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(0.6rem, 1.5vw, 1.2rem);
+  gap: var(--row-gap);
+  max-width: calc(var(--slot-h) * 2.4 + var(--row-gap) * 2);   /* three photos 4/5 as wide as --slot-h */
   align-items: start;
 }
-.photo-row figure { margin: 0; }
-.photo-row img {
+.photo-slot {
+  --viewer-max: none;
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.photo-slot .viewer-window { grid-column: 1 / -1; }
+.photo-slot .viewer-view img {
   display: block;
   width: 100%;
-  height: auto;                   /* the height attribute would otherwise pin it to 1350px */
-  aspect-ratio: 4 / 5;
-  max-height: 60svh;
-  object-fit: cover;
-  border-radius: 4px;
+  height: 100%;
+  border-radius: 0;
+  -webkit-user-drag: none;
+  user-select: none;
 }
-.photo-row .bench img { object-position: 40% 60%; }
-.photo-row figcaption {
+.photo-slot .slot-nav {
+  grid-column: 2;
+  grid-row: 2;
+  gap: 0.35rem;
   margin-top: 0.55rem;
-  font-size: 0.85rem;
-  color: var(--av-dim);
 }
+.slot-nav .viewer-btn { width: 34px; height: 34px; }
+.slot-nav .viewer-btn svg { width: 15px; height: 15px; }
+/* The labels slide with their photos. They share one grid cell instead of being
+   stacked absolutely, so a label that wraps in a narrow slot is never cut off, and
+   the row is as tall as the longest label, so nothing moves between photos. */
+.photo-slot .viewer-captions {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  height: auto;
+  margin-top: 0.55rem;
+  line-height: 1.4;
+  text-align: left;
+}
+.photo-slot .viewer-caption { position: relative; inset: auto; grid-area: 1 / 1; }
 
 /* Slide 6: the board comes back and turns over again, links sit at the bottom */
 .close-links {
@@ -431,16 +477,13 @@ footer { position: relative; z-index: 1; }
   .slide-text.has-nav .slide-copy > * { grid-column: 1 / -1; }
   .slide-text.has-nav .slide-copy > h2 { grid-column: 1; }
   .slide-text.has-nav .viewer-nav { grid-column: 2; grid-row: 1; }
-  .photo-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .photo-row .bench { grid-column: 1 / -1; }
-  .photo-row .bench img { aspect-ratio: 16 / 9; object-position: 50% 60%; }
   .scale-figure { max-width: 360px; }
 }
 @media (max-width: 560px) {
-  /* minmax(0, 1fr), not 1fr: a plain 1fr track grows to the photo's full pixel width.
-     The 4 / 5 ratio is the photos' own, so nothing is cropped at full width. */
-  .photo-row { grid-template-columns: minmax(0, 1fr); }
-  .photo-row img { max-height: none; }
+  /* One slot per row. minmax(0, 1fr), not 1fr: a plain 1fr track grows to the
+     photo's full pixel width. The 4 / 5 frame is the photos' own shape, so nothing is
+     cropped at full width. */
+  .photo-row { grid-template-columns: minmax(0, 1fr); row-gap: 1.4rem; max-width: none; }
 }
 
 /* Short, wide windows (small laptops): tighter spacing so each slide still fits.
@@ -455,7 +498,7 @@ footer { position: relative; z-index: 1; }
   .slide-schematic .slide-media.viewer { --viewer-max: 66svh; }
   .scale-figure { margin-top: 1.1rem; max-width: 300px; }
   .slide-build .slide-text { margin-bottom: 1rem; }
-  .photo-row img { max-height: 46svh; }
+  .photo-row { --slot-h: 52svh; }
   .parts { gap: 0.6rem; }
 }
 

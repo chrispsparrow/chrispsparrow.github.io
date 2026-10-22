@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=21">
-  <link rel="stylesheet" href="../css/avionics-pcb.css?v=6">
+  <link rel="stylesheet" href="../css/avionics-pcb.css?v=7">
   <!-- Three.js (pinned) for the 3D board, loaded by js/avionics-pcb.js. The preloads
        let the browser fetch the modules and the model right away instead of one
        after another as each file's imports are discovered. The model URL must match
@@ -78,17 +78,45 @@
       </div>
     </section>
 
-    <!-- 2. The board and why it exists -->
-    <section class="slide slide-split" aria-label="What the board does">
+    <!-- 2. The board and why it exists. The arrows step through four photos of the
+         board (js/view-slider.js). -->
+    <section class="slide slide-split slide-board" aria-label="What the board does">
       <div class="slide-inner">
-        <div class="slide-text">
-          <h2>What the board does</h2>
-          <p>I designed this board end to end for AerospaceNU, Northeastern's rocketry club. It tracks the rocket with GPS and sends its position over a 900 MHz LoRa radio to the <a href="../index.html#ground-station">ground station</a> I'm working on now.</p>
-          <p>Built for a compact avionics bay, so size and weight drove every part choice. The smallest part is about the size of a grain of sand.</p>
+        <div class="slide-text has-nav">
+          <div class="slide-copy">
+            <h2>What the board does</h2>
+            <p>I designed this board end to end for AerospaceNU, Northeastern's rocketry club. It tracks the rocket with GPS and sends its position over a 900 MHz LoRa radio to the <a href="../index.html#ground-station">ground station</a> I'm working on now.</p>
+            <p>Built for a compact avionics bay, so size and weight drove every part choice. The smallest part is about the size of a grain of sand.</p>
+          </div>
+          <div class="viewer-nav" data-viewer-for="board-photos">
+            <button type="button" class="viewer-btn" data-dir="-1" aria-controls="board-photos" aria-label="Previous photo">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+            </button>
+            <button type="button" class="viewer-btn" data-dir="1" aria-controls="board-photos" aria-label="Next photo">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+            </button>
+          </div>
         </div>
-        <figure class="slide-media">
-          <img src="../assets/avionics-page/bare-board-crop.jpg" width="740" height="925" loading="lazy" decoding="async"
-               alt="The bare blue circuit board held between two fingers, with more boards on the table behind it">
+        <figure class="slide-media viewer photo-viewer" id="board-photos" data-viewer aria-roledescription="carousel" aria-label="Photos of the board">
+          <div class="viewer-window" style="--ar: 4 / 5">
+            <div class="viewer-view" role="group" aria-roledescription="slide">
+              <img src="../assets/avionics-page/assembled-front-hand.jpg" width="900" height="1125" loading="lazy" decoding="async"
+                   alt="The finished board held in a hand, front side up, with the GPS module, the microcontroller, and the SMA antenna jack">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide">
+              <img data-src="../assets/avionics-page/assembled-back-hand.jpg" width="900" height="1125" loading="lazy" decoding="async"
+                   alt="The back of the finished board held in a hand, with the E22 LoRa radio module and the SMA antenna jack">
+            </div>
+            <div class="viewer-view fit-whole" role="group" aria-roledescription="slide">
+              <img data-src="../assets/avionics-page/microscope-closeup.jpg" width="903" height="1600" loading="lazy" decoding="async"
+                   alt="A close-up through the microscope of the Dogtooth logo on the board, with a tiny resistor and LED below it and the corner of the GPS module">
+            </div>
+            <div class="viewer-view" role="group" aria-roledescription="slide">
+              <img data-src="../assets/avionics-page/bare-board-crop.jpg" width="740" height="925" loading="lazy" decoding="async"
+                   alt="The bare blue circuit board held between two fingers, with more boards on the table behind it">
+            </div>
+          </div>
+          <p class="sr-only" aria-live="polite" data-viewer-status></p>
         </figure>
       </div>
     </section>
@@ -124,19 +152,19 @@
                    alt="The KiCad schematic drawn in light lines on black. The main sheet with the SAMD21 microcontroller is on the left, and the radio, GPS, and power multiplexer blocks are stacked on the right">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="MCU sheet">
-              <img src="../assets/avionics-page/schematic-mcu.webp" width="1748" height="2400" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/schematic-mcu.webp" width="1748" height="2400" loading="lazy" decoding="async"
                    alt="The main schematic sheet: the SAMD21 microcontroller with its pins, the clock crystal, decoupling capacitors, the analog supply filter, the reset button, and the boxes that link to the other sheets">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="GPS and radio sheet">
-              <img src="../assets/avionics-page/schematic-gps-radio.webp" width="2400" height="1015" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/schematic-gps-radio.webp" width="2400" height="1015" loading="lazy" decoding="async"
                    alt="The GPS and radio sheet: the E22 LoRa module wired to the SMA antenna jack on the left, and the SAM-M8Q GPS with its backup battery and lock LED on the right">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Power sheet">
-              <img src="../assets/avionics-page/schematic-power.webp" width="2287" height="2400" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/schematic-power.webp" width="2287" height="2400" loading="lazy" decoding="async"
                    alt="The power sheet: the battery connector, USB port with ESD protection, arming plug, the LTC4412 power multiplexer, and the 3.3 V regulator">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="SWD debug sheet">
-              <img src="../assets/avionics-page/schematic-swd.webp" width="2400" height="2000" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/schematic-swd.webp" width="2400" height="2000" loading="lazy" decoding="async"
                    alt="The SWD debug sheet: the 10-pin debug header with 3.3 V, ground, SWDIO, SWCLK, and reset">
             </div>
           </div>
@@ -184,11 +212,11 @@
                    alt="The PCB layout from KiCad on black: front copper in gold, back copper in blue, white silkscreen with the Dogtooth tuna, and the four mounting holes">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Front">
-              <img src="../assets/avionics-page/layout-front.webp" width="1200" height="1651" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/layout-front.webp" width="1200" height="1651" loading="lazy" decoding="async"
                    alt="The front of the layout: gold copper pads and traces for the GPS module, the SAMD21, the power parts, and the USB port, with white silkscreen labels">
             </div>
             <div class="viewer-view" role="group" aria-roledescription="slide" aria-label="Back">
-              <img src="../assets/avionics-page/layout-back.webp" width="1200" height="1651" loading="lazy" decoding="async"
+              <img data-src="../assets/avionics-page/layout-back.webp" width="1200" height="1651" loading="lazy" decoding="async"
                    alt="The back of the layout, seen from the back: blue copper pads for the E22 radio module and the SMA jack, a few traces, and white silkscreen with the Dogtooth logos">
             </div>
           </div>
@@ -202,7 +230,8 @@
       </div>
     </section>
 
-    <!-- 5. Assembly and bring-up -->
+    <!-- 5. Assembly and bring-up. Each photo slot is its own small slider, with its
+         own arrows and a short label under the photo (js/view-slider.js). -->
     <section class="slide slide-build" aria-label="Assembly and bring-up">
       <div class="slide-inner">
         <div class="slide-text">
@@ -210,20 +239,85 @@
           <p>I hand placed every part and used a mix of reflow and hand soldering.</p>
         </div>
         <div class="photo-row">
-          <figure>
-            <img src="../assets/avionics-page/solder-paste.jpg" width="1080" height="1350" loading="lazy" decoding="async"
-                 alt="A board with solder paste on its pads, held up in front of the stencil jig, where spare boards are taped to the bench around an opening the size of the board">
-            <figcaption>Solder paste applied</figcaption>
+          <figure class="viewer photo-slot" id="build-paste" data-viewer aria-roledescription="carousel" aria-label="Solder paste and reflow photos">
+            <div class="viewer-window" style="--ar: 4 / 5">
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img src="../assets/avionics-page/solder-paste.jpg" width="1080" height="1350" loading="lazy" decoding="async"
+                     alt="A board with solder paste on its pads, held up in front of the stencil jig, where spare boards are taped to the bench around an opening the size of the board">
+              </div>
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img data-src="../assets/avionics-page/stencil-jig.jpg" width="1280" height="1600" loading="lazy" decoding="async"
+                     alt="The steel paste stencil taped down over a board in the jig, with spare boards around it holding the board in place">
+              </div>
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img data-src="../assets/avionics-page/reflow-oven.jpg" width="1280" height="1600" loading="lazy" decoding="async"
+                     alt="A benchtop infrared reflow oven under an oscilloscope, with the reflow temperature profile drawn on its screen">
+              </div>
+            </div>
+            <div class="viewer-nav slot-nav" data-viewer-for="build-paste">
+              <button type="button" class="viewer-btn" data-dir="-1" aria-controls="build-paste" aria-label="Previous photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+              </button>
+              <button type="button" class="viewer-btn" data-dir="1" aria-controls="build-paste" aria-label="Next photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+              </button>
+            </div>
+            <p class="sr-only" aria-live="polite" data-viewer-status></p>
+            <figcaption class="viewer-captions" aria-hidden="true">
+              <span class="viewer-caption">Solder paste applied</span>
+              <span class="viewer-caption">Stencil taped in the jig</span>
+              <span class="viewer-caption">Reflow oven</span>
+            </figcaption>
           </figure>
-          <figure>
-            <img src="../assets/avionics-page/assembled.jpg" width="1080" height="1350" loading="lazy" decoding="async"
-                 alt="The board on a blue bench mat with its front side parts in place, including the GPS module, microcontroller, debug header, and micro USB port">
-            <figcaption>Front side components placed</figcaption>
+          <figure class="viewer photo-slot" id="build-assembled" data-viewer aria-roledescription="carousel" aria-label="Assembled board photos">
+            <div class="viewer-window" style="--ar: 4 / 5">
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img src="../assets/avionics-page/assembled-front-top.jpg" width="800" height="1000" loading="lazy" decoding="async"
+                     alt="The assembled board from above on a dark bench, front side up, with the GPS module, the microcontroller, and the SMA jack">
+              </div>
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img data-src="../assets/avionics-page/assembled-back-top.jpg" width="800" height="1000" loading="lazy" decoding="async"
+                     alt="The assembled board from above on a dark bench, back side up, with the E22 radio module and the SMA jack">
+              </div>
+            </div>
+            <div class="viewer-nav slot-nav" data-viewer-for="build-assembled">
+              <button type="button" class="viewer-btn" data-dir="-1" aria-controls="build-assembled" aria-label="Previous photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+              </button>
+              <button type="button" class="viewer-btn" data-dir="1" aria-controls="build-assembled" aria-label="Next photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+              </button>
+            </div>
+            <p class="sr-only" aria-live="polite" data-viewer-status></p>
+            <figcaption class="viewer-captions" aria-hidden="true">
+              <span class="viewer-caption">Assembled front</span>
+              <span class="viewer-caption">Assembled back</span>
+            </figcaption>
           </figure>
-          <figure class="bench">
-            <img src="../assets/avionics-page/bench.jpg" width="1600" height="901" loading="lazy" decoding="async"
-                 alt="The assembled board under the ring light of a bench microscope, with a multimeter and probes beside it">
-            <figcaption>On the bench for testing</figcaption>
+          <figure class="viewer photo-slot" id="build-bench" data-viewer aria-roledescription="carousel" aria-label="Bench testing photos">
+            <div class="viewer-window" style="--ar: 4 / 5">
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img src="../assets/avionics-page/bench-microscope.jpg" width="1040" height="1300" loading="lazy" decoding="async"
+                     alt="The assembled board under the ring light of a bench microscope, with a multimeter and probes beside it">
+              </div>
+              <div class="viewer-view" role="group" aria-roledescription="slide">
+                <img data-src="../assets/avionics-page/bench-power.jpg" width="1280" height="1600" loading="lazy" decoding="async"
+                     alt="The board powered from a bench supply through clip leads, with the supply reading 5.00 V and 0.03 A and a red LED lit on the board">
+              </div>
+            </div>
+            <div class="viewer-nav slot-nav" data-viewer-for="build-bench">
+              <button type="button" class="viewer-btn" data-dir="-1" aria-controls="build-bench" aria-label="Previous photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 10H4.5M9 5l-5 5 5 5"/></svg>
+              </button>
+              <button type="button" class="viewer-btn" data-dir="1" aria-controls="build-bench" aria-label="Next photo">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 10h11.5M11 5l5 5-5 5"/></svg>
+              </button>
+            </div>
+            <p class="sr-only" aria-live="polite" data-viewer-status></p>
+            <figcaption class="viewer-captions" aria-hidden="true">
+              <span class="viewer-caption">On the bench for testing</span>
+              <span class="viewer-caption">Powered from the bench supply</span>
+            </figcaption>
           </figure>
         </div>
       </div>
@@ -255,7 +349,7 @@
   </footer>
 
   <script src="../js/main.js?v=11"></script>
-  <script type="module" src="../js/view-slider.js?v=1"></script>
+  <script type="module" src="../js/view-slider.js?v=2"></script>
   <script type="module" src="../js/avionics-pcb.js?v=4"></script>
 </body>
 </html>

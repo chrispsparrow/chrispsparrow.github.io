@@ -1,12 +1,15 @@
-/* Sideways sliders on the avionics page (schematic sheets, layout views).
+/* Sideways sliders on the avionics page (board photos, schematic sheets, layout views,
+   and the three photo slots on the assembly slide).
 
    Each slider is a fixed-size frame ([data-viewer]) holding a stack of views, plus a
-   pair of arrow buttons ([data-viewer-for="<frame id>"]) that sit beside the slide's
-   text. You can move between views with:
+   pair of arrow buttons ([data-viewer-for="<frame id>"]). On slides 2 to 4 the arrows
+   sit beside the slide's text. On slide 5 each photo slot has its own small pair under
+   its photo. You can move between views with:
      - the arrows (the back arrow shows once you have moved past the first view,
        and the next arrow goes away on the last view)
-     - the left and right arrow keys, while that slide is in the middle of the window
-     - a sideways trackpad scroll, or Shift with the mouse wheel, over that slide
+     - the left and right arrow keys, while the mouse is over that slider (its picture
+       or its arrows) or one of its arrows has the keyboard focus
+     - a sideways trackpad scroll, or Shift with the mouse wheel, over that slider
      - a sideways swipe on the picture on a phone
    Only clearly sideways gestures are used. Up and down scrolling is never stopped or
    slowed, so the page always keeps scrolling down. The frame never changes size, so
@@ -22,7 +25,11 @@ function setup(root) {
   const prev = nav && nav.querySelector('[data-dir="-1"]');
   const next = nav && nav.querySelector('[data-dir="1"]');
   const section = root.closest('.slide') || root;
-  const label = (k) => views[k].getAttribute('aria-label') || '';
+  /* What a screen reader hears after a move: the view's name, or the photo's alt text */
+  const label = (k) => {
+    const img = views[k].querySelector('img');
+    return views[k].getAttribute('aria-label') || (img && img.alt) || '';
+  };
   let index = 0;
 
   function setButton(btn, on) {
@@ -59,26 +66,34 @@ function setup(root) {
     const n = Math.min(views.length - 1, Math.max(0, index + dir));
     if (n === index) return false;
     index = n;
-    loadAll();
+    loadNear();
     render(true);
     return true;
   }
 
-  /* Pictures past the first are off to the side, where lazy loading would not see
-     them. Load them all once the slide gets close, so a slide never shows up blank. */
-  let loaded = false;
-  function loadAll() {
-    if (loaded) return;
-    loaded = true;
-    root.querySelectorAll('img[loading="lazy"]').forEach(img => { img.loading = 'eager'; });
+  /* Only the first picture has a src in the page (the browser lazy loads it as usual).
+     The others wait in data-src. Once the slide gets close, the picture showing and
+     the ones on either side of it load, so the next one is ready before it slides in.
+     The rest wait until you get next to them. */
+  let near = false;
+  function loadNear() {
+    if (!near) return;
+    for (let k = Math.max(0, index - 1); k <= Math.min(views.length - 1, index + 1); k++) {
+      views[k].querySelectorAll('img[data-src]').forEach(img => {
+        img.loading = 'eager';
+        img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+      });
+    }
   }
   if ('IntersectionObserver' in window) {
-    const near = new IntersectionObserver((entries) => {
-      if (entries.some(e => e.isIntersecting)) { loadAll(); near.disconnect(); }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) { near = true; loadNear(); io.disconnect(); }
     }, { rootMargin: '150% 0px 150% 0px' });
-    near.observe(section);
+    io.observe(section);
   } else {
-    loadAll();
+    near = true;
+    loadNear();
   }
 
   if (prev) prev.addEventListener('click', () => go(-1));
@@ -102,66 +117,71 @@ function setup(root) {
   win.addEventListener('pointerup', end);
   win.addEventListener('pointercancel', end);
 
+  /* Sideways trackpad scrolls and Shift with the mouse wheel, only while the mouse is
+     over this slider. Only clearly sideways events are cancelled, so scrolling up and
+     down over the picture still moves the page. */
+  let acc = 0, locked = false, lockTimer = 0;
+  function onWheel(e) {
+    if (e.ctrlKey) return;                       /* ctrl + wheel is page zoom */
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerWidth : 1;
+    let dx = e.deltaX * unit, dy = e.deltaY * unit;
+    if (e.shiftKey && Math.abs(dx) < Math.abs(dy)) { dx = dy; dy = 0; }   /* Shift + wheel, in browsers that keep it vertical */
+    if (Math.abs(dx) < 2 || Math.abs(dx) <= Math.abs(dy) * 1.2) { acc = 0; return; }   /* up and down: leave it alone */
+    e.preventDefault();                          /* also stops the browser's swipe-back gesture */
+    clearTimeout(lockTimer);
+    lockTimer = setTimeout(() => { locked = false; acc = 0; }, 220);   /* one gesture moves one view */
+    if (locked) return;
+    acc += dx;
+    if (Math.abs(acc) >= 40) {
+      go(acc > 0 ? 1 : -1);
+      locked = true;
+      acc = 0;
+    }
+  }
+  root.addEventListener('wheel', onWheel, { passive: false });
+  if (nav && !root.contains(nav)) nav.addEventListener('wheel', onWheel, { passive: false });
+
   render(false);
   root.classList.add('is-ready');
   if (nav) nav.classList.add('is-ready');
-  return { root, section, go };
+  return {
+    go,
+    owns: (el) => root.contains(el) || (!!nav && nav.contains(el)),
+    hovered: () => root.matches(':hover') || (!!nav && nav.matches(':hover')),
+  };
 }
 
 document.querySelectorAll('[data-viewer]').forEach(el => sliders.push(setup(el)));
 
-/* ── Which slider is in charge right now ───────────────────
-   The one whose slide crosses the middle of the window. Keys and sideways scrolls
-   only do something while a slider slide is there. */
-let active = null;
-if (sliders.length && 'IntersectionObserver' in window) {
-  const inMiddle = new Set();
-  const mid = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const s = sliders.find(x => x.section === e.target);
-      if (!s) continue;
-      if (e.isIntersecting) inMiddle.add(s); else inMiddle.delete(s);
-    }
-    setActive(inMiddle.size ? Array.from(inMiddle)[inMiddle.size - 1] : null);
-  }, { rootMargin: '-49% 0px -49% 0px' });
-  sliders.forEach(s => mid.observe(s.section));
-}
+/* ── Arrow keys ─────────────────────────────────────────────
+   They move the slider under the mouse, or the one whose arrow has the focus (as long
+   as that arrow is on screen). With neither, the keys do nothing here. When both are
+   there and they differ, the one you used last wins: after moving the mouse or
+   clicking, the slider under the mouse, and after Tab, the focused one. So you can
+   click one slot's arrow, point at another slot, and the keys follow the mouse. */
+let mouseLast = false;
+document.addEventListener('pointermove', (e) => {
+  /* A real move only. Chrome sends moves without movement when the page scrolls under a still mouse. */
+  if (e.pointerType === 'mouse' && (e.movementX || e.movementY)) mouseLast = true;
+}, { passive: true });
+document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') mouseLast = true; }, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Tab') mouseLast = false; }, true);
 
-/* Arrow keys */
+function onScreen(el) {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+}
+function keySlider() {
+  const f = document.activeElement;
+  const focused = f && f !== document.body && onScreen(f) ? sliders.find(s => s.owns(f)) : null;
+  const hovered = sliders.find(s => s.hovered());
+  return (mouseLast ? hovered || focused : focused || hovered) || null;
+}
 document.addEventListener('keydown', (e) => {
-  if (!active || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const t = e.target;
   if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]')) return;
-  if (active.go(e.key === 'ArrowRight' ? 1 : -1)) e.preventDefault();
+  const s = keySlider();
+  if (s && s.go(e.key === 'ArrowRight' ? 1 : -1)) e.preventDefault();
 });
-
-/* Sideways trackpad scrolls and Shift with the mouse wheel. The listener is only
-   attached while a slider slide is in the middle of the window, and it only ever
-   cancels events that are clearly sideways, so up and down scrolling is untouched. */
-let acc = 0, locked = false, lockTimer = 0;
-function onWheel(e) {
-  if (!active || e.ctrlKey) return;            /* ctrl + wheel is page zoom */
-  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerWidth : 1;
-  let dx = e.deltaX * unit, dy = e.deltaY * unit;
-  if (e.shiftKey && Math.abs(dx) < Math.abs(dy)) { dx = dy; dy = 0; }   /* Shift + wheel, in browsers that keep it vertical */
-  if (Math.abs(dx) < 2 || Math.abs(dx) <= Math.abs(dy) * 1.2) { acc = 0; return; }   /* up and down: leave it alone */
-  e.preventDefault();                          /* also stops the browser's swipe-back gesture */
-  clearTimeout(lockTimer);
-  lockTimer = setTimeout(() => { locked = false; acc = 0; }, 220);   /* one gesture moves one view */
-  if (locked) return;
-  acc += dx;
-  if (Math.abs(acc) >= 40) {
-    active.go(acc > 0 ? 1 : -1);
-    locked = true;
-    acc = 0;
-  }
-}
-function setActive(s) {
-  if (s === active) return;
-  const had = !!active;
-  active = s;
-  acc = 0;
-  if (active && !had) window.addEventListener('wheel', onWheel, { passive: false });
-  if (!active && had) window.removeEventListener('wheel', onWheel, { passive: false });
-}
