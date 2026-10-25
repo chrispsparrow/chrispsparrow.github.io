@@ -369,7 +369,7 @@
         </div>
         <div class="tc-right-col">
           <h1 class="tp-hero-h1">Assistive<br>Toothpaste<br>Dispenser</h1>
-          <p class="tp-hero-tagline">A 3D-printed dispenser that gives you the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
+          <p class="tp-hero-tagline">A wall-mounted, 3D-printed dispenser that measures out the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
           <div class="tp-hero-tags">
             <span class="tag tag-gold">TEAM PROJECT</span>
             <span class="tag">MICROPYTHON</span>
@@ -415,7 +415,7 @@
       <div class="tf-title-block">
         <a href="../" class="tp-breadcrumb">← Back to home</a>
         <h1 class="tp-hero-h1">Assistive<br>Toothpaste<br>Dispenser</h1>
-        <p class="tp-hero-tagline">A 3D-printed dispenser that gives you the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
+        <p class="tp-hero-tagline">A wall-mounted, 3D-printed dispenser that measures out the amount of toothpaste dentists recommend with one button press. Our team of three built it for Northeastern's Cornerstone of Engineering class.</p>
         <div class="tp-hero-tags">
           <span class="tag tag-gold">TEAM PROJECT</span>
           <span class="tag">MICROPYTHON</span>
@@ -433,7 +433,7 @@
              alt="Start button" style="object-position:47% 74%;">
         <div>
           <div class="tf-label">Start button</div>
-          <p class="tf-caption">Press it to get a dose from the slot underneath. The adult setting gives a pea-sized amount and the kid setting gives a rice-sized amount.</p>
+          <p class="tf-caption">Pressing it dispenses one dose through the slot below. The adult setting gives a pea-sized amount, and the child setting gives a rice-sized amount.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -442,7 +442,7 @@
              alt="Settings button" style="object-position:30% 80%;">
         <div>
           <div class="tf-label">Settings button</div>
-          <p class="tf-caption">Press it once to switch between the adult and kid dose. Press it twice quickly to run the motor backward, which lifts the arm so you can put in a new tube.</p>
+          <p class="tf-caption">One press switches between the adult and child doses. A quick double press puts the motor in reverse, so the Start button raises the arm for a new tube.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -451,7 +451,7 @@
              alt="3D-printed threaded screw" style="object-position:37% 55%;">
         <div>
           <div class="tf-label">3D-printed threaded screw</div>
-          <p class="tf-caption">The motor spins this screw, and the arm rides down its threads. That's how the motor's spinning becomes a straight push on the tube.</p>
+          <p class="tf-caption">The motor turns this screw, and the squeezer arm travels down its threads. This converts the motor's rotation into a straight push on the tube.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -460,7 +460,7 @@
              alt="DC motor" style="object-position:43% 26%;">
         <div>
           <div class="tf-label">DC motor</div>
-          <p class="tf-caption">This motor turns the screw. The Pico switches it on, off, and into reverse through the motor driver.</p>
+          <p class="tf-caption">This motor drives the screw. The Pico starts, stops, and reverses it through the motor driver.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -469,7 +469,7 @@
              alt="Raspberry Pi Pico" style="object-position:46% 32%;">
         <div>
           <div class="tf-label">Raspberry Pi Pico</div>
-          <p class="tf-caption">This small computer runs the whole dispenser. I wired it up and wrote all of its code in MicroPython.</p>
+          <p class="tf-caption">This microcontroller runs the whole dispenser. I wired it on a breadboard with the motor driver and buttons, and wrote all of its code in MicroPython.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -478,7 +478,7 @@
              alt="Dual-channel motor driver" style="object-position:47% 47%;">
         <div>
           <div class="tf-label">Dual-channel motor driver</div>
-          <p class="tf-caption">The Pico can't power a motor on its own, so this TB6612FNG driver board sits in between. It lets the motor run forward or backward.</p>
+          <p class="tf-caption">The Pico's pins can't supply enough current for a motor, so this TB6612FNG driver sits between the Pico and the motor. It also lets the motor run in either direction.</p>
         </div>
       </div>
       <div class="tf-item">
@@ -487,7 +487,7 @@
              alt="Keyhole wall-mount slots" style="object-position:62% 22%;">
         <div>
           <div class="tf-label">Keyhole wall-mount slots</div>
-          <p class="tf-caption">These slots on the back let you hang the dispenser on regular bathroom wall screws.</p>
+          <p class="tf-caption">Keyhole slots on the back let the dispenser hang on standard wall screws, with no extra mounting hardware.</p>
         </div>
       </div>
     </div>
@@ -498,21 +498,21 @@
 
   <section class="tp-bs reveal" aria-label="The problem">
     <h2 class="sec-lbl">The problem</h2>
-    <p>For people with arthritis or Parkinson's, squeezing a toothpaste tube can be painful or even impossible. Kids have the opposite problem. Over a third of them use more toothpaste than they should, because nothing tells them how much is enough.</p>
-    <p>We wanted to make getting the right amount easy for everyone, from a six-year-old to someone who has trouble using their hands. With our dispenser, it takes one button press.</p>
+    <p>For people with arthritis or Parkinson's, squeezing a toothpaste tube can be painful or even impossible. Children run into a different problem. Over a third of them use more toothpaste than recommended, because nothing shows them how much is enough.</p>
+    <p>Our goal was a dispenser that gives the right amount with a single button press, whether the person using it is six years old or has limited hand strength.</p>
   </section>
 
   <section class="tp-bs reveal" aria-label="How it works">
     <h2 class="sec-lbl">How it works</h2>
-    <p>The dispenser hangs on the wall, and the toothpaste tube slides in from the top. Inside, a 3D-printed screw and a squeezer arm sit up against the tube.</p>
-    <p>When you press the Start button, the Raspberry Pi Pico (the small computer that runs everything) checks which dose you picked and runs the motor at full power. The motor turns the screw, which pushes the arm down onto the tube for just the right amount of time. Then the motor stops and your toothpaste comes out.</p>
-    <p>A clear front door lets you see how much toothpaste is left. Two keyhole slots on the back fit regular bathroom wall screws, so you don't need any special hardware to hang it.</p>
+    <p>The dispenser mounts on the wall, and the tube loads from the top. Inside, a 3D-printed screw drives a squeezer arm that presses down on the tube.</p>
+    <p>When you press Start, the Raspberry Pi Pico reads the selected dose setting and runs the motor at full power for a set time. The screw drives the arm down onto the tube and pushes out a measured amount of toothpaste.</p>
+    <p>A clear front door shows how much toothpaste is left. Two keyhole slots on the back fit standard wall screws, so it mounts without any special hardware.</p>
   </section>
 
-  <section class="tp-bs reveal" aria-label="Buttons and code">
-    <h2 class="sec-lbl">Buttons and code</h2>
-    <p>There are two buttons. The Start button gives you a dose. The Settings button switches between two doses. The adult dose runs the motor for half a second, and the kid dose runs it for a quarter second. If you press Settings twice within 0.6 seconds, the motor runs backward and lifts the arm back up, so you can load a new tube without taking anything apart.</p>
-    <p>When you press a button, the metal contacts bounce for a split second, so one press can look like several. To fix that, the code checks the buttons in a loop and waits 25 milliseconds to make sure a press is real. This is called debouncing, and doing it this way meant I didn't need interrupts, a more advanced way of reacting to button presses.</p>
+  <section class="tp-bs reveal" aria-label="Electronics and code">
+    <h2 class="sec-lbl">Electronics and code</h2>
+    <p>I wired the electronics on a breadboard mounted inside the back of the case. The Pico controls a TB6612FNG motor driver, which powers the DC motor, and both buttons connect directly to the Pico's input pins. A breadboard made sense for a class prototype, because I could change the wiring quickly as the design changed.</p>
+    <p>The Start button dispenses a dose. The Settings button switches between the adult dose, which runs the motor for half a second, and the child dose, which runs it for a quarter second. A double press of Settings puts the motor in reverse, so the next press of Start lifts the arm for a tube change.</p>
     <div class="tp-code-lbl mono">The part of my code that runs a dose</div>
     <pre class="tp-pre"><code>AdultDuration = 0.5    <span class="tp-cm"># pea-sized dose</span>
 ChildDuration = 0.25   <span class="tp-cm"># rice-sized dose</span>
@@ -527,23 +527,28 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
     motor_forward(TimeSetting)</code></pre>
   </section>
 
+  <section class="tp-bs reveal" aria-label="Next steps">
+    <h2 class="sec-lbl">Next steps</h2>
+    <p>The breadboard worked well for a prototype, but jumper wires held down with tape aren't something I'd want in a finished product. My next step would be to design a custom PCB for the dispenser, using what I've learned designing boards for AerospaceNU. One board with the Pico, the motor driver, and connectors for the motor and buttons would take up less space inside the case and hold up better over time.</p>
+  </section>
+
   <section class="tp-bs reveal" aria-label="Who did what">
     <h2 class="sec-lbl">Who did what</h2>
     <div class="role-grid">
       <div class="role-col" style="border-left: 3px solid var(--gold);">
         <div class="role-col-lbl mono">What I did</div>
         <ul class="role-list">
-          <li>Did all the electronics, wiring the Pico, the motor driver, and the buttons</li>
-          <li>Wrote all the MicroPython code, including the dose timing, the two dose settings, and the button debouncing</li>
-          <li>Added the double-press that runs the motor backward, so you can change tubes without taking the dispenser apart</li>
-          <li>Came up with the idea for the clear plexiglass door so you can see how much toothpaste is left</li>
-          <li>Put together and tested all three of our prototypes</li>
+          <li>Wired all of the electronics on a breadboard, including the Pico, the motor driver, and both buttons</li>
+          <li>Wrote all of the MicroPython code, including the dose timing, the two dose settings, and button debouncing</li>
+          <li>Added a double-press reverse mode, so tubes can be changed without taking the dispenser apart</li>
+          <li>Proposed the clear plexiglass door that shows how much toothpaste is left</li>
+          <li>Assembled and tested all three of our prototypes</li>
         </ul>
       </div>
       <div class="role-col">
         <div class="role-col-lbl mono">What Simon Hume and Bora Bromberg did</div>
         <ul class="role-list">
-          <li>Designed the case, threaded screw, squeezer arm, and wall bracket in SolidWorks, a 3D design program</li>
+          <li>Designed the case, threaded screw, squeezer arm, and wall bracket in SolidWorks</li>
           <li>Took the design through three versions, from cardboard to a first 3D print to the final build</li>
           <li>Built the clear door into the case design</li>
           <li>Wrote the project report and documentation, and made the presentation</li>
@@ -554,8 +559,8 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
 
   <section class="tp-bs reveal" aria-label="Three prototypes">
     <h2 class="sec-lbl">Three prototypes</h2>
-    <p>We built three prototypes over the semester. The cardboard version helped us figure out the basic layout, like where the tube and buttons should go and how big the whole thing should be. Our first 3D print showed that the screw's threads needed to be closer together so the arm would press evenly without slipping. For the final build, we made the parts fit together more tightly, moved the Pico so it wasn't in the way of the motor wires, and added the keyhole slots for hanging it.</p>
-    <p>The hardest part was matching how far the arm moves to how long the code runs the motor. If the motor runs too short, you get a different amount every time. If it runs too long, the motor jams. We picked the half-second and quarter-second timings by testing them over an entire tube.</p>
+    <p>We built three prototypes over the semester. The cardboard version set the basic layout, including where the tube and buttons go and how big the case should be. Our first 3D print showed that the screw needed a finer thread so the arm would press evenly without slipping. For the final build, we tightened the fit between parts, moved the Pico clear of the motor wires, and added the keyhole slots for mounting.</p>
+    <p>The hardest part was matching the arm's travel to the motor's run time. If the motor ran too briefly, the amount varied from press to press, and if it ran too long, the motor jammed. We settled on the half-second and quarter-second timings by testing them across an entire tube.</p>
   </section>
 
   <section class="tp-bs reveal" aria-label="From sketch to final design">
@@ -623,25 +628,25 @@ def start_mechanism():             <span class="tp-cm"># start → dispense</spa
        side rule: x < 0.5 → left column; x >= 0.5 → right column. */
     const STOPS = [
       { img: 'A', x: 0.47, y: 0.74, label: 'Start button',
-        caption: "Press it to get a dose from the slot underneath. The adult setting gives a pea-sized amount and the kid setting gives a rice-sized amount.",
+        caption: "Pressing it dispenses one dose through the slot below. The adult setting gives a pea-sized amount, and the child setting gives a rice-sized amount.",
         side: 'left'  },
       { img: 'A', x: 0.30, y: 0.80, label: 'Settings button',
-        caption: "Press it once to switch between the adult and kid dose. Press it twice quickly to run the motor backward, which lifts the arm so you can put in a new tube.",
+        caption: "One press switches between the adult and child doses. A quick double press puts the motor in reverse, so the Start button raises the arm for a new tube.",
         side: 'left'  },
       { img: 'A', x: 0.37, y: 0.55, label: '3D-printed threaded screw',
-        caption: "The motor spins this screw, and the arm rides down its threads. That's how the motor's spinning becomes a straight push on the tube.",
+        caption: "The motor turns this screw, and the squeezer arm travels down its threads. This converts the motor's rotation into a straight push on the tube.",
         side: 'left'  },
       { img: 'A', x: 0.43, y: 0.26, label: 'DC motor',
-        caption: "This motor turns the screw. The Pico switches it on, off, and into reverse through the motor driver.",
+        caption: "This motor drives the screw. The Pico starts, stops, and reverses it through the motor driver.",
         side: 'left'  },
       { img: 'B', x: 0.46, y: 0.32, label: 'Raspberry Pi Pico',
-        caption: "This small computer runs the whole dispenser. I wired it up and wrote all of its code in MicroPython.",
+        caption: "This microcontroller runs the whole dispenser. I wired it on a breadboard with the motor driver and buttons, and wrote all of its code in MicroPython.",
         side: 'left'  },
       { img: 'B', x: 0.47, y: 0.47, label: 'Dual-channel motor driver',
-        caption: "The Pico can't power a motor on its own, so this TB6612FNG driver board sits in between. It lets the motor run forward or backward.",
+        caption: "The Pico's pins can't supply enough current for a motor, so this TB6612FNG driver sits between the Pico and the motor. It also lets the motor run in either direction.",
         side: 'right' },
       { img: 'C', x: 0.62, y: 0.22, label: 'Wall-mount slots',
-        caption: "These slots on the back let you hang the dispenser on regular bathroom wall screws.",
+        caption: "Keyhole slots on the back let the dispenser hang on standard wall screws, with no extra mounting hardware.",
         side: 'right' },
     ];
 
