@@ -131,9 +131,21 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
 /* ── ANCHOR SCROLL OFFSET ────────────────────────────────── */
 (function () {
   const nav = document.getElementById('nav');
-  /* Robust document offset via offsetTop chain — unaffected by sticky pinning
-     (getBoundingClientRect would report 0 for an already-stuck element). */
-  const docTop = (el) => { let y = 0; while (el) { y += el.offsetTop; el = el.offsetParent; } return y; };
+  /* Document offset via the offsetTop chain. A sticky element's offsetTop moves
+     with it while it's pinned, so for one of those, start from the element
+     before it (sticky too, for #work) and add that element's height, or from
+     the top of its parent if it comes first. That gives its spot in the normal
+     page flow no matter how far down the page you are. */
+  const docTop = (el) => {
+    if (getComputedStyle(el).position === 'sticky') {
+      let prev = el.previousElementSibling;
+      while (prev && !prev.offsetParent) prev = prev.previousElementSibling;
+      const parent = el.parentElement;
+      return prev ? docTop(prev) + prev.offsetHeight
+                  : docTop(parent) + parseFloat(getComputedStyle(parent).paddingTop);
+    }
+    let y = 0; while (el) { y += el.offsetTop; el = el.offsetParent; } return y;
+  };
   document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
       const id = a.getAttribute('href').slice(1);
