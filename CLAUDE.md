@@ -68,6 +68,9 @@ meta descriptions.
 - Monospace (`--font-mono`, Space Mono) is only for real code blocks, like the
   MicroPython snippet on the toothpaste page. Don't use it for labels or UI text.
 - Don't force labels into all caps with wide letter spacing in CSS.
-- **Exception: the home page hero.** Its subline, two buttons, and SCROLL
-  label keep their original Space Mono look, with spaced-out caps. Leave them as
-  they are.
+- **Exception: the home page hero.** The second line of its title
+  ("Engineering Portfolio"), its two buttons, and its SCROLL label keep the
+  original Space Mono look, with spaced-out caps. Leave them as they are.
+- The hero's corner-bracket frame is locked to the size it had around the old,
+  bigger title (the `--was-*` values in `.hero-frame`). If you change the hero
+  content, keep that lock so the brackets don't move.

@@ -489,26 +489,44 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   text-align: center;
   max-width: 1300px;
   width: 100%;
+  container-type: inline-size;   /* phone frame size checks below measure this width */
 }
 
 /* ── HERO FRAME (corner-bracket motif from the PDF cover) ── */
 .hero-frame {
+  /* Frame size lock. The frame used to hug a much bigger title (a two-line
+     name plus a tagline). These --was-* values are that old content's sizes,
+     and the width and min-height below rebuild the box it made, so the corner
+     brackets stay exactly where they were. The 6.1871, 32.112, and 339.25px
+     constants are the old name, tagline, and button row widths. */
+  --was-name: min(clamp(2.7rem, 9vw, 6.7rem), 9.5vh);
+  --was-sub: clamp(0.6rem, 1.4vw, 0.82rem);
+  --was-sub-lines: 1;
+  --was-gap: clamp(0.95rem, 2.35vh, 2rem);
+  --was-logo: min(clamp(157px, 29vw, 314px), 24.6vh);
+  --was-logo-mb: clamp(0.2rem, 0.9vh, 0.8rem);
+  --was-cta: 42.94px;
+  --was-inner-w: max(6.1871 * var(--was-name), 32.112 * var(--was-sub), 339.25px);
+  --frame-pad-x: clamp(1.8rem, 3.9vw, 2.9rem);
+  --frame-pad-y: clamp(2rem, 4vh, 3.6rem);
+  --frame-min-h: calc(2 * var(--frame-pad-y) + 0.59145 * var(--was-logo) + var(--was-logo-mb)
+                 + 3 * var(--was-gap) + 1.8 * var(--was-name)
+                 + 1.6 * var(--was-sub) * var(--was-sub-lines)
+                 + clamp(0.4rem, 1.5vh, 1rem) + var(--was-cta));
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* vh-aware so the bracketed frame stays short enough to fit inside the
-     hero (below the nav, above the bottom) even on shorter viewports */
-  gap: clamp(0.95rem, 2.35vh, 2rem);
-  /* hug the content so the bracket box reads as a near-square, not a wide
-     landscape rectangle. Generous side padding keeps it from getting too narrow. */
-  width: fit-content;
+  /* vh-aware so the logo, title, and buttons fit on shorter viewports */
+  gap: clamp(1.1rem, 3.2vh, 2.4rem);
+  width: calc(var(--was-inner-w) + 2 * var(--frame-pad-x));
   max-width: min(760px, 100%);
+  min-height: var(--frame-min-h);
   margin: 0 auto;
-  padding: clamp(2rem, 4vh, 3.6rem) clamp(1.8rem, 3.9vw, 2.9rem);
+  padding: var(--frame-pad-y) var(--frame-pad-x);
   /* Keep the four gold corners on a square: height follows the width and the
-     content sits in the middle. On phones the content is taller than the frame
-     is wide, so it grows past square there. */
+     content sits in the middle. On phones the min-height is taller than the
+     frame is wide, so it grows past square there. */
   aspect-ratio: 1 / 1;
   justify-content: center;
 }
@@ -516,7 +534,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    cue, so the frame fills the height that is there instead (as close to square
    as fits). 13.625rem = hero top padding + the SCROLL cue's reach into the bottom. */
 @media (max-height: 760px) and (min-width: 641px) {
-  .hero-frame { aspect-ratio: auto; min-height: calc(100svh - 13.625rem); }
+  .hero-frame { aspect-ratio: auto; min-height: max(calc(100svh - 13.625rem), var(--frame-min-h)); }
 }
 
 /* Four thin L-shaped gold corner marks — not a full box outline */
@@ -533,31 +551,37 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 .hero-corner.br { bottom: 0; right: 0; border-left: none;  border-top: none; }
 
 .hero-logo {
-  /* capped by viewport height (24.6vh) so it shrinks on short screens */
-  width: min(clamp(157px, 29vw, 314px), 24.6vh);
+  /* capped by viewport height (29.5vh) so it shrinks on short screens */
+  width: min(clamp(188px, 34.8vw, 377px), 29.5vh);
   height: auto;
   margin-bottom: clamp(0.2rem, 0.9vh, 0.8rem);
 }
 
-.hero-name {
-  /* capped by viewport height so two lines never overflow short screens */
-  font-size: min(clamp(2.7rem, 9vw, 6.7rem), 9.5vh);
+/* Two-line title: the name, then a smaller gold line under it. Line 1 scales
+   with the frame's inner width so it always fits on one line. */
+.hero-title {
+  font-size: clamp(1.5rem, calc(var(--was-inner-w) / 12), 2.75rem);
   font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 0.9;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  text-transform: uppercase;
   color: var(--hero-text);
   margin: 0;
 }
 
-/* Hero exception to the Typography rule: the subline, buttons, and SCROLL
-   label keep their original Space Mono look (spaced-out caps). */
-.hero-sub {
-  font-family: var(--font-mono);
-  font-size: clamp(0.6rem, 1.4vw, 0.82rem);
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--gold);
+/* Hero exception to the Typography rule: the title's second line, buttons,
+   and SCROLL label keep the original Space Mono look (spaced-out caps).
+   The left padding matches the letter spacing so the line stays centered. */
+.hero-title-sub {
   display: block;
+  margin-top: clamp(0.45rem, 1.1vh, 0.75rem);
+  padding-left: 0.28em;
+  font-family: var(--font-mono);
+  font-size: clamp(0.62rem, 1.4vw, 0.85rem);
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  line-height: 1.6;
+  color: var(--gold);
 }
 
 .hero-cta {
@@ -572,9 +596,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    .hero-enter is added by JS on intro-done (skipped under reduced motion). */
 @media (prefers-reduced-motion: no-preference) {
   .hero-enter .hero-logo    { animation: heroIn 0.7s var(--ease-expo) both; }
-  .hero-enter .hero-name    { animation: heroIn 0.7s var(--ease-expo) 0.22s both; }
-  .hero-enter .hero-sub     { animation: heroIn 0.7s var(--ease-expo) 0.36s both; }
-  .hero-enter .hero-cta     { animation: heroIn 0.7s var(--ease-expo) 0.48s both; }
+  .hero-enter .hero-title   { animation: heroIn 0.7s var(--ease-expo) 0.22s both; }
+  .hero-enter .hero-cta    { animation: heroIn 0.7s var(--ease-expo) 0.48s both; }
 }
 @keyframes heroIn {
   from { opacity: 0; transform: translateY(16px); }
@@ -650,14 +673,33 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   50%      { transform: translateX(-50%) translateY(6px); opacity: 1; }
 }
 
-/* Mobile: shrink logo/name and tighten spacing so the whole frame fits in
+/* Mobile: shrink logo/title and tighten spacing so the whole frame fits in
    one 100svh screen without crowding the nav or the scroll indicator. */
 @media (max-width: 640px) {
   #hero { padding: 6rem 1.25rem 5rem; }
-  .hero-frame { padding: 2rem 1.4rem; gap: 1.2rem; width: 100%; }
-  .hero-logo { width: clamp(118px, 34vw, 190px); margin-bottom: 0.2rem; }
-  .hero-name { font-size: clamp(2.3rem, 12vw, 3.4rem); }
-  .hero-sub { letter-spacing: 0.2em; }
+  .hero-frame {
+    /* the old phone sizes, for the frame size lock above */
+    --was-name: clamp(2.3rem, 12vw, 3.4rem);
+    --was-gap: 1.2rem;
+    --was-logo: clamp(118px, 34vw, 190px);
+    --was-logo-mb: 0.2rem;
+    --frame-pad-x: 1.4rem;
+    --frame-pad-y: 2rem;
+    gap: 1.4rem;
+    width: 100%;
+  }
+  .hero-logo { width: clamp(142px, 40.8vw, 228px); margin-bottom: 0.2rem; }
+  .hero-title { font-size: clamp(1.2rem, calc((100cqw - 2.8rem) / 11.5), 2rem); }
+  .hero-title-sub { letter-spacing: 0.2em; padding-left: 0.2em; }
+}
+/* Narrow phones: the old tagline wrapped to two lines and the old buttons
+   stacked. The widths are the old tagline and button row plus the frame's
+   side padding (2.8rem). */
+@container (width < 384.05px) {
+  .hero-frame { --was-cta: 99.88px; }
+}
+@container (width < 325.44px) {
+  .hero-frame { --was-sub-lines: 2; }
 }
 
 /* ============================================================
