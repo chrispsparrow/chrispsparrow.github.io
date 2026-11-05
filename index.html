@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/style.css?v=23">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -93,15 +93,6 @@
         <div class="pulse-ring r5"></div>
         <div class="pulse-ring r6"></div>
       </div>
-      <div class="pulse-slot">
-        <div class="pulse-bloom"></div>
-        <div class="pulse-ring r1"></div>
-        <div class="pulse-ring r2"></div>
-        <div class="pulse-ring r3"></div>
-        <div class="pulse-ring r4"></div>
-        <div class="pulse-ring r5"></div>
-        <div class="pulse-ring r6"></div>
-      </div>
     </div>
 
     <div class="hero-content">
@@ -111,9 +102,17 @@
         <span class="hero-corner bl" aria-hidden="true"></span>
         <span class="hero-corner br" aria-hidden="true"></span>
 
-        <img class="hero-logo"
-             src="assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
-             alt="Dogtooth Systems logo" width="300" height="177">
+        <!-- The logo in two stacked layers (tuna and wordmark), split from
+             01_primary_full_logo_kicad_white.svg with the same canvas and viewBox,
+             so js/hero-fish.js can build each one out of its own size of fish. -->
+        <div class="hero-logo" role="img" aria-label="Dogtooth Systems logo">
+          <img class="hero-logo-word"
+               src="assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_wordmark.svg"
+               alt="" width="300" height="177">
+          <img class="hero-logo-tuna"
+               src="assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg"
+               alt="" width="300" height="177">
+        </div>
         <h1 class="hero-title">Christopher Sparrow <span class="hero-title-sub">Engineering Portfolio</span></h1>
         <div class="hero-cta">
           <a href="#work" class="btn-primary">Selected work</a>
@@ -539,7 +538,8 @@
     const card = document.getElementById('av-viewer');
     if (card) applyLookToModelViewer(card);
   </script>
-  <script src="js/main.js?v=12"></script>
+  <script src="js/main.js?v=13"></script>
+  <script src="js/hero-fish.js?v=1"></script>
   <script src="js/flight-replay.js?v=2"></script>
 </body>
 </html>

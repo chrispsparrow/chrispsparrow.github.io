@@ -446,9 +446,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   pointer-events: none;
   z-index: 0;
   filter: blur(1.5px);
-  transition: opacity 1.5s ease;
 }
-#hero-ripple.ambient { opacity: 0.65; }
 .pulse-slot {
   position: absolute;
   top: 0;
@@ -476,12 +474,31 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   opacity: 0;
   will-change: transform, opacity;
 }
-.pulse-slot.firing .r1 { border: 5px solid rgba(138, 94, 16, 0.28); animation: iRing 2.2s cubic-bezier(0,0,0.28,1) forwards   0ms; }
-.pulse-slot.firing .r2 { border: 3px solid rgba(60,  96,115, 0.20); animation: iRing 2.4s cubic-bezier(0,0,0.28,1) forwards 140ms; }
-.pulse-slot.firing .r3 { border: 5px solid rgba(200,145, 58, 0.22); animation: iRing 2.2s cubic-bezier(0,0,0.28,1) forwards 280ms; }
-.pulse-slot.firing .r4 { border: 3px solid rgba(75, 100,118, 0.16); animation: iRing 2.5s cubic-bezier(0,0,0.28,1) forwards 420ms; }
-.pulse-slot.firing .r5 { border: 4px solid rgba(178,142, 78, 0.14); animation: iRing 2.3s cubic-bezier(0,0,0.28,1) forwards 560ms; }
-.pulse-slot.firing .r6 { border: 2px solid rgba(85, 110,125, 0.11); animation: iRing 2.6s cubic-bezier(0,0,0.28,1) forwards 700ms; }
+/* One pulse after the page loads (js/main.js adds .firing once). Each ring
+   spreads out to its --end size and slows down. Starting 2.3 s in, while the
+   outer rings are still easing out, the whole pulse fades away over 1 s, so
+   the hero ends as plain black and the rings never come back. Colors,
+   widths, blur, and timing match the old repeating pulse. */
+.pulse-slot.firing { animation: heroRingsOut 1s ease 2.3s forwards; }
+.pulse-slot.firing .r1 { --end: 10.4; --end-op: 0.22; border: 5px solid rgba(138, 94, 16, 0.28); animation: heroRing 2.2s cubic-bezier(0,0,0.28,1) forwards   0ms; }
+.pulse-slot.firing .r2 { --end: 8.9;  --end-op: 0.30; border: 3px solid rgba(60,  96,115, 0.20); animation: heroRing 2.4s cubic-bezier(0,0,0.28,1) forwards 140ms; }
+.pulse-slot.firing .r3 { --end: 8.0;  --end-op: 0.34; border: 5px solid rgba(200,145, 58, 0.22); animation: heroRing 2.2s cubic-bezier(0,0,0.28,1) forwards 280ms; }
+.pulse-slot.firing .r4 { --end: 6.0;  --end-op: 0.44; border: 3px solid rgba(75, 100,118, 0.16); animation: heroRing 2.5s cubic-bezier(0,0,0.28,1) forwards 420ms; }
+.pulse-slot.firing .r5 { --end: 4.7;  --end-op: 0.51; border: 4px solid rgba(178,142, 78, 0.14); animation: heroRing 2.3s cubic-bezier(0,0,0.28,1) forwards 560ms; }
+.pulse-slot.firing .r6 { --end: 2.5;  --end-op: 0.56; border: 2px solid rgba(85, 110,125, 0.11); animation: heroRing 2.6s cubic-bezier(0,0,0.28,1) forwards 700ms; }
+@keyframes heroRing {
+  0%   { transform: translateZ(0) scale(1); opacity: 0; }
+  5%   { opacity: 1; }
+  100% { transform: translateZ(0) scale(var(--end)); opacity: var(--end-op); }
+}
+@keyframes heroRingsOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+/* Paused while the hero is off screen or the tab is hidden */
+#hero-ripple.paused .pulse-slot,
+#hero-ripple.paused .pulse-bloom,
+#hero-ripple.paused .pulse-ring { animation-play-state: paused; }
 
 .hero-content {
   position: relative;
@@ -555,7 +572,34 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   width: min(clamp(188px, 34.8vw, 377px), 29.5vh);
   height: auto;
   margin-bottom: clamp(0.2rem, 0.9vh, 0.8rem);
+  /* above the fish canvas, so the fading-in logo covers the fish */
+  position: relative;
+  z-index: 1;
 }
+/* Two stacked layers with the same canvas: the wordmark sets the size and the
+   tuna sits exactly on top. js/hero-fish.js packs each layer with its own
+   fish size and hides and shows both together. */
+/* The images ignore the pointer, so hits land on the wrapper (which carries
+   the label) and a long-press or right-click never offers a half logo. */
+.hero-logo img { display: block; width: 100%; height: auto; pointer-events: none; -webkit-touch-callout: none; }
+.hero-logo .hero-logo-tuna { position: absolute; top: 0; left: 0; height: 100%; }
+
+/* The fish school (js/hero-fish.js). The script sizes and places it to cover
+   the whole hero (so the intro fish can start on the ripple's ring); the
+   fish themselves stay inside the bracket frame once they arrive. Sits above
+   the rings and under the logo, title, and buttons, and never takes clicks. */
+.hero-school {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.hero-title,
+.hero-cta { position: relative; z-index: 1; }
 
 /* Two-line title: the name, then a smaller gold line under it. Line 1 scales
    with the frame's inner width so it always fits on one line. */
@@ -593,9 +637,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 /* Optional staggered entrance after the loader hands off.
-   .hero-enter is added by JS on intro-done (skipped under reduced motion). */
+   .hero-enter is added by JS on intro-done (skipped under reduced motion).
+   The logo has no entrance. It is there, solid, from the first frame. */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-enter .hero-logo    { animation: heroIn 0.7s var(--ease-expo) both; }
   .hero-enter .hero-title   { animation: heroIn 0.7s var(--ease-expo) 0.22s both; }
   .hero-enter .hero-cta    { animation: heroIn 0.7s var(--ease-expo) 0.48s both; }
 }

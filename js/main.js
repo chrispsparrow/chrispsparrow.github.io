@@ -393,7 +393,10 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   if (open) open.addEventListener('mousedown', (e) => e.preventDefault());
 })();
 
-/* ── HERO AMBIENT RIPPLE ─────────────────────────────────── */
+/* ── HERO RINGS ──────────────────────────────────────────── */
+/* One pulse after the page loads. The rings spread out once and then fade
+   away (CSS), leaving the hero plain black. The pulse waits for the hero to
+   be on screen with the tab showing, and pauses if either changes mid-pulse. */
 (function () {
   if (REDUCED) return;
 
@@ -401,59 +404,46 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   const container = document.getElementById('hero-ripple');
   if (!hero || !container) return;
 
-  const slots = Array.from(container.querySelectorAll('.pulse-slot'));
-  if (!slots.length) return;
+  const slot  = container.querySelector('.pulse-slot');
+  const frame = hero.querySelector('.hero-frame');
+  if (!slot) return;
 
-  let slotIdx = 0;
-  let pumpId  = null;
-  let running = false;
   let started = false;
   let heroVis = false;
 
-  function firePulse() {
-    const slot = slots[slotIdx % slots.length];
-    slotIdx++;
-    slot.classList.remove('firing');
-    void slot.offsetWidth; /* restart CSS animation */
-    slot.classList.add('firing');
+  /* The hero is sticky, so the observer still sees it while the next section
+     covers it. The scroll fade above takes the frame to opacity 0 by then,
+     so count that as off screen too. */
+  const covered = () => !!frame && parseFloat(frame.style.opacity) < 0.03;
+
+  function update() {
+    const play = started && heroVis && !covered() && !document.hidden;
+    if (play) slot.classList.add('firing');   /* only ever added once */
+    container.classList.toggle('paused', !play);
   }
 
-  function pump() {
-    if (!running) return;
-    firePulse();
-    pumpId = setTimeout(pump, 2800);
-  }
+  new IntersectionObserver((entries) => {
+    heroVis = entries[entries.length - 1].isIntersecting;
+    update();
+  }, { threshold: 0 }).observe(hero);
 
-  function startPulsing() {
-    if (running) return;
-    running = true;
-    pump();
-  }
+  document.addEventListener('visibilitychange', update);
 
-  function stopPulsing() {
-    running = false;
-    clearTimeout(pumpId);
-    pumpId = null;
-  }
-
-  /* Pause when hero scrolls out of view */
-  const obs = new IntersectionObserver((entries) => {
-    heroVis = entries[0].isIntersecting;
-    if (!heroVis) stopPulsing();
-    else if (started && !document.hidden) startPulsing();
-  }, { threshold: 0 });
-  obs.observe(hero);
-
-  /* Pause when tab is hidden */
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopPulsing();
-    else if (started && heroVis) startPulsing();
+  /* Once the pulse has faded out it is gone for good. Removing it also keeps
+     it from replaying if reduced motion is switched on and off again. */
+  slot.addEventListener('animationend', (e) => {
+    if (e.target === slot && e.animationName === 'heroRingsOut') container.remove();
   });
+  let scrollRaf = 0;
+  window.addEventListener('scroll', () => {
+    if (!scrollRaf) scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; update(); });
+  }, { passive: true });
 
-  /* Start as soon as the intro hands off; fade to ambient level after 5 s */
-  document.addEventListener('intro-done', () => {
-    started = true;
-    if (heroVis && !document.hidden) startPulsing();
-    setTimeout(() => container.classList.add('ambient'), 5000);
-  }, { once: true });
+  /* Start when the intro hands off. Coming back from a project page skips
+     the intro, and then 'intro-done' fires before this code runs, so also
+     check whether the site is already revealed. */
+  const begin = () => { started = true; update(); };
+  const wrap = document.getElementById('site-wrap');
+  if (!wrap || wrap.classList.contains('revealing') || wrap.classList.contains('revealed')) begin();
+  else document.addEventListener('intro-done', begin, { once: true });
 })();
