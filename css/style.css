@@ -872,15 +872,16 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   line-height: 1.8;
   margin-bottom: 1.9rem;
 }
-/* Short bullets in place of a paragraph. Marker color is set per panel. */
-.work-row-list { padding-left: 1.2rem; line-height: 1.6; }
-.work-row-list li + li { margin-top: 0.55rem; }
-.work-row-list li { padding-left: 0.25rem; }
-/* "Codename: ___" under a board's title. Plain gray text, sits close to the title. */
+/* Short lines in place of a paragraph, one per item, no bullet markers */
+.work-row-list { list-style: none; line-height: 1.6; }
+.work-row-list li + li { margin-top: 0.7rem; }
+/* A board's codename right under its title, in the panel's accent color */
 .work-row-codename {
-  font-size: clamp(0.9rem, 1.05vw, 1rem);
-  color: var(--text-dim);
-  margin: -0.7rem 0 1.3rem;
+  font-size: clamp(1.1rem, 1.5vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  margin: -0.5rem 0 1.1rem;
 }
 .work-row-info .card-cta { align-self: flex-start; }
 .work-row-info:hover .card-cta { border-color: var(--gold-text); }
@@ -938,8 +939,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Avionics panel (deep navy) text + viewer ── */
 .panel-avionics .work-row-title { color: var(--hero-text); }
 .panel-avionics .work-row-desc  { color: var(--panel-avionics-desc); }
-.panel-avionics .work-row-codename { color: var(--panel-avionics-desc); }
-.panel-avionics .work-row-list li::marker { color: var(--gold); }
+.panel-avionics .work-row-codename { color: var(--gold); }
 .panel-avionics .card-tag       { color: #C7D2DE; border-color: rgba(255,255,255,0.28); }
 .panel-avionics .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
 .panel-avionics .work-row-info:hover .card-cta { border-color: var(--gold); }
@@ -1128,7 +1128,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Toothpaste panel (pale mint) teal accents ── */
 .panel-toothpaste .work-row-title { color: var(--text); }
 .panel-toothpaste .work-row-desc  { color: var(--text-dim); }
-.panel-toothpaste .work-row-list li::marker { color: var(--teal-accent); }
 .panel-toothpaste .card-tag       { color: var(--teal); border-color: var(--teal-border); }
 .panel-toothpaste .card-cta       { color: var(--teal); border-bottom-color: var(--teal-border); }
 .panel-toothpaste .work-row-info:hover .card-cta { border-color: var(--teal); }
@@ -1186,15 +1185,9 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   letter-spacing: -0.01em;
   line-height: 1.15;
   color: var(--text);
-  margin: 0 0 0.6rem;
+  margin: 0 0 1.75rem;
 }
-.coming-soon-sub {
-  font-size: 1rem;
-  color: var(--text-dim);
-  line-height: 1.7;
-  max-width: 640px;
-  margin: 0 0 2.5rem;
-}
+/* Fallback when the row doesn't slide (reduced motion): three across */
 .coming-soon-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1204,6 +1197,24 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 @media (max-width: 900px) {
   .coming-soon-grid { grid-template-columns: 1fr; }
 }
+/* Wide screens with motion (js/main.js adds .soon-slide). The band fills the
+   window while pinned, the cards keep a two-across size, and the row is one
+   long track that js/main.js slides left as you scroll, so the third card
+   comes in from the right. The band clips the track at the window edges. */
+#work.soon-slide {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;   /* heading and cards stay together, centered on tall windows */
+  overflow-x: clip;
+}
+/* No extra room under the cards (the band's own padding is enough), so on
+   short windows the heading stays clear of the nav while the band is pinned */
+#work.soon-slide .coming-soon { padding-bottom: 0; }
+#work.soon-slide .coming-soon-grid { display: flex; will-change: transform; }
+#work.soon-slide .soon-card { flex: 0 0 calc((100% - 1.5rem) / 2); }
+/* Scroll room after #work, set by js/main.js (0 when the row doesn't slide) */
+.work-slide-space { height: 0; }
 .soon-card {
   position: relative;
   border-radius: 6px;
@@ -1254,22 +1265,22 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   color: var(--text-dim);
   margin: 0 0 1rem;
 }
-/* Same plain gray as the meta line, right under the title */
+/* Codename in the status row, between the dot and the status, a bit bigger */
 .soon-codename {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin: 0 0 0.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 0.1rem;
 }
+/* Short lines, one per item, no bullet markers */
 .soon-list {
+  list-style: none;
   font-size: 0.92rem;
   color: var(--text-dim);
   line-height: 1.6;
   margin: 0;
-  padding-left: 1.1rem;
 }
-.soon-list li { padding-left: 0.2rem; }
-.soon-list li + li { margin-top: 0.45rem; }
-.soon-list li::marker { color: var(--soon-accent); }
+.soon-list li + li { margin-top: 0.5rem; }
 /* A plain text link under the description, underlined in the salmon accent */
 .soon-link-row { margin: 1rem 0 0; }
 .soon-link {

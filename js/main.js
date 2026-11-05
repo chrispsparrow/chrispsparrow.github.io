@@ -175,29 +175,79 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   });
 })();
 
-/* ── SELECTED WORK PIN ───────────────────────────────────── */
-/* #work holds the heading and the Coming soon cards, so it's usually taller
-   than the window. --work-pin (window height minus band height, never above 0)
-   makes it pin once its bottom reaches the bottom of the window, and then the
-   avionics panel slides up over it. Each card also gets a scroll-margin-top so
-   a link to it (like ../#ground-station) stops where the band pins, instead of
-   scrolling far enough that the avionics panel covers the card. */
+/* ── SELECTED WORK PIN AND COMING SOON SLIDE ─────────────── */
+/* #work holds the heading and the Coming soon cards. --work-pin (window height
+   minus band height, never above 0) makes it pin once its bottom reaches the
+   bottom of the window, and then the avionics panel slides up over it.
+   On wide screens with motion, .soon-slide makes the band fill the window and
+   keeps the cards at a two-across size, so the third card starts off to the
+   right. .work-slide-space adds scroll room after the band pins, and while
+   that scrolls past, the row slides left until the last card is in view.
+   Each card also gets a scroll-margin-top so a link to it (like
+   ../#ground-station) stops where the band pins, instead of scrolling far
+   enough that the avionics panel covers the card. */
 (function () {
   const work = document.getElementById('work');
   if (!work) return;
+  const track = work.querySelector('.coming-soon-grid');
+  const space = document.querySelector('.work-slide-space');
   const cards = work.querySelectorAll('.soon-card[id]');
-  const update = () => {
+  const PACE = 1.2;    // px of page scroll per px the row moves
+  const HOLD = 0.12;   // share of the window height to scroll before the row moves, and again after
+  let travel = 0, hold = 0;
+
+  /* Where the band pins: its bottom (the top of the scroll room) meets the bottom of the window */
+  const pinStart = () => space.getBoundingClientRect().top + window.scrollY - window.innerHeight;
+
+  const slide = () => {
+    if (!travel) return;
+    const p = Math.min(Math.max((window.scrollY - pinStart() - hold) / (travel * PACE), 0), 1);
+    track.style.transform = `translate3d(${(-p * travel).toFixed(1)}px, 0, 0)`;
+  };
+
+  const layout = () => {
+    const pinned = getComputedStyle(work).position === 'sticky';
+    const sliding = pinned && !REDUCED && !!track && !!space;
+    work.classList.toggle('soon-slide', sliding);
+    travel = 0;
+    if (track) track.style.transform = '';
+    if (sliding) {
+      const last = track.lastElementChild;
+      travel = Math.max(0, Math.ceil(last.getBoundingClientRect().right - track.getBoundingClientRect().right));
+    }
+    hold = window.innerHeight * HOLD;
+    if (space) space.style.height = travel ? Math.round(travel * PACE + 2 * hold) + 'px' : '';
+
     const pin = Math.min(0, window.innerHeight - work.offsetHeight);
     work.style.setProperty('--work-pin', pin + 'px');
-    const pinned = getComputedStyle(work).position === 'sticky';
     const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
     cards.forEach(c => {
-      c.style.scrollMarginTop = pinned ? Math.max(0, c.offsetTop + pin - pad) + 'px' : '';
+      let top = 0;   // the card's top inside the band
+      for (let p = c; p && p !== work; p = p.offsetParent) top += p.offsetTop;
+      c.style.scrollMarginTop = pinned ? Math.max(0, top + pin - pad) + 'px' : '';
     });
+    slide();
   };
-  update();
-  window.addEventListener('resize', update);
-  if ('ResizeObserver' in window) new ResizeObserver(update).observe(work);
+
+  let raf = 0;
+  window.addEventListener('scroll', () => {
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; slide(); });
+  }, { passive: true });
+  window.addEventListener('resize', layout);
+  if ('ResizeObserver' in window) new ResizeObserver(layout).observe(work);
+  layout();
+
+  /* Tabbing to the link in the last card while it's still off to the right,
+     or (Shift+Tab) while the avionics panel already covers the band: scroll
+     to where the row has finished sliding, so the link is on screen. */
+  if (track) track.addEventListener('focusin', (e) => {
+    if (!travel) return;
+    const r = e.target.getBoundingClientRect();
+    const covered = window.scrollY > pinStart() + space.offsetHeight;
+    if (!covered && r.left >= 0 && r.right <= window.innerWidth) return;
+    const p = r.left < 0 ? 0 : 1;
+    window.scrollTo({ top: pinStart() + hold + p * travel * PACE });
+  });
 })();
 
 /* ── HERO PARALLAX ───────────────────────────────────────── */
