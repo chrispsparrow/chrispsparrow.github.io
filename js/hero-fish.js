@@ -10,8 +10,11 @@
              in to its home spot, then the SVG logo fades in.
    Idle      The crisp SVG logo shows. The fish canvas is hidden and no
              animation loop runs.
-   Vibrate   Every 2 to 3.3 s the logo swaps to fish for about a sixth of a
-             second, the fish shiver in place, and it swaps back.
+   Vibrate   Like an old TV with a crack in it: now and then a glitch spell
+             of one to four blinks, where the logo swaps to fish, shivers
+             (often with a thin band torn sideways), and swaps back. Blinks
+             in a spell usually come right after each other, sometimes up to
+             2 s apart, and the odd one lasts longer. Calm in between.
    Break     Touching the tuna or the wordmark with the cursor (or tapping
              it) swaps the whole logo to fish and bursts them away from that
              spot.
@@ -39,7 +42,8 @@
   const FLEE_STRENGTH    = 2.5;           // how hard fish flee, compared with one schooling force
   const CRUISE_SPEED     = 70;            // px per second the schooling urges aim for (with all of them pulling
                                           // at once, a relaxed school averages about 60% of this)
-  const VIBRATE_INTERVAL = [2000, 3333];  // ms, random wait between idle shivers
+  const VIBRATE_INTERVAL = [3500, 8000];  // ms, random calm between glitch spells
+  const VIBRATE_GAP_MAX  = 2000;          // ms, longest wait between blinks inside a spell (rare; most are quick)
   const VIBRATE_STRENGTH = 0.8;           // px, how far a fish shivers off its home spot
   const REFORM_DELAY     = 1500;          // ms the cursor has to rest before the logo rebuilds
   const REFORM_DURATION  = 1300;          // ms for every fish to swim home
@@ -86,7 +90,12 @@
   const TEAR_DELAY       = 0.0012;   // s per px, far fish let go later so the logo tears open
   const STARTLE_RADIUS   = 36;       // px, fish this close to the cursor's path in one frame dart away at once
   const REFORM_MAX_SPEED = 650;      // px/s, long paths home may stretch past REFORM_DURATION (up to 15%) to stay under this
-  const VIBRATE_DURATION = 167;      // ms, how long one shiver lasts
+  const BLINK_SHORT      = [90, 170];  // ms, a normal glitch blink
+  const BLINK_LONG       = [280, 550]; // ms, the odd longer one
+  const BLINK_LONG_CHANCE = 0.2;       // share of blinks that are long
+  const SPELL_BLINKS = [1, 2, 2, 2, 3, 3, 4];   // blinks per spell, picked at random (two is most common)
+  const TEAR_CHANCE      = 0.65;       // share of blinks with a torn band
+  const TEAR_SHIFT       = [4, 9];     // px a torn band jumps sideways
   const FADE_DURATION    = 300;      // ms, SVG logo fade-in once every fish is home
   const TOUCH_SLOP       = 3;        // px around the cursor that counts as touching the logo
   const MAX_DPR          = 3;
@@ -205,7 +214,8 @@
 
   let N = 0;
   let hx, hy, x, y, vx, vy, ax, ay, ang, phase, wig, fear, wand, bx, by, rel, held, shade, flen, mj;
-  let vax, vay, vfx, vfy, vpx, vpy;              // shiver
+  let vax, vay, vfx, vfy, vpx, vpy, tear;        // shiver, and each fish's sideways jump in a torn band
+  let vibDur = 0.15, spellLeft = 0;              // this blink's length (s), blinks left in the spell
   let wpX, wpY, wpTX, wpTY, wpCum, wpN, rdur, rdel;    // re-form paths
   let order, shadeStart;                         // fish grouped by shade for drawing
   let gCols = 0, gRows = 0, gCount, gStart, gItems, gCell;  // spatial grid
@@ -354,7 +364,7 @@
     const F = () => new Float32Array(n);
     hx = F(); hy = F(); x = F(); y = F(); vx = F(); vy = F(); ax = F(); ay = F();
     ang = F(); phase = F(); wig = F(); fear = F(); wand = F(); bx = F(); by = F(); mj = F();
-    vax = F(); vay = F(); vfx = F(); vfy = F(); vpx = F(); vpy = F(); rdur = F(); rdel = F();
+    vax = F(); vay = F(); vfx = F(); vfy = F(); vpx = F(); vpy = F(); rdur = F(); rdel = F(); tear = F();
     rel = new Float64Array(n);
     held = new Uint8Array(n); shade = new Uint8Array(n); flen = F();
     wpX = new Float32Array(n * 4); wpY = new Float32Array(n * 4);
@@ -550,11 +560,22 @@
     else if (state === INTRO && introPhase === 'wait') maybeStartIntro();
     else if (state !== FADE) startLoop();
   }
+  const pick = ([lo, hi]) => lo + Math.random() * (hi - lo);
+  /* Glitch timing: inside a spell the next blink usually comes right away
+     (the cube makes short waits common and 2 s waits rare); after the last
+     blink of a spell comes a calm stretch. */
   function scheduleVibrate() {
     clearTimeout(vibTimer); vibTimer = 0;
     if (state !== IDLE || !canRun()) return;
-    const [lo, hi] = VIBRATE_INTERVAL;
-    vibTimer = setTimeout(() => { vibTimer = 0; startVibrate(); }, lo + Math.random() * (hi - lo));
+    let wait;
+    if (spellLeft > 0) {
+      const r = Math.random();
+      wait = 50 + (VIBRATE_GAP_MAX - 50) * r * r * r;
+    } else {
+      spellLeft = SPELL_BLINKS[Math.floor(Math.random() * SPELL_BLINKS.length)];
+      wait = pick(VIBRATE_INTERVAL);
+    }
+    vibTimer = setTimeout(() => { vibTimer = 0; startVibrate(); }, wait);
   }
   function toIdle() {
     stopLoop();
@@ -574,6 +595,19 @@
   function startVibrate() {
     if (state !== IDLE || !canRun() || !syncLayout()) return;
     placeHome();
+    spellLeft = Math.max(0, spellLeft - 1);
+    vibDur = (Math.random() < BLINK_LONG_CHANCE ? pick(BLINK_LONG) : pick(BLINK_SHORT)) / 1000;
+    // a crack: one or two thin horizontal bands of the logo jump sideways for this blink
+    tear.fill(0);
+    if (Math.random() < TEAR_CHANCE) {
+      const bands = Math.random() < 0.35 ? 2 : 1;
+      for (let b = 0; b < bands; b++) {
+        const h = 4 + Math.random() * 10;
+        const top = built.by + Math.random() * (built.bh - h);
+        const shift = pick(TEAR_SHIFT) * (Math.random() < 0.5 ? -1 : 1);
+        for (let i = 0; i < N; i++) if (hy[i] >= top && hy[i] < top + h) tear[i] = shift;
+      }
+    }
     for (let i = 0; i < N; i++) {
       const a = VIBRATE_STRENGTH * (0.5 + 0.5 * Math.random());
       vax[i] = a; vay[i] = a * 0.6;
@@ -587,14 +621,15 @@
     showFish();
     startLoop();
   }
-  /* Each fish jitters around its home on its own rhythm. The shiver eases
-     in and out, so the first and last frames sit exactly on the homes. */
+  /* Each fish jitters around its home on its own rhythm, and a torn band
+     sits shifted sideways. The shiver eases in and out, and the last frame
+     snaps back exactly onto the homes before the SVG returns. */
   function stepVibrate() {
-    const s = simTime - vibT0, t = s * 1000 / VIBRATE_DURATION;
+    const s = simTime - vibT0, t = s / vibDur;
     if (t >= 1) { placeHome(); toIdle(); return; }
     const env = Math.sin(Math.PI * t);
     for (let i = 0; i < N; i++) {
-      x[i] = hx[i] + vax[i] * env * Math.sin(vfx[i] * s + vpx[i]);
+      x[i] = hx[i] + tear[i] + vax[i] * env * Math.sin(vfx[i] * s + vpx[i]);
       y[i] = hy[i] + vay[i] * env * Math.sin(vfy[i] * s + vpy[i]);
       ang[i] = Math.PI + 0.07 * env * Math.sin(vfy[i] * 0.7 * s + vpx[i]);
       phase[i] = vpy[i] + vfx[i] * 0.4 * s;
@@ -614,6 +649,7 @@
     }
     const from = state;
     clearTimeout(vibTimer); vibTimer = 0;
+    spellLeft = 0;
     clearTimeout(fadeTimer); fadeTimer = 0;
     measureAvoid();
     for (let i = 0; i < N; i++) {
