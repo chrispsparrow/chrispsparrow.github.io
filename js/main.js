@@ -136,15 +136,23 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
      before it (sticky too, for #work) and add that element's height, or from
      the top of its parent if it comes first. That gives its spot in the normal
      page flow no matter how far down the page you are. */
+  const isSticky = (el) => getComputedStyle(el).position === 'sticky';
   const docTop = (el) => {
-    if (getComputedStyle(el).position === 'sticky') {
+    if (isSticky(el)) {
       let prev = el.previousElementSibling;
       while (prev && !prev.offsetParent) prev = prev.previousElementSibling;
       const parent = el.parentElement;
       return prev ? docTop(prev) + prev.offsetHeight
                   : docTop(parent) + parseFloat(getComputedStyle(parent).paddingTop);
     }
-    let y = 0; while (el) { y += el.offsetTop; el = el.offsetParent; } return y;
+    /* Inside a sticky element (a Coming soon card in #work), that element's
+       offsetTop moves with the scroll too, so use its flow spot from there. */
+    let y = 0;
+    for (let p = el; p; p = p.offsetParent) {
+      if (p !== el && isSticky(p)) return y + docTop(p);
+      y += p.offsetTop;
+    }
+    return y;
   };
   document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
@@ -157,11 +165,39 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
          it pins under the nav and fully covers the hero (no leftover sliver).
          Other sections sit below the fixed nav, so offset by the nav height. */
       const gap = (id === 'work') ? 0 : (nav ? nav.getBoundingClientRect().height : 64) + 32;
-      const top = docTop(target) - gap;
+      /* Coming soon cards get a scroll-margin-top (set below) so the scroll
+         stops where #work pins, before the avionics panel covers them. */
+      const margin = (id === 'work') ? 0 : (parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
+      const top = docTop(target) - gap - margin;
       window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
       history.pushState(null, '', '#' + id);
     });
   });
+})();
+
+/* ── SELECTED WORK PIN ───────────────────────────────────── */
+/* #work holds the heading and the Coming soon cards, so it's usually taller
+   than the window. --work-pin (window height minus band height, never above 0)
+   makes it pin once its bottom reaches the bottom of the window, and then the
+   avionics panel slides up over it. Each card also gets a scroll-margin-top so
+   a link to it (like ../#ground-station) stops where the band pins, instead of
+   scrolling far enough that the avionics panel covers the card. */
+(function () {
+  const work = document.getElementById('work');
+  if (!work) return;
+  const cards = work.querySelectorAll('.soon-card[id]');
+  const update = () => {
+    const pin = Math.min(0, window.innerHeight - work.offsetHeight);
+    work.style.setProperty('--work-pin', pin + 'px');
+    const pinned = getComputedStyle(work).position === 'sticky';
+    const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    cards.forEach(c => {
+      c.style.scrollMarginTop = pinned ? Math.max(0, c.offsetTop + pin - pad) + 'px' : '';
+    });
+  };
+  update();
+  window.addEventListener('resize', update);
+  if ('ResizeObserver' in window) new ResizeObserver(update).observe(work);
 })();
 
 /* ── HERO PARALLAX ───────────────────────────────────────── */

@@ -790,7 +790,10 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    top while the first project panel slides up over it (same curtain mechanic). */
 #work {
   position: sticky;
-  top: 0;
+  /* The band holds the Coming soon cards too, so it's usually taller than the
+     window. js/main.js sets --work-pin (window height minus band height, never
+     above 0) so the band pins once its bottom reaches the bottom of the window. */
+  top: var(--work-pin, 0px);
   z-index: 2;
   background: var(--bg);
   /* Soft leading edge so the off-white band reads as a layer rising over
@@ -869,6 +872,16 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   line-height: 1.8;
   margin-bottom: 1.9rem;
 }
+/* Short bullets in place of a paragraph. Marker color is set per panel. */
+.work-row-list { padding-left: 1.2rem; line-height: 1.6; }
+.work-row-list li + li { margin-top: 0.55rem; }
+.work-row-list li { padding-left: 0.25rem; }
+/* "Codename: ___" under a board's title. Plain gray text, sits close to the title. */
+.work-row-codename {
+  font-size: clamp(0.9rem, 1.05vw, 1rem);
+  color: var(--text-dim);
+  margin: -0.7rem 0 1.3rem;
+}
 .work-row-info .card-cta { align-self: flex-start; }
 .work-row-info:hover .card-cta { border-color: var(--gold-text); }
 
@@ -925,6 +938,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Avionics panel (deep navy) text + viewer ── */
 .panel-avionics .work-row-title { color: var(--hero-text); }
 .panel-avionics .work-row-desc  { color: var(--panel-avionics-desc); }
+.panel-avionics .work-row-codename { color: var(--panel-avionics-desc); }
+.panel-avionics .work-row-list li::marker { color: var(--gold); }
 .panel-avionics .card-tag       { color: #C7D2DE; border-color: rgba(255,255,255,0.28); }
 .panel-avionics .card-cta       { color: var(--gold); border-bottom-color: rgba(200,145,58,0.5); }
 .panel-avionics .work-row-info:hover .card-cta { border-color: var(--gold); }
@@ -1113,6 +1128,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ── Toothpaste panel (pale mint) teal accents ── */
 .panel-toothpaste .work-row-title { color: var(--text); }
 .panel-toothpaste .work-row-desc  { color: var(--text-dim); }
+.panel-toothpaste .work-row-list li::marker { color: var(--teal-accent); }
 .panel-toothpaste .card-tag       { color: var(--teal); border-color: var(--teal-border); }
 .panel-toothpaste .card-cta       { color: var(--teal); border-bottom-color: var(--teal-border); }
 .panel-toothpaste .work-row-info:hover .card-cta { border-color: var(--teal); }
@@ -1153,18 +1169,15 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 /* ============================================================
-   COMING SOON  (Selected Work sub-section)
+   COMING SOON  (inside the Selected Work band, under its heading)
    Salmon accent (--soon-accent / --soon-text) is used only here.
    Compact dashed cards: no cover image, no viewer, no tags. The card itself
    isn't clickable, but a card can end with one text link (.soon-link).
+   It sits in #work's .container, so it lines up with the heading. The band's
+   own bottom padding adds to this one before the avionics panel.
    ============================================================ */
 .coming-soon {
-  background: var(--bg);
-  padding: clamp(3.5rem, 7vw, 6rem) 2rem clamp(4rem, 8vw, 7rem);
-}
-.coming-soon-inner {
-  max-width: 1300px;
-  margin: 0 auto;
+  padding: clamp(2.5rem, 5vw, 3.5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
 }
 /* One step below the Selected Work heading so it doesn't compete */
 .coming-soon-title {
@@ -1184,10 +1197,11 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 .coming-soon-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
 }
-@media (max-width: 760px) {
+/* Stacked at the same width where the panels stop pinning */
+@media (max-width: 900px) {
   .coming-soon-grid { grid-template-columns: 1fr; }
 }
 .soon-card {
@@ -1240,12 +1254,22 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   color: var(--text-dim);
   margin: 0 0 1rem;
 }
-.soon-desc {
+/* Same plain gray as the meta line, right under the title */
+.soon-codename {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin: 0 0 0.2rem;
+}
+.soon-list {
   font-size: 0.92rem;
   color: var(--text-dim);
-  line-height: 1.75;
+  line-height: 1.6;
   margin: 0;
+  padding-left: 1.1rem;
 }
+.soon-list li { padding-left: 0.2rem; }
+.soon-list li + li { margin-top: 0.45rem; }
+.soon-list li::marker { color: var(--soon-accent); }
 /* A plain text link under the description, underlined in the salmon accent */
 .soon-link-row { margin: 1rem 0 0; }
 .soon-link {

@@ -138,6 +138,62 @@
         <span class="work-rule-line" aria-hidden="true"></span>
       </div>
 
+      <!-- ── COMING SOON (inside the Selected Work band, above the panels) ── -->
+      <section class="coming-soon" aria-label="Coming soon">
+        <h3 class="coming-soon-title reveal">Coming soon to dogtoothsystems.com</h3>
+        <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building now and what comes next. A full write-up is on the way.</p>
+
+        <div class="coming-soon-grid">
+          <article class="soon-card reveal reveal-d1" id="ground-station">
+            <!-- Dashed border drawn in SVG so the dashes can march clockwise around the rounded corners -->
+            <svg class="soon-border" aria-hidden="true" focusable="false">
+              <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
+            </svg>
+            <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
+            <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
+            <p class="soon-codename">Codename: Manta</p>
+            <p class="soon-meta">AerospaceNU, project lead, started September 2026</p>
+            <ul class="soon-list">
+              <li>Ground station that tracks up to 3 rockets live at once</li>
+              <li>Built mainly for NULI's rockets, but can work with any team's</li>
+              <li>Streams data to a laptop or phone over Bluetooth and logs it to an SD card</li>
+              <li>I lead the project and own the electronics. A mechanical engineering student designs the 3D printed enclosure and tripod mount</li>
+              <li>Now: wiring the schematic in KiCad and starting the board layout</li>
+            </ul>
+          </article>
+
+          <article class="soon-card reveal reveal-d2" id="antenna-tracker">
+            <svg class="soon-border" aria-hidden="true" focusable="false">
+              <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
+            </svg>
+            <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>Up next</p>
+            <h4 class="soon-title">Antenna Tracker</h4>
+            <p class="soon-codename">Codename: Remora</p>
+            <p class="soon-meta">Solo project, waiting on Manta</p>
+            <ul class="soon-list">
+              <li>Antenna tracker that rides on Manta</li>
+              <li>Drives motors that aim a Yagi antenna at the rocket by comparing GPS positions</li>
+              <li>Plugs into Manta's tracker port</li>
+            </ul>
+          </article>
+
+          <article class="soon-card reveal reveal-d3" id="live-tracking">
+            <svg class="soon-border" aria-hidden="true" focusable="false">
+              <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
+            </svg>
+            <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>Planned</p>
+            <h4 class="soon-title">Flight Console Live Tracking</h4>
+            <p class="soon-meta">Solo project, waiting on Manta</p>
+            <ul class="soon-list">
+              <li>Live 3D view of a rocket during launch</li>
+              <li>Will run on live data from Manta once it's built</li>
+              <li>Currently displays simulated DOGTOOTH PCB data</li>
+            </ul>
+            <p class="soon-link-row"><a class="soon-link" href="flight-console/">Open the Flight Console</a></p>
+          </article>
+        </div>
+      </section>
+
     </div><!-- /.container -->
   </section><!-- /#work (Selected Work intro band) -->
 
@@ -152,7 +208,12 @@
           <span class="card-tag">SOLO PROJECT</span>
         </div>
         <h3 class="work-row-title">Custom Avionics<br>GPS and Radio PCB</h3>
-        <p class="work-row-desc">A circuit board I designed on my own for the Northeastern University Launch Initiative. It's built to track the rocket with GPS, save its position, and radio that data down to the ground.</p>
+        <p class="work-row-codename">Codename: Dogtooth</p>
+        <ul class="work-row-desc work-row-list">
+          <li>Rocket flight tracker</li>
+          <li>Tracks the rocket with GPS and sends its data down over LoRa radio</li>
+          <li>Designed solo, end to end, for the Northeastern University Launch Initiative (NULI), a rocketry team within AerospaceNU</li>
+        </ul>
         <span class="card-cta">View Project →</span>
       </a>
 
@@ -322,7 +383,11 @@
           <span class="card-tag">TEAM PROJECT</span>
         </div>
         <h3 class="work-row-title">Assistive Toothpaste<br>Dispenser</h3>
-        <p class="work-row-desc">A wall-mounted dispenser that pushes out the right amount of toothpaste with one button press, made for people who have limited dexterity. On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico.</p>
+        <ul class="work-row-desc work-row-list">
+          <li>Wall-mounted dispenser that pushes out the right amount of toothpaste with one button press</li>
+          <li>Made for people who have limited dexterity</li>
+          <li>On our team of three, I led the electronics and wrote the MicroPython code for the Raspberry Pi Pico</li>
+        </ul>
         <span class="card-cta">View Project →</span>
       </a>
     </div>
@@ -331,38 +396,6 @@
   <!-- After-panels: normal-flow content that slides up over the last pinned
        panel (About onward). Higher z-index so it covers the sticky panels. -->
   <div class="after-panels">
-
-  <!-- ── COMING SOON (Selected Work sub-section) ──────────────── -->
-  <section class="coming-soon" aria-label="Coming soon">
-    <div class="coming-soon-inner">
-      <h3 class="coming-soon-title reveal">Coming soon to dogtoothsystems.com</h3>
-      <p class="coming-soon-sub reveal reveal-d1">Here's what I'm building now and what comes next. A full write-up is on the way.</p>
-
-      <div class="coming-soon-grid">
-        <article class="soon-card reveal reveal-d1" id="ground-station">
-          <!-- Dashed border drawn in SVG so the dashes can march clockwise around the rounded corners -->
-          <svg class="soon-border" aria-hidden="true" focusable="false">
-            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
-          </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
-          <h4 class="soon-title">Ground Station Telemetry Receiver</h4>
-          <p class="soon-meta">AerospaceNU, solo project, started September 2026</p>
-          <p class="soon-desc">I'm building a receiver that picks up live data radioed down from our team's rockets during flight. It decodes the data and sends it over Bluetooth to a laptop or phone, so we can track the rockets in real time. Right now I'm choosing the radio parts and antenna, designing the circuit board in KiCad, and writing the code that receives the data.</p>
-        </article>
-
-        <article class="soon-card reveal reveal-d2" id="live-tracking">
-          <svg class="soon-border" aria-hidden="true" focusable="false">
-            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
-          </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>Up next</p>
-          <h4 class="soon-title">Flight Console Live Tracking</h4>
-          <p class="soon-meta">Solo project, waiting on the ground station</p>
-          <p class="soon-desc">Next I want the Flight Console to follow a rocket live during a launch, using the data my ground station receives. That part has to wait until the ground station is finished. For now it replays one simulated flight, so you can open it and see what I have so far.</p>
-          <p class="soon-link-row"><a class="soon-link" href="flight-console/">Open the Flight Console</a></p>
-        </article>
-      </div>
-    </div>
-  </section>
 
   <!-- ── ABOUT (navy band) ─────────────────────────────────── -->
   <div class="band band-about">
