@@ -1186,34 +1186,36 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   color: var(--text);
   margin: 0 0 1.75rem;
 }
-/* Fallback when the row doesn't slide (reduced motion): three across */
+/* The row spans the band's full width. Its side padding matches .container,
+   so the cards line up with the heading. Without JS: three across. */
 .coming-soon-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
+  padding-inline: max(2rem, calc((100% - 1300px) / 2 + 2rem));
 }
 /* Stacked at the same width where the panels stop pinning */
 @media (max-width: 900px) {
   .coming-soon-grid { grid-template-columns: 1fr; }
 }
-/* Wide screens with motion (js/main.js adds .soon-slide). The band fills the
-   window while pinned, the cards keep a two-across size, and the row is one
-   long track that js/main.js slides left as you scroll, so the third card
-   comes in from the right. The band clips the track at the window edges. */
-#work.soon-slide {
-  min-height: 100svh;
+/* Wide screens (js/main.js adds .soon-scroll). The cards keep a two-across
+   size in one row that scrolls sideways on its own (trackpad, Shift+wheel,
+   keyboard focus), and js/main.js also moves it as the page scrolls down.
+   The page itself never waits. Scrollbar hidden, and a sideways swipe at
+   either end doesn't turn into the browser's back or forward gesture. */
+#work.soon-scroll .coming-soon { padding-bottom: 0; }   /* keeps the pinned heading clear of the nav on short windows */
+#work.soon-scroll .coming-soon-grid {
   display: flex;
-  flex-direction: column;
-  justify-content: center;   /* heading and cards stay together, centered on tall windows */
-  overflow-x: clip;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-block: 2px;   /* room for the dashed border's stroke */
 }
-/* No extra room under the cards (the band's own padding is enough), so on
-   short windows the heading stays clear of the nav while the band is pinned */
-#work.soon-slide .coming-soon { padding-bottom: 0; }
-#work.soon-slide .coming-soon-grid { display: flex; will-change: transform; }
-#work.soon-slide .soon-card { flex: 0 0 calc((100% - 1.5rem) / 2); }
-/* Scroll room after #work, set by js/main.js (0 when the row doesn't slide) */
-.work-slide-space { height: 0; }
+#work.soon-scroll .coming-soon-grid::-webkit-scrollbar { display: none; }
+#work.soon-scroll .soon-card { flex: 0 0 calc((100% - 1.5rem) / 2); }
+/* Fade in only: the slide-up would poke out of the row's clipped bottom edge */
+#work.soon-scroll .soon-card.reveal { transform: none; }
 .soon-card {
   position: relative;
   border-radius: 6px;
