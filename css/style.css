@@ -786,7 +786,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    WORK / PROJECT CARDS
    ============================================================ */
 
-/* Selected Work = compact sticky intro band (title-block style). Pins at the
+/* Projects = compact sticky intro band (title-block style). Pins at the
    top while the first project panel slides up over it (same curtain mechanic). */
 #work {
   position: sticky;
@@ -813,7 +813,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   flex-wrap: wrap;
 }
 
-/* Thin gold rule under the Selected Work heading */
+/* Thin gold rule under the Projects heading */
 .work-rule {
   display: flex;
   align-items: center;
@@ -834,7 +834,6 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   color: var(--text);
   letter-spacing: -0.02em;
 }
-.work-h-slash { color: var(--gold); }
 
 /* Full-height alternating project rows */
 .work-rows { display: flex; flex-direction: column; }
@@ -898,7 +897,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 /* ============================================================
    FULL-SCREEN PROJECT PANELS (sticky curtain chain)
    Each panel pins at top:0 while the next (higher z-index, solid bg)
-   slides up over it — the same mechanic as hero → Selected Work.
+   slides up over it — the same mechanic as hero → Projects.
    ============================================================ */
 .panel {
   position: sticky;
@@ -1168,7 +1167,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 /* ============================================================
-   COMING SOON  (inside the Selected Work band, under its heading)
+   COMING SOON  (inside the Projects band, under its heading)
    Salmon accent (--soon-accent / --soon-text) is used only here.
    Compact dashed cards: no cover image, no viewer, no tags. The card itself
    isn't clickable, but a card can end with one text link (.soon-link).
@@ -1178,7 +1177,7 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 .coming-soon {
   padding: clamp(2.5rem, 5vw, 3.5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
 }
-/* One step below the Selected Work heading so it doesn't compete */
+/* One step below the Projects heading so it doesn't compete */
 .coming-soon-title {
   font-size: clamp(1.4rem, 2.6vw, 2.1rem);
   font-weight: 700;

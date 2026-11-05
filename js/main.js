@@ -161,7 +161,7 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
       const target = document.getElementById(id);
       if (!target) return;
       e.preventDefault();
-      /* #work is the sticky Selected Work band: land exactly at its flow top so
+      /* #work is the sticky Projects band: land exactly at its flow top so
          it pins under the nav and fully covers the hero (no leftover sliver).
          Other sections sit below the fixed nav, so offset by the nav height. */
       const gap = (id === 'work') ? 0 : (nav ? nav.getBoundingClientRect().height : 64) + 32;
@@ -175,7 +175,7 @@ const TOUCH   = window.matchMedia('(hover: none)').matches;
   });
 })();
 
-/* ── SELECTED WORK PIN AND COMING SOON SLIDE ─────────────── */
+/* ── PROJECTS PIN AND COMING SOON SLIDE ──────────────────── */
 /* #work holds the heading and the Coming soon cards. --work-pin (window height
    minus band height, never above 0) makes it pin once its bottom reaches the
    bottom of the window, and then the avionics panel slides up over it.
