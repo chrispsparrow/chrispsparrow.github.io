@@ -31,8 +31,6 @@
   --teal: #146b62;                      /* teal text/link — ~5.5:1 on mint */
   --teal-accent: #1f8f82;               /* brighter teal for brackets/borders */
   --teal-border: rgba(20,107,98,0.4);
-  /* Projects band heading: dark gray, --hero-text on it is 13:1 */
-  --projects-bg: #2a2a2c;
   /* Coming Soon sub-section only — salmon orange, distinct from gold and teal */
   --soon-accent: #FF8C69;               /* salmon — dashed border + pulsing dot (decorative) */
   --soon-text: #B94328;                 /* darker salmon for status text — ~4.7:1 on --bg */
@@ -788,43 +786,24 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
    WORK / PROJECT CARDS
    ============================================================ */
 
-/* Projects = compact sticky intro band (title-block style). Pins at the
-   top while the first project panel slides up over it (same curtain mechanic). */
+/* Projects = sticky band right after the hero. It holds only the Coming soon
+   cards (no visible heading). Pins while the first project panel slides up
+   over it (same curtain mechanic). */
 #work {
   position: sticky;
-  /* The band holds the Coming soon cards too, so it's usually taller than the
-     window. js/main.js sets --work-pin (window height minus band height, never
-     above 0) so the band pins once its bottom reaches the bottom of the window. */
+  /* The band is usually taller than the window. js/main.js sets --work-pin
+     (window height minus band height, never above 0) so the band pins once
+     its bottom reaches the bottom of the window. */
   top: var(--work-pin, 0px);
   z-index: 2;
-  background: var(--projects-bg);
-  /* Soft leading edge so the band reads as a layer rising over the dark
-     hero, rather than a hard seam. */
+  background: var(--bg);
+  /* Soft leading edge so the off-white band reads as a layer rising over
+     the dark hero, rather than a hard seam. */
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
-  padding: 6.5rem 0 0;        /* top clears the fixed nav when pinned. The bottom room is
-                                 in .coming-soon, so the gray stops at the heading part */
+  padding: 6.5rem 0 0;        /* top clears the fixed nav. The bottom room is in .coming-soon */
   /* Negative to cancel html's scroll-padding-top (6rem): anchoring to #work
      lands it at the very top so it pins and covers the hero (no sliver). */
   scroll-margin-top: -6rem;
-}
-
-/* Section heading row */
-.work-head {
-  display: flex;
-  align-items: baseline;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-/* Gray room under the Projects heading, before the off-white Coming soon part */
-#work > .container { padding-bottom: 2.5rem; }
-.work-h-title {
-  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
-  font-weight: 700;
-  line-height: 1.1;
-  white-space: nowrap;
-  color: var(--hero-text);
-  letter-spacing: -0.02em;
 }
 
 /* Full-height alternating project rows */
@@ -1159,15 +1138,15 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 
 /* ============================================================
-   COMING SOON  (inside the Projects band, under its heading)
-   Off-white background. Salmon accent (--soon-accent / --soon-text) is used only here.
+   COMING SOON  (the only thing in the Projects band)
+   Salmon accent (--soon-accent / --soon-text) is used only here.
    Compact dashed cards: no cover image, no viewer, no tags. The card itself
    isn't clickable, but a card can end with one text link (.soon-link).
-   It holds the band's bottom room too, below the gray heading part.
+   The band's own top padding clears the nav, so this one only adds room
+   at the bottom, before the avionics panel.
    ============================================================ */
 .coming-soon {
-  background: var(--bg);
-  padding: clamp(2rem, 4vw, 2.75rem) 0 calc(clamp(1.5rem, 3vw, 2.5rem) + 2.5rem);
+  padding: 0 0 calc(clamp(1.5rem, 3vw, 2.5rem) + 2.5rem);
 }
 /* One step below the Projects heading so it doesn't compete */
 .coming-soon-title {
