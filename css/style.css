@@ -1265,12 +1265,14 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   color: var(--text-dim);
   margin: 0 0 1rem;
 }
-/* Codename in the status row, between the dot and the status, a bit bigger */
+/* Codename in the status row, between the dot and the status, in the status
+   maroon and the same size as the card title */
 .soon-codename {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1;
-  margin-right: 0.1rem;
+  color: var(--soon-text);
+  margin-right: 0.15rem;
 }
 /* Short lines, one per item, no bullet markers */
 .soon-list {
