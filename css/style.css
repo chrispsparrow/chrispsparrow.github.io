@@ -1758,8 +1758,28 @@ footer {
   gap: 2rem;
   text-align: center;
 }
-.footer-logo { width: 180px; opacity: 0.85; transition: opacity 0.3s; }
-.footer-logo:hover { opacity: 1; }
+/* The logo in two stacked layers: the wordmark sets the size and the tuna
+   sits exactly on top. js/fish-logo.js packs each layer with its own fish
+   size and hides and shows both together. The images ignore the pointer, so
+   hits land on the wrapper (which carries the label). */
+.footer-logo { position: relative; z-index: 1; width: 180px; opacity: 0.85; }
+.footer-logo img { display: block; width: 100%; height: auto; pointer-events: none; -webkit-touch-callout: none; }
+.footer-logo .footer-logo-tuna { position: absolute; top: 0; left: 0; height: 100%; }
+/* The footer's fish (js/fish-logo.js) swim across the whole footer. The
+   canvas sits over the black and under the logo, text, and links, never
+   takes clicks, and uses the same dimmed white as the logo. */
+.footer-school {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0.85;
+}
+.footer-lockup, .footer-links, .footer-social { position: relative; z-index: 1; }
 .footer-lockup {
   font-family: var(--font-text);
   font-size: 0.9rem;

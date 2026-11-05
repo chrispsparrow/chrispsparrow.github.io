@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=22">
+  <link rel="stylesheet" href="../css/style.css?v=30">
   <style>
     /* ─── FIRMWARE PAGE ─────────────────────────────────── */
 
@@ -422,8 +422,12 @@ private:
 
   <!-- ── FOOTER ────────────────────────────────────────────── -->
   <footer role="contentinfo">
-    <img src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white.svg"
-         alt="Dogtooth Systems logo, a dogtooth tuna" class="footer-logo" width="180">
+    <!-- The logo in two stacked layers (tuna and wordmark), like the hero's,
+         so js/fish-logo.js can build each one out of its own size of fish. -->
+    <div class="footer-logo" role="img" aria-label="Dogtooth Systems logo, a dogtooth tuna">
+      <img class="footer-logo-word" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_wordmark.svg" alt="" width="180" height="106">
+      <img class="footer-logo-tuna" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg" alt="" width="180" height="106">
+    </div>
     <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
     <nav class="footer-links" aria-label="Footer links">
       <a href="../#work">Work</a>
@@ -433,7 +437,8 @@ private:
     </nav>
   </footer>
 
-  <script src="../js/main.js?v=12"></script>
+  <script src="../js/main.js?v=16"></script>
+  <script src="../js/fish-logo.js?v=1"></script>
   <script src="../js/flight-replay.js?v=2"></script>
 </body>
 </html>
