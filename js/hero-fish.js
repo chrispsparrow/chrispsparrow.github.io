@@ -10,8 +10,8 @@
              in to its home spot, then the SVG logo fades in.
    Idle      The crisp SVG logo shows. The fish canvas is hidden and no
              animation loop runs.
-   Vibrate   Every 6 to 10 s the logo swaps to fish for half a second, the
-             fish shiver in place, and it swaps back.
+   Vibrate   Every 2 to 3.3 s the logo swaps to fish for about a sixth of a
+             second, the fish shiver in place, and it swaps back.
    Break     Touching the tuna or the wordmark with the cursor (or tapping
              it) swaps the whole logo to fish and bursts them away from that
              spot.
@@ -39,7 +39,7 @@
   const FLEE_STRENGTH    = 2.5;           // how hard fish flee, compared with one schooling force
   const CRUISE_SPEED     = 70;            // px per second the schooling urges aim for (with all of them pulling
                                           // at once, a relaxed school averages about 60% of this)
-  const VIBRATE_INTERVAL = [6000, 10000]; // ms, random wait between idle shivers
+  const VIBRATE_INTERVAL = [2000, 3333];  // ms, random wait between idle shivers
   const VIBRATE_STRENGTH = 0.8;           // px, how far a fish shivers off its home spot
   const REFORM_DELAY     = 1500;          // ms the cursor has to rest before the logo rebuilds
   const REFORM_DURATION  = 1300;          // ms for every fish to swim home
@@ -86,7 +86,7 @@
   const TEAR_DELAY       = 0.0012;   // s per px, far fish let go later so the logo tears open
   const STARTLE_RADIUS   = 36;       // px, fish this close to the cursor's path in one frame dart away at once
   const REFORM_MAX_SPEED = 650;      // px/s, long paths home may stretch past REFORM_DURATION (up to 15%) to stay under this
-  const VIBRATE_DURATION = 500;      // ms
+  const VIBRATE_DURATION = 167;      // ms, how long one shiver lasts
   const FADE_DURATION    = 300;      // ms, SVG logo fade-in once every fish is home
   const TOUCH_SLOP       = 3;        // px around the cursor that counts as touching the logo
   const MAX_DPR          = 3;
