@@ -15,15 +15,15 @@ Nothing is uploaded. Everything stays in the tab until it's closed or reloaded.
 
 ## The line format
 
-Reading lines look like this:
+Reading lines look like this. It's the flight firmware's status line, printed once per second:
 
 ```
-GPS fix: yes | Satellites: 9 | HDOP: 0.92 | Latitude: 42.3398712 | Longitude: -71.0891234 | Altitude: 31.4 m | Radio sent: 128 | Radio errors: 0
+Time: 16.1 s | GPS fix: yes | Satellites: 11 | Position accuracy (HDOP): 0.99 | Latitude: 42.3386255 | Longitude: -71.0896268 | Altitude: 17.3 m | GPS mode: airborne | GPS characters: 7252 | Bad GPS sentences: 1 | Radio sent: 10 | Radio skipped: 0 | Radio errors: 0
 ```
 
 - Parts are split by `|`. Each part is `Label: value unit`, and the unit is optional.
 - Each part is found by its label, never its position. The board can reorder parts or leave some out.
-- Labels are matched without caring about case, spaces, `_` or a unit in brackets, so `Altitude (m)`, `alt` and `ALT` all mean altitude.
+- Labels are matched without caring about case, spaces or `_`. Words in brackets count as part of the label when that makes a known label (`Position accuracy (HDOP)`). Otherwise they're read as the unit, so `Altitude (m)`, `alt` and `ALT` all mean altitude.
 - Labels the page doesn't know are skipped. They still show in the raw output and in the CSV's last column.
 - A value that isn't a number where one is expected (like `HDOP: ?`) shows as text and is left off the graphs.
 
@@ -42,22 +42,21 @@ The list is `FIELDS` in `js/parse.js`. To add a value, add an entry there. It ge
 |---|---|
 | GPS fix | GPS fix, Fix |
 | Satellites in use | Satellites, Sats, Sat |
-| HDOP | HDOP |
+| HDOP | Position accuracy (HDOP), Position accuracy, HDOP |
 | Latitude | Latitude, Lat |
 | Longitude | Longitude, Lon, Lng, Long |
 | Altitude | Altitude, Alt |
 | Radio packets sent | Radio sent, Sent, Packets sent |
 | Radio errors | Radio errors, Errors |
 | Board time | Time, T, Board time, Uptime |
-| Radio status | Radio, Radio status |
 | Radio packets skipped | Radio skipped, Skipped |
-| GPS dynamic model | Model, GPS model |
-| NMEA characters read | NMEA chars |
-| NMEA checksum failures | NMEA bad, NMEA errors |
+| GPS mode | GPS mode, Model, GPS model |
+| GPS characters | GPS characters, NMEA chars |
+| Bad GPS sentences | Bad GPS sentences, NMEA bad, NMEA errors |
 
 The first eight always have a row. The rest get one once the board sends them.
 
-When I checked on 2026-11-12, the status line in my `DOGTOOTH_V1_FIRMWARE` code still printed the older `GPS fix=yes sats=7` style. The page doesn't read that style, so those lines only show in the raw output until the firmware prints `Label: value` parts.
+The labels above match the status line format I specified for `DOGTOOTH_V1_FIRMWARE` on 2026-11-12 (the example line above). The firmware keeps its label strings in one place, listed in its `docs/FIRMWARE_GUIDE.md` under "Serial output format". If a label changes there, add it to `FIELDS` here. Older firmware printed `GPS fix=yes sats=7` style lines, which the page doesn't read, so those only show in the raw output.
 
 ## What the panels show
 

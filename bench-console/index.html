@@ -178,7 +178,7 @@
       <summary>What the board needs to send</summary>
       <div class="bc-details-body">
         <p>The board prints one line of readings at a time. Each reading is a label, a value and an optional unit, and a bar splits them up, like in this line.</p>
-        <pre class="bc-code"><code>GPS fix: yes | Satellites: 9 | HDOP: 0.92 | Latitude: 42.3398712 | Longitude: -71.0891234 | Altitude: 31.4 m | Radio sent: 128 | Radio errors: 0</code></pre>
+        <pre class="bc-code"><code>Time: 16.1 s | GPS fix: yes | Satellites: 11 | Position accuracy (HDOP): 0.99 | Latitude: 42.3386255 | Longitude: -71.0896268 | Altitude: 17.3 m | GPS mode: airborne | GPS characters: 7252 | Bad GPS sentences: 1 | Radio sent: 10 | Radio skipped: 0 | Radio errors: 0</code></pre>
         <p>The page finds each reading by its label, so the order doesn't matter and the board can leave readings out. It skips labels it doesn't know. Short labels like Sats, Alt, Lat and Lon work too.</p>
         <p>A line that starts with <code>Error:</code> shows up in the errors box. A line that starts with <code>Heartbeat:</code> updates the last heartbeat time. Every other line still goes in the raw output and the CSV file.</p>
       </div>

@@ -1,8 +1,9 @@
 // parse.js: turns one line from the board into something the page can use.
 // No DOM here, so Node can run it too (see README, "Checking the parser").
 //
-// A reading line looks like
-//   GPS fix: yes | Satellites: 7 | HDOP: 1.20 | Altitude: 25.4 m
+// A reading line looks like this (the flight firmware's status line, see
+// "Serial output format" in the firmware's docs/FIRMWARE_GUIDE.md):
+//   Time: 16.1 s | GPS fix: yes | Satellites: 11 | Position accuracy (HDOP): 0.99 | Altitude: 17.3 m
 // Each part is "Label: value unit". Parts are matched by their label, never
 // by their position, so the board can add, drop or reorder parts. A label
 // the page doesn't know is skipped.
@@ -22,7 +23,7 @@ export const FIELDS = [
   { key: 'sats', label: 'Satellites in use', kind: 'number', main: true,
     aliases: ['satellites', 'sats', 'sat', 'satellites in use', 'gps satellites', 'gps sats', 'num sats'] },
   { key: 'hdop', label: 'HDOP', kind: 'number', main: true,
-    aliases: ['hdop', 'gps hdop'] },
+    aliases: ['hdop', 'gps hdop', 'position accuracy hdop', 'position accuracy'] },
   { key: 'lat', label: 'Latitude', kind: 'number', unit: '°', main: true,
     aliases: ['latitude', 'lat', 'gps latitude', 'gps lat'] },
   { key: 'lon', label: 'Longitude', kind: 'number', unit: '°', main: true,
@@ -35,16 +36,14 @@ export const FIELDS = [
     aliases: ['radio errors', 'errors', 'radio error', 'tx errors'] },
   { key: 'time', label: 'Board time', kind: 'number', unit: 's',
     aliases: ['time', 't', 'board time', 'uptime'] },
-  { key: 'radio', label: 'Radio status', kind: 'text',
-    aliases: ['radio', 'radio status', 'radio state'] },
   { key: 'radioSkipped', label: 'Radio packets skipped', kind: 'number',
     aliases: ['radio skipped', 'skipped', 'packets skipped', 'radio packets skipped'] },
-  { key: 'gpsModel', label: 'GPS dynamic model', kind: 'text',
-    aliases: ['model', 'gps model', 'dynamic model'] },
-  { key: 'nmeaChars', label: 'NMEA characters read', kind: 'number',
-    aliases: ['nmea chars', 'nmea characters', 'nmea characters read'] },
-  { key: 'nmeaBad', label: 'NMEA checksum failures', kind: 'number',
-    aliases: ['nmea bad', 'nmea errors', 'nmea checksum failures', 'bad checksums'] },
+  { key: 'gpsMode', label: 'GPS mode', kind: 'text',
+    aliases: ['gps mode', 'model', 'gps model', 'dynamic model'] },
+  { key: 'gpsChars', label: 'GPS characters', kind: 'number',
+    aliases: ['gps characters', 'nmea chars', 'nmea characters'] },
+  { key: 'gpsBad', label: 'Bad GPS sentences', kind: 'number',
+    aliases: ['bad gps sentences', 'nmea bad', 'nmea errors', 'bad checksums'] },
 ];
 
 export const FIELD = Object.fromEntries(FIELDS.map((f) => [f.key, f]));
@@ -53,10 +52,12 @@ const BY_ALIAS = new Map();
 for (const f of FIELDS) for (const a of f.aliases) BY_ALIAS.set(a, f);
 
 // "Altitude (m)" -> "altitude", "GPS_Fix" -> "gps fix", "HDOP:" -> "hdop".
-export function normalizeLabel(text) {
+// With keepBrackets, the words in brackets stay: "Position accuracy (HDOP)"
+// -> "position accuracy hdop".
+export function normalizeLabel(text, keepBrackets = false) {
   return text
     .toLowerCase()
-    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .replace(keepBrackets ? /[()[\]]/g : /\([^)]*\)|\[[^\]]*\]/g, ' ')
     .replace(/[_\-.]/g, ' ')
     .replace(/[^a-z0-9 ]/g, '')
     .replace(/\s+/g, ' ')
@@ -111,9 +112,16 @@ export function parseLine(line) {
     const colon = part.indexOf(':');
     if (colon < 1) continue;
     const labelText = part.slice(0, colon);
-    const field = BY_ALIAS.get(normalizeLabel(labelText));
+    // First the whole label, brackets and all ("Position accuracy (HDOP)").
+    // If that isn't known, the brackets may hold a unit ("Altitude (m)").
+    let field = BY_ALIAS.get(normalizeLabel(labelText, true));
+    let labelUnit = '';
+    if (!field) {
+      field = BY_ALIAS.get(normalizeLabel(labelText));
+      labelUnit = unitFromLabel(labelText);
+    }
     if (!field) continue;
-    const value = splitValue(part.slice(colon + 1), field, unitFromLabel(labelText));
+    const value = splitValue(part.slice(colon + 1), field, labelUnit);
     if (!value.text) continue;
     fields[field.key] = { ...value, label: labelText.trim() };
   }
