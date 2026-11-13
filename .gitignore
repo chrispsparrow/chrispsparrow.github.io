@@ -1,0 +1,17 @@
+# Local tool settings
+.claude/
+
+# Python and Windows clutter
+__pycache__/
+desktop.ini
+
+# Scratch files and archives
+_to_delete/
+*.zip
+
+# Working folders. When a page needs a file from one of these, add just
+# that file with git add -f.
+assets/portfolio-pdf/
+assets/Avionics PCB Files x2/
+assets/Board photos/
+assets/more PCB photos x2/
