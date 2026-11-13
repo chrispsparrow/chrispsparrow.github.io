@@ -1,20 +1,25 @@
 // main.js: the Bench Console. Opens the board's USB serial port with the
 // Web Serial API, reads it line by line, and keeps every panel up to date.
 //
-// Data flow: serial bytes -> text lines -> parseLine() -> one record per
-// line (kept for the CSV) -> latest values, the 10-minute graph series and
-// the position trace -> drawn at most once per animation frame.
+// Data flow: serial bytes -> text lines -> BlockParser (one status block
+// per second) -> one record per block (kept for the CSV) -> latest values,
+// the 10-minute graph series and the position trace -> drawn at most once
+// per animation frame.
+//
+// The graphs and the trace run on the board's own clock, the TIME RUNNING
+// in each block's banner, so data that arrives in a burst still lands at
+// the right time.
 
-import { FIELDS, FIELD, parseLine, readFix, readPosition } from './parse.js';
-import { buildCsv, csvFileName } from './csv.js';
-import { TimeChart, TrackPlot, readTheme, formatClock } from './charts.js';
+import { BANNER, FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from './parse.js?v=2';
+import { buildCsv, csvFileName } from './csv.js?v=2';
+import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from './charts.js?v=2';
 
 const BAUD = 115200;
 const WINDOW_MS = 10 * 60 * 1000;   // the graphs and the trace keep the last 10 minutes
 const GAP_MS = 6000;                // graph lines break across longer gaps (the board prints every second)
-const HEARTBEAT_LATE_MS = 5000;     // the firmware sends a heartbeat every 2 s
-const STALE_MS = 5000;              // readings older than this are marked as old
-const RAW_LINES = 300;              // lines kept in "Raw serial output"
+const HEARTBEAT_LATE_MS = 3000;     // a block comes every second, so 3 s without one is late
+const STALE_MS = 3000;              // readings older than this are marked as old
+const RAW_LINES = 1000;             // lines kept in "Raw serial output", about 45 blocks
 const MAX_LINE = 4096;              // a "line" longer than this is cut, so noise can't grow forever
 const ERRORS_SHOWN = 50;
 
@@ -29,12 +34,15 @@ const el = {
   linkNote: $('bc-link-note'),
   beatDot: $('bc-beat-dot'),
   beatText: $('bc-beat-text'),
+  beatNum: $('bc-beat-num'),
+  lostDot: $('bc-lost-dot'),
+  lost: $('bc-lost'),
   count: $('bc-count'),
   errors: $('bc-errors'),
   errorsList: $('bc-errors-list'),
   errorsCount: $('bc-errors-count'),
   errorsClear: $('bc-errors-clear'),
-  readings: $('bc-readings-list'),
+  readings: $('bc-readings-groups'),
   readingsAge: $('bc-readings-age'),
   trackCanvas: $('bc-track-canvas'),
   trackInfo: $('bc-track-info'),
@@ -51,16 +59,21 @@ const state = {
   keepReading: false,
   lost: false,
   link: 'idle',
-  records: [],          // every line this visit, for the CSV
+  parser: new BlockParser(),
+  blocks: [],           // every block this visit, for the CSV
   units: {},            // first unit the board sent for each value
   latest: {},           // key -> newest value
-  latestT: null,        // when the newest reading line arrived
-  heartbeatT: null,
+  latestT: null,        // when the newest block finished arriving
+  beat: null,           // { t, heartbeat } from the newest banner
+  lostBlocks: 0,        // heartbeat numbers skipped, this visit
+  clock: null,          // { boardT, t }: the newest TIME RUNNING (ms) and when its banner arrived
+  runStart: null,       // board time of the first block since the page loaded or the board restarted
   errors: [],           // { t, message, times }
   errorTotal: 0,
+  errorsDirty: false,
   raw: [],
-  series: { alt: [], sats: [], hdop: [], radioSent: [], radioErrors: [], pos: [] },
-  hoverT: null,
+  series: { alt: [], sats: [], quality: [], gpsRate: [], radioSent: [], radioErrors: [], pos: [] },
+  hoverT: null,         // board time picked on a graph, or null for the latest
 };
 
 // ------------------------------------------------------------------
@@ -99,7 +112,7 @@ async function connect() {
   try {
     port = await navigator.serial.requestPort();
   } catch (err) {
-    setLink(state.records.length ? 'closed' : 'idle');
+    setLink(state.blocks.length ? 'closed' : 'idle');
     if (err.name === 'NotFoundError') note('No port was picked, so nothing changed.');
     else if (err.name === 'SecurityError') note('The browser blocked access to serial ports on this page.', 'warn');
     else note(`The port list didn't open (${err.message}).`, 'warn');
@@ -110,7 +123,7 @@ async function connect() {
   try {
     await port.open({ baudRate: BAUD });
   } catch (err) {
-    setLink(state.records.length ? 'closed' : 'idle');
+    setLink(state.blocks.length ? 'closed' : 'idle');
     note('The port didn\'t open. Another program is probably using it, so close any serial monitor and press Connect again.', 'warn');
     console.warn('Bench Console: port.open failed', err);
     return;
@@ -122,7 +135,8 @@ async function connect() {
   state.port = port;
   state.keepReading = true;
   state.lost = false;
-  breakSeries(Date.now());
+  state.parser.newConnection();
+  breakSeries();
   setLink('open');
   state.loop = readLoop(port);
 }
@@ -161,7 +175,10 @@ async function readLoop(port) {
   }
   try { await port.close(); } catch { /* the board may already be gone */ }
   if (state.port === port) state.port = null;
-  breakSeries(Date.now());
+  // A block cut off by the disconnect still counts, with what it had.
+  const cut = state.parser.finish();
+  if (cut) addBlock(cut, Date.now());
+  breakSeries();
   if (state.keepReading || state.lost) {
     setLink('lost');
     note('The board was unplugged or stopped answering. Plug it back in and press Connect.', 'warn');
@@ -197,47 +214,75 @@ function takeLines(buffer) {
 }
 
 // ------------------------------------------------------------------
-// Lines
+// Lines and blocks
 // ------------------------------------------------------------------
 
 function handleLine(line, t) {
-  const parsed = parseLine(line);
-  if (parsed.type === 'empty') return;
-  state.records.push({ t, type: parsed.type, fields: parsed.fields, line });
-
   state.raw.push(line);
   if (state.raw.length > RAW_LINES) state.raw.splice(0, state.raw.length - RAW_LINES);
 
-  if (parsed.type === 'error') addError(parsed.message || line, t);
-  else if (parsed.type === 'heartbeat') state.heartbeatT = t;
-  else if (parsed.type === 'data') addReadings(parsed.fields, t);
+  const r = state.parser.push(line, t);
+  if (r.done) addBlock(r.done, t);
+  if (r.type === 'banner') addBanner(r, t);
+  else if (r.type === 'error') addError(r.message || line, t);
   scheduleRender();
 }
 
-function addReadings(fields, t) {
-  for (const [key, value] of Object.entries(fields)) {
+function addBanner(r, t) {
+  state.beat = { t, heartbeat: r.block.heartbeat };
+  state.lostBlocks += r.missed;
+  if (r.restarted) {
+    clearSeries();
+    note('The board restarted, so the graphs and the position trace started over. The CSV file still has every block.');
+  }
+}
+
+function addBlock(block, t) {
+  state.blocks.push(block);
+  for (const [key, value] of Object.entries(block.fields)) {
     state.latest[key] = value;
     if (value.unit && !state.units[key]) state.units[key] = value.unit;
   }
   state.latestT = t;
+  // Without the board's time there's nowhere to put it on the graphs.
+  if (block.timeRunning === null) return;
 
-  const fix = readFix(fields.fix);
-  const push = (key, v) => state.series[key].push({ t, v });
-  if (Number.isFinite(fields.alt?.num) && fix !== false) push('alt', fields.alt.num);
-  if (Number.isFinite(fields.sats?.num)) push('sats', fields.sats.num);
-  if (Number.isFinite(fields.hdop?.num)) push('hdop', fields.hdop.num);
-  if (Number.isFinite(fields.radioSent?.num)) push('radioSent', fields.radioSent.num);
-  if (Number.isFinite(fields.radioErrors?.num)) push('radioErrors', fields.radioErrors.num);
-  const pos = readPosition(fields);
-  if (pos) state.series.pos.push({ t, ...pos });
+  const bt = block.timeRunning * 1000;
+  state.clock = { boardT: bt, t: block.t };
+  if (state.runStart === null) state.runStart = bt;
+
+  const f = block.fields;
+  const push = (key, v, extra) => state.series[key].push({ t: bt, v, ...extra });
+  if (Number.isFinite(f.alt?.num) && readLock(f.lock) !== false) push('alt', f.alt.num);
+  if (Number.isFinite(f.sats?.num)) push('sats', f.sats.num);
+  if (Number.isFinite(f.quality?.num)) push('quality', f.quality.num, { hdop: f.quality.hdopRaw });
+  if (Number.isFinite(f.gpsRate?.num)) push('gpsRate', f.gpsRate.num, { word: f.gpsRate.word });
+  if (Number.isFinite(f.radioSent?.num)) push('radioSent', f.radioSent.num);
+  if (Number.isFinite(f.radioErrors?.num)) push('radioErrors', f.radioErrors.num);
+  const pos = readPosition(f);
+  if (pos) state.series.pos.push({ t: bt, ...pos });
 }
 
 // A break in every graph line, at each connect and disconnect.
-function breakSeries(t) {
+function breakSeries() {
   for (const [key, pts] of Object.entries(state.series)) {
-    if (!pts.length || pts[pts.length - 1].v === null) continue;
-    pts.push(key === 'pos' ? { t, lat: null, lon: null, v: null } : { t, v: null });
+    const last = pts[pts.length - 1];
+    if (!last) continue;
+    if (key === 'pos') {
+      if (last.lat !== null) pts.push({ t: last.t, lat: null, lon: null });
+    } else if (last.v !== null) {
+      pts.push({ t: last.t, v: null });
+    }
   }
+}
+
+// After a board restart its TIME RUNNING starts over, so the old points
+// would land in the wrong place. The graphs start over too.
+function clearSeries() {
+  for (const pts of Object.values(state.series)) pts.length = 0;
+  state.clock = null;
+  state.runStart = null;
+  state.hoverT = null;
 }
 
 function addError(message, t) {
@@ -261,7 +306,8 @@ function addError(message, t) {
 let theme;
 let charts = [];
 let track;
-const readingRows = {};
+const readingRows = {};   // key -> { dd, value } for the rows that show every field
+const pickGroups = [];    // { fields, dl, shown } for sections that show only what's ON
 let renderQueued = false;
 
 function scheduleRender() {
@@ -283,23 +329,14 @@ function ago(t, now) {
   return `${Math.floor(m / 60)} h ago`;
 }
 
-const DISPLAY_UNIT = { deg: '°', degree: '°', degrees: '°' };
-function showValue(value) {
-  if (!value) return '';
-  if (value.num === null) return value.text.charAt(0).toUpperCase() + value.text.slice(1);
-  const unit = DISPLAY_UNIT[value.unit.toLowerCase()] ?? value.unit;
-  if (!unit) return value.raw;
-  return unit === '°' || unit === '%' ? value.raw + unit : `${value.raw} ${unit}`;
-}
-
-// The time span the graphs show: up to 10 minutes, ending now while
-// connected, or at the last line after a disconnect. Never under a minute.
+// The time span the graphs show, in board time: up to 10 minutes, ending at
+// the board's time now while connected, or at the last block after a
+// disconnect. Never under a minute, and never before the board started.
 function timeSpan(now) {
-  const lastT = state.records.length ? state.records[state.records.length - 1].t : now;
-  const t1 = state.link === 'open' ? now : lastT;
-  const firstT = state.records.length ? state.records[0].t : t1;
-  const t0 = Math.min(t1 - 60000, Math.max(firstT, t1 - WINDOW_MS));
-  return { t0, t1 };
+  if (!state.clock) return { t0: 0, t1: 60000 };
+  const t1 = state.clock.boardT + (state.link === 'open' ? Math.max(0, now - state.clock.t) : 0);
+  const t0 = Math.max(0, Math.min(t1 - 60000, Math.max(state.runStart, t1 - WINDOW_MS)));
+  return { t0, t1: Math.max(t1, t0 + 60000) };
 }
 
 // Drops graph points older than the window, keeping a little extra so a
@@ -318,8 +355,8 @@ function render() {
   const { t0, t1 } = timeSpan(now);
   if (state.link === 'open') prune(t1);
 
-  el.count.textContent = state.records.length.toLocaleString();
-  el.save.disabled = state.records.length === 0;
+  el.count.textContent = state.blocks.length.toLocaleString();
+  el.save.disabled = state.blocks.length === 0;
 
   renderHeartbeat(now);
   renderReadings(now);
@@ -330,17 +367,66 @@ function render() {
 }
 
 function renderHeartbeat(now) {
-  if (state.heartbeatT === null) {
+  if (!state.beat) {
     el.beatText.textContent = 'None yet';
     el.beatDot.dataset.state = 'none';
+    el.beatNum.hidden = true;
+    el.lostDot.dataset.state = 'none';
     return;
   }
-  el.beatText.textContent = ago(state.heartbeatT, now);
-  el.beatDot.dataset.state = now - state.heartbeatT > HEARTBEAT_LATE_MS ? 'late' : 'ok';
+  el.beatText.textContent = ago(state.beat.t, now);
+  el.beatDot.dataset.state = now - state.beat.t > HEARTBEAT_LATE_MS ? 'late' : 'ok';
+  el.beatNum.hidden = state.beat.heartbeat === null;
+  el.beatNum.textContent = `${BANNER.heartbeat} #${state.beat.heartbeat}`;
+  el.lost.textContent = state.lostBlocks.toLocaleString();
+  el.lostDot.dataset.state = state.lostBlocks ? 'late' : 'ok';
+}
+
+// A status word in its color: LOCKED, SEARCHING, GOOD, LOW, SILENT, ON.
+function pill(value) {
+  const span = document.createElement('span');
+  span.className = 'bc-pill';
+  span.dataset.tone = value.tone;
+  span.textContent = value.word;
+  return span;
+}
+
+function numberText(value, unit) {
+  if (value.num === null) return value.text;
+  if (!unit) return value.raw;
+  return unit === '°' ? value.raw + unit : `${value.raw} ${unit}`;
+}
+
+// Fills one reading's <dd> from its value, the way the field's kind says.
+function showValue(dd, field, value) {
+  dd.classList.toggle('is-empty', !value);
+  if (!value) {
+    dd.textContent = 'No data yet';
+    return;
+  }
+  const unit = value.unit || field.unit || '';
+  const parts = [];
+  if (field.kind === 'status' || field.kind === 'onoff') {
+    parts.push(value.tone ? pill(value) : value.text);
+  } else if (field.kind === 'rate') {
+    if (value.word) parts.push(pill(value));
+    if (value.num !== null) parts.push(` ${numberText(value, unit)}`);
+    else if (!value.word) parts.push(value.text);
+  } else if (field.kind === 'quality') {
+    parts.push(numberText(value, unit));
+    if (value.hdopRaw) {
+      const sub = document.createElement('span');
+      sub.className = 'bc-dd-sub';
+      sub.textContent = `${field.hdop} ${value.hdopRaw}`;
+      parts.push(sub);
+    }
+  } else {
+    parts.push(numberText(value, unit));
+  }
+  dd.replaceChildren(...parts);
 }
 
 function readingRow(field) {
-  if (readingRows[field.key]) return readingRows[field.key];
   const row = document.createElement('div');
   row.className = 'bc-reading';
   const dt = document.createElement('dt');
@@ -348,25 +434,67 @@ function readingRow(field) {
   const dd = document.createElement('dd');
   dd.className = 'bc-num';
   row.append(dt, dd);
-  // Rows stay in the order of FIELDS, whatever order they first arrive in.
-  const after = FIELDS.slice(FIELDS.indexOf(field) + 1).map((f) => readingRows[f.key]).find(Boolean);
-  el.readings.insertBefore(row, after || null);
-  readingRows[field.key] = { row, dd };
-  return readingRows[field.key];
+  return { row, dd };
+}
+
+// One group per section, in the board's order, built once at the start.
+// A section of ON and OFF fields (GPS MOTION MODEL) shows only the ones
+// that are ON.
+function buildReadings() {
+  const groups = SECTIONS.map((section) => {
+    const fields = FIELDS.filter((f) => f.section === section);
+    const group = document.createElement('div');
+    group.className = 'bc-group';
+    const title = document.createElement('h3');
+    title.className = 'bc-group-title';
+    title.textContent = section;
+    const dl = document.createElement('dl');
+    dl.className = 'bc-readings-list';
+    group.append(title, dl);
+    if (fields.every((f) => f.kind === 'onoff')) {
+      pickGroups.push({ fields, dl, shown: undefined });
+    } else {
+      for (const f of fields) {
+        const { row, dd } = readingRow(f);
+        showValue(dd, f, undefined);
+        dl.append(row);
+        readingRows[f.key] = { dd, value: undefined };
+      }
+    }
+    return group;
+  });
+  el.readings.replaceChildren(...groups);
 }
 
 function renderReadings(now) {
   for (const field of FIELDS) {
+    const row = readingRows[field.key];
+    if (!row) continue;
     const value = state.latest[field.key];
-    if (!value && !field.main) continue;
-    const { row, dd } = readingRow(field);
-    dd.textContent = value ? showValue(value) : 'No data yet';
-    dd.classList.toggle('is-empty', !value);
-    if (field.key === 'fix') {
-      const fix = readFix(value);
-      row.dataset.fix = fix === null ? '' : fix ? 'yes' : 'no';
-    }
+    if (row.value === value) continue;
+    row.value = value;
+    showValue(row.dd, field, value);
   }
+
+  for (const g of pickGroups) {
+    const seen = g.fields.some((f) => state.latest[f.key]);
+    const on = g.fields.filter((f) => state.latest[f.key]?.tone === 'on');
+    const key = seen ? on.map((f) => f.key).join() || 'none' : null;
+    if (key === g.shown) continue;
+    g.shown = key;
+    if (!seen) {
+      g.dl.replaceChildren(emptyRow('No data yet'));
+      continue;
+    }
+    // If none is ON, every field shows, so it's clear they're all OFF.
+    const shown = on.length ? on : g.fields.filter((f) => state.latest[f.key]);
+    g.dl.replaceChildren(...shown.map((f) => {
+      const { row, dd } = readingRow(f);
+      showValue(dd, f, state.latest[f.key]);
+      return row;
+    }));
+  }
+
   if (state.latestT === null) {
     el.readingsAge.textContent = 'No readings yet';
     el.readingsAge.dataset.stale = '';
@@ -374,6 +502,17 @@ function renderReadings(now) {
     el.readingsAge.textContent = `Updated ${ago(state.latestT, now).toLowerCase()}`;
     el.readingsAge.dataset.stale = now - state.latestT > STALE_MS ? 'yes' : '';
   }
+}
+
+// A row with no label, for "No data yet" in a section that shows only what's ON.
+function emptyRow(text) {
+  const row = document.createElement('div');
+  row.className = 'bc-reading bc-reading--note';
+  const dd = document.createElement('dd');
+  dd.className = 'is-empty';
+  dd.textContent = text;
+  row.append(dd);
+  return row;
 }
 
 function renderErrors() {
@@ -404,15 +543,21 @@ function renderErrors() {
 // One entry per graph: its canvas, its series and how to show a value.
 const CHARTS = [
   { id: 'alt', name: 'Altitude', series: [{ key: 'alt', name: 'Altitude' }], minSpan: 10, floorZero: false, digits: 1 },
-  { id: 'sats', name: 'Satellites in use', series: [{ key: 'sats', name: 'Satellites' }], minSpan: 4, integer: true, digits: 0 },
-  { id: 'hdop', name: 'HDOP', series: [{ key: 'hdop', name: 'HDOP' }], minSpan: 2, digits: 2 },
+  { id: 'sats', name: 'Connected satellites', series: [{ key: 'sats', name: 'Satellites' }], minSpan: 4, integer: true, digits: 0 },
+  { id: 'quality', name: 'Lock quality', series: [{ key: 'quality', name: 'Lock quality' }], minSpan: 100, integer: true, digits: 0 },
+  { id: 'gpsRate', name: 'GPS data rate', series: [{ key: 'gpsRate', name: 'GPS data rate' }], minSpan: 100, integer: true, digits: 0 },
   { id: 'radio', name: 'Radio packets', series: [{ key: 'radioSent', name: 'Sent' }, { key: 'radioErrors', name: 'Errors' }], minSpan: 4, integer: true, digits: 0 },
 ];
 
+// A graph point as text, in the board's own style: "17.3 m",
+// "100 % (HDOP 0.99)", "GOOD 723 char/s".
 function chartValue(key, p, digits) {
   if (!p) return 'No data';
-  const unit = state.units[key] && key === 'alt' ? ` ${state.units[key]}` : '';
-  return p.v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }) + unit;
+  const n = p.v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const unit = state.units[key] || FIELD[key].unit || '';
+  if (key === 'quality') return `${n} ${unit}${p.hdop ? ` (${FIELD.quality.hdop} ${p.hdop})` : ''}`;
+  if (key === 'gpsRate') return `${p.word ? `${p.word} ` : ''}${n} ${unit}`;
+  return unit ? `${n} ${unit}` : n;
 }
 
 function lastPoint(pts) {
@@ -435,9 +580,9 @@ function renderCharts(t0, t1) {
       c.values[s.key].textContent = text;
       summary.push(c.def.series.length > 1 ? `${s.name} ${text}` : text);
     }
-    c.when.textContent = hovering ? `At ${formatClock(state.hoverT)}` : 'Latest';
+    c.when.textContent = hovering ? `At ${formatRunning(state.hoverT)}` : 'Latest';
     c.when.hidden = !hovering && c.def.series.every((s) => !lastPoint(state.series[s.key]));
-    c.canvas.setAttribute('aria-label', `${c.def.name} graph, last 10 minutes. ${hovering ? `At ${formatClock(state.hoverT)},` : 'Latest'} ${summary.join(', ')}.`);
+    c.canvas.setAttribute('aria-label', `${c.def.name} graph, last 10 minutes. ${hovering ? `At ${formatRunning(state.hoverT)} running,` : 'Latest'} ${summary.join(', ')}.`);
   }
 }
 
@@ -449,15 +594,15 @@ function renderTrack(t0, t1) {
   const lat = state.latest.lat;
   const lon = state.latest.lon;
   if (!ext) {
-    const fix = readFix(state.latest.fix);
-    el.trackInfo.textContent = fix === false ? 'Waiting for a GPS fix. The trace starts at the first one.' : 'The trace starts at the first GPS fix.';
+    const lock = readLock(state.latest.lock);
+    el.trackInfo.textContent = lock === false ? 'Waiting for a GPS lock. The trace starts at the first one.' : 'The trace starts at the first GPS lock.';
     el.trackLink.hidden = true;
     el.trackCanvas.setAttribute('aria-label', 'Position trace, no position yet.');
     return;
   }
   const last = pts[pts.length - 1];
   const size = `${ext.eastWest.toFixed(1)} m east to west by ${ext.northSouth.toFixed(1)} m north to south`;
-  const latest = lat && lon ? `${lat.raw}, ${lon.raw}` : `${last.lat}, ${last.lon}`;
+  const latest = lat?.raw && lon?.raw ? `${lat.raw}, ${lon.raw}` : `${last.lat}, ${last.lon}`;
   el.trackInfo.textContent = `Latest fix ${latest}. The trace covers ${size} over ${pts.length.toLocaleString()} fixes.`;
   el.trackLink.href = `https://www.openstreetmap.org/?mlat=${last.lat}&mlon=${last.lon}#map=18/${last.lat}/${last.lon}`;
   el.trackLink.hidden = false;
@@ -501,7 +646,7 @@ function onChartKey(e, chart, def) {
     el.announce.textContent = 'Showing the latest values.';
   } else {
     const parts = def.series.map((s) => `${s.name} ${chartValue(s.key, chart.pointAt(s.key, next), def.digits)}`);
-    el.announce.textContent = `${parts.join(', ')}, at ${formatClock(next)}.`;
+    el.announce.textContent = `${parts.join(', ')}, at ${formatRunning(next)} running.`;
   }
 }
 
@@ -510,8 +655,8 @@ function onChartKey(e, chart, def) {
 // ------------------------------------------------------------------
 
 function saveCsv() {
-  if (!state.records.length) return;
-  const blob = new Blob([buildCsv(state.records, state.units)], { type: 'text/csv;charset=utf-8' });
+  if (!state.blocks.length) return;
+  const blob = new Blob([buildCsv(state.blocks, state.units)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -528,8 +673,12 @@ function saveCsv() {
 
 function start() {
   theme = readTheme();
-  const colors = { alt: theme.gold, sats: theme.gold, hdop: theme.gold, radioSent: theme.sent, radioErrors: theme.err };
+  const colors = {
+    alt: theme.gold, sats: theme.gold, quality: theme.gold, gpsRate: theme.gold,
+    radioSent: theme.sent, radioErrors: theme.err,
+  };
 
+  buildReadings();
   charts = CHARTS.map((def) => {
     const panel = document.querySelector(`[data-chart="${def.id}"]`);
     const canvas = panel.querySelector('canvas');

@@ -190,6 +190,8 @@
 .bc-page .bc-stat-text { display: flex; flex-direction: column; gap: 0.1rem; }
 .bc-page .bc-stat-label { font-size: 0.8rem; color: var(--bc-muted); line-height: 1.2; }
 .bc-page .bc-stat-value { font-size: 1rem; font-weight: 600; color: var(--bc-text); line-height: 1.3; }
+.bc-page .bc-stat-sub { font-size: 0.8rem; color: var(--bc-muted); line-height: 1.2; }
+.bc-page .bc-dot[data-state="late"] + .bc-stat-text .bc-stat-value { color: #f0a58f; }
 
 /* Status dots. Each one sits next to a word that says the same thing. */
 .bc-page .bc-dot {
@@ -259,6 +261,14 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: var(--bc-gap);
 }
+/* One group per section of the board's block (GPS, GPS MOTION MODEL, RADIO). */
+.bc-page .bc-readings-groups { display: grid; gap: 1.1rem; }
+.bc-page .bc-group-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: var(--bc-gold);
+}
 .bc-page .bc-readings-list { margin: 0; }
 .bc-page .bc-reading {
   display: flex;
@@ -269,7 +279,7 @@
   border-top: 1px solid var(--bc-divider);
 }
 .bc-page .bc-reading:first-child { border-top: 0; padding-top: 0.2rem; }
-.bc-page .bc-reading dt { color: var(--bc-text-2); font-size: 0.97rem; }
+.bc-page .bc-reading dt { color: var(--bc-text-2); font-size: 0.9rem; }
 .bc-page .bc-reading dd {
   margin: 0;
   color: var(--bc-text);
@@ -279,25 +289,53 @@
   overflow-wrap: anywhere;
 }
 .bc-page .bc-reading dd.is-empty { color: var(--bc-muted); font-weight: 400; font-size: 0.95rem; }
-/* The GPS fix row gets a dot beside its word. */
-.bc-page .bc-reading[data-fix] dd::before {
-  content: '';
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  margin-right: 0.45rem;
-  border-radius: 50%;
-  vertical-align: 0.08em;
-}
-.bc-page .bc-reading[data-fix="yes"] dd::before { background: var(--bc-teal); }
-.bc-page .bc-reading[data-fix="no"] dd::before { background: var(--bc-coral); }
-.bc-page .bc-reading[data-fix=""] dd::before { display: none; }
+.bc-page .bc-reading--note { justify-content: flex-start; }
+.bc-page .bc-dd-sub { margin-left: 0.5rem; color: var(--bc-muted); font-size: 0.88rem; font-weight: 400; }
 
+/* Status words from the board (LOCKED, SEARCHING, GOOD, LOW, SILENT, ON).
+   The word is always written out, so the color only backs it up. */
+.bc-page .bc-pill {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid var(--bc-border);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--bc-text);
+}
+.bc-page .bc-pill[data-tone="good"],
+.bc-page .bc-pill[data-tone="on"] {
+  color: #7fd8cb;
+  background: color-mix(in srgb, var(--bc-teal) 16%, transparent);
+  border-color: color-mix(in srgb, var(--bc-teal) 60%, transparent);
+}
+.bc-page .bc-pill[data-tone="warn"] {
+  color: #ecc56a;
+  background: color-mix(in srgb, var(--bc-gold) 16%, transparent);
+  border-color: color-mix(in srgb, var(--bc-gold) 60%, transparent);
+}
+.bc-page .bc-pill[data-tone="bad"] {
+  color: #f0a58f;
+  background: color-mix(in srgb, var(--bc-coral) 18%, transparent);
+  border-color: color-mix(in srgb, var(--bc-coral) 65%, transparent);
+}
+.bc-page .bc-pill[data-tone="off"] { color: var(--bc-muted); }
+
+/* The trace's box grows to the height of the readings beside it. The
+   canvas sits inside it, so its own pixel size can't push the box taller. */
 .bc-page .bc-track { display: flex; flex-direction: column; }
+.bc-page .bc-track-box {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: clamp(240px, 30vw, 360px);
+}
 .bc-page .bc-track-canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: clamp(240px, 30vw, 360px);
+  height: 100%;
   background: var(--bc-panel-2);
   border-radius: var(--bc-radius-sm);
 }
@@ -314,6 +352,7 @@
   gap: var(--bc-gap);
 }
 .bc-page .bc-graph { padding-bottom: 0.75rem; }
+.bc-page .bc-graph--wide { grid-column: 1 / -1; }
 .bc-page .bc-graph-head {
   display: flex;
   flex-wrap: wrap;
@@ -382,7 +421,8 @@
   line-height: 1.55;
 }
 .bc-page .bc-raw-log { max-height: 22rem; overflow: auto; white-space: pre; margin-bottom: 0; }
-.bc-page .bc-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The example block keeps its columns, and scrolls sideways when it's too wide. */
+.bc-page .bc-code { white-space: pre; overflow-x: auto; }
 .bc-page .bc-code code { font-size: inherit; }
 
 /* ------------------------------------------------------------

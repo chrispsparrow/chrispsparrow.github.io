@@ -65,12 +65,34 @@ export function nearestIndex(points, t) {
 }
 
 const TIME_STEPS = [5, 10, 15, 30, 60, 120, 300, 600].map((s) => s * 1000);
-const fmtMinutes = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 const fmtSeconds = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+// A time on the computer's clock, like "7:42:13 PM".
 export const formatClock = (t) => fmtSeconds.format(t);
 
+// How long the board has been running, for the graphs' time axis:
+// "0:45", "12:30" or "1:02:05". `ms` is the board's TIME RUNNING in ms.
+export function formatAxisTime(ms) {
+  const s = Math.round(ms / 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h}:${p(m)}:${p(s % 60)}` : `${m}:${p(s % 60)}`;
+}
+
+// The same, written the way the board writes it: "5.3 s", "1 min 5.3 s"
+// or "1 h 2 min 5.0 s".
+export function formatRunning(ms) {
+  const total = Math.round(ms / 100) / 10;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = (total - h * 3600 - m * 60).toFixed(1);
+  return [h && `${h} h`, (h || m) && `${m} min`, `${s} s`].filter(Boolean).join(' ');
+}
+
 // One time graph. `series` is a list of { key, color }. The page hands it
-// the points ({ t, v }) for each key and the time span to show.
+// the points ({ t, v }) for each key and the time span to show. Times are
+// the board's TIME RUNNING in ms.
 export class TimeChart {
   constructor(canvas, { series, theme, integer = false, floorZero = true, minSpan = 1, gapMs = 6000, onHover, onKey }) {
     this.canvas = canvas;
@@ -194,15 +216,14 @@ export class TimeChart {
       ctx.fillText(v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }), left - 6, y);
     }
 
-    // Clock times along the bottom, spaced at least 96 px apart.
+    // The board's running time along the bottom, spaced at least 96 px apart.
     const span = t1 - t0;
     const tStep = TIME_STEPS.find((s) => (span / s) * 96 <= right - left) || TIME_STEPS[TIME_STEPS.length - 1];
-    const fmt = tStep < 60000 ? fmtSeconds : fmtMinutes;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let t = Math.ceil(t0 / tStep) * tStep; t <= t1; t += tStep) {
       const x = xOf(t);
-      const text = fmt.format(t);
+      const text = formatAxisTime(t);
       const half = ctx.measureText(text).width / 2;
       if (x - half < 0 || x + half > w) continue;
       ctx.fillText(text, x, bottom + 6);

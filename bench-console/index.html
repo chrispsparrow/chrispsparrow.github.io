@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=31">
-  <link rel="stylesheet" href="bench-console.css?v=1">
+  <link rel="stylesheet" href="bench-console.css?v=2">
 </head>
 <body class="bc-page">
 
@@ -83,11 +83,19 @@
           <span class="bc-stat-text">
             <span class="bc-stat-label">Last heartbeat</span>
             <span id="bc-beat-text" class="bc-stat-value bc-num">None yet</span>
+            <span id="bc-beat-num" class="bc-stat-sub bc-num" hidden></span>
+          </span>
+        </div>
+        <div class="bc-stat">
+          <span id="bc-lost-dot" class="bc-dot" data-state="none" aria-hidden="true"></span>
+          <span class="bc-stat-text">
+            <span class="bc-stat-label">Lost blocks</span>
+            <span id="bc-lost" class="bc-stat-value bc-num">0</span>
           </span>
         </div>
         <div class="bc-stat">
           <span class="bc-stat-text">
-            <span class="bc-stat-label">Lines received</span>
+            <span class="bc-stat-label">Blocks received</span>
             <span id="bc-count" class="bc-stat-value bc-num">0</span>
           </span>
         </div>
@@ -111,7 +119,8 @@
           <h2 id="bc-readings-title" class="bc-panel-title">Latest readings</h2>
           <span id="bc-readings-age" class="bc-panel-sub">No readings yet</span>
         </div>
-        <dl id="bc-readings-list" class="bc-readings-list"></dl>
+        <!-- One group per section of the board's block, built by js/main.js. -->
+        <div id="bc-readings-groups" class="bc-readings-groups"></div>
       </section>
 
       <section class="bc-panel bc-track" aria-labelledby="bc-track-title">
@@ -119,8 +128,10 @@
           <h2 id="bc-track-title" class="bc-panel-title">Position</h2>
           <span class="bc-panel-sub">Last 10 minutes, north up</span>
         </div>
-        <canvas id="bc-track-canvas" class="bc-track-canvas" role="img" aria-label="Position trace, no position yet."></canvas>
-        <p id="bc-track-info" class="bc-track-info">The trace starts at the first GPS fix.</p>
+        <div class="bc-track-box">
+          <canvas id="bc-track-canvas" class="bc-track-canvas" role="img" aria-label="Position trace, no position yet."></canvas>
+        </div>
+        <p id="bc-track-info" class="bc-track-info">The trace starts at the first GPS lock.</p>
         <a id="bc-track-osm" class="bc-track-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener" hidden>Open this spot in OpenStreetMap</a>
       </section>
     </div>
@@ -128,7 +139,7 @@
     <section class="bc-graphs" aria-labelledby="bc-graphs-title">
       <div class="bc-graphs-head">
         <h2 id="bc-graphs-title" class="bc-section-title">The last 10 minutes</h2>
-        <p class="bc-section-sub">Point at a graph to read every graph at that time. With the keyboard, tab to a graph and use the arrow keys.</p>
+        <p class="bc-section-sub">The times along the bottom are how long the board has been running. Point at a graph to read every graph at that time. With the keyboard, tab to a graph and use the arrow keys.</p>
       </div>
       <div class="bc-graph-grid">
         <section class="bc-panel bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
@@ -140,19 +151,26 @@
         </section>
         <section class="bc-panel bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
           <div class="bc-graph-head">
-            <h3 id="bc-g-sats" class="bc-graph-title">Satellites in use</h3>
+            <h3 id="bc-g-sats" class="bc-graph-title">Connected satellites</h3>
             <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="sats">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
           </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Satellites in use graph, no data yet."></canvas>
+          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Connected satellites graph, no data yet."></canvas>
         </section>
-        <section class="bc-panel bc-graph" data-chart="hdop" aria-labelledby="bc-g-hdop">
+        <section class="bc-panel bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
           <div class="bc-graph-head">
-            <h3 id="bc-g-hdop" class="bc-graph-title">HDOP</h3>
-            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="hdop">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
+            <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
+            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="quality">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
           </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="HDOP graph, no data yet."></canvas>
+          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
         </section>
-        <section class="bc-panel bc-graph" data-chart="radio" aria-labelledby="bc-g-radio">
+        <section class="bc-panel bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
+          <div class="bc-graph-head">
+            <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
+            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="gpsRate">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
+          </div>
+          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
+        </section>
+        <section class="bc-panel bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
           <div class="bc-graph-head">
             <h3 id="bc-g-radio" class="bc-graph-title">Radio packets</h3>
             <p class="bc-graph-read bc-graph-read--keys">
@@ -169,7 +187,7 @@
     <details id="bc-raw" class="bc-panel bc-details">
       <summary>Raw serial output</summary>
       <div class="bc-details-body">
-        <p>The last 300 lines, exactly as they arrived. The CSV file keeps every line.</p>
+        <p>The last 1,000 lines, exactly as they arrived.</p>
         <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
       </div>
     </details>
@@ -177,10 +195,32 @@
     <details class="bc-panel bc-details">
       <summary>What the board needs to send</summary>
       <div class="bc-details-body">
-        <p>The board prints one line of readings at a time. Each reading is a label, a value and an optional unit, and a bar splits them up, like in this line.</p>
-        <pre class="bc-code"><code>Time: 16.1 s | GPS fix: yes | Satellites: 11 | Position accuracy (HDOP): 0.99 | Latitude: 42.3386255 | Longitude: -71.0896268 | Altitude: 17.3 m | GPS mode: airborne | GPS characters: 7252 | Bad GPS sentences: 1 | Radio sent: 10 | Radio skipped: 0 | Radio errors: 0</code></pre>
-        <p>The page finds each reading by its label, so the order doesn't matter and the board can leave readings out. It skips labels it doesn't know. Short labels like Sats, Alt, Lat and Lon work too.</p>
-        <p>A line that starts with <code>Error:</code> shows up in the errors box. A line that starts with <code>Heartbeat:</code> updates the last heartbeat time. Every other line still goes in the raw output and the CSV file.</p>
+        <p>The board prints a block of readings once per second, like this one.</p>
+        <pre class="bc-code" tabindex="0"><code>==================== HEARTBEAT #65 | TIME RUNNING: 1 min 5.3 s ====================
+
+GPS
+  TARGET LOCK [GPS]: ------------------ LOCKED
+  CONNECTED SATELLITES: --------------- 11
+  LOCK QUALITY: ----------------------- 100 % (HDOP 0.99)
+  LATITUDE: --------------------------- 42.3386255
+  LONGITUDE: -------------------------- -71.0896268
+  ALTITUDE: --------------------------- 17.3 m
+  GPS DATA RATE: ---------------------- GOOD 723 char/s
+  CORRUPTED DATA OCCURRENCES (GPS): --- 1
+
+GPS MOTION MODEL
+  PORTABLE: --------------------------- OFF
+  AUTOMOTIVE: ------------------------- OFF
+  AIRBORNE 4G: ------------------------ ON
+  OTHER: ------------------------------ OFF
+
+RADIO
+  RADIO PACKETS SENT: ----------------- 65
+  RADIO PACKETS SKIPPED: -------------- 0
+  RADIO PACKET ERROR OCCURRENCES: ----- 0</code></pre>
+        <p>The line of <code>====</code> starts a new block, and the page reads the heartbeat number and the running time from it. A line with no colon is a section name. Every other line is a label, a row of dashes and a value. The page finds each reading by its label, so the order doesn't matter and the board can leave readings out. It skips labels it doesn't know.</p>
+        <p>A block ends at the next <code>====</code> line or at the blank line after the RADIO section. If the heartbeat number skips ahead, the page adds the missing blocks to Lost blocks. The last heartbeat turns red when no new block has come in for 3 seconds.</p>
+        <p>A line that starts with <code>Error:</code> shows up in the errors box. Every other line still goes in the raw output.</p>
       </div>
     </details>
 
@@ -209,7 +249,7 @@
     </div>
   </footer>
 
-  <script type="module" src="js/main.js?v=1"></script>
+  <script type="module" src="js/main.js?v=2"></script>
   <!-- Site script: runs the nav menu on phones. -->
   <script src="../js/main.js?v=17"></script>
   <script src="../js/fish-logo.js?v=1"></script>
