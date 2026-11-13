@@ -2,8 +2,8 @@
 
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TOUCH   = window.matchMedia('(hover: none)').matches;
-/* Shared with the anchor links: SOON.show(card, y) lines a Coming soon card up
-   for a scroll target. Filled in by the Coming soon row code further down. */
+/* Shared with the anchor links: SOON.show(card) scrolls the Coming soon row to
+   a card. Filled in by the Coming soon row code further down. */
 const SOON    = {};
 
 /* ── INTRO ───────────────────────────────────────────────── */
@@ -172,8 +172,8 @@ const SOON    = {};
          stops where #work pins, before the avionics panel covers them. */
       const margin = (id === 'work') ? 0 : (parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
       const top = Math.max(0, docTop(target) - gap - margin);
-      /* A card in the sideways Coming soon row: have the row show it when the scroll lands */
-      if (SOON.show) SOON.show(target, top);
+      /* A card in the sideways Coming soon row: scroll the row to it too */
+      if (SOON.show) SOON.show(target);
       window.scrollTo({ top, behavior: 'smooth' });
       history.pushState(null, '', '#' + id);
     });
@@ -181,15 +181,13 @@ const SOON    = {};
 })();
 
 /* ── PROJECTS PIN AND COMING SOON ROW ────────────────────── */
-/* #work holds the heading and the Coming soon cards. --work-pin (window height
-   minus band height, never above 0) makes it pin once its bottom reaches the
-   bottom of the window, and then the avionics panel slides up over it. The
-   page never waits: it keeps scrolling down at its normal pace.
+/* #work holds the Coming soon cards. --work-pin (window height minus band
+   height, never above 0) makes it pin once its bottom reaches the bottom of
+   the window, and then the avionics panel slides up over it. The page never
+   waits: it keeps scrolling down at its normal pace.
    On wide screens (.soon-scroll) the cards sit in one row that scrolls
-   sideways. As the page scrolls down past the row, the row also slides left,
-   so the third card comes into view before the avionics panel covers it. A
-   sideways scroll by the visitor shifts the row on top of that, and the shift
-   stays until they scroll back up above the row.
+   sideways. Only the visitor moves it (trackpad or Shift+wheel while over
+   it). Scrolling the page down leaves it where it is.
    Each card also gets a scroll-margin-top so a link to it (like
    ../#ground-station) stops where the band pins, instead of scrolling far
    enough that the avionics panel covers the card. */
@@ -199,17 +197,9 @@ const SOON    = {};
   const track = work.querySelector('.coming-soon-grid');
   const cards = work.querySelectorAll('.soon-card[id]');
   const WIDE  = window.matchMedia('(min-width: 901px)');   // same width where the panels start pinning
-  const PACE  = 0.8;    // at least this many px of page scroll per px the row moves
-  let max = 0;          // how far the row can scroll sideways
-  let y0 = 0, y1 = 0;   // the page scroll range the row moves over
-  let yCover = 0;       // page scroll where the avionics panel reaches the row's bottom
-  let offset = 0;       // the visitor's own sideways shift
-  let set = -1;         // scrollLeft as this code last left it
-  let pending = null;   // a card from the URL hash to keep in view while the page lands
+  let yCover = Infinity;   // page scroll where the avionics panel reaches the row's bottom
 
-  const linked = () => max > 0 && !REDUCED && getComputedStyle(work).position === 'sticky';
-  const progress = (y) => (y1 > y0 ? Math.min(Math.max((y - y0) / (y1 - y0), 0), 1) : 0);
-  const clampX = (x) => Math.min(Math.max(x, 0), max);
+  const pinned = () => getComputedStyle(work).position === 'sticky';
 
   /* Top of #work in the page flow (its own top moves while it's pinned) */
   const flowTop = () => {
@@ -219,93 +209,48 @@ const SOON    = {};
     return p.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(p).paddingTop) + y;
   };
 
-  /* The scrollLeft that lines a card's left edge up with the heading */
-  const cardX = (card) => clampX(card.getBoundingClientRect().left - track.getBoundingClientRect().left
-    + track.scrollLeft - parseFloat(getComputedStyle(track).paddingLeft));
-
-  const update = () => {
-    if (!linked()) return;
-    const y = window.scrollY;
-    /* The visitor scrolled the row sideways (or the browser did, to show a
-       focused link): keep that shift from here on */
-    if (set >= 0 && Math.abs(track.scrollLeft - set) > 1) offset = track.scrollLeft - progress(y) * max;
-    if (pending) offset = cardX(pending) - progress(y) * max;
-    /* Back up above the row: start fresh next time */
-    if (!pending && track.getBoundingClientRect().top > window.innerHeight) offset = 0;
-    const x = clampX(progress(y) * max + offset);
-    if (Math.abs(x - track.scrollLeft) > 0.5) track.scrollLeft = x;
-    set = track.scrollLeft;
-  };
-
-  /* Line a card up with the heading for when the page reaches scroll y. The
-   anchor links above call this, so a link to a card shows that card. */
-  SOON.show = (card, y) => {
-    if (!linked() || !track.contains(card)) return;
-    offset = cardX(card) - progress(y) * max;
-    set = track.scrollLeft;
+  /* Scroll the row so a card's left edge lines up with the first card's usual
+     spot. The anchor links above call this, so a link to a card shows it. */
+  SOON.show = (card) => {
+    if (!card || !track || !track.contains(card) || !work.classList.contains('soon-scroll')) return;
+    const x = card.getBoundingClientRect().left - track.getBoundingClientRect().left
+      + track.scrollLeft - parseFloat(getComputedStyle(track).paddingLeft);
+    track.scrollTo({ left: x, behavior: REDUCED ? 'auto' : 'smooth' });
   };
 
   const layout = () => {
     work.classList.toggle('soon-scroll', WIDE.matches && !!track);
-    const pinned = getComputedStyle(work).position === 'sticky';
     const ih = window.innerHeight;
     const bandH = work.offsetHeight;
     const pin = Math.min(0, ih - bandH);
     work.style.setProperty('--work-pin', pin + 'px');
 
-    max = WIDE.matches && track ? Math.max(0, track.scrollWidth - track.clientWidth) : 0;
-    if (linked()) {
-      const top = flowTop();
+    if (track) {
       const rowTop = track.getBoundingClientRect().top - work.getBoundingClientRect().top;   // inside the band
-      const rowH = track.offsetHeight;
-      /* The row is fully on screen from `seen` until `yCover`. It moves over
-         that stretch plus a quarter of its height on each side, so the first
-         card is close to lined up when the row comes into view and the last
-         one is in view when the avionics panel reaches it. On short windows
-         that stretch is tiny, so it never goes faster than PACE allows. */
-      const seen = top + rowTop + rowH - ih;
-      yCover = top + bandH - pin - (rowTop + rowH);
-      const mid = (seen + yCover) / 2, len = Math.max(yCover - seen + rowH / 2, max * PACE);
-      y0 = mid - len / 2;
-      y1 = mid + len / 2;
+      yCover = flowTop() + bandH - pin - (rowTop + track.offsetHeight);
     }
 
     const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    const stuck = pinned();
     cards.forEach(c => {
       let t = 0;   // the card's top inside the band
       for (let p = c; p && p !== work; p = p.offsetParent) t += p.offsetTop;
-      c.style.scrollMarginTop = pinned ? Math.max(0, t + pin - pad) + 'px' : '';
+      c.style.scrollMarginTop = stuck ? Math.max(0, t + pin - pad) + 'px' : '';
     });
-    update();
   };
 
-  let raf = 0;
-  window.addEventListener('scroll', () => {
-    if (!raf) raf = requestAnimationFrame(() => { raf = 0; update(); });
-  }, { passive: true });
   window.addEventListener('resize', layout);
   if ('ResizeObserver' in window) new ResizeObserver(layout).observe(work);
-
-  /* Arriving with #ground-station (or another card) in the URL: keep that card
-     lined up while the browser scrolls to it, until the visitor takes over */
-  const hashed = location.hash && document.getElementById(location.hash.slice(1));
-  if (hashed && track && track.contains(hashed)) {
-    pending = hashed;
-    const release = () => { pending = null; };
-    ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(t =>
-      window.addEventListener(t, release, { once: true, passive: true }));
-    window.addEventListener('load', () => setTimeout(release, 1500), { once: true });
-  }
   layout();
 
-  /* Shift+Tab back into the row while the avionics panel covers it: scroll up
-     to where the row shows, with the focused card lined up. Tabbing forward
-     needs nothing extra, since the browser scrolls the row to the link. */
   if (track) track.addEventListener('focusin', (e) => {
-    if (!linked() || window.scrollY <= yCover) return;
-    const y = yCover - 40;
-    SOON.show(e.target.closest('.soon-card'), y);
-    window.scrollTo({ top: y });
+    /* Chrome won't scroll the row for a link that's partly in view, so when
+       the focused link is cut off at an edge, scroll its card into view */
+    const r = e.target.getBoundingClientRect(), t = track.getBoundingClientRect();
+    if (r.left < t.left || r.right > t.right) SOON.show(e.target.closest('.soon-card'));
+    /* Shift+Tab back into the row while the avionics panel covers it: scroll
+       up to where the row shows */
+    if (pinned() && window.scrollY > yCover) window.scrollTo({ top: yCover - 40 });
   });
 })();
 

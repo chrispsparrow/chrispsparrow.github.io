@@ -800,7 +800,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   /* Soft leading edge so the off-white band reads as a layer rising over
      the dark hero, rather than a hard seam. */
   box-shadow: 0 -22px 60px -18px rgba(0,0,0,0.55);
-  padding: 6.5rem 0 0;        /* top clears the fixed nav. The bottom room is in .coming-soon */
+  /* Top clears the fixed nav (about 4.3rem) plus a card gap. The bottom room is in .coming-soon */
+  padding: 5.75rem 0 0;
   /* Negative to cancel html's scroll-padding-top (6rem): anchoring to #work
      lands it at the very top so it pins and covers the hero (no sliver). */
   scroll-margin-top: -6rem;
@@ -1148,17 +1149,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 .coming-soon {
   padding: 0 0 calc(clamp(1.5rem, 3vw, 2.5rem) + 2.5rem);
 }
-/* One step below the Projects heading so it doesn't compete */
-.coming-soon-title {
-  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-  color: var(--text);
-  margin: 0 0 1.75rem;
-}
 /* The row spans the band's full width. Its side padding matches .container,
-   so the cards line up with the heading. Without JS: three across. */
+   so the cards line up with the rest of the page. Without JS: three across. */
 .coming-soon-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1170,11 +1162,11 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   .coming-soon-grid { grid-template-columns: 1fr; }
 }
 /* Wide screens (js/main.js adds .soon-scroll). The cards keep a two-across
-   size in one row that scrolls sideways on its own (trackpad, Shift+wheel,
-   keyboard focus), and js/main.js also moves it as the page scrolls down.
-   The page itself never waits. Scrollbar hidden, and a sideways swipe at
-   either end doesn't turn into the browser's back or forward gesture. */
-#work.soon-scroll .coming-soon { padding-bottom: 2.5rem; }   /* less room, so the pinned heading stays clear of the nav on short windows */
+   size in one row that only scrolls sideways when the visitor scrolls it
+   (trackpad, Shift+wheel, keyboard focus). Scrolling the page doesn't move
+   it. Scrollbar hidden, and a sideways swipe at either end doesn't turn into
+   the browser's back or forward gesture. */
+#work.soon-scroll .coming-soon { padding-bottom: 2.5rem; }   /* less room, so the pinned cards stay clear of the nav on short windows */
 #work.soon-scroll .coming-soon-grid {
   display: flex;
   overflow-x: auto;
