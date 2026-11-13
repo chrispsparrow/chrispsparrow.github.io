@@ -1,12 +1,12 @@
 // esri.js
-// Asks Esri whether it accepts the satellite key from this page. The
-// console map and the launcher's map picture both need the answer, so it
+// Asks Esri whether it accepts the satellite key from this page. Every
+// console map (the live one and each replay's) needs the answer, so it
 // lives here and is shared: once Esri says yes, the rest of the visit uses
 // that yes without asking again. A no (an expired key, or a page address
 // the key isn't set up for), an error or no answer within
 // TILE_FAIL_TIMEOUT_MS means no satellite this time, and the next try asks
 // again. Two checks at the same moment share one request.
-// Used by: map-view.js and launcher-map.js.
+// Used by: map-view.js.
 
 let acceptedKey = null; // the key Esri said yes to in this visit
 let pending = null;     // { key, promise } while a check is on its way

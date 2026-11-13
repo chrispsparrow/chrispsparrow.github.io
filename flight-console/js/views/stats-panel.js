@@ -128,7 +128,8 @@ export function createStatsPanel(root, ctx) {
       const gpsQuiet = store.gpsIsQuiet(rocket);
       const fixNow = store.hasFixNow(rocket);
       const gs = store.getGroundStation();
-      const fromGs = fix ? rangeAndBearing(gs, fix) : null;
+      // null when there is no ground station (a live board on the bench).
+      const fromGs = fix && gs ? rangeAndBearing(gs, fix) : null;
       const fixAge = fix ? store.ageOf(fix.t) : null;
       const fromLastFix = fix ? ` Position values are from the last good fix, ${formatAge(fixAge)}.` : '';
       if (silent) alertText = `No packets for ${formatDuration(packetAge)}.${fromLastFix}`;
@@ -167,11 +168,12 @@ export function createStatsPanel(root, ctx) {
           { label: 'Latitude', value: fix ? `${formatNumber(fix.lat, 5)}°` : MISSING },
           { label: 'Longitude', value: fix ? `${formatNumber(fix.lon, 5)}°` : MISSING },
           { label: 'Last good fix', value: fix ? formatAge(fixAge) : MISSING },
-          {
+          // Left out when there is no ground station.
+          ...(gs ? [{
             label: gs.source === 'config' ? 'From the ground station (demo position)' : 'From the ground station',
             value: fromGs ? formatRangeBearing(fromGs) : MISSING,
             wide: true,
-          },
+          }] : []),
           // Any other GPS channel this board has sent (new ones added to the
           // schema show up here without changes).
           ...channelRows(rocket, 'gps', GPS_SHOWN_ABOVE, store, config),

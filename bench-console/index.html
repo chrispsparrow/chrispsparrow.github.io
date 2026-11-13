@@ -2,256 +2,38 @@
 <html lang="en">
 <head>
   <!--
-    Bench Console: reads a Dogtooth board's USB serial output with the Web
-    Serial API (Chrome and Edge on desktops only) and shows it live.
-    Uses: ../css/style.css (site styles), bench-console.css (this page),
-    ../js/main.js (site nav menu), ../js/fish-logo.js (footer logo) and
-    js/main.js (this page). See README.md in this folder.
+    The Bench Console is now part of the Flight Console (its live console at
+    /flight-console/?track). This page only sends old links there, three
+    ways: the meta refresh, the script (location.replace, so the browser's
+    Back button skips this page), and the visible link for anyone with both
+    turned off. Its README now lives in ../flight-console/README.md.
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bench Console | Dogtooth Systems</title>
-  <meta name="description" content="A page I built to read my Dogtooth board over USB and show its GPS and radio readings live while I test it on the bench.">
-  <meta property="og:site_name" content="Dogtooth Systems">
-  <meta property="og:title" content="Bench Console | Dogtooth Systems">
-  <meta property="og:description" content="A page I built to read my Dogtooth board over USB and show its GPS and radio readings live while I test it on the bench.">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
-  <meta name="twitter:card" content="summary_large_image">
+  <meta name="description" content="The Bench Console is now part of the Flight Console.">
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="https://www.dogtoothsystems.com/flight-console/?track">
+  <meta http-equiv="refresh" content="0; url=../flight-console/?track">
+  <script>location.replace('../flight-console/?track');</script>
   <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=31">
-  <link rel="stylesheet" href="bench-console.css?v=2">
+  <style>
+    .moved { max-width: 40rem; margin: 0 auto; padding: 4rem 1.25rem; line-height: 1.6; }
+    .moved p + p { margin-top: 0.75rem; }
+    .moved a { color: var(--gold-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  </style>
 </head>
-<body class="bc-page">
-
-  <!-- ── SITE NAV (copied from the home page, paths point up one folder) ── -->
-  <nav id="nav" aria-label="Main navigation">
-    <a href="/" class="nav-name" aria-label="Christopher Sparrow, home page">Christopher Sparrow</a>
-    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-    <div class="nav-links">
-      <a href="../#work">Work</a>
-      <a href="../#about">About</a>
-      <a href="../#skills">Skills</a>
-      <a href="../#contact">Contact</a>
-      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
-    </div>
-  </nav>
-
-  <main class="bc-main">
-
-    <header class="bc-head">
-      <div>
-        <h1 class="bc-title">Bench Console</h1>
-        <p class="bc-lede">Plug a Dogtooth board into this computer over USB, and this page shows what it reports, live. I use it on the bench to check the GPS and radio before a flight.</p>
-      </div>
-      <ul class="bc-notes">
-        <li>It works in Chrome or Edge on a desktop or laptop.</li>
-        <li>Only one program can use the serial port at a time. Close any serial monitor first, like the one in the Arduino IDE or PlatformIO.</li>
-        <li>Everything stays in this tab. Nothing is uploaded, and the data is gone when you close the page unless you save it.</li>
-      </ul>
-    </header>
-
-    <p id="bc-unsupported" class="bc-unsupported" role="alert" hidden>This browser can't open serial ports. The Bench Console needs the Web Serial API, which Chrome and Edge have on desktops and laptops. Open this page in one of those to connect a board.</p>
-
-    <!-- Connect, Disconnect, the link and heartbeat status, and Save as CSV. -->
-    <section class="bc-bar" aria-label="Connection">
-      <div class="bc-bar-actions">
-        <button id="bc-connect" class="bc-btn bc-btn--gold" type="button">Connect</button>
-        <button id="bc-disconnect" class="bc-btn bc-btn--outline" type="button" disabled>Disconnect</button>
-      </div>
-      <div class="bc-bar-status">
-        <div class="bc-stat">
-          <span id="bc-link-dot" class="bc-dot" data-state="idle" aria-hidden="true"></span>
-          <span class="bc-stat-text">
-            <span class="bc-stat-label">Connection</span>
-            <span id="bc-link-text" class="bc-stat-value" role="status">Not connected</span>
-          </span>
-        </div>
-        <div class="bc-stat">
-          <span id="bc-beat-dot" class="bc-dot" data-state="none" aria-hidden="true"></span>
-          <span class="bc-stat-text">
-            <span class="bc-stat-label">Last heartbeat</span>
-            <span id="bc-beat-text" class="bc-stat-value bc-num">None yet</span>
-            <span id="bc-beat-num" class="bc-stat-sub bc-num" hidden></span>
-          </span>
-        </div>
-        <div class="bc-stat">
-          <span id="bc-lost-dot" class="bc-dot" data-state="none" aria-hidden="true"></span>
-          <span class="bc-stat-text">
-            <span class="bc-stat-label">Lost blocks</span>
-            <span id="bc-lost" class="bc-stat-value bc-num">0</span>
-          </span>
-        </div>
-        <div class="bc-stat">
-          <span class="bc-stat-text">
-            <span class="bc-stat-label">Blocks received</span>
-            <span id="bc-count" class="bc-stat-value bc-num">0</span>
-          </span>
-        </div>
-      </div>
-      <button id="bc-save" class="bc-btn" type="button" disabled>Save as CSV</button>
-    </section>
-    <p id="bc-link-note" class="bc-link-note" aria-live="polite" hidden></p>
-
-    <!-- Lines that start with "Error:". Hidden until the first one. -->
-    <section id="bc-errors" class="bc-panel bc-errors" aria-labelledby="bc-errors-title" hidden>
-      <div class="bc-panel-head">
-        <h2 id="bc-errors-title" class="bc-panel-title">Errors from the board <span id="bc-errors-count" class="bc-num"></span></h2>
-        <button id="bc-errors-clear" class="bc-btn bc-btn--sm" type="button">Clear</button>
-      </div>
-      <ol id="bc-errors-list" class="bc-errors-list" aria-live="polite"></ol>
-    </section>
-
-    <div class="bc-top">
-      <section class="bc-panel bc-readings" aria-labelledby="bc-readings-title">
-        <div class="bc-panel-head">
-          <h2 id="bc-readings-title" class="bc-panel-title">Latest readings</h2>
-          <span id="bc-readings-age" class="bc-panel-sub">No readings yet</span>
-        </div>
-        <!-- One group per section of the board's block, built by js/main.js. -->
-        <div id="bc-readings-groups" class="bc-readings-groups"></div>
-      </section>
-
-      <section class="bc-panel bc-track" aria-labelledby="bc-track-title">
-        <div class="bc-panel-head">
-          <h2 id="bc-track-title" class="bc-panel-title">Position</h2>
-          <span class="bc-panel-sub">Last 10 minutes, north up</span>
-        </div>
-        <div class="bc-track-box">
-          <canvas id="bc-track-canvas" class="bc-track-canvas" role="img" aria-label="Position trace, no position yet."></canvas>
-        </div>
-        <p id="bc-track-info" class="bc-track-info">The trace starts at the first GPS lock.</p>
-        <a id="bc-track-osm" class="bc-track-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener" hidden>Open this spot in OpenStreetMap</a>
-      </section>
-    </div>
-
-    <section class="bc-graphs" aria-labelledby="bc-graphs-title">
-      <div class="bc-graphs-head">
-        <h2 id="bc-graphs-title" class="bc-section-title">The last 10 minutes</h2>
-        <p class="bc-section-sub">The times along the bottom are how long the board has been running. Point at a graph to read every graph at that time. With the keyboard, tab to a graph and use the arrow keys.</p>
-      </div>
-      <div class="bc-graph-grid">
-        <section class="bc-panel bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
-          <div class="bc-graph-head">
-            <h3 id="bc-g-alt" class="bc-graph-title">Altitude</h3>
-            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="alt">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-          </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Altitude graph, no data yet."></canvas>
-        </section>
-        <section class="bc-panel bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
-          <div class="bc-graph-head">
-            <h3 id="bc-g-sats" class="bc-graph-title">Connected satellites</h3>
-            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="sats">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-          </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Connected satellites graph, no data yet."></canvas>
-        </section>
-        <section class="bc-panel bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
-          <div class="bc-graph-head">
-            <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
-            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="quality">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-          </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
-        </section>
-        <section class="bc-panel bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
-          <div class="bc-graph-head">
-            <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
-            <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="gpsRate">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-          </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
-        </section>
-        <section class="bc-panel bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
-          <div class="bc-graph-head">
-            <h3 id="bc-g-radio" class="bc-graph-title">Radio packets</h3>
-            <p class="bc-graph-read bc-graph-read--keys">
-              <span class="bc-key"><span class="bc-key-line bc-key-line--sent" aria-hidden="true"></span>Sent <span class="bc-graph-value bc-num" data-value="radioSent">No data</span></span>
-              <span class="bc-key"><span class="bc-key-line bc-key-line--err" aria-hidden="true"></span>Errors <span class="bc-graph-value bc-num" data-value="radioErrors">No data</span></span>
-              <span class="bc-graph-when" data-when hidden>Latest</span>
-            </p>
-          </div>
-          <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Radio packets graph, no data yet."></canvas>
-        </section>
-      </div>
-    </section>
-
-    <details id="bc-raw" class="bc-panel bc-details">
-      <summary>Raw serial output</summary>
-      <div class="bc-details-body">
-        <p>The last 1,000 lines, exactly as they arrived.</p>
-        <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
-      </div>
-    </details>
-
-    <details class="bc-panel bc-details">
-      <summary>What the board needs to send</summary>
-      <div class="bc-details-body">
-        <p>The board prints a block of readings once per second, like this one.</p>
-        <pre class="bc-code" tabindex="0"><code>==================== HEARTBEAT #65 | TIME RUNNING: 1 min 5.3 s ====================
-
-GPS
-  TARGET LOCK [GPS]: ------------------ LOCKED
-  CONNECTED SATELLITES: --------------- 11
-  LOCK QUALITY: ----------------------- 100 % (HDOP 0.99)
-  LATITUDE: --------------------------- 42.3386255
-  LONGITUDE: -------------------------- -71.0896268
-  ALTITUDE: --------------------------- 17.3 m
-  GPS DATA RATE: ---------------------- GOOD 723 char/s
-  CORRUPTED DATA OCCURRENCES (GPS): --- 1
-
-GPS MOTION MODEL
-  PORTABLE: --------------------------- OFF
-  AUTOMOTIVE: ------------------------- OFF
-  AIRBORNE 4G: ------------------------ ON
-  OTHER: ------------------------------ OFF
-
-RADIO
-  RADIO PACKETS SENT: ----------------- 65
-  RADIO PACKETS SKIPPED: -------------- 0
-  RADIO PACKET ERROR OCCURRENCES: ----- 0</code></pre>
-        <p>The line of <code>====</code> starts a new block, and the page reads the heartbeat number and the running time from it. A line with no colon is a section name. Every other line is a label, a row of dashes and a value. The page finds each reading by its label, so the order doesn't matter and the board can leave readings out. It skips labels it doesn't know.</p>
-        <p>A block ends at the next <code>====</code> line or at the blank line after the RADIO section. If the heartbeat number skips ahead, the page adds the missing blocks to Lost blocks. The last heartbeat turns red when no new block has come in for 3 seconds.</p>
-        <p>A line that starts with <code>Error:</code> shows up in the errors box. Every other line still goes in the raw output.</p>
-      </div>
-    </details>
-
-    <p id="bc-announce" class="sr-only" aria-live="polite"></p>
+<body>
+  <main class="moved">
+    <p>The Bench Console is now part of the Flight Console.</p>
+    <p><a href="../flight-console/?track">Open the Flight Console</a></p>
   </main>
-
-  <!-- ── FOOTER (copied from the home page, paths point up one folder) ── -->
-  <footer role="contentinfo">
-    <!-- The logo in two stacked layers (tuna and wordmark), like the hero's,
-         so js/fish-logo.js can build each one out of its own size of fish. -->
-    <div class="footer-logo" role="img" aria-label="Dogtooth Systems logo, a dogtooth tuna">
-      <img class="footer-logo-word" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_wordmark.svg" alt="" width="180" height="106">
-      <img class="footer-logo-tuna" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg" alt="" width="180" height="106">
-    </div>
-    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
-    <nav class="footer-links" aria-label="Footer links">
-      <a href="../#work">Work</a>
-      <a href="../#about">About</a>
-      <a href="../#contact">Contact</a>
-      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
-    </nav>
-    <div class="footer-social" aria-label="Social links">
-      <a href="https://www.linkedin.com/in/chrispsparrow" target="_blank" rel="noopener" aria-label="LinkedIn">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-      </a>
-    </div>
-  </footer>
-
-  <script type="module" src="js/main.js?v=2"></script>
-  <!-- Site script: runs the nav menu on phones. -->
-  <script src="../js/main.js?v=17"></script>
-  <script src="../js/fish-logo.js?v=1"></script>
 </body>
 </html>

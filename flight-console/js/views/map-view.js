@@ -7,6 +7,10 @@
 // stretch with no position at all, the track is dashed. Lines and icons get a thin dark outline so they stand
 // out on bright photos.
 //
+// A store with no ground station (a board on the bench) has no tower, no
+// teal line and no distance: the map leaves all of them out, and the legend
+// drops their rows.
+//
 // Each icon has a green HUD label next to it. The rocket's says its name,
 // height above ground and vertical speed. With no GPS fix (or no recent
 // packets at all), the rocket turns grey and hollow at its last good
@@ -18,8 +22,8 @@
 // labels on top unless "Labels" is unchecked) and CARTO's dark map. The
 // browser remembers the viewer's choice. If Esri turns the key down or the
 // imagery keeps failing, the map shows the dark map and says so. The key
-// check is shared with the launcher's map picture (esri.js), so a yes from
-// Esri counts for the whole visit.
+// check is shared by every map in the visit (esri.js), so a yes from Esri
+// counts for the whole visit.
 //
 // The readings panel and the altitude tape float over the map (other
 // views), and so do this map's own controls and legend. Anything in the
@@ -48,7 +52,7 @@ import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } f
 import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js';
 import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR, iconNode } from './icons.js';
 import { checkEsriKey } from './esri.js';
-import { rocketHudLine } from './hud-text.js';
+import { rocketHudLine, FLIGHT_WORDS } from './hud-text.js?v=2';
 import { loadCesium } from './cesium-loader.js';
 
 // The fix-gap line pattern: dash and space lengths in pixels.
@@ -96,6 +100,10 @@ const GS_LINE_STALE_OPACITY = 0.4;
 const Z_OFFSET = { pad: 0, gs: 10000, rocket: 20000, focused: 30000 };
 // How long (ms) Follow waits after starting a pan before it checks again.
 const FOLLOW_PAN_MS = 600;
+// Where the map waits before the first position when there is no ground
+// station to start on: most of the world, until the first view fits.
+const NO_STATION_CENTER = [20, 0];
+const NO_STATION_ZOOM = 2;
 
 const isLayer = (value) => value === 'satellite' || value === 'dark';
 
@@ -106,13 +114,15 @@ let chosenView = null;
 
 export function createMapView(root, ctx) {
   const { store, config, libs } = ctx;
+  // What to call the thing being tracked (a rocket, or a board on a desk).
+  const words = ctx.words ?? FLIGHT_WORDS;
 
   // ------------------------------------------------------------------
   // Page elements
   // ------------------------------------------------------------------
   const followBox = h('input', { type: 'checkbox', checked: true, onchange: () => { setFollow(followBox.checked); scheduler.schedule(); } });
-  const followLabel = h('label', { class: 'fc-map-check' }, followBox, 'Follow rocket');
-  const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': 'Map of rocket positions' });
+  const followLabel = h('label', { class: 'fc-map-check' }, followBox, words.follow);
+  const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': words.mapLabel });
   const waitBox = h('div', { class: 'fc-map-wait' }, 'Loading the map...');
 
   // Map background and view: Satellite and Dark map are the two map
@@ -131,10 +141,12 @@ export function createMapView(root, ctx) {
 
   // The 3D camera buttons, in place of the "Follow rocket" checkbox while
   // the 3D view is showing.
-  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, 'Follow rocket');
-  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, 'Whole flight');
+  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, words.follow);
+  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, words.whole ?? '');
   const resetBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => { globe?.resetView(); updateCameraButtons(); } }, 'Reset view');
-  const cameraPick = h('div', { class: 'fc-seg fc-cam-pick', role: 'group', 'aria-label': '3D camera', hidden: true }, followBtn, wholeBtn, resetBtn);
+  // A board on a desk has no flight to frame, so it gets no "Whole flight".
+  const cameraPick = h('div', { class: 'fc-seg fc-cam-pick', role: 'group', 'aria-label': '3D camera', hidden: true },
+    followBtn, words.whole ? wholeBtn : null, resetBtn);
 
   // Top left corner: the controls, with the map's notes under them.
   const controls = h('div', { class: 'fc-map-controls fc-float' }, layerPick, followLabel, cameraPick);
@@ -149,7 +161,7 @@ export function createMapView(root, ctx) {
     class: 'fc-globe-canvas',
     role: 'region',
     tabindex: '0',
-    'aria-label': '3D view of the flight. The arrow keys move the camera around, and plus and minus zoom.',
+    'aria-label': `${words.globeLabel}. The arrow keys move the camera around, and plus and minus zoom.`,
   });
   const globeCredits = h('div', { class: 'fc-globe-credits' });
   const globePanel = h('div', { class: 'fc-globe-panel', hidden: true });
@@ -167,12 +179,19 @@ export function createMapView(root, ctx) {
   // config placeholder. The dashed line covers both kinds of gap: no GPS
   // fix, and no packets at all for a while.
   const legendGsText = h('span', {}, 'Ground station');
-  const legend = h('div', { class: 'fc-map-legend fc-float', 'aria-hidden': 'true' },
-    legendRow(lineKey(config.TRACK_COLOR, 3, null), 'Rocket track'),
-    legendRow(lineKey(config.TRACK_COLOR, 2, '3 4'), 'No GPS position'),
-    legendRow(iconNode(padSvg()), 'Launch point'),
+  // The two ground station rows hide while there is no ground station.
+  const legendGsRows = [
     legendRow(iconNode(towerSvg()), legendGsText),
-    legendRow(lineKey(config.GROUND_STATION_COLOR, 2, '5 3'), 'Distance to ground station'));
+    legendRow(lineKey(config.GROUND_STATION_COLOR, 2, '5 3'), 'Distance to ground station'),
+  ];
+  const legend = h('div', { class: 'fc-map-legend fc-float', 'aria-hidden': 'true' },
+    legendRow(lineKey(config.TRACK_COLOR, 3, null), words.track),
+    legendRow(lineKey(config.TRACK_COLOR, 2, '3 4'), 'No GPS position'),
+    legendRow(iconNode(padSvg()), words.pad),
+    ...legendGsRows,
+    // The field codes on the green labels.
+    legendRow(h('span', { class: 'fc-legend-code' }, 'AGL'), 'Height above ground level'),
+    legendRow(h('span', { class: 'fc-legend-code' }, 'VS'), 'Vertical speed, ▲ up or ▼ down'));
   legend.hidden = true;
   controls.hidden = true;
 
@@ -329,7 +348,10 @@ export function createMapView(root, ctx) {
       // fresh on every pan), every pan is instant.
       const panBy = map.panBy.bind(map);
       map.panBy = (offset, options = {}) => panBy(offset, prefersReducedMotion() ? { ...options, animate: false } : options);
-      map.setView([gs.lat, gs.lon], config.MAP_DEFAULT_ZOOM);
+      // With no ground station, it waits on a wide view of the world until
+      // the first view has a position to fit.
+      if (gs) map.setView([gs.lat, gs.lon], config.MAP_DEFAULT_ZOOM);
+      else map.setView(NO_STATION_CENTER, NO_STATION_ZOOM);
       // Zoom buttons in the bottom right corner, above the credits.
       L.control.zoom({ position: 'bottomright' }).addTo(map);
       // A distance scale, useful for recovery with or without tiles.
@@ -740,7 +762,7 @@ export function createMapView(root, ctx) {
     const gen = ++threeGen;
     three = 'loading';
     showThreePanel('loading');
-    Promise.all([loadCesium(), import('./globe-view.js')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=2')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -1016,7 +1038,11 @@ export function createMapView(root, ctx) {
   // config placeholder. The 3D view shows the same legend, so this runs
   // for both views.
   function updateLegend() {
-    setText(legendGsText, store.getGroundStation().source === 'config' ? 'Ground station (demo position)' : 'Ground station');
+    const gs = store.getGroundStation();
+    for (const row of legendGsRows) {
+      if (row.hidden !== !gs) row.hidden = !gs;
+    }
+    if (gs) setText(legendGsText, gs.source === 'config' ? 'Ground station (demo position)' : 'Ground station');
   }
 
   function redrawAll() {
@@ -1071,7 +1097,7 @@ export function createMapView(root, ctx) {
   }
 
   function buildPadIcon() {
-    const label = h('span', { class: 'fc-hud fc-pad-label' }, h('span', { class: 'fc-hud-name' }, 'LAUNCH POINT'));
+    const label = h('span', { class: 'fc-hud fc-pad-label' }, h('span', { class: 'fc-hud-name' }, words.padTag));
     const el = h('div', { class: 'fc-pad', 'aria-hidden': 'true' }, iconNode(padSvg()), label);
     return { el, label, side: 'left', blocked: false };
   }
@@ -1090,19 +1116,24 @@ export function createMapView(root, ctx) {
     const rockets = store.getRockets();
     const focused = store.getFocused();
     const gs = store.getGroundStation();
-    const demoGs = gs.source === 'config';
 
-    // Ground station
+    // Ground station (none at all for a board on the bench)
     updateLegend();
-    if (!gsMarker) {
-      gsParts = buildGsIcon();
-      gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, TOWER_SIZE, TOWER_ANCHOR, Z_OFFSET.gs)).addTo(map);
+    if (!gs) {
+      gsMarker?.remove();
+      gsMarker = null;
+      gsParts = null;
     } else {
-      gsMarker.setLatLng([gs.lat, gs.lon]);
+      if (!gsMarker) {
+        gsParts = buildGsIcon();
+        gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, TOWER_SIZE, TOWER_ANCHOR, Z_OFFSET.gs)).addTo(map);
+      } else {
+        gsMarker.setLatLng([gs.lat, gs.lon]);
+      }
+      // An honesty note: the tower sits at a made-up spot until the real
+      // ground station sends its own position.
+      gsParts.note.hidden = gs.source !== 'config';
     }
-    // An honesty note: the tower sits at a made-up spot until the real
-    // ground station sends its own position.
-    gsParts.note.hidden = !demoGs;
 
     for (const rocket of rockets) {
       const isFocused = focused?.id === rocket.id;
@@ -1278,7 +1309,7 @@ export function createMapView(root, ctx) {
     const placed = placeLabels(rockets, focused, size, covers);
 
     // Line from the ground station to the focused rocket.
-    if (target) {
+    if (target && gs) {
       // Short, as in "1.24 km, bearing 58° (NE)". The legend and the ground
       // station's own label say when its position is only a demo. With no
       // fix right now the line ends at the last good position, so the line
@@ -1675,7 +1706,7 @@ export function createMapView(root, ctx) {
     // Each view adds its own notes: the map's backgrounds, or the 3D
     // view's ground heights and imagery.
     const viewNotes = view === '3d' ? globe?.notes() ?? [] : [satelliteNote, labelsNote, noTilesNote];
-    return [noFixAnywhere ? 'No GPS fix yet, so there is no rocket to draw.' : '', focusNote, ...viewNotes]
+    return [noFixAnywhere ? words.noFix : '', focusNote, ...viewNotes]
       .filter(Boolean).join(' ');
   }
 
@@ -1768,13 +1799,14 @@ export function createMapView(root, ctx) {
     for (const rocket of rockets) {
       const row = fallbackRows.get(rocket.id);
       const fix = rocket.lastGoodFix;
-      const rb = fix ? rangeAndBearing(gs, fix) : null;
-      let position = 'No GPS data from this rocket';
+      const rb = fix && gs ? rangeAndBearing(gs, fix) : null;
+      let position = words.noGpsData;
       if (fix) position = `${formatNumber(fix.lat, 5)}, ${formatNumber(fix.lon, 5)}`;
-      else if (rocket.lastPacketT === null) position = 'No data from this rocket yet';
+      else if (rocket.lastPacketT === null) position = words.noData;
       else if (rocket.sensorGroups.has('gps')) position = 'No GPS fix yet';
       setText(row.position, position);
       setText(row.range, rb ? `${formatRangeBearing(rb)} from the ground station` : MISSING);
+      if (row.range.hidden !== !gs) row.range.hidden = !gs;
       let note = '';
       if (fix && store.isSilent(rocket)) note = `No recent packets. Last good fix ${formatAge(store.ageOf(fix.t))}`;
       else if (fix && store.gpsIsQuiet(rocket)) note = `No recent GPS data. Last good fix ${formatAge(store.ageOf(fix.t))}`;
@@ -1787,7 +1819,8 @@ export function createMapView(root, ctx) {
       }
       row.arrow.style.display = rb ? '' : 'none';
     }
-    setText(gsRow, `Ground station at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
+    gsRow.hidden = !gs;
+    if (gs) setText(gsRow, `Ground station at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
   }
 
   // ------------------------------------------------------------------

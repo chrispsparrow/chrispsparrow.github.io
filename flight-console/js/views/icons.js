@@ -7,8 +7,8 @@
 //
 // The rocket always points straight up. No board sends orientation data
 // yet, so the icon never turns to suggest which way the rocket points.
-// Used by: map-view.js, launcher.js, launcher-map.js, mission-header.js,
-// stats-panel.js, timeline.js and debug-panel.js.
+// Used by: map-view.js, launcher.js, mission-header.js, stats-panel.js,
+// timeline.js and debug-panel.js.
 
 import { HALO_COLOR, PAD_COLOR, GROUND_STATION_COLOR } from '../config.js';
 

@@ -1,6 +1,8 @@
 # Flight Console
 
-The Flight Console is the page on my site that plays back rocket flights from the telemetry my avionics boards send. It shows each rocket on a map or in a 3D view, its altitude and speed, and the events of the flight. Later it will also track live flights through my ground station.
+The Flight Console is the page on my site for watching my rocket avionics. Plug a Dogtooth board into the computer over USB and it shows the board's readings live, with its GPS position in 3D. It also plays back saved flights from the telemetry my boards send. Later it will track live flights through my Manta ground station.
+
+The Bench Console used to be its own page. It is now part of this one (see "The live console"), and its old address sends visitors here.
 
 This guide explains every file, how the data moves through the page, and how to add a flight.
 
@@ -16,20 +18,194 @@ The satellite map works at exactly http://localhost:8000, because that address i
 
 The 3D view works at http://localhost:8000 and at http://127.0.0.1:8000, the two local addresses on the Cesium ion token's list. On any other port, ion turns the token down and the 3D view shows a flat, plain ground with a note.
 
+The live console needs the Web Serial API, so it only connects in Chrome and Edge on a desktop or laptop. Web Serial also only works on a secure page, and localhost counts as one.
+
 On the live site the same page is at https://www.dogtoothsystems.com/flight-console/.
 
-## How the page decides what to show
+## The three screens
 
-`js/main.js` reads the address bar.
+`js/main.js` reads the address bar and shows one of three screens.
 
-- `/flight-console/` with nothing after it shows the launcher: the hero with the demo flight button, the featured flight, how it works, the flight library, and the live tracking card. The launcher only downloads `index.json` and the featured flight's cover picture, never a flight's data files.
-- `/flight-console/?flight=gps-board-sim-01` skips the launcher and opens the console for that flight.
-- If the id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a link back to all flights. The message says whether it looks like a connection problem or a missing or damaged file on the site.
+- `/flight-console/` with nothing after it is the landing: the hero and two cards, nothing else. It downloads no flight data.
+- `/flight-console/?track` is the console, live. One Connect button opens the board's serial port. The saved flights are listed at the bottom. `?track#fc-saved` (the overview's "Saved flights" button) opens the console scrolled to that list, with keyboard focus on its heading.
+- `/flight-console/?flight=gps-board-sim-01` is the console, playing that saved flight.
+- If the flight id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a "Back to the console" button. The message says whether it looks like a connection problem or a missing or damaged file on the site.
 - Until `main.js` starts, the page says "Loading the Flight Console...". If the page's own code fails to download, a small script in `index.html` says so instead of leaving the page empty.
 
-"Watch" and "All flights" change the address with `history.pushState`, so no page reload happens. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. Opening a flight always builds a brand new store, player and set of views. Leaving it destroys them, so nothing from one flight can show up in the next.
+Links inside the page ("Track a Rocket", "Open the console", the Saved flights rows, "Back to the console", the "Flight Console" link at the top of the console) change the address with `history.pushState`, so no page reload happens. A middle click or Ctrl+click still opens a new tab, since every link has a real address. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. After every switch inside the page, keyboard focus moves to the new screen's main heading.
 
-## How one sample travels from the file to the screen
+Page titles: "Flight Console | Dogtooth Systems" on the landing, "Track a Rocket | Flight Console | Dogtooth Systems" on the live console, and "<flight title> | Flight Console | Dogtooth Systems" for a replay.
+
+## The landing
+
+The landing's text is all in `index.html`: two small tags, the title, one sentence, the "Track a Rocket" and "Project Overview" buttons, and one card for each button under the hero. "Project Overview" goes to `../projects/flight-console.html`, which explains the whole system.
+
+Behind the hero, the sea floor moves. `js/hero-seafloor.js` draws contour lines live on a canvas from a smooth made-up height field that drifts and swells over a 24 second loop, with a few thin gold "ocean current" lines whose dashes drift along them. It redraws at most 20 times a second, pauses while the tab is hidden or the hero is off screen (or the landing isn't showing), and draws one still frame for visitors who ask for reduced motion. A soft dark band behind the text column keeps the text readable over the lines.
+
+`js/views/launcher.js` starts it once with `startSeafloor(canvas)`, which returns a `stop()` function. Nothing else on the page uses `hero-seafloor.js`. So a later real-data ocean currents animation can replace `hero-seafloor.js` completely, as long as it exports the same shape: a start function that takes the canvas (and an optional options object) and returns a stop function. Its colors come from CSS variables on the canvas (`--seafloor-line`, `--seafloor-current` and the others listed at the top of the file), set in the landing part of `flight-console.css`.
+
+## The console: modes and panes
+
+The console is one CSS grid, `<section id="fc-console">`. Every part of it is a direct child of the grid, a "pane", with a `data-pane` name and its own `grid-area`. The grid's `data-mode` says what the console is showing, and `flight-console.css` decides which panes that mode shows and where.
+
+The panes:
+
+- `head`: a "Flight Console" link back to the landing, the title "Track a Rocket", and one line on how to use it.
+- `bar`: Connect, Disconnect, the connection status (with the 115,200 baud), the source once it is known, the last heartbeat and its number, Lost blocks, Blocks received and Save as CSV. Notes about the link show under it, and so does a note in browsers that can't open serial ports.
+- `intro`: how to connect.
+- `notice`: shown when lines arrive but none of them match a source the console knows.
+- `errors`: the "Error:" lines from the board.
+- `readings`: the latest readings, grouped GPS, GPS MOTION MODEL and RADIO.
+- `graphs`: the last 10 minutes of altitude, satellites, lock quality, GPS data rate and radio packets sent and errors.
+- `stage`: the map or 3D view (`#fc-map`), with the readings panel (`#fc-stats`) and the altitude tape (`#fc-tape`) floating over it.
+- `raw`: the raw serial output.
+- `saved`: the Saved flights list.
+- `mission`, `rockets`, `phases`, `timeline` and `lower`: a replay's header, rocket chips, phase strip, altitude timeline, and the mission timeline with the flight details and detection check.
+
+The modes:
+
+- `idle`: no source found yet. Head, bar, intro and saved (and errors, if any come in). If lines arrive that the console doesn't recognize, the notice shows, the raw output opens in place of the intro, and the source says "Not recognized".
+- `bench`: a Dogtooth board's status block came in over USB. Head and bar, then the readings and graphs side by side (the diagnostics come first), then the 3D view at a moderate height showing the board's position, then raw and saved. The readings panel and the altitude tape don't float over the 3D view here, because the bench readings already show the numbers.
+- `flight`: a flight source, like the Manta ground station. Nothing makes this mode yet. The 3D view takes over, nearly the whole window tall, with the readings panel and altitude tape over it. Only a Dogtooth board's status block fills the bench readings and graphs, so they show under the 3D view only once a block has come in during the visit (`main.js` sets `data-has-blocks` on the grid). It is all CSS plus the switch in `main.js`, which goes by the source's `mode`, so a future source with `mode: 'flight'` just works.
+- `replay`: a saved flight, the same console as before: header, phase strip, the stage with its panels, the altitude timeline, then the mission timeline next to the flight details and detection check. None of the live panes show.
+
+Phones get one column in every mode, and the page never scrolls sideways at 390 or 320 pixels wide. The panes are in the page in the order they show, so the keyboard goes through them in the same order. The one exception is flight mode, where the stage moves above the readings and graphs.
+
+Panes are spaced with a bottom margin, not a grid row gap. That way the empty row of a pane a mode hides takes no room.
+
+### Later: one screen, no scrolling
+
+The grid is built so it can become a one-screen layout with tabs or flip-through panels. Give the grid a fixed height (the window minus the nav), one row and one column, and put every pane of the mode in that one cell. Then show one pane at a time, the one the tabs pick (for example a `data-show` attribute on the grid), and let a pane that is too tall scroll inside itself. No markup has to move, since every pane is already a direct child of the grid. The comment at the top of the console part of `flight-console.css` says the same.
+
+## The live console
+
+### How a line travels
+
+1. `js/live/serial-link.js` opens the port with the Web Serial API at 115,200 baud, reads it, and hands every finished line to `main.js`. It knows nothing about what the lines say.
+2. `js/live/sources.js` works out what is talking from the lines that arrive. The first line that matches a source decides it for the rest of that connection. A new connection starts over, since a different board may be plugged in. After 60 lines with text in them and no match, it calls the data unknown, and the console says so.
+3. Every line also goes to `js/live/bench-panel.js`, the Bench Console's panels moved here. It finds the status blocks in the lines (`BlockParser` in `js/bench/parse.js`), keeps every block for the CSV, counts heartbeats and lost blocks, collects errors, and draws the readings, the graphs and the raw output.
+4. Each finished block goes to `js/live/bench-feed.js`, which turns it into one normalized sample (`{ rocketId, t, type, gps, ... }`, see `js/schema.js`) for the live store. Its clock is the board's own TIME RUNNING, and it keeps moving between blocks, so the views can tell when the data gets old. A board restart (TIME RUNNING or the heartbeat number going back) clears the store and starts over.
+5. The live store (`js/store.js`) is the same store the replays use. The live 3D view and map read it.
+
+The live session (the link, the panel, the detector and the live stores) is made the first time the console opens and is kept for the whole visit. So a trip to a replay and back keeps the connection open and keeps every block for the CSV. The live map and 3D view are different: they are made only while the console shows live data, and destroyed when the page switches to a replay or the landing, since only one map can run at a time. Coming back to `?track` makes them again, and they draw everything the store already has.
+
+Leaving the page for real (the "Project Overview" button, the nav, or closing the tab) closes the port and drops every block. So while there are blocks that weren't saved as a CSV file, the browser asks before it leaves. After Save as CSV it only asks again once new blocks come in.
+
+If a line makes the code that reads it throw, `serial-link.js` logs the error and goes on with the next line, so one bad line can't stop the reading.
+
+### A board on a desk in the 3D view
+
+The map and the 3D view were written for flights, so they talk about a rocket, a launch point and the whole flight. In bench mode `main.js` passes `BENCH_WORDS` (from `js/views/hud-text.js`) in the views' `ctx.words`: the camera button says "Follow board", the legend says "Board track" and "Start point", the spot where the board first sat still with a GPS fix is tagged START POINT, and there is no "Whole flight" button. Replays use `FLIGHT_WORDS`, the same words as before. The legend also says what the label codes mean: AGL is height above ground level and VS is vertical speed.
+
+### The live store: no liftoff, no ground station
+
+The live bench store is made with two differences from a replay's store:
+
+- Liftoff detection is off (`LIFTOFF_AGL_M` and `LIFTOFF_VSPEED_MPS` set to `Infinity` in `BENCH_DETECTOR` in `js/live/bench-feed.js`, which `LIVE_STORE_OPTIONS` there uses, so the page and the tests make the store the same way). A board on a desk isn't flying, and one GPS altitude jump of 30 m or more would read as "Liftoff detected". The same two numbers decide when data "started in flight", which a board on a desk never did either. The pad is still found, and the 3D view needs it to place the board. The thresholds in `config.js` don't change.
+- It has no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California. For a board on a desk that would put a tower thousands of kilometers away. So the live store has none: `getGroundStation()` returns null, and the map, the 3D view and the readings panel leave out the tower, the teal line and every distance to it. The map's legend drops those two rows. The map waits on a wide view of the world, and the 3D view waits looking down at the whole Earth, until there is a position to show. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one.
+
+Replays work exactly as before, with the demo ground station.
+
+### The Manta hook
+
+The ground station isn't built yet, so nothing on the page reads it. There are two marked spots for it:
+
+- `js/live/sources.js` has a commented-out entry for "Manta ground station" with what to fill in: a `test(line)` that is true only for the ground station's own lines, a `parse(line)` that gives back `{ kind: 'sample', sample }` (`parseSerialLine()` in `js/parser.js` is a good start), and `mode: 'flight'`.
+- `main.js` has a "MANTA HOOK" comment over `feedFlightLine()`. It already passes each line of a flight source to its `parse()` (a line that makes it throw is skipped) and puts the samples in a flight store with the normal detector and no demo ground station. Before it is used, that store's clock also has to keep moving between packets (`store.setTime`), the way `bench-feed.js` does it for the board. The console's head line and the "How to connect" steps in `index.html` also only talk about a Dogtooth board on USB, so they need a line for Manta then.
+
+When a source with `mode: 'flight'` is found, the console switches to flight mode and the 3D view takes over.
+
+### The Dogtooth status block
+
+The board prints one block like this every second:
+
+```
+==================== HEARTBEAT #65 | TIME RUNNING: 1 min 5.3 s ====================
+
+GPS
+  TARGET LOCK [GPS]: ------------------ LOCKED
+  CONNECTED SATELLITES: --------------- 11
+  LOCK QUALITY: ----------------------- 100 % (HDOP 0.99)
+  LATITUDE: --------------------------- 42.3386255
+  LONGITUDE: -------------------------- -71.0896268
+  ALTITUDE: --------------------------- 17.3 m
+  GPS DATA RATE: ---------------------- GOOD 723 char/s
+  CORRUPTED DATA OCCURRENCES (GPS): --- 1
+
+GPS MOTION MODEL
+  PORTABLE: --------------------------- OFF
+  AUTOMOTIVE: ------------------------- OFF
+  AIRBORNE 4G: ------------------------ ON
+  OTHER: ------------------------------ OFF
+
+RADIO
+  RADIO PACKETS SENT: ----------------- 65
+  RADIO PACKETS SKIPPED: -------------- 0
+  RADIO PACKET ERROR OCCURRENCES: ----- 0
+```
+
+The banner line is also how `sources.js` recognizes a Dogtooth board.
+
+How the console reads it:
+
+- **Banner.** A line starting with `====` begins a new block. The console reads `HEARTBEAT #` and `TIME RUNNING` from it. The time can be `5.3 s`, `1 min 5.3 s` or `1 h 2 min 5 s`, and the console turns it into seconds.
+- **Sections.** A line with no colon is a section name. The readings pane groups by section.
+- **Fields.** Every other line is a label, a row of dashes and a value. The label is everything before the first colon. The console strips the dashes and spaces to get the value, but keeps a minus sign, so `---- -71.0896268` reads as -71.0896268. Fields are found by their label, never their position, so the board can reorder them or leave some out. Labels the console doesn't know are skipped, and they still show in the raw output.
+- **Values.** `LOCKED` or `SEARCHING`. `100 % (HDOP 0.99)` gives the lock quality percent and the HDOP. `GOOD 723 char/s` gives a status word (`GOOD`, `LOW` or `SILENT`) and a rate. `ON` or `OFF` for each motion model. Everything else is a number with an optional unit. A value that isn't a number where one is expected (like `--`) shows as text and stays off the graphs.
+- **End of a block.** A block is finished at the next banner, or at the blank line after the RADIO section. If the port closes partway through a block, the console keeps what it got.
+- **Lost blocks.** If the heartbeat number skips ahead (64, then 66), the missing numbers are added to Lost blocks. The jump across a disconnect doesn't count, because nobody was listening. Neither does a board restart.
+- **Heartbeat.** The last heartbeat time comes from the banner and turns red after 3 s with no new block.
+- **Restarts.** If `TIME RUNNING` or the heartbeat number goes back, the board restarted. The graphs start over, since their times would overlap, and so does the live store (the 3D track). The CSV keeps every block.
+- **Errors.** A line starting with `Error:` can come at any time, even inside a block. It goes in the errors pane. The same error again, with no other error in between, adds to its count instead of making a new row. It's also kept with the newest block for the CSV's `ERRORS` column.
+- **Position.** A position only counts if latitude and longitude are both numbers on the globe, they aren't both 0, and the same block doesn't say SEARCHING. The board prints 0.0000000 while it searches, so no made-up position is ever drawn.
+
+Lines outside a block, like the startup banner, go in the raw output only.
+
+What the graphs show: the last 10 minutes (or since the board started, if that's shorter). The time along the bottom is the board's `TIME RUNNING`, so data that arrives in a burst still lands at the right time. Lines break at each connect and disconnect and across gaps over 6 s. Altitude is left off while the block says SEARCHING. After a disconnect, the graphs stop moving so the data stays in view. Pointing at any graph (or tabbing to one and using the arrow keys) picks a time, and every graph shows that moment.
+
+### Names the console knows
+
+Every name the console matches is in one place at the top of `js/bench/parse.js`: `BANNER` for the banner, `ERROR_LABEL`, and `FIELDS` for the sections and labels. They're copied exactly from the board's output, capitals and brackets included, and a label must match exactly to count. If the firmware renames something, change it there. A new entry in `FIELDS` gets a row in the readings pane and a column in the CSV.
+
+| Section | Label | Read as |
+|---|---|---|
+| GPS | TARGET LOCK [GPS] | LOCKED (teal) or SEARCHING (coral) |
+| GPS | CONNECTED SATELLITES | number |
+| GPS | LOCK QUALITY | percent and HDOP |
+| GPS | LATITUDE | number |
+| GPS | LONGITUDE | number |
+| GPS | ALTITUDE | number and unit |
+| GPS | GPS DATA RATE | GOOD (teal), LOW (gold) or SILENT (coral), then a rate |
+| GPS | CORRUPTED DATA OCCURRENCES (GPS) | number |
+| GPS MOTION MODEL | PORTABLE, AUTOMOTIVE, AIRBORNE 4G, OTHER | ON or OFF |
+| RADIO | RADIO PACKETS SENT | number |
+| RADIO | RADIO PACKETS SKIPPED | number |
+| RADIO | RADIO PACKET ERROR OCCURRENCES | number |
+
+GPS MOTION MODEL shows only the model that's ON, or all four if none is.
+
+This block format dates from 2026-11-13. Before that, the flight firmware in `DOGTOOTH_V1_FIRMWARE` printed a one-line `Label: value | ...` status line, which the console no longer reads.
+
+### The CSV file
+
+Save as CSV downloads every block received since the page loaded, across every connect and disconnect, and across trips to a replay and back. One row per block, in the order they arrived:
+
+- `PC time (UTC)`: when the computer got the block's banner, as ISO 8601.
+- `HEARTBEAT #` and `TIME RUNNING (s)`, from the banner.
+- One column per field, in the order of `FIELDS`, holding the value as the board printed it. `LOCK QUALITY` splits into `LOCK QUALITY (%)` and `HDOP`. `GPS DATA RATE` splits into `GPS DATA RATE STATUS` and `GPS DATA RATE (char/s)`. The motion model columns start with `GPS MOTION MODEL`, so `AIRBORNE 4G` makes sense on its own. A header's unit is the first unit the board sent for it.
+- `ERRORS`: every `Error:` message from the block's banner until the next banner, split by ` | ` when there's more than one. An error before the first banner of a connection belongs to no block, so it's only in the errors pane.
+
+Lines outside a block, like the startup banner, aren't in the CSV. Nothing is uploaded. Everything stays in the tab until it's closed or reloaded.
+
+### The old Bench Console address
+
+`/bench-console/` is now a tiny page that sends visitors to `/flight-console/?track`: a meta refresh, a `location.replace` script (so Back skips it), a canonical link, and a visible link for anyone with both turned off.
+
+## Saved flights and replays
+
+The Saved flights pane at the bottom of the console lists every flight in the library (`data/flights/index.json`), newest first. A plain click on a row opens its replay in place. The replay's "Back to the console" link (top left) goes back to `?track`, where a connected board is still connected and its data is still there.
+
+### How one sample travels from the file to the screen
 
 1. `library.js` downloads the flight's data file listed in `data/flights/index.json`.
 2. `parser.js` turns each line into a normalized sample: `{ rocketId, t, type, gps, baro, imu, radio, power, status, extra }`. For my board's log it checks each packet's Fletcher checksum first and decodes the 34 bytes exactly like the firmware does. A simulator "phase" value goes into a separate truth list, never onto the sample.
@@ -38,16 +214,31 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 5. `detector.js` updates ground level, altitude above ground and vertical speed, and returns any new events, like "Apogee detected".
 6. The store tells every view something changed. Each view reads what it needs from the store and redraws: the map (or the 3D view) moves the rocket and its label, the readings and the altitude tape update their numbers, the phase strip moves on, the timeline's playhead moves, and the mission timeline adds the event.
 
-The views never talk to each other. They only read the store, so a live source can later feed the store directly and every view still works. The one exception is the 3D view. The map view starts it and shares its buttons, notes and "Follow rocket" setting with it.
+The views never talk to each other. They only read the store, which is why the live console can feed the same store and the 3D view follows the board. The one exception is the 3D view. The map view starts it and shares its buttons, notes and "Follow rocket" setting with it.
 
-When a flight opens, `main.js` also runs the whole flight once through a second, hidden store (the "pre-scan"). That gives the altitude timeline each rocket's whole altitude curve and the events to mark on it, and gives the altitude tape its top value, before playback gets there. Nothing from the pre-scan reaches the live store, so the readings, the map and the mission timeline only ever show what has happened up to the playhead.
+When a flight opens, `main.js` also runs the whole flight once through a second, hidden store (the "pre-scan"). That gives the altitude timeline each rocket's whole altitude curve and the events to mark on it, and gives the altitude tape its top value, before playback gets there. Nothing from the pre-scan reaches the shown store, so the readings, the map and the mission timeline only ever show what has happened up to the playhead. Live data has no pre-scan (an empty one is passed).
+
+Opening a flight always builds a brand new store, player and set of views. Leaving it destroys them, so nothing from one flight can show up in the next.
+
+## Tests
+
+From the website folder, with Node 22 or newer:
+
+```
+node --test "flight-console/test/*.test.mjs"
+```
+
+- `test/bench-parse.test.mjs` feeds the example block and a set of edge cases through the block parser and the CSV builder: a SEARCHING block, LOW and SILENT rates, `Error:` lines inside and between blocks, times past a minute and past an hour, skipped heartbeat numbers, a reconnect, a restart, unknown labels and lines before the first banner.
+- `test/bench-feed.test.mjs` checks the bench feed: blocks become samples with a good fix only when they should, the store's clock keeps moving, a restart starts over, and a board on a desk shows a pad and fires no flight events. The desk runs use the page's own live store options (`LIVE_STORE_OPTIONS.bench`), including a 35 m altitude jump and a steady 40 m climb that must not read as liftoff, and a store with no ground station keeps none until a "gs" packet sets one.
+- `test/serial-link.test.mjs` checks the serial link with a fake port: lines split across USB chunks come out whole, and a listener that throws on one line doesn't stop the rest.
+- `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, and the Manta hook is there but switched off.
 
 ## Files
 
 ### Page
 
-- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the launcher's fixed text and drawings (the hero's contour lines and flight arc, and the How it works picture), empty spots the views fill in, and the script tags for Leaflet and `js/main.js`. It also loads the Share Tech Mono font, used only for the green labels on the map and in the 3D view. It has no tag for CesiumJS on purpose (see "The 3D view").
-- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. It starts with the page's color and font settings (the design tokens, as CSS variables) and the shared pieces like buttons, panels and the event dots, then has one part per screen area: launcher, console top, map, readings and tape, altitude timeline, and the panels under it. Every animation only runs when the viewer hasn't asked for less motion.
+- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console grid with every pane (the live panes' fixed text and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. It also loads the Share Tech Mono font, used only for the green labels on the map and in the 3D view, and Space Mono, used only for the raw serial output. It has no tag for CesiumJS on purpose (see "The 3D view").
+- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. It starts with the page's color and font settings (the design tokens, as CSS variables, including the `--bc-*` names the live panels and their graphs read) and the shared pieces like buttons, panels and the event dots. Then come the landing, the console grid, the console's head, intro, notice and Saved flights, the live panels, Leaflet, and one part per replay area: console top, map, readings and tape, altitude timeline, and the panels under it. Every animation only runs when the viewer hasn't asked for less motion.
 - `README.md`: this guide.
 - `.gitignore`: keeps `js/config.local.js` out of Git.
 
@@ -55,7 +246,7 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 
 - `data/flights/index.json`: the flight library list (the "manifest"). A static site can't list its own folders, so this file is the only way the page knows which flights exist.
 - `data/flights/gps-board-sim-01/pc_sim_flight.log`: my simulated flight. It is a byte-for-byte copy of the log my firmware's PC sim dump program wrote.
-- `data/flights/gps-board-sim-01/cover-3d.webp`: that flight's cover picture for the launcher, a screenshot of its 3D view with the panels hidden. See "A flight's cover picture".
+- `data/flights/gps-board-sim-01/cover-3d.webp`: that flight's cover picture, a screenshot of its 3D view with the panels hidden. The home page's Flight Console slide shows it. See "A flight's cover picture".
 - `data/flights/.gitattributes`: tells Git to leave the log files' line endings alone, so the copies stay exact.
 
 ### Code that works without a page (Node can run it too)
@@ -63,54 +254,69 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 - `js/config.js`: every number and setting I might want to change: detection thresholds, the demo ground station position, playback speeds, the map tile addresses, keys and credits, timeouts and colors. Each one has a short comment.
 - `js/config.local.js`: my local CARTO map key, only on my laptop. Git ignores it (see "Map keys").
 - `js/schema.js`: the channel registry. It lists every value a board can send, which sensor group it belongs to, its label and unit, and the names different files use for it. It also has `hasGoodPosition()`, the test every rocket position goes through before the page trusts it. Ground station packets use a lighter check (a fix plus latitude and longitude) because they may not carry an altitude.
-- `js/parser.js`: the only code that understands file formats. It reads CSV files, JSON lines (including ground station position packets), and my firmware's serial output: `SIM PKT` hex lines from the simulator and `PKT` key=value lines from the bench_rx receiver. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that the console shows under the data source.
+- `js/parser.js`: the only code that understands flight file formats. It reads CSV files, JSON lines (including ground station position packets), and my firmware's serial output: `SIM PKT` hex lines from the simulator and `PKT` key=value lines from the bench_rx receiver. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that the console shows under the data source.
 - `js/library.js`: loads and checks `index.json`, skipping broken entries without breaking the rest, and loads one flight's files.
 - `js/fleet.js`: who each rocket is: name, map label name (`callsign`), color and board. My board's map label is "DOGTOOTH GPS RADIO". Any other rocket's label is its name in capitals. A rocket ID nobody registered gets the next color and a plain name.
 - `js/geo.js`: distance and bearing between two positions, compass names, and number, time and distance formatting.
-- `js/detector.js`: works out ground level, altitude above ground, vertical speed and the flight events, one sample at a time. Vertical speed only exists once the readings cover a full `VSPEED_AVG_S` window, so one noisy reading at 20 Hz can't swing it. (A single reading more than `LIFTOFF_AGL_M` above the pad still counts as liftoff, as the rule says.) Before liftoff the console waits to see the rocket sit still for `PAD_CONFIRM_S` before it trusts the readings as a pad. If the data instead starts with the rocket already moving one way for a while, or a "pad" keeps sinking below itself, the data began in flight. The console then says so, uses `GROUND_ELEV_FALLBACK_M` for ground level, and marks both as estimated. A short log that starts just before launch still keeps its pad readings.
-- `js/store.js`: holds everything the console knows right now: rockets, samples, events, detectors, the ground station and which rocket is focused. Views subscribe to it.
-- `js/player.js`: the playback clock for recorded flights: play, pause, speed, seek and replay.
+- `js/detector.js`: works out ground level, altitude above ground, vertical speed and the flight events, one sample at a time. Vertical speed only exists once the readings cover a full `VSPEED_AVG_S` window, so one noisy reading at 20 Hz can't swing it. (A single reading more than `LIFTOFF_AGL_M` above the pad still counts as liftoff, as the rule says.) Before liftoff the console first waits to see the rocket sit still for `PAD_CONFIRM_S` before it trusts the readings as a pad. If the data instead starts with the rocket already moving one way for a while, or a "pad" keeps sinking below itself, the data began in flight. The console then says so, uses `GROUND_ELEV_FALLBACK_M` for ground level, and marks both as estimated. A short log that starts just before launch still keeps its pad readings.
+- `js/store.js`: holds everything the console knows right now: rockets, samples, events, detectors, the ground station (or none, for live data) and which rocket is focused. Views subscribe to it.
+- `js/player.js`: the playback clock for saved flights: play, pause, speed, seek and replay.
 - `js/truth-check.js`: compares detected events with the simulator's true phases. Only the debug panel and the check tool use it. The detector never does.
+- `js/bench/parse.js`: the Dogtooth status block format and every name the console matches (see "Names the console knows").
+- `js/bench/csv.js`: builds the CSV file.
+- `js/live/sources.js`: the source detector, and the Manta hook.
+- `js/live/bench-feed.js`: turns the board's blocks into samples for the live store. It also holds the live stores' options (`BENCH_DETECTOR` and `LIVE_STORE_OPTIONS`).
+
+### Code for the page
+
+- `js/main.js`: picks the screen from the address, runs the routing, makes the live session (link, panel, detector, live stores) and the live map, loads saved flights, runs the pre-scan, and connects each replay's store, player and views. The "MANTA HOOK" is here.
+- `js/hero-seafloor.js`: the moving sea floor behind the landing's hero. One export, `startSeafloor(canvas, options)`, which returns `stop()`.
+- `js/live/serial-link.js`: the serial port, opened with Web Serial at 115,200 baud and read line by line.
+- `js/live/bench-panel.js`: the bar, errors, readings, graphs, raw output and Save as CSV. It finds its parts by the `bc-*` ids in `index.html`.
+- `js/bench/charts.js`: draws the live graphs on canvas, in the colors from the `--bc-*` variables.
 
 ### Views (they draw parts of the page)
 
 - `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, and drawing an event's dot by how it was found.
 - `js/views/icons.js`: the drawings the page shares: the rocket (always pointing straight up, since no board sends orientation), the launch rail, the ground station tower, and the button icons.
-- `js/views/launcher.js`: the launcher: the hero's buttons and the apogee label on its flight arc (from the featured flight's summary), the featured flight card, the flight library rows, and the notes when the library didn't load.
-- `js/views/launcher-map.js`: the featured card's picture. A flight with a `cover` in `index.json` shows that picture with its credit line. Any other flight, or a cover that didn't load, gets a small map picture. It draws the track right away as a plain map drawing, then swaps in Esri satellite imagery only after the Esri key check passes and every tile has loaded. If the tiles or Leaflet fail, the drawing stays.
-- `js/views/esri.js`: asks Esri once whether it accepts the satellite key. The console map and the launcher's map picture share the answer, so a visit only asks once.
-- `js/views/mission-header.js`: the "All flights" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
+- `js/views/launcher.js`: starts the landing's sea floor, and draws the Saved flights list (one row per flight, the whole row is the link) with notes when the library didn't load or an entry had to be skipped. It only reads the manifest, never a flight's data files.
+- `js/views/esri.js`: asks Esri once whether it accepts the satellite key. Every map in the visit shares the answer, so a visit only asks once.
+- `js/views/mission-header.js`: the "Back to the console" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with 2 or more rockets. Click one to focus it.
 - `js/views/phase-strip.js`: the six phases across the top (Pad, Ascent, Apogee, Drogue, Main, Landed), driven only by the detector. Drogue and Main have dashed bars because they are inferred.
-- `js/views/map-view.js`: the Leaflet map, with the "Satellite", "Dark map" and "3D" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load. It also owns the switch to the 3D view: the "3D" button, which view a flight opens on, the loading and failure messages, and the three camera buttons.
+- `js/views/map-view.js`: the Leaflet map, with the "Satellite", "Dark map" and "3D" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load. It also owns the switch to the 3D view: the "3D" button, which view opens first, the loading and failure messages, and the three camera buttons. With no ground station it leaves out the tower, the line and the legend rows.
 - `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer and draws the trails, the drop line, the rocket, launch rail and ground station icons, their labels, the line to the ground station and the event markers. It also looks up ground heights, moves the camera and keeps labels from overlapping. See "The 3D view".
 - `js/views/cesium-loader.js`: downloads CesiumJS when the 3D view opens.
-- `js/views/hud-text.js`: the words on a rocket's green label ("AGL 264 M", "NO GPS FIX · 4 S"), shared by the map and the 3D view so both always say the same thing.
+- `js/views/hud-text.js`: the words on a rocket's green label ("AGL 264 M", "NO GPS FIX · 4 S"), shared by the map and the 3D view so both always say the same thing. Also `FLIGHT_WORDS` and `BENCH_WORDS`, what the two views call the thing they track (see "A board on a desk in the 3D view").
 - `js/views/stats-panel.js`: the readings panel floating over the map (under it on phones): altitude, vertical speed, ground speed, GPS and last packet, with everything else under "More readings", one section per sensor group the rocket actually sent.
 - `js/views/alt-tape.js`: the altitude tape on the left edge of the map (a thin strip on phones), from 0 to the rocket's highest point in the pre-scan, with the altitude now and the highest point so far.
 - `js/views/timeline.js`: the altitude timeline under the map. It shows the focused rocket's whole altitude curve (gold up to the playhead), other rockets as thin lines, and event markers that jump to their event. Click, drag or use the arrow keys to move through the flight. Play, pause and the speed buttons sit under it.
 - `js/views/event-log.js`: the mission timeline: every event in time order on a line, each dot drawn by how the event was found, with the newest one in gold. It shows a "Now" tag while the playhead is on that event. Screen readers only hear events that arrive during normal playback, never the whole list again after a seek.
 - `js/views/flight-info.js`: the "About this flight" panel: the flight's title, simulated or real, description, date, launch site, boards, data files with reading and bad line counts, and any notes from the parser.
 - `js/views/debug-panel.js`: the "Detection check" section for simulated flights.
-- `js/main.js`: picks launcher or console from the address, loads the data, runs the pre-scan, and connects the store, player and views.
 
-### Tools (run with Node from the website folder)
+### Tests and tools (run with Node from the website folder)
 
+- `test/bench-parse.test.mjs`, `test/bench-feed.test.mjs`, `test/live-sources.test.mjs` and `test/serial-link.test.mjs`: see "Tests".
 - `tools/add_flight.mjs`: adds a flight to the library.
 - `tools/check_detection.mjs`: prints the detected events for a flight and compares them with the simulator's truth.
+
+### Version numbers
+
+When a file changes, bump its `?v=` number everywhere it's loaded, so returning visitors don't get the old copy. `flight-console.css` and `js/main.js` are loaded from `index.html`. The modules work the same way: GitHub Pages lets a browser keep a file for 10 minutes, and a new `main.js` mixed with an old cached `launcher.js` wouldn't even start. So `main.js` imports `store.js`, `views/launcher.js`, `views/mission-header.js`, `views/map-view.js`, `views/stats-panel.js` and `views/hud-text.js` with `?v=2`, and `map-view.js` imports `globe-view.js` and `hud-text.js` with `?v=2` (so does `globe-view.js` for `hud-text.js`). Every file that imports a module uses the same query, since two different addresses would load a module twice. The `js/bench/` files are imported with `?v=3` by the `js/live/` files and by each other. The `js/live/` files import each other with no query, so `main.js` imports them with none too.
 
 ## The library file, index.json
 
 Each flight in the `flights` list has these fields:
 
 - `id`: a short name made of letters, numbers, `-` and `_`. It is the folder name under `data/flights/` and the value after `?flight=`.
-- `title`: shown on the launcher and in the console.
-- `date`: the flight date as `YYYY-MM-DD`. The launcher shows newest first.
+- `title`: shown in the Saved flights list and in the console.
+- `date`: the flight date as `YYYY-MM-DD`. The Saved flights list shows newest first.
 - `kind`: `"simulated"` or `"real"`. The page always shows which one it is.
-- `featured`: `true` for the one flight shown large on the launcher. Only one flight should have it.
+- `featured`: `true` for one flight. The page no longer shows it differently (the old launcher's featured card is gone), but `add_flight.mjs` still keeps it on only one flight.
 - `description`: one or two plain sentences.
 - `site`: the launch site's name.
-- `cover` (optional): a picture for the featured card, shown in place of its map picture. See "A flight's cover picture". It has:
+- `cover` (optional): a picture of the flight. The page itself doesn't show it anymore. The home page's Flight Console slide shows the simulated flight's. See "A flight's cover picture". It has:
   - `file`: the picture's name inside the flight's folder.
   - `alt`: what the picture shows, for screen readers.
   - `credit`: the credit line for the picture's imagery and terrain. It shows on the picture.
@@ -122,20 +328,20 @@ Each flight in the `flights` list has these fields:
   - `timeOffsetS` (optional): seconds added to that file's times, to line up boards whose clocks started at different moments.
 - `summary`: filled in by `add_flight.mjs` from the real data.
   - `rocketCount`: how many rockets.
-  - `maxAglM`: the highest altitude above ground, in meters. The launcher's "Apogee" numbers and the label on the hero's flight arc come from it.
+  - `maxAglM`: the highest altitude above ground, in meters. The Saved flights list's "Apogee" comes from it.
   - `flightDurationS`: seconds from liftoff to landing, or the whole data span if either wasn't detected.
   - `sensors`: the sensor groups found, like `["gps"]`.
   - `events`: the flight events detected.
-  - The rest feed the launcher's featured card, so the launcher never has to download a flight's data files. They all describe one rocket, the one that flew highest:
+  - The rest fed the old launcher's featured card. The page doesn't show them anymore, but `add_flight.mjs` still fills them in and they cost nothing to keep. They all describe one rocket, the one that flew highest:
     - `trackRocketId`: which rocket that is.
     - `track`: its path as `[latitude, longitude]` pairs, simplified to at most 60 points. Only good GPS positions are in it.
     - `trackGaps`: the places in `track` where the GPS had no fix, or nothing came in for longer than `LINK_STALE_S` (a radio silence). Each number is the index of the first point after a gap, so the line from the point before it is drawn dashed. If the GPS drops out so often that every gap won't fit in 60 points, the shortest stretches between gaps join the gap around them, so missing data is never drawn as a solid line.
     - `padPoint` and `landingPoint`: `[latitude, longitude]` of the launch pad (the last good position before liftoff) and the landing point (the first good position once the landing was detected). `null` if there was no pad or no detected landing.
-    - `altProfile`: its altitude as `[seconds from liftoff, meters above ground]` pairs, simplified to at most 60 points, from 10 s before liftoff to 10 s after landing. A pair with `null` meters marks a gap with no altitude reading (no fix, or a radio silence longer than `LINK_STALE_S`), which the launcher draws as a break.
+    - `altProfile`: its altitude as `[seconds from liftoff, meters above ground]` pairs, simplified to at most 60 points, from 10 s before liftoff to 10 s after landing. A pair with `null` meters marks a gap with no altitude reading (no fix, or a radio silence longer than `LINK_STALE_S`), which a drawing of it shows as a break.
     - `driftM`: meters from the pad to the landing point.
     - `maxGsDistanceM`: the farthest the rocket got from the ground station, in meters.
-    - `gsDemo`: `true` when those ground station distances use the demo ground station position from `config.js`, because the data had no ground station GPS packets. The launcher says so next to the number.
-  - Any summary value can be `null`. The launcher shows `--` for it, or leaves out the map picture or altitude line.
+    - `gsDemo`: `true` when those ground station distances use the demo ground station position from `config.js`, because the data had no ground station GPS packets.
+  - Any summary value can be `null`. The Saved flights list shows `--` for a missing apogee.
 
 ## Adding a flight
 
@@ -148,27 +354,25 @@ Each flight in the `flights` list has these fields:
 3. The tool checks everything first: the id and date, the file names, the rocket IDs, and that every rocket has readable data. If anything is wrong it stops and writes nothing. Then it copies the file into `data/flights/my-flight-01/`, runs it through the same parser, detector and store the page uses, fills in the summary (including the simplified track and altitude line for the featured card), and updates `index.json`. It prints what it found.
    To redo the summary for a flight that's already in the library (after a change to the detector or the tool), run the same command again with `--replace`. The `--file` has to point at a copy outside `data/flights/`, since the tool won't copy a file onto itself. The copy is byte for byte, so the log in the library doesn't change.
 4. Run `node flight-console/tools/check_detection.mjs my-flight-01` to see the detected events.
-5. Refresh the launcher. The new flight is there.
+5. Refresh the console. The new flight is in Saved flights.
 
 For a flight with several rockets in separate files, repeat `--file` once per rocket. The first `--rocket-name`, `--board` and `--rocket-id` go with the first `--file`, and so on. Every board sends node ID 1 until it gets its own number, so two boards' files need `--rocket-id` (for example `--rocket-id a --rocket-id b`). A single file that holds several rocket IDs, like a ground station log, becomes one rocket entry per ID automatically.
 
 ## A flight's cover picture
 
-The featured card normally draws a small map of the flight's track. A flight can have a cover picture instead. The simulated flight's cover is a screenshot of its 3D view, taken partway down under the drogue.
+A flight can have a cover picture, a screenshot of its 3D view. The Flight Console page doesn't show covers anymore (the old launcher's featured card is gone), but the home page's Flight Console slide shows the simulated flight's cover, so its `cover` entry and its file stay.
 
 A cover is added by hand. The tool doesn't make one.
 
-1. Open the flight in the 3D view and take a screenshot with the panels out of the way. It has to be 5 wide by 6 tall (mine is 1400 by 1680 pixels) with the whole flight, labels included, inside the middle 62 percent of its width and 60 percent of its height. Leave plain ground and sky around that.
+1. Open the flight in the 3D view and take a screenshot with the panels out of the way. Mine is 5 wide by 6 tall (1400 by 1680 pixels), with the whole flight, labels included, in the middle and plain ground and sky around it.
 2. Save it in the flight's folder, for example `data/flights/my-flight-01/cover-3d.webp`.
 3. Add `cover` to the flight's entry in `index.json`, with `file`, `alt` and `credit`.
 
-The shape matters because the card's picture area changes with the window. It is almost square on a laptop, tall and narrow in a small window, and wide on a phone. The page sizes the cover so its middle always fits, and the ground around it fills the rest. The numbers are in the `.fc-pic-cover` rules in `flight-console.css`. A cover with another shape needs those numbers changed.
+A screenshot of the 3D view uses Cesium ion's imagery and terrain, so it needs their credits. Open "Data attribution" in the 3D view at the same camera position and copy what it lists into `credit`.
 
-A screenshot of the 3D view uses Cesium ion's imagery and terrain, so it needs their credits. Open "Data attribution" in the 3D view at the same camera position and copy what it lists into `credit`. The credit shows as one line on the picture and opens in full on hover or a tap.
+Running `add_flight.mjs` with `--replace` keeps the flight's cover. If the flight's data changed, take a new screenshot, because the old one shows the old flight.
 
-If the cover file doesn't load, the card shows the map picture. Running `add_flight.mjs` with `--replace` keeps the flight's cover. If the flight's data changed, take a new screenshot, because the old one shows the old flight.
-
-The home page's Flight Console slide shows the simulated flight's cover too. The picture in the site's `index.html` points straight at `data/flights/gps-board-sim-01/cover-3d.webp`, so a new screenshot saved under the same name shows up there by itself. The alt text and the credit on that slide are typed in by hand, copied from the flight's entry in `index.json`. A new screenshot usually needs new alt text, because the alt text describes what the picture shows. If the cover's file name, alt text or credit changes, update the home page to match.
+The picture in the site's `index.html` points straight at `data/flights/gps-board-sim-01/cover-3d.webp`, so a new screenshot saved under the same name shows up there by itself. The alt text and the credit on that slide are typed in by hand, copied from the flight's entry in `index.json`. A new screenshot usually needs new alt text, because the alt text describes what the picture shows. If the cover's file name, alt text or credit changes, update the home page to match.
 
 ## Checking detection
 
@@ -179,7 +383,7 @@ The home page's Flight Console slide shows the simulated flight's cover too. The
 All of these are in `js/config.js`.
 
 - Detection thresholds. For example, `LIFTOFF_AGL_M` is how high above the pad counts as liftoff, and `APOGEE_CONFIRM_S` is how long the rocket must be falling before apogee is confirmed. Every time setting is in seconds, so boards at 1 or 20 readings per second behave the same.
-- `GROUND_STATION`: the demo ground station position, 1 km southwest of the simulator's placeholder pad. Once the real ground station sends its own GPS position, the page uses that instead and says so.
+- `GROUND_STATION`: the demo ground station position for replays, 1 km southwest of the simulator's placeholder pad. Once the real ground station sends its own GPS position, the page uses that instead and says so. Live data never uses the demo position (see "The live store: no liftoff, no ground station").
 - `LINK_STALE_S` and `ALTITUDE_STALE_S`: how long before a quiet rocket, or an old altitude, is shown as old instead of live.
 - The `..._MAX_FPS` values: how often each part of the console redraws during playback.
 - `TILE_API_KEY`: the public CARTO key for the dark map on the live site. See "Map keys" below.
@@ -246,7 +450,7 @@ The "3D" button next to "Satellite" and "Dark map" swaps the map for a 3D view o
 ### Loading
 
 - A flight opens on the 3D view. That is `DEFAULT_VIEW` in `js/config.js`. Set it to `'map'` and a flight opens on the map instead.
-- CesiumJS is a big download (about 1.8 MB), so the launcher never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens: when a flight opens on it, or when someone clicks "3D".
+- CesiumJS is a big download (about 1.8 MB), so the landing never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens: when a flight opens on it, when the live console finds a board, or when someone clicks "3D".
 - It comes from Cesium's own release CDN, pinned to version 1.146 (`CESIUM_VERSION` in `js/config.js`).
 - Once a viewer picks the map or the 3D view, later flights in the same visit open on that one. The choice isn't kept between visits, so every visit starts on `DEFAULT_VIEW`. With `'map'` there, Cesium only downloads after a click on "3D".
 - If Cesium can't load, the map area says "The 3D view needs internet to load. The map view still works." with a button back to the map. The rest of the console keeps running. A slow download isn't thrown away when the wait runs out, so a second click on "3D" picks up the same download.
@@ -304,7 +508,7 @@ The camera always looks at one point and circles around it. The three buttons ch
 - "Whole flight": frames the trails so far, the launch pads and the ground station, in the part of the view the readings panel and the altitude tape leave free. It keeps framing them as the trail grows, until you zoom or slide the view yourself.
 - "Reset view": back to the starting angle and distance. While following, it centers on the rocket. Otherwise it aims above the launch pad, so the pad and the highest point both fit.
 
-The starting view looks north from the side, tilted 12 degrees down. Its distance is three times the flight's highest point, taken from the pre-scan (the same number the altitude tape uses for its scale). A live flight has no pre-scan, so it will start at `GLOBE_START_RANGE_MIN_M`.
+The starting view looks north from the side, tilted 12 degrees down. Its distance is three times the flight's highest point, taken from the pre-scan (the same number the altitude tape uses for its scale). Live data has no pre-scan, so it starts at `GLOBE_START_RANGE_MIN_M`. Until there is a position to look at, the camera waits over the ground station. With no ground station (a board on the bench), it waits far out, looking down at the whole Earth.
 
 ### Moving the camera
 
@@ -338,6 +542,9 @@ The scene only redraws when something changes: new data, a camera move, or new t
 
 ## Where later features plug in
 
-- Live tracking over Web Serial or Web Bluetooth: read lines from the ground station and pass each one to `parseSerialLine()` or `parseJsonLine()` in `parser.js`. When a line gives back a sample, pass `result.sample` to `store.addSample()`. Skip lines where `parseSerialLine()` returns a kind other than `"sample"`, or where `parseJsonLine()` returns null. Board restarts are only handled by `parseSerialLog()`, which reads a whole file, so live code would need its own check for that. The player isn't needed for live data. The 3D view reads the same store, so it follows live data too.
-- Ground station position: `parseJsonLine()` already accepts `{"type":"gs","lat":..,"lon":..,"alt":..,"fix":1}`, and the store uses it as soon as one arrives.
+- The Manta ground station over Web Serial: see "The Manta hook". Its lines go to its `parse()`, and its samples go to the flight store with `store.addSample()`. The player isn't needed for live data. The 3D view reads the same store, so it follows live data too. Board restarts in a file are only handled by `parseSerialLog()`, so a live source needs its own check for that, the way `bench-feed.js` has one.
+- Web Bluetooth: a second link next to `serial-link.js` with the same callbacks (`onLine`, `onLink`, `onNote`, `onOpen`, `onClose`), so the same source detection and panels work on it.
+- Ground station position: `parseJsonLine()` already accepts `{"type":"gs","lat":..,"lon":..,"alt":..,"fix":1}`, and the store uses it as soon as one arrives, live or in a replay.
+- A real-data ocean currents animation for the landing: see "The landing".
+- A one-screen console with tabs: see "Later: one screen, no scrolling".
 - New sensors: add channels to `js/schema.js`. The parser and the readings panel pick them up without other changes, including new GPS channels (listed under the GPS rows the panel lays out itself) and new sensor groups, which show under "More readings".

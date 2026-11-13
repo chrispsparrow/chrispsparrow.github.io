@@ -7,7 +7,7 @@
 //   and GPS DATA RATE into its status word and its rate. Last, ERRORS:
 //   every "Error:" message from the block's banner until the next one.
 
-import { BANNER, FIELDS } from './parse.js?v=2';
+import { BANNER, FIELDS } from './parse.js?v=3';
 
 // Quotes a cell only when it has to: commas, quotes or line breaks.
 function cell(value) {

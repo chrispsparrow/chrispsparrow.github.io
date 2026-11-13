@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight Console | Christopher Sparrow</title>
+  <meta name="description" content="The Flight Console is the screen I'll use on launch day to watch live data from my rocket. Today it reads my Dogtooth board over USB on the bench and replays saved flights. Live flight data will come through Manta, the ground station I'm building.">
+  <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=31">
+  <!-- The avionics page's stylesheet gives this page the same dark slides, nav and
+       type. Its 3D board rules do nothing here, since this page has no board.
+       css/flight-console-overview.css holds what only this page needs. -->
+  <link rel="stylesheet" href="../css/avionics-pcb.css?v=7">
+  <link rel="stylesheet" href="../css/flight-console-overview.css?v=2">
+</head>
+<body class="fco">
+
+  <!-- ── SITE NAV (same as the other pages) ──────────────── -->
+  <nav id="nav" aria-label="Main navigation">
+    <a href="../index.html" class="nav-name" aria-label="Christopher Sparrow, home page">Christopher Sparrow</a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links">
+      <a href="../index.html#work">Work</a>
+      <a href="../index.html#about">About</a>
+      <a href="../index.html#skills">Skills</a>
+      <a href="../index.html#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" class="nav-resume" target="_blank" rel="noopener" aria-label="Open résumé (PDF)">Résumé ↗</a>
+    </div>
+  </nav>
+
+  <main class="slides">
+
+    <!-- 1. What the Flight Console is, the buttons to open it, and the console's
+         own cover picture. The picture, its alt text and its credit are the same as
+         the home page's Flight Console slide (from flight-console/data/flights/index.json). -->
+    <section class="slide slide-intro" aria-labelledby="fco-title">
+      <div class="slide-inner fco-cols">
+        <div class="slide-text">
+          <h1 id="fco-title">Flight Console</h1>
+          <p>The Flight Console is the exact screen I'll use on launch day to watch live data from my rocket. The buttons below open that same tool. I don't keep a separate demo version.</p>
+          <p>Today it reads my Dogtooth board over Universal Serial Bus (USB) on the bench and replays saved flights. Live flight data will come in through Manta, my ground station, which I'm still building.</p>
+          <div class="fco-actions">
+            <a class="fco-btn fco-btn-primary" href="../flight-console/?track">Open the Flight Console</a>
+            <a class="fco-btn" href="../flight-console/?track#fc-saved">Saved flights</a>
+          </div>
+          <p class="fco-note">Reading a board live needs Chrome or Edge on a computer.</p>
+        </div>
+        <figure class="fco-shot">
+          <div class="fco-shot-frame">
+            <img src="../flight-console/data/flights/gps-board-sim-01/cover-3d.webp"
+                 width="1400" height="1680" decoding="async" fetchpriority="high"
+                 alt="The simulated flight in the Flight Console's 3D view, over desert terrain. A gold track climbs straight up from the launch point to apogee at 3,000 m. The rocket is on its way down at 1,750 m above ground, and a dashed line runs to it from the ground station.">
+          </div>
+          <figcaption class="fco-shot-foot">
+            <span class="fco-shot-caption">A saved simulated flight in the 3D view</span>
+            <details class="fco-credit">
+              <summary>Imagery and terrain from Cesium ion</summary>
+              <div class="fco-credit-body">
+                <p>Imagery: Bing Maps, © 2026 Microsoft Corporation, © Mapbox, Earthstar Geographics SIO, © Maxar, © CNES (2026) Distribution Airbus DS.</p>
+                <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
+              </div>
+            </details>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 2. The launch day data path as a block diagram. The boxes hold real HTML text,
+         so screen readers read the chain in order as a list. On desktop it runs left
+         to right. Under 861 px it stacks with downward arrows. -->
+    <section class="slide slide-chain" aria-labelledby="fco-chain-title">
+      <div class="slide-inner">
+        <div class="slide-text fco-chain-intro">
+          <h2 id="fco-chain-title">From the rocket to my screen</h2>
+          <p>On launch day, the board in the rocket gets its position from the Global Positioning System (GPS) and sends it down over a long range (LoRa) radio. Manta picks it up on the ground and passes it to my laptop, where the Flight Console shows it.</p>
+        </div>
+        <figure class="fco-chain-figure">
+          <ol class="fco-chain" aria-label="The data path on launch day">
+            <li class="chain-node">
+              <!-- KiCad's render of the board's front, cut out of its background
+                   (assets/flight-console/dogtooth-board-render.webp) -->
+              <div class="chain-media chain-render">
+                <img src="../assets/flight-console/dogtooth-board-render.webp" width="720" height="717" loading="lazy" decoding="async"
+                     alt="A KiCad render of the front of the Dogtooth board. The gold antenna connector sticks out on the left. The square outline and pads for the GPS module are near the top, the microcontroller is in the middle, and the USB connector is on the right edge near the bottom.">
+              </div>
+              <div class="chain-text">
+                <h3>Dogtooth board</h3>
+                <ul class="chain-parts">
+                  <li>SAMD21 microcontroller (MCU)</li>
+                  <li>u-blox SAM-M8Q GPS</li>
+                  <li>E22 LoRa radio</li>
+                </ul>
+              </div>
+            </li>
+            <li class="chain-link chain-link-radio">
+              <span class="chain-label">915 MHz LoRa radio link</span>
+              <span class="chain-arrow" aria-hidden="true"><span class="chain-line"></span><svg viewBox="0 0 14 14" focusable="false"><path d="M4 1.5 10 7 4 12.5"/></svg></span>
+            </li>
+            <li class="chain-node chain-node-todo">
+              <div class="chain-media chain-art">
+                <!-- Manta has no render yet, so it is a dashed sketch: a radio board with an antenna -->
+                <svg viewBox="0 0 160 120" aria-hidden="true" focusable="false">
+                  <g class="art-todo">
+                    <rect x="38" y="54" width="84" height="44" rx="4"/>
+                    <rect x="50" y="64" width="20" height="20" rx="1.5"/>
+                    <rect x="80" y="70" width="30" height="10" rx="1"/>
+                    <path d="M106 54V20"/>
+                    <path d="M114 12a12 12 0 0 1 0 16M120 7a19 19 0 0 1 0 26M98 12a12 12 0 0 0 0 16M92 7a19 19 0 0 0 0 26"/>
+                  </g>
+                  <circle class="art-dot" cx="106" cy="20" r="2.4"/>
+                </svg>
+              </div>
+              <div class="chain-text">
+                <h3>Manta ground station</h3>
+                <p class="chain-status">In progress</p>
+              </div>
+            </li>
+            <li class="chain-link chain-link-wire">
+              <span class="chain-label">USB or Bluetooth</span>
+              <span class="chain-arrow" aria-hidden="true"><span class="chain-line"></span><svg viewBox="0 0 14 14" focusable="false"><path d="M4 1.5 10 7 4 12.5"/></svg></span>
+            </li>
+            <li class="chain-node">
+              <div class="chain-media chain-art">
+                <!-- A laptop with an altitude curve and a few readings on its screen -->
+                <svg viewBox="0 0 160 120" aria-hidden="true" focusable="false">
+                  <g class="art-line">
+                    <rect x="28" y="18" width="104" height="68" rx="3"/>
+                    <path d="M14 94h132l-6 8H20z"/>
+                    <path class="art-faint" d="M36 76h60M36 76V28"/>
+                    <path class="art-faint" d="M106 32h18M106 42h14M106 52h18M106 62h10"/>
+                  </g>
+                  <path class="art-gold" d="M38 75C46 75 50 31 58 31S84 62 94 75"/>
+                  <circle class="art-dot" cx="58" cy="31" r="2.4"/>
+                </svg>
+              </div>
+              <div class="chain-text">
+                <h3>Flight Console</h3>
+                <p class="chain-status">In the browser on my laptop</p>
+              </div>
+            </li>
+          </ol>
+          <figcaption>This is the path the data will take on launch day. On the bench today, I plug the board straight into my laptop over USB.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 3. What I built. Every number here comes from flight-console/README.md
+         (its "The live console" and "The Dogtooth status block" parts hold
+         what used to be in the Bench Console's README). -->
+    <section class="slide slide-built" aria-labelledby="fco-built-title">
+      <div class="slide-inner fco-cols">
+        <div class="slide-text">
+          <h2 id="fco-built-title">What I built</h2>
+          <p>I built the Flight Console, and it runs in the browser. Live data and saved flights share one page. There's one Connect button. The console looks at the first lines that come in to tell what's plugged in. Today that's my Dogtooth board, and I've left a spot in the code for Manta.</p>
+          <p>On the bench, the board prints a status block once a second. The console reads it over Web Serial at 115,200 baud and groups the readings the way the board does, under GPS, GPS motion model, and radio.</p>
+        </div>
+        <ul class="parts fco-features">
+          <li><strong>Graphs</strong>They show altitude, connected satellites, lock quality, GPS data rate, and radio packets sent and errors over the last 10 minutes.</li>
+          <li><strong>Lost blocks</strong>Each block has a heartbeat number. When the number jumps, the console counts the blocks it missed.</li>
+          <li><strong>Saving the data</strong>One button saves every block as a comma-separated values (CSV) file, with a column for any errors the board printed.</li>
+          <li><strong>3D replay</strong>Saved flights play back on a satellite map or in a 3D view drawn with CesiumJS on real terrain.</li>
+          <li><strong>Flight events</strong>A detector marks events like liftoff, apogee, and landing. Each one says whether the board reported it, the console detected it from altitude, or the console inferred it from the descent rate.</li>
+          <li><strong>Packet checks</strong>The parser decodes my firmware's 34-byte radio packets and checks each one's checksum exactly the way the firmware does.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4. What's next, and the related pages -->
+    <section class="slide slide-next" aria-labelledby="fco-next-title">
+      <div class="slide-inner">
+        <div class="slide-text">
+          <h2 id="fco-next-title">What's next</h2>
+          <p>Right now I'm building Manta, the ground station that will pick up the board's radio packets and pass them to my laptop. The console already decodes those packets. Once Manta works, I'll use this same screen to watch live data from a real flight.</p>
+          <p>So far the only saved flight is a simulated one. I made it by running my board's firmware on a computer with a simulated GPS feed.</p>
+        </div>
+        <nav class="fco-related" aria-label="Related pages">
+          <a class="quiet-link" href="avionics-pcb.html">The Dogtooth board</a>
+          <a class="quiet-link" href="flight-firmware.html">Flight computer firmware</a>
+          <a class="quiet-link" href="../index.html#work">Back to my projects</a>
+        </nav>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER (same as the other pages) ───────────────── -->
+  <footer role="contentinfo">
+    <!-- The logo in two stacked layers (tuna and wordmark), like the hero's,
+         so js/fish-logo.js can build each one out of its own size of fish. -->
+    <div class="footer-logo" role="img" aria-label="Dogtooth Systems logo, a dogtooth tuna">
+      <img class="footer-logo-word" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_wordmark.svg" alt="" width="180" height="106">
+      <img class="footer-logo-tuna" src="../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg" alt="" width="180" height="106">
+    </div>
+    <p class="footer-lockup mono">Dogtooth Systems by Christopher Sparrow</p>
+    <nav class="footer-links" aria-label="Footer links">
+      <a href="../index.html#work">Work</a>
+      <a href="../index.html#about">About</a>
+      <a href="../index.html#contact">Contact</a>
+      <a href="../assets/Christopher_Sparrow_Resume.pdf" target="_blank" rel="noopener">Résumé</a>
+    </nav>
+  </footer>
+
+  <script src="../js/main.js?v=17"></script>
+  <script src="../js/fish-logo.js?v=1"></script>
+  <script>
+    /* Fades each slide's content in and out as it passes the middle of the window,
+       the same way js/avionics-pcb.js does on the avionics page. It is copied here
+       because that script also draws the 3D board, and this page has no board and
+       doesn't load Three.js. Under reduced motion it uses the avionics page's plain
+       class fade instead (av-reduced and .in, from css/avionics-pcb.css). */
+    (() => {
+      const FADE  = 0.4;   /* share of the window height a slide takes to fade in or out */
+      const BAND  = 0.22;  /* share of the window height trimmed off each end of a slide for its "fully on" band */
+      const DRIFT = 24;    /* px a slide's content drifts while it fades */
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const inners = slides.map(s => s.querySelector('.slide-inner'));
+      const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!('IntersectionObserver' in window)) return;
+        document.documentElement.classList.add('av-reduced');
+        const obs = new IntersectionObserver((entries) => {
+          entries.forEach(en => en.target.classList.toggle('in', en.isIntersecting));
+        }, { threshold: 0, rootMargin: '-15% 0px -15% 0px' });
+        inners.forEach(el => obs.observe(el));
+        return;
+      }
+
+      function bandOffset(top, bottom) {
+        const vh = window.innerHeight || 1, mid = vh / 2;
+        if (mid < top) return (mid - top) / vh;
+        if (mid > bottom) return (mid - bottom) / vh;
+        return 0;
+      }
+      /* A slide taller than the window (phones) also counts as on while the middle
+         of the window is close to its content. The last slide never fades upward. */
+      function slideOffset(slideRect, innerRect, last) {
+        const vh = window.innerHeight || 1;
+        const pad = Math.min(BAND * vh, Math.max(0, (slideRect.height - 0.1 * vh) / 2));
+        const dS = last ? bandOffset(slideRect.top + Math.min(BAND * vh, slideRect.height / 2), Infinity)
+                        : bandOffset(slideRect.top + pad, slideRect.bottom - pad);
+        if (slideRect.height <= vh * 1.05) return dS;
+        const dC = bandOffset(innerRect.top - 0.1 * vh, innerRect.bottom + 0.1 * vh);
+        return Math.abs(dC) < Math.abs(dS) ? dC : dS;
+      }
+      const fade = (d) => Math.pow(1 - clamp(Math.abs(d) / FADE, 0, 1), 1.6);
+
+      let queued = false;
+      function update() {
+        queued = false;
+        const ds = slides.map((s, i) => slideOffset(s.getBoundingClientRect(), inners[i].getBoundingClientRect(), i === slides.length - 1));
+        ds.forEach((d, i) => {
+          const op = fade(d), el = inners[i];
+          el.style.opacity = op.toFixed(3);
+          if (op <= 0 || op >= 1) {
+            el.style.transform = '';
+            el.style.willChange = '';
+          } else {
+            el.style.transform = `translate3d(0, ${(-clamp(d / FADE, -1, 1) * DRIFT).toFixed(1)}px, 0)`;
+            el.style.willChange = 'opacity, transform';
+          }
+        });
+      }
+      const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+      window.addEventListener('scroll', queue, { passive: true });
+      window.addEventListener('resize', queue);
+      update();
+    })();
+  </script>
+</body>
+</html>

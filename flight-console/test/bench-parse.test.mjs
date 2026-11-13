@@ -1,11 +1,11 @@
-// Checks js/parse.js and js/csv.js against the board's status block.
+// Checks js/bench/parse.js and js/bench/csv.js against the board's status block.
 // Run it from the repo's root folder with Node 22 or newer:
-//   node --test bench-console/test/parse.test.mjs
+//   node --test flight-console/test/bench-parse.test.mjs
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BlockParser, FIELDS, parseDuration, parseLine, readLock, readPosition } from '../js/parse.js?v=2';
-import { buildCsv, csvColumns } from '../js/csv.js?v=2';
+import { BlockParser, FIELDS, parseDuration, parseLine, readLock, readPosition } from '../js/bench/parse.js?v=3';
+import { buildCsv, csvColumns } from '../js/bench/csv.js?v=3';
 
 // The block exactly as the board prints it.
 const EXAMPLE = `==================== HEARTBEAT #65 | TIME RUNNING: 1 min 5.3 s ====================

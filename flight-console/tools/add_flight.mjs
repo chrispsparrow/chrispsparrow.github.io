@@ -3,9 +3,10 @@
 // into data/flights/<id>/ (the originals are only read, never changed or
 // deleted), runs them through the SAME parser.js, detector.js and store.js
 // the page uses to fill in the summary, and adds or updates the entry in
-// data/flights/index.json, newest date first. The summary includes a
-// simplified track and altitude line for the launcher's featured card, so
-// the launcher never has to download a flight's data files.
+// data/flights/index.json, newest date first. The summary also has a
+// simplified track and altitude line that fed the old launcher's featured
+// card. The console doesn't show them anymore (see "The library file,
+// index.json" in README.md), but they are still written.
 //
 // Everything is checked before anything is written, so a mistake in the
 // command never leaves half a flight behind.
@@ -27,7 +28,8 @@
 //   --board TEXT         board description for the matching --file
 //   --description TEXT   one or two plain sentences
 //   --site TEXT          launch site name
-//   --featured           make this the featured flight (clears it from the others)
+//   --featured           make this the featured flight (clears it from the others).
+//                        The page no longer shows it differently.
 //   --replace            allowed to overwrite a flight with the same id
 // The Nth --rocket-id, --rocket-name and --board go with the Nth --file.
 // A file holding several rocket IDs (like a ground station log) becomes one
@@ -194,7 +196,8 @@ for (const r of draft.entry.rockets) {
 }
 
 // ------------------------------------------------------------------
-// The launcher's featured card: a small map of the track, an altitude line,
+// What fed the old launcher's featured card (no longer shown by the page,
+// still written to index.json): a small map of the track, an altitude line,
 // how far the rocket drifted from the pad and how far it got from the
 // ground station. A store fed the whole flight (the same code the console
 // runs) supplies them, so the track only ever holds good GPS positions and

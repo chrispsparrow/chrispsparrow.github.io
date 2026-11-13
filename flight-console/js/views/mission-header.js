@@ -1,6 +1,6 @@
 // mission-header.js
-// The top of the console. On the left: an "All flights" link back to the
-// launcher, the focused rocket's name and color, and small labels that say
+// The top of a replay. On the left: a "Back to the console" link to the
+// live console (?track), the focused rocket's name and color, and small labels that say
 // whether the flight is simulated or real, plus the honesty flags ("Data
 // starts in flight", "Ground level estimated"). On the right: a "Copy link"
 // button and a big gold flight clock (T+m:ss, or "On pad") that stops at
@@ -18,17 +18,19 @@ export function createMissionHeader(root, ctx) {
   const entry = flight.entry;
   const isReal = entry.kind === 'real';
 
-  // Back to the launcher. A plain click goes through navigate() so the page
-  // doesn't reload. Middle click or Ctrl+click still opens a new tab.
+  // Back to the live console, where the saved flights are listed. A plain
+  // click goes through navigate() so the page doesn't reload (and a board
+  // that is connected stays connected). Middle click or Ctrl+click still
+  // opens a new tab.
   const back = h('a', {
     class: 'fc-mission-back',
-    href: launcherHref(ctx.link),
+    href: consoleHref(ctx.link),
     onclick: (e) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      ctx.navigate({ launcher: true });
+      ctx.navigate({ track: true });
     },
-  }, iconNode(uiIcon('arrowLeft', 18)), 'All flights');
+  }, iconNode(uiIcon('arrowLeft', 18)), 'Back to the console');
 
   const dot = h('span', { class: 'fc-dot fc-mission-dot', 'aria-hidden': 'true' });
   const name = h('span', { class: 'fc-mission-name' });
@@ -155,10 +157,11 @@ export function createMissionHeader(root, ctx) {
   };
 }
 
-// The launcher's address: this flight's link without the ?flight= part.
-function launcherHref(link) {
+// The console's address: this flight's link with ?track in place of the
+// ?flight= part.
+function consoleHref(link) {
   const url = new URL(link, window.location.href);
-  url.search = '';
+  url.search = '?track';
   url.hash = '';
   return url.href;
 }

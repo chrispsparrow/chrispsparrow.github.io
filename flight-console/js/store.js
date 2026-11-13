@@ -3,6 +3,12 @@
 // samples, detector, events, sensor groups, last packet and last good fix,
 // plus the ground station, the focused rocket and the current time.
 //
+// The ground station starts at the demo position in config.js. A store made
+// with groundStation: null has none (a board on the bench, with no ground
+// station anywhere), so getGroundStation() returns null and the views leave
+// the station, its line and its distances out. Either way a "gs" packet
+// with a fix sets the real position.
+//
 // Views subscribe to the store and redraw from it. They never talk to each
 // other directly. The store does not know where samples come from: today
 // the player feeds it a recorded flight, later a live serial or Bluetooth
@@ -25,7 +31,9 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
   let gs = makeConfigGroundStation();
   let totals = { samples: 0, gsPackets: 0, late: 0 };
 
+  // null when the store was made with no ground station.
   function makeConfigGroundStation() {
+    if (!groundStation) return null;
     return { lat: groundStation.lat, lon: groundStation.lon, altMsl: groundStation.altMsl ?? null, source: 'config', t: null };
   }
 
@@ -341,7 +349,7 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
     getFocused,
     getFocusedId: () => focusedRocketId,
     getEvents: () => events,
-    getGroundStation: () => gs,
+    getGroundStation: () => gs,   // null when there is no ground station
     getNow: () => now,
     getTotals: () => ({ ...totals }),
     ageOf,

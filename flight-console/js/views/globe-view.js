@@ -32,6 +32,11 @@
 // until its launch pad and the ground height there are known, or liftoff
 // has come with no pad.
 //
+// No ground station. A store made with no ground station (a board on the
+// bench) has no tower, no line to it and no distance, so none are drawn.
+// Until there is a position to look at, the camera then waits far out,
+// looking down at the whole Earth, instead of over a ground station.
+//
 // Camera. Cesium's own mouse and touch controls are made for spinning a
 // whole globe, and up close they turn far too fast. They are switched off,
 // and this file has its own: drag to orbit around what the camera looks
@@ -48,7 +53,7 @@
 import { createScheduler, prefersReducedMotion, eventMarkerKind } from './dom.js';
 import { distanceM, formatDistance, formatRounded10 } from '../geo.js';
 import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR } from './icons.js';
-import { rocketHudLine } from './hud-text.js';
+import { rocketHudLine, FLIGHT_WORDS } from './hud-text.js?v=2';
 
 // The fix-gap line: gold dashes on a dark line, so it reads as dashed
 // against the sky and the ground alike. The pattern is 16 bits spread over
@@ -96,10 +101,18 @@ const FONT_WAIT_MS = 3000;
 // had while it stays within this far (m) of where that height was looked
 // up. A real move (from the demo position to its own) waits for its own.
 const STATION_KEEP_M = 100;
+// With no ground station, the camera waits here before the first position:
+// looking straight down from this far (m) above this spot, which shows the
+// whole Earth.
+const WAIT_FAR_LAT = 25;
+const WAIT_FAR_LON = -40;
+const WAIT_FAR_RANGE_M = 20000000;
 
 export function createGlobeView(container, ctx, options) {
   const { Cesium: C, credits, dialogs, covers, onReady, onChange, onFail, onFollowOff } = options;
   const { store, config } = ctx;
+  // What to call the thing being tracked (a rocket, or a board on a desk).
+  const words = ctx.words ?? FLIGHT_WORDS;
   const prescan = ctx.prescan instanceof Map ? ctx.prescan : new Map();
 
   // ------------------------------------------------------------------
@@ -1061,7 +1074,7 @@ export function createGlobeView(container, ctx, options) {
         order: 3,
       });
       parts.padTag.pad = true;
-      setTagText(parts.padTag, ['LAUNCH POINT']);
+      setTagText(parts.padTag, [words.padTag]);
     }
     parts.pad.show = true;
     parts.pad.position = position;
@@ -1080,7 +1093,9 @@ export function createGlobeView(container, ctx, options) {
     const gs = store.getGroundStation();
     let height = null;
     station.approx = false;
-    if (view.terrain === 'failed') {
+    if (!gs) {
+      // No ground station at all: nothing to draw.
+    } else if (view.terrain === 'failed') {
       height = 0;
     } else {
       const spot = groundAt(gs.lat, gs.lon);
@@ -1364,9 +1379,14 @@ export function createGlobeView(container, ctx, options) {
 
   // Where the camera looks from: { pivot, heading, pitch, range }. Until
   // there is real data to look at, it waits over the ground station, so
-  // the ground there starts loading.
+  // the ground there starts loading. With no ground station it waits far
+  // out over the Atlantic, looking straight down at the whole Earth, and
+  // the zoom limit lets it stay that far out until the first real view
+  // (see aim).
+  const waitFar = !store.getGroundStation();
   const look = (() => {
     const gs = store.getGroundStation();
+    if (!gs) return { pivot: C.Cartesian3.fromDegrees(WAIT_FAR_LON, WAIT_FAR_LAT, 0), heading: 0, pitch: PITCH_MIN, range: WAIT_FAR_RANGE_M };
     return { pivot: C.Cartesian3.fromDegrees(gs.lon, gs.lat, Number.isFinite(gs.altMsl) ? gs.altMsl : 0), ...startOrbit() };
   })();
 
@@ -1404,7 +1424,7 @@ export function createGlobeView(container, ctx, options) {
 
   // Points the camera where `look` says.
   function aim() {
-    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, waitFar && !started ? WAIT_FAR_RANGE_M : config.GLOBE_ZOOM_MAX_M);
     look.pitch = clamp(look.pitch, PITCH_MIN, PITCH_MAX);
     keepAboveGround();
     camera.lookAtTransform(frameOf(look.pivot), new C.HeadingPitchRange(look.heading, look.pitch, look.range));
@@ -1746,7 +1766,7 @@ export function createGlobeView(container, ctx, options) {
   function notes() {
     const out = [];
     const parts = [...drawn.values()];
-    if (parts.some((p) => p.waiting)) out.push('A rocket shows in 3D once its launch pad and the ground height there are known.');
+    if (parts.some((p) => p.waiting)) out.push(words.waiting);
     if (parts.some((p) => p.approx) || station.approx || view.terrain === 'failed') out.push('3D ground height is approximate.');
     if (view.imageryFailed) out.push('The 3D imagery didn\'t load, so the ground is plain.');
     return out;

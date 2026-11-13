@@ -135,7 +135,9 @@ export function validateEntry(raw) {
       featured: raw.featured === true,
       description: isText(raw.description) ? raw.description.trim() : '',
       site: isText(raw.site) ? raw.site.trim() : null,
-      // Optional: the featured card shows this picture instead of its map.
+      // Optional: a picture of the flight. The console doesn't show it (the
+      // old launcher's featured card is gone). The home page's Flight
+      // Console slide shows the simulated flight's, typed in by hand.
       cover: coverOrNull(raw.cover),
       rockets,
       summary: {
@@ -144,7 +146,9 @@ export function validateEntry(raw) {
         flightDurationS: numberOrNull(summary.flightDurationS),
         sensors: stringList(summary.sensors),
         events: stringList(summary.events),
-        // For the launcher's featured card (see add_flight.mjs). They all
+        // These fed the old launcher's featured card. Nothing on the page
+        // shows them anymore, but add_flight.mjs still fills them in, and
+        // they are still checked so index.json stays valid. They all
         // describe one rocket, trackRocketId: the one that flew highest.
         trackRocketId: isText(summary.trackRocketId) ? summary.trackRocketId : null,
         track: pointListOrNull(summary.track),
@@ -186,6 +190,8 @@ export function validateManifest(manifest) {
     flights.push(checked.entry);
   });
   // Newest first. If more than one says featured, only the first one counts.
+  // (Nothing on the page shows featured differently since the launcher's
+  // featured card went away. The flag is kept for index.json.)
   flights.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
   let featuredSeen = false;
   for (const f of flights) {
