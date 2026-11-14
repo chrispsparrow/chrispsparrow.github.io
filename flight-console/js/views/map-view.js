@@ -8,7 +8,9 @@
 // amber. This file builds the row and puts it in #fc-map-controls, the
 // mount in the HUD layer (main.js and the HUD's CSS decide where it sits).
 // If the page has no such mount, the row goes in the bottom left corner of
-// this frame instead. KEY opens a legend upward from the row.
+// this frame instead. KEY opens a legend upward from the row, into a part
+// of the view the HUD leaves free (placeLegend), so it never covers the
+// HUD, the scale bar or the credits.
 //
 // The 3D view is where every visit starts (DEFAULT_VIEW in config.js).
 // While it loads, the frame says "3D VIEWER LOADING..." with a blinking
@@ -37,7 +39,7 @@
 //
 // Bottom right belongs to this frame: the map's notes, the scale bar and
 // the map credits (Cesium's or Leaflet's, both required), kept above the
-// timeline and anything else the HUD puts down there.
+// timeline and anything else the HUD puts down there (placeCorner).
 //
 // One view for the whole visit. main.js can make this view once and keep
 // it while the page moves between live data and saved flights, with a
@@ -63,7 +65,7 @@ import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING }
 import { iconNode } from './icons.js?v=2';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
-  diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE, pathKeySvg, weakKeySvg, shadowKeySvg, linkKeySvg,
+  diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE, pathKeySvg, gapKeySvg, ringKeySvg, weakKeySvg, shadowKeySvg, linkKeySvg,
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
   NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
 } from './markers.js';
@@ -116,6 +118,26 @@ const SCALE_MAX_PX = 96;
 // The breadcrumb canvas reaches this share of the view past each edge, so
 // a short drag shows no empty edge before it is painted again.
 const TRACK_PADDING = 0.5;
+// The bottom right corner (scale bar and credits) sits at least this far
+// (px) above the frame's bottom edge.
+const CORNER_MIN_LIFT_PX = 8;
+// Room (px) the corner keeps from the HUD's blocks above and under it.
+// Where a gap is only just tall enough, it makes do with CORNER_TIGHT_PX.
+const CORNER_GAP_PX = 6;
+const CORNER_TIGHT_PX = 2;
+// Room (px) the open KEY keeps from the controls row, the HUD's blocks and
+// the corner.
+const LEGEND_GAP_PX = 8;
+// Where no free gap holds the whole open KEY, it takes one at least this
+// tall (px) and scrolls inside itself. If there is none, it takes the
+// tallest gap there is.
+const LEGEND_MIN_PX = 140;
+// Where even the tallest free gap is shorter than this (px), the open KEY
+// opens as a sheet over the HUD instead (placeLegend explains).
+const LEGEND_FLOOR_PX = 44;
+// When the KEY looks for a column to open in, it tries one every this
+// many px across the view.
+const LEGEND_STEP_PX = 24;
 
 const isLayer = (value) => value === 'satellite' || value === 'dark';
 
@@ -152,26 +174,41 @@ export function createMapView(root, ctx) {
   const cameraPick = h('div', { class: 'fc-map-ctl-group', role: 'group', 'aria-label': 'Camera', hidden: true }, wholeBtn, resetBtn);
 
   // The KEY: a legend for every marker and line, behind a toggle. Closed
-  // at first. It opens upward from the row.
+  // at first. It opens upward from the row, into the free part of the view
+  // (placeLegend() picks the spot), and scrolls inside itself when that
+  // part is short.
   const legendStationText = h('span', {}, LABEL_NAMES.station);
   const legendShadowRow = legendRow(iconNode(shadowKeySvg()), 'GROUND SHADOW (3D)');
+  // The packet ring only runs for viewers who haven't asked for less motion.
+  const legendRingRow = legendRow(iconNode(ringKeySvg()), 'RING, A PACKET JUST ARRIVED');
   const legendStationRows = [
     legendRow(iconNode(dishSvg()), legendStationText),
     legendRow(iconNode(linkKeySvg()), 'RADIO LINK TO MANTA'),
   ];
-  const legend = h('div', { class: 'fc-map-legend' },
+  const legendList = h('div', { class: 'fc-legend-list' },
     legendRow(iconNode(boardSvg(BOARD_FOCUSED)), 'DOGTOOTH BOARD'),
+    legendRingRow,
     legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'NO GOOD FIX RIGHT NOW'),
     legendRow(iconNode(pathKeySvg()), 'GOOD FIX AND PATH, SLOW TO FAST'),
+    legendRow(iconNode(gapKeySvg()), 'GAP, PACKETS MISSED OR FIX LOST'),
     legendRow(iconNode(weakKeySvg()), 'WEAK FIX, LEFT OFF THE PATH'),
     legendShadowRow,
     legendRow(iconNode(startSvg()), LABEL_NAMES.pad),
     ...legendStationRows,
     legendRow(iconNode(diamondSvg()), 'APOGEE, DROGUE, MAIN, LANDED'),
     legendRow(iconNode(crosshairSvg()), 'RECOVERY POSITION'));
-  const keyBox = h('details', { class: 'fc-map-key' },
-    h('summary', { class: 'fc-bkt fc-bkt--sm fc-map-key-toggle' }, 'KEY'),
-    legend);
+  const legend = h('div', { class: 'fc-map-legend' }, legendList);
+  // A legend cut short fades out at the bottom until it is scrolled to
+  // its end, a hint that there is more.
+  const markCut = () => legendList.classList.toggle('is-cut', legendList.scrollTop + legendList.clientHeight < legendList.scrollHeight - 2);
+  legendList.addEventListener('scroll', markCut, { passive: true });
+  const keyToggle = h('summary', { class: 'fc-bkt fc-bkt--sm fc-map-key-toggle' }, 'KEY');
+  const keyBox = h('details', { class: 'fc-map-key' }, keyToggle, legend);
+  // Opening the KEY places the legend at once. Closing it forgets the spot.
+  keyBox.addEventListener('toggle', () => {
+    if (keyBox.open) placeLegend();
+    else legend.classList.remove('is-placed', 'is-sheet');
+  });
 
   const controls = h('div', { class: 'fc-map-ctl' }, viewPick, followLabel, keyBox, cameraPick);
   // The row goes in the HUD layer's mount. Without one, it goes in the
@@ -243,6 +280,7 @@ export function createMapView(root, ctx) {
   let lastState = null;     // the flight state at the last draw (to spot liftoff)
   let resizeObserver = null;
   let coverObserver = null;
+  let stateObserver = null;
   let trackRenderer = null; // the canvas the breadcrumbs are painted on
   let linkRenderer = null;  // the radio link's own drawing layer
   const rocketLayers = new Map(); // rocketId -> { marker, parts, lastPacketT }
@@ -1025,28 +1063,205 @@ export function createMapView(root, ctx) {
     return band;
   }
 
-  // The bottom right corner (notes, scale and credits) sits just above
-  // whatever the HUD has under it: the timeline across the whole width,
-  // or the controls row when it reaches this far right on a phone.
+  // Where the covered areas were at the last look, as one string. When any
+  // of them has moved or changed size since, FOLLOW BOARD looks again
+  // (coversChanged). Returns true if they had.
+  let coverSig = '';
+  function checkCovers() {
+    const sig = shownRects([...coverElements(), corner])
+      .map((r) => `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`)
+      .join('|');
+    if (sig === coverSig) return false;
+    const first = coverSig === '';
+    coverSig = sig;
+    if (!first) coversChanged();
+    return true;
+  }
+
+  // The boxes (in page px) of the elements that show right now.
+  function shownRects(elements) {
+    const out = [];
+    for (const el of elements) {
+      if (!el?.isConnected) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width >= 1 && r.height >= 1) out.push(r);
+    }
+    return out;
+  }
+
+  // The free gaps in one column of the page (from x0 to x1, between top
+  // and bottom, in page px): the stretches no box in rects reaches into,
+  // with room px kept clear above and under each box. The lowest gap
+  // comes first. Each is { top, bottom, height }.
+  function freeGaps(x0, x1, top, bottom, rects, room) {
+    const taken = rects
+      .filter((r) => r.right > x0 && r.left < x1 && r.bottom + room > top && r.top - room < bottom)
+      .map((r) => [r.top - room, r.bottom + room])
+      .sort((a, b) => b[1] - a[1]);
+    const gaps = [];
+    let low = bottom;
+    for (const [t, b] of taken) {
+      if (b < low) gaps.push({ top: b, bottom: low, height: low - b });
+      low = Math.min(low, t);
+      if (low <= top) break;
+    }
+    if (low > top) gaps.push({ top, bottom: low, height: low - top });
+    return gaps;
+  }
+
+  // The bottom right corner (notes, scale and credits) sits as low as it
+  // can, just above whatever the HUD has under it (the timeline across the
+  // whole width, or the controls row when it reaches this far right on a
+  // phone). It only moves up when something really is in that spot, and
+  // then into the lowest gap tall enough for it, so it never lands on a
+  // HUD block, the phase bar or the MORE column. If no gap is tall enough
+  // (the smallest phones), it takes the tallest one.
   let cornerLift = '';
   function placeCorner() {
     const box = frame.getBoundingClientRect();
     if (box.height < 1) return;
     const c = corner.getBoundingClientRect();
-    let lift = 8;
-    for (const el of coverElements()) {
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1) continue;
-      // Only things down in the bottom part, under the corner's width.
-      if (r.bottom < box.top + box.height * 0.65 || r.right <= c.left || r.left >= c.right) continue;
-      const need = box.bottom - r.top + 6;
-      if (need > box.height * 0.5) continue;
-      lift = Math.max(lift, need);
+    let lift = CORNER_MIN_LIFT_PX;
+    if (c.height >= 1) {
+      const rects = shownRects(coverElements());
+      const floor = box.bottom - CORNER_MIN_LIFT_PX;
+      let spot = null;
+      for (const room of [CORNER_GAP_PX, CORNER_TIGHT_PX]) {
+        spot = freeGaps(c.left, c.right, box.top, floor, rects, room).find((g) => g.height >= c.height);
+        if (spot) break;
+      }
+      if (!spot) {
+        const gaps = freeGaps(c.left, c.right, box.top, floor, rects, CORNER_TIGHT_PX);
+        spot = gaps.reduce((best, g) => (!best || g.height > best.height ? g : best), null);
+      }
+      if (spot) lift = box.bottom - spot.bottom;
     }
     const value = `${Math.round(lift)}px`;
     if (value === cornerLift) return;
     cornerLift = value;
     corner.style.bottom = value;
+  }
+
+  // The open KEY's legend goes in the free part of the view, never over
+  // the HUD's text, the scale bar or the credits. It looks for a column
+  // to open in next to the controls: lined up with the row's left end,
+  // or if that has no room, with the KEY button. In a column it takes the
+  // lowest gap that holds the whole legend (on a desktop, just above GPS,
+  // HDOP and PKT), or else one at least LEGEND_MIN_PX tall, and scrolls
+  // inside itself. Only when neither column has that does it look every
+  // LEGEND_STEP_PX across the view, for the whole legend or else the
+  // tallest gap. (So it stays by the controls, and away from the middle
+  // of the view, where FOLLOW BOARD keeps the board.)
+  // When there is no such room and an open HUD panel is in the way (the
+  // MORE column across the middle of a phone), the one opened last wins:
+  // opening the KEY closes that panel, and a panel opened while the KEY is
+  // open closes the KEY.
+  // Only on the smallest screens, where even the tallest gap is shorter
+  // than LEGEND_FLOOR_PX (a small phone in the recovery state, say), the
+  // legend opens as a sheet over the HUD instead, on a darker fade, still
+  // clear of the scale bar and credits. Pressing KEY again closes it.
+  function placeLegend() {
+    if (!keyBox.open) return;
+    const box = frame.getBoundingClientRect();
+    const row = controls.getBoundingClientRect();
+    if (box.height < 1 || row.height < 1) return;
+    // The first placement after the KEY opened.
+    const opening = !legend.classList.contains('is-placed');
+    const tabW = parseFloat(getComputedStyle(frame).getPropertyValue('--fc-tab-w')) || 0;
+    const rightEdge = box.right - tabW - LEGEND_GAP_PX;
+    // Everything the legend keeps clear of, apart from its own row.
+    const mount = controls.parentElement;
+    const others = [...coverElements(), corner].filter((el) => el !== mount && !el.contains(controls));
+    const rects = shownRects(others);
+    const top = box.top + 4;
+    const bottom = row.top - LEGEND_GAP_PX;
+    // Its natural size, as wide as it may be from the row's left end.
+    const first = row.left - 8;
+    const maxW = Math.max(120, Math.floor(rightEdge - first));
+    legend.classList.remove('is-sheet');
+    legend.style.width = '';
+    legend.style.left = `${Math.round(first - row.left)}px`;
+    legend.style.maxWidth = `${maxW}px`;
+    legend.style.maxHeight = 'none';
+    const w = legend.offsetWidth;
+    const h0 = legend.offsetHeight;
+    // How well the legend fits in the column starting at left: 2 for the
+    // whole legend, 1 for at least LEGEND_MIN_PX of it, 0 for less.
+    const tryColumn = (left) => {
+      if (left + w > rightEdge + 1) return null;
+      const gaps = freeGaps(left, left + w, top, bottom, rects, LEGEND_GAP_PX);
+      const whole = gaps.find((g) => g.height >= h0);
+      if (whole) return { left, gap: whole, fits: 2 };
+      const enough = gaps.find((g) => g.height >= LEGEND_MIN_PX);
+      const gap = enough ?? gaps.reduce((a, g) => (!a || g.height > a.height ? g : a), null);
+      return gap ? { left, gap, fits: enough ? 1 : 0 } : null;
+    };
+    const better = (a, b) => (!b || a.fits > b.fits || (a.fits === b.fits && a.fits < 2 && a.gap.height > b.gap.height) ? a : b);
+    // Next to the controls first: lined up with the row, then with the KEY
+    // button. Only if neither has a useful gap, anywhere across the view.
+    let best = null;
+    for (const left of [first, keyToggle.getBoundingClientRect().left - 8]) {
+      const c = tryColumn(left);
+      if (c) best = better(c, best);
+      if (best?.fits >= 1) break;
+    }
+    if (!best || best.fits === 0) {
+      for (let x = first + LEGEND_STEP_PX; x + w <= rightEdge; x += LEGEND_STEP_PX) {
+        const c = tryColumn(x);
+        if (c && c.fits === 2) { best = c; break; }
+        if (c) best = better(c, best);
+      }
+    }
+    if (!best || best.fits === 0) {
+      // No room for a useful legend. Is an open panel in the way?
+      const panels = openPanels(others.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.right > first && r.left < rightEdge;
+      }));
+      if (panels.length) {
+        if (!opening) {
+          keyBox.open = false;
+          return;
+        }
+        for (const button of panels) button.click();
+        requestAnimationFrame(() => placeLegend());
+        return;
+      }
+    }
+    if (!best || best.gap.height < Math.min(h0, LEGEND_FLOOR_PX)) {
+      // The sheet: from the row's left end, as tall as it can be without
+      // covering the corner. On a narrow screen it takes the whole width,
+      // so no HUD text shows past its fade.
+      if (maxW < 420) legend.style.width = `${maxW}px`;
+      const sheetW = legend.offsetWidth;
+      const sheetH = legend.offsetHeight;
+      const gaps = freeGaps(first, first + sheetW, top, bottom, shownRects([corner]), LEGEND_GAP_PX);
+      const gap = gaps.find((g) => g.height >= Math.min(sheetH, LEGEND_MIN_PX)) ??
+        gaps.reduce((a, g) => (!a || g.height > a.height ? g : a), null);
+      if (!gap) return;
+      best = { left: first, gap, sheet: true };
+      legend.classList.add('is-sheet');
+    }
+    const h1 = legend.offsetHeight;
+    legend.style.left = `${Math.round(best.left - row.left)}px`;
+    legend.style.bottom = `${Math.round(row.bottom - best.gap.bottom)}px`;
+    const cut = h1 > best.gap.height;
+    legend.style.maxHeight = cut ? `${Math.floor(best.gap.height)}px` : 'none';
+    markCut();
+    legend.classList.add('is-placed');
+  }
+
+  // The buttons that close the HUD's open panels among els (a panel with
+  // an id, opened by a button with aria-controls and aria-expanded).
+  function openPanels(els) {
+    const stage = root.closest('.fc-stage') ?? document;
+    const out = [];
+    for (const el of els) {
+      if (!el.id || el.hidden) continue;
+      const button = stage.querySelector(`[aria-controls="${CSS.escape(el.id)}"][aria-expanded="true"]`);
+      if (button) out.push(button);
+    }
+    return out;
   }
 
   // ------------------------------------------------------------------
@@ -1273,6 +1488,9 @@ export function createMapView(root, ctx) {
       if (row.hidden !== !gs) row.hidden = !gs;
     }
     if (gs) setText(legendStationText, gs.source === 'config' ? `${LABEL_NAMES.station}, DEMO POSITION` : LABEL_NAMES.station);
+    // No packet ring is drawn for viewers who asked for less motion.
+    const still = prefersReducedMotion();
+    if (legendRingRow.hidden !== still) legendRingRow.hidden = still;
   }
 
   function redrawAll() {
@@ -1909,7 +2127,10 @@ export function createMapView(root, ctx) {
       if (threeOverMap && three !== 'ready' && mode === 'leaflet') drawLeaflet();
     } else if (mode === 'leaflet') drawLeaflet();
     else if (mode === 'fallback') drawFallback();
+    watchCovers();
     placeCorner();
+    placeLegend();
+    checkCovers();
     if (view === '3d') globe?.relayout();
   }, { maxFps: config.MAP_MAX_FPS });
 
@@ -1961,15 +2182,51 @@ export function createMapView(root, ctx) {
   });
 
   // The HUD's blocks change size (MORE opens, the timeline appears), so the
-  // corner and FOLLOW BOARD look again when they do.
+  // corner, the KEY and FOLLOW BOARD look again when they do. main.js makes
+  // the HUD after this view, so its blocks are picked up as they appear
+  // (watchCovers runs on every draw and every check).
+  const watched = new WeakSet();
+  function watchCovers() {
+    if (!coverObserver) return;
+    for (const el of [...coverElements(), frame, corner]) {
+      if (watched.has(el)) continue;
+      watched.add(el);
+      coverObserver.observe(el);
+    }
+  }
   if ('ResizeObserver' in window) {
     coverObserver = new ResizeObserver(() => {
       coversChanged();
       scheduler.schedule();
     });
-    for (const el of coverElements()) coverObserver.observe(el);
-    coverObserver.observe(frame);
-    coverObserver.observe(corner);
+    watchCovers();
+  }
+  // Some blocks also move without changing size (in a short window, GPS,
+  // HDOP and PKT move up next to ALT when the flight lands, and the corner
+  // moves with them), and some open while nothing is drawn (MORE on a
+  // paused replay). So the covered areas are compared on every draw
+  // (checkCovers), and also right after the console's state or mode
+  // changes and right after anything in the HUD layer is shown or hidden.
+  // That check runs before the next frame is painted, so the board never
+  // shows under the HUD for a frame, and once more in the next frame in
+  // case the HUD was still being redrawn.
+  const recheck = () => {
+    if (destroyed) return;
+    watchCovers();
+    placeCorner();
+    placeLegend();
+    checkCovers();
+    scheduler.schedule();
+  };
+  if ('MutationObserver' in window) {
+    stateObserver = new MutationObserver(() => {
+      recheck();
+      requestAnimationFrame(recheck);
+    });
+    const consoleEl = root.closest('.fc-console');
+    if (consoleEl) stateObserver.observe(consoleEl, { attributes: true, attributeFilter: ['data-state', 'data-mode'] });
+    const overlay = root.closest('.fc-stage')?.querySelector('.fc-overlay');
+    if (overlay) stateObserver.observe(overlay, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
   }
 
   // A hook for the browser tests: where every point WHOLE FLIGHT frames is
@@ -2039,6 +2296,7 @@ export function createMapView(root, ctx) {
       clearTimeout(slowTimer);
       clearTimeout(retryTimer);
       coverObserver?.disconnect();
+      stateObserver?.disconnect();
       unsubscribe();
       scheduler.cancel();
       destroyGlobe();

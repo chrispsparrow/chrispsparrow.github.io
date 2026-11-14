@@ -1918,6 +1918,7 @@ export function createGlobeView(container, ctx, options) {
     fixGap: 1000,      // the usual time between board moves (ms)
     free: null,        // the free part of the view: { x0, x1, y0, y1 } in canvas px
     freeAt: 0,
+    jumped: false,     // the board just jumped (a seek): the camera jumps with it
   };
 
   const vec = (x, y, z) => ({ x, y, z });
@@ -1935,7 +1936,7 @@ export function createGlobeView(container, ctx, options) {
     Object.assign(chase, {
       frame: 0, anchor: null, toWorld: null, toLocal: null, board: null, boardWorld: null, lead: null, crumbs: null,
       want: [], tail: [], key: '', recovery: false, target: null, zoom: 1,
-      tiltTo: null, headTo: null, glide: null, needsGlide: true, free: null, freeAt: 0,
+      tiltTo: null, headTo: null, glide: null, needsGlide: true, free: null, freeAt: 0, jumped: false,
     });
   }
 
@@ -1967,6 +1968,9 @@ export function createGlobeView(container, ctx, options) {
       const board = toLocal(target);
       const step = before ? Math.hypot(board.x - before.x, board.y - before.y, board.z - before.z) : Infinity;
       chase.lead = gap < 3 * chase.fixGap && step < FOLLOW_LEAD_MAX_M ? vec(2 * board.x - before.x, 2 * board.y - before.y, 2 * board.z - before.z) : board;
+      // A seek, or a step no rocket makes between two fixes: the camera
+      // jumps to the new framing (snapToGoal) instead of easing there.
+      if (chase.boardWorld && step >= FOLLOW_LEAD_MAX_M) chase.jumped = true;
       chase.crumbs = parts.crumbs;
       chase.fixAt = now;
       chase.boardWorld = C.Cartesian3.clone(target);
@@ -2228,20 +2232,55 @@ export function createGlobeView(container, ctx, options) {
   // The rule that always holds: with the real camera, the board is inside
   // the free part of the view. If the easing ever lags behind that far,
   // the view is nudged at once.
-  function keepBoardOnScreen(size) {
+  // The nudge works in screen pixels, which is only right for a small
+  // step. A board behind the camera or more than a view away (a seek that
+  // jumped it kilometers, say) makes the camera jump to a fresh framing
+  // instead (snapToGoal), once.
+  function keepBoardOnScreen(size, { snapped = false } = {}) {
+    // (A flight to a new site moves the camera itself.)
+    if (flying || !chase.boardWorld) return;
     const rect = chase.free;
     for (let i = 0; i < 2; i++) {
       const s = scene.cartesianToCanvasCoordinates(chase.boardWorld, scratch2);
-      if (!s || !Number.isFinite(s.x)) return;
+      const toBoard = C.Cartesian3.subtract(chase.boardWorld, camera.positionWC, new C.Cartesian3());
+      const behind = C.Cartesian3.dot(toBoard, camera.directionWC) <= 0;
+      if (!s || !Number.isFinite(s.x) || !Number.isFinite(s.y) || behind) {
+        if (!snapped) snapToGoal(size);
+        return;
+      }
       const dx = s.x < rect.x0 ? s.x - rect.x0 - 2 : s.x > rect.x1 ? s.x - rect.x1 + 2 : 0;
       const dy = s.y < rect.y0 ? s.y - rect.y0 - 2 : s.y > rect.y1 ? s.y - rect.y1 + 2 : 0;
       if (!dx && !dy) return;
+      if (Math.abs(dx) > size.w || Math.abs(dy) > size.h) {
+        if (!snapped) snapToGoal(size);
+        return;
+      }
       const mpp = C.Cartesian3.distance(camera.positionWC, chase.boardWorld) / size.f;
       const right = C.Cartesian3.multiplyByScalar(camera.rightWC, dx * mpp, new C.Cartesian3());
       const up = C.Cartesian3.multiplyByScalar(camera.upWC, -dy * mpp, new C.Cartesian3());
       look.pivot = C.Cartesian3.add(C.Cartesian3.add(look.pivot, right, new C.Cartesian3()), up, new C.Cartesian3());
       aimNow();
     }
+  }
+
+  // Puts the camera straight on the follow camera's framing, with no
+  // easing: after a seek, where the board can land kilometers from where
+  // it was, and easing there would leave it out of the picture on the way.
+  function snapToGoal(size) {
+    chase.jumped = false;
+    if (!chase.board || !chase.toLocal) return;
+    stopGlide();
+    chase.free = freeRect(size);
+    chase.freeAt = performance.now();
+    chase.glide = null;
+    chase.needsGlide = false;
+    if (chase.headTo !== null) { look.heading = chase.headTo; chase.headTo = null; }
+    if (chase.tiltTo !== null) { look.pitch = chase.tiltTo; chase.tiltTo = null; }
+    chase.target = chaseGoal(size);
+    look.pivot = toWorld(chase.target.pivot);
+    look.range = chase.target.range;
+    aim();
+    keepBoardOnScreen(size, { snapped: true });
   }
 
   // Runs after every draw: keeps the camera on what its mode says.
@@ -2272,10 +2311,11 @@ export function createGlobeView(container, ctx, options) {
     if (flying) return;
     if (cameraMode === 'follow' && target) {
       chaseData(target);
+      const size = viewSize();
+      if (size && chase.jumped && chase.toLocal) snapToGoal(size);
       // A new fix the easing hasn't reached yet: if it landed outside the
       // free part, the view is nudged now, in the same frame.
-      const size = viewSize();
-      if (size && chase.free && !chase.glide && !chase.needsGlide) keepBoardOnScreen(size);
+      else if (size && chase.free && !chase.glide && !chase.needsGlide) keepBoardOnScreen(size);
       chaseKick();
     } else if (cameraMode === 'whole') {
       if (!framed) {

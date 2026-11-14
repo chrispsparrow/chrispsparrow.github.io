@@ -7,7 +7,7 @@
 //   - the event diamond (apogee, drogue, main, landed) and the recovery
 //     crosshair
 //   - the packet ring, the radio link and its traveling dot
-//   - small samples of each for the KEY
+//   - small samples of each for the KEY, plus one of a gap in the line
 // The 3D view turns the SVG markup into small canvases for Cesium. The map
 // puts it inside Leaflet markers, and the KEY shows it with iconNode()
 // from icons.js. The names next to the markers are drawn by map-labels.js.
@@ -212,6 +212,25 @@ export function pathKeySvg() {
     `<line x1="3" y1="7" x2="25" y2="7" stroke="${HALO}" stroke-width="${LINE_PX + 2 * LINE_OUTLINE_PX}" stroke-linecap="round"/>` +
     `<line x1="3" y1="7" x2="25" y2="7" stroke="url(#${id})" stroke-width="${LINE_PX}" stroke-linecap="round"/>` +
     dot(4, TRACK_RAMP[0]) + dot(14, TRACK_RAMP[2]) + dot(24, TRACK_RAMP[TRACK_RAMP.length - 1]));
+}
+
+// A gap: the same line, broken where packets were missed or the fix was
+// lost, with no dots in the break.
+export function gapKeySvg() {
+  const color = TRACK_RAMP[1];
+  const piece = (x1, x2) =>
+    `<line x1="${x1}" y1="7" x2="${x2}" y2="7" stroke="${HALO}" stroke-width="${LINE_PX + 2 * LINE_OUTLINE_PX}" stroke-linecap="round"/>` +
+    `<line x1="${x1}" y1="7" x2="${x2}" y2="7" stroke="${color}" stroke-width="${LINE_PX}" stroke-linecap="round"/>`;
+  const dot = (x) => `<circle cx="${x}" cy="7" r="${DOT_PX / 2}" fill="${color}" stroke="${HALO}" stroke-width="${DOT_OUTLINE_PX}"/>`;
+  return keySvg(piece(2, 9) + piece(19, 26) + dot(9) + dot(19));
+}
+
+// The packet ring: one thin white ring with the faint dark edge the real
+// one has.
+export function ringKeySvg() {
+  return keySvg(
+    `<circle cx="14" cy="7" r="5.5" fill="none" stroke="${HALO}" stroke-opacity="0.45" stroke-width="${RING_LINE_PX + 2}"/>` +
+    `<circle cx="14" cy="7" r="5.5" fill="none" stroke="${WHITE}" stroke-width="${RING_LINE_PX}"/>`);
 }
 
 // A weak fix: one hollow grey ring.
