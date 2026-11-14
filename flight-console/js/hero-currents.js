@@ -15,7 +15,8 @@
 //
 // canvas shows the water: every frame it gets the speed colors, then the
 // streaks on top with the "screen" blend (the streaks build up on a second,
-// hidden canvas, black with light trails, so black adds nothing). The script
+// hidden canvas, black with light trails, so black adds nothing). Until the
+// first frame it is plain navy (SPEED_RAMP[0]), never black. The script
 // adds one more layer after it in the same parent, the fish, a still image
 // it only redraws when the layout changes. The parent should be an
 // absolutely placed box with overflow hidden (see the landing part of
@@ -28,6 +29,11 @@
 //             where the fish goes and how big it is. No slot, no fish.
 //   fishSrc   the tuna SVG (default: the logo's tuna, one evenodd path in a
 //             1356 by 802 viewBox)
+//   onFish    called with true when the currents start drawing the fish,
+//             and with false when they run without it because the outline
+//             didn't load in FISH_WAIT_MS or failed. The page can show a
+//             plain logo in the slot while it is false. If the outline
+//             arrives late, it is called with true then.
 //   seed      whole number that picks the currents (1)
 //   onFrame   called after every drawn frame with { frame, ms, particles,
 //             width, height, dpr, fish, still } (for tests)
@@ -59,13 +65,23 @@
 //   starts over somewhere else, and the fish layer paints the inside navy
 //   with a sharp edge.
 //
+// Keeping the nav readable
+//   The page's nav is see-through and sits over the top of the water. So
+//   the water right behind it is drawn dimmer: the speed colors use only a
+//   share of the real speed there and the streaks are fainter, easing back
+//   to full strength a little below the nav (see NAV_FADE_START). The flow
+//   itself doesn't change. The bottom edge fades a little too, so a bright
+//   jet doesn't stop in a hard line where the footer starts.
+//
 // Keeping it light
 //   At most about 60 frames a second, a particle count that scales with the
 //   window, a canvas pixel ratio capped at 2 and at MAX_CANVAS_PX pixels in
 //   all (the fish layer keeps the full ratio, so its edge stays sharp), and
 //   the loop pauses while the tab is hidden, the hero is scrolled away or the
 //   landing isn't showing. With reduced motion it draws one still frame and
-//   stops (it follows that setting live).
+//   stops (it follows that setting live). The fish mask is made once, in
+//   short slices of work spread over several tasks, so the page keeps
+//   answering clicks and keys while it is built.
 //
 // Used by: the landing's hero (js/views/launcher.js starts it). No imports.
 
@@ -112,11 +128,30 @@ const CALM_FLOOR = 0.2;     // the calmest water keeps this share of its speed
 // half width. waves: meanders along it, each { amp, length, rate } in px,
 // px and radians a second. The top one is pushed down if it would come
 // within TOP_CLEAR px of the top, so it never runs behind the nav links.
+// Eddy centers stay at least TOP_CLEAR px plus their own size below the top
+// too.
 const JETS = [
   { y: 0.18, tilt: -0.03, speed: 520, width: 34, waves: [{ amp: 64, length: 1150, rate: 0.12 }, { amp: 22, length: 430, rate: -0.2 }] },
   { y: 0.91, tilt: 0.05, speed: -400, width: 28, waves: [{ amp: 46, length: 950, rate: -0.1 }, { amp: 16, length: 340, rate: 0.24 }] },
 ];
 const TOP_CLEAR = 96;
+
+// The water behind the nav: from the top down to NAV_FADE_START times the
+// nav's height, the speed colors show NAV_SPEED_KEEP of the real speed and
+// the streaks keep NAV_STREAK_KEEP of their opacity. Both ease back to full
+// strength by NAV_FADE_EXTRA px below the nav. The nav's height comes from
+// the page's --fc-nav-h (64px when it isn't set).
+const NAV_FADE_START = 0.6;
+const NAV_FADE_EXTRA = 64;
+const NAV_SPEED_KEEP = 0.22;
+const NAV_STREAK_KEEP = 0.3;
+const NAV_H_DEFAULT = 64;
+// The hero's bottom edge: over the last BOTTOM_FADE px the speed colors ease
+// down to BOTTOM_SPEED_KEEP of the speed and the streaks to
+// BOTTOM_STREAK_KEEP of their opacity.
+const BOTTOM_FADE = 110;
+const BOTTOM_SPEED_KEEP = 0.2;
+const BOTTOM_STREAK_KEEP = 0.45;
 
 const EDDY_COUNT = 6;
 const EDDY_SIZE = 70;       // where an eddy spins fastest, px from its center
@@ -129,7 +164,7 @@ const FISH_REACH = 0.17;    // how far out the fish bends the flow
 const RIM_WIDTH = 0.022;    // how wide the fast current along its edge is
 const RIM_SPEED = 330;      // that current's speed right at the edge
 const FISH_SEAL = 5.5;      // channels in the logo narrower than twice this (in the SVG's units, the fish is 1251 wide) fill in, see solidify()
-const FISH_MASK_SCALE = 1;  // the fish mask's px per SVG unit (see getTunaMask)
+const FISH_MASK_SCALE = 1;  // the fish mask's px per SVG unit (see buildTunaMask)
 
 // ------------------------------------------------------------------
 // Drawing
@@ -177,11 +212,21 @@ export function startCurrents(canvas, options = {}) {
   const fishSrc = typeof options.fishSrc === 'string' ? options.fishSrc : DEFAULT_FISH_SRC;
   const seed = Math.floor(numberOr(options.seed, 1)) >>> 0;
   const onFrame = typeof options.onFrame === 'function' ? options.onFrame : null;
+  const onFish = typeof options.onFish === 'function' ? options.onFish : null;
 
   const noise = makeSimplex3(seed);
   const random = mulberry32(seed ^ 0x9e3779b9);
   const rampLut = buildRampLut(SPEED_RAMP, RAMP_CURVE);
-  const fishRgb = hexToRgb(SPEED_RAMP[0]);
+
+  // An opaque canvas starts out black. Paint it navy at once, so the hero
+  // is navy (never black) until the first frame of water.
+  function paintBlank() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = SPEED_RAMP[0];
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  paintBlank();
 
   // ---------- Layers ----------
   // trails: hidden, the same size as canvas, opaque black with the light
@@ -206,6 +251,14 @@ export function startCurrents(canvas, options = {}) {
   let dpr = 1;
   let unit = 1;
 
+  // The dimmed bands at the top (behind the nav) and the bottom, in CSS px
+  // from the top of the canvas: full dimming above topFull, none below
+  // topClear, and from bottomClear down to the bottom edge it dims again.
+  let topFull = 0;
+  let topClear = 0;
+  let bottomClear = 0;
+  let overlayKeep = new Float32Array(0);   // the speed share kept on each speed color row
+
   // The flow grid: three grids in time (the two being blended and the next
   // one being built) and the blend the streaks read.
   let cell = FIELD_CELL;
@@ -220,6 +273,7 @@ export function startCurrents(canvas, options = {}) {
 
   // The fish
   let tunaPath = null;     // Path2D in viewBox units
+  let tunaMask = null;     // the solid silhouette, see buildTunaMask()
   let fishState = fishSlot ? 'loading' : 'none';   // 'loading', 'ready', 'failed' or 'none'
   let fishRectNow = null;
   let fish = null;         // the flow grid around the fish, see buildFish()
@@ -308,8 +362,10 @@ export function startCurrents(canvas, options = {}) {
       unit = unitFor(w, h);
       canvas.width = Math.max(1, Math.round(w * dpr));
       canvas.height = Math.max(1, Math.round(h * dpr));
+      paintBlank();
       trails.width = canvas.width;
       trails.height = canvas.height;
+      setupBands();
       setupFlow();
       setupOverlay();
       setupParticles();
@@ -322,6 +378,36 @@ export function startCurrents(canvas, options = {}) {
       if (insideFish(px[i], py[i])) respawn(i, true);
     }
     return true;
+  }
+
+  // ---------- The dimmed bands ----------
+
+  function setupBands() {
+    // --fc-nav-h is a plain custom property, so it comes back as written:
+    // px, or rem (times the root font size).
+    const raw = getComputedStyle(canvas).getPropertyValue('--fc-nav-h').trim();
+    let navH = parseFloat(raw);
+    if (/rem$/.test(raw)) navH *= parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    if (!Number.isFinite(navH) || navH <= 0) navH = NAV_H_DEFAULT;
+    topFull = navH * NAV_FADE_START;
+    topClear = navH + NAV_FADE_EXTRA;
+    bottomClear = cssH - Math.min(BOTTOM_FADE, cssH * 0.15);
+  }
+
+  // How much of the water's strength shows at height y: 1 in the open
+  // water, down to topKeep behind the nav and bottomKeep at the bottom
+  // edge, with a smooth step between.
+  function bandKeep(y, topKeep, bottomKeep) {
+    if (y < topClear) {
+      if (y <= topFull) return topKeep;
+      const t = (y - topFull) / (topClear - topFull);
+      return topKeep + (1 - topKeep) * t * t * (3 - 2 * t);
+    }
+    if (y > bottomClear) {
+      const t = Math.min(1, (y - bottomClear) / (cssH - bottomClear));
+      return 1 - (1 - bottomKeep) * t * t * (3 - 2 * t);
+    }
+    return 1;
   }
 
   // ---------- The flow ----------
@@ -409,9 +495,10 @@ export function startCurrents(canvas, options = {}) {
       const drift = EDDY_DRIFT * u * span * f;
       const sign = hash01(e, round * 7 + 6, seed) < 0.5 ? -1 : 1;
       // psi0 exp(-r^2 / 2 s^2) spins fastest at r = s, at psi0 e^-0.5 / s.
+      // Its fastest ring never comes above TOP_CLEAR, behind the nav.
       out.push({
         x: (0.04 + 0.92 * hx) * cssW + Math.cos(ha) * drift,
-        y: (0.04 + 0.92 * hy) * cssH + Math.sin(ha) * drift,
+        y: Math.max(TOP_CLEAR + size, (0.04 + 0.92 * hy) * cssH + Math.sin(ha) * drift),
         psi0: (sign * strength * EDDY_SPEED * u * size) / 0.6065,
         inv2s2: 1 / (2 * size * size),
         reach2: 9 * size * size,
@@ -600,11 +687,12 @@ export function startCurrents(canvas, options = {}) {
   // with the evenodd rule, so the logo's holes come out empty, then
   // solidify() decides what is fish. Below 1 px per unit the logo's
   // thinnest lines blur away and the fill would leak through them, so it
-  // never follows the screen's size. "inner" is the fish less a 1 px rim:
-  // there the fish layer is solid even where the logo has holes.
-  let tunaMask = null;
-  function getTunaMask() {
-    if (tunaMask) return tunaMask;
+  // never follows the screen's size. "inner" is the fish less a 1 px rim,
+  // drawn navy into its own small canvas: the fish layer lays it under the
+  // path's sharp edge, so the layer is solid even where the logo has holes.
+  // The work is cut into short slices (see runInSlices), and the promise
+  // ends with the mask, or undefined if stop() came first.
+  function buildTunaMask() {
     const s = FISH_MASK_SCALE;
     const pad = 2;
     const W = Math.ceil(TUNA_BOX.w * s) + 2 * pad;
@@ -616,34 +704,51 @@ export function startCurrents(canvas, options = {}) {
     octx.setTransform(s, 0, 0, s, pad - TUNA_BOX.x * s, pad - TUNA_BOX.y * s);
     octx.fillStyle = '#fff';
     octx.fill(tunaPath, 'evenodd');
-    const solid = solidify(octx.getImageData(0, 0, W, H).data, W, H, FISH_SEAL * s);
-    const inner = new Uint8Array(W * H);
-    for (let y = 1; y < H - 1; y++) {
-      for (let x = 1; x < W - 1; x++) {
-        const p = y * W + x;
-        inner[p] = solid[p] & solid[p - 1] & solid[p + 1] & solid[p - W] & solid[p + W]
-          & solid[p - W - 1] & solid[p - W + 1] & solid[p + W - 1] & solid[p + W + 1];
+    const alpha = octx.getImageData(0, 0, W, H).data;
+    return runInSlices(function* steps() {
+      const solid = yield* solidify(alpha, W, H, FISH_SEAL * s);
+      const inner = new Uint8Array(W * H);
+      for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+          const p = y * W + x;
+          inner[p] = solid[p] & solid[p - 1] & solid[p + 1] & solid[p - W] & solid[p + W]
+            & solid[p - W - 1] & solid[p - W + 1] & solid[p + W - 1] & solid[p + W + 1];
+        }
       }
-    }
-    tunaMask = { W, H, s, pad, solid, inner };
-    return tunaMask;
+      yield;
+      // The same off-screen canvas, reused for the navy inner shape.
+      octx.setTransform(1, 0, 0, 1, 0, 0);
+      const img = octx.createImageData(W, H);
+      const [r, g, b] = hexToRgb(SPEED_RAMP[0]);
+      const d = img.data;
+      for (let p = 0, o = 0; p < W * H; p++, o += 4) {
+        if (!inner[p]) continue;
+        d[o] = r;
+        d[o + 1] = g;
+        d[o + 2] = b;
+        d[o + 3] = 255;
+      }
+      octx.putImageData(img, 0, 0);
+      return { W, H, s, pad, solid, innerCanvas: off };
+    }(), () => stopped);
   }
 
   // rect is the fish slot's box in CSS px, relative to the canvas.
   function buildFish(rect) {
-    if (!tunaPath || !rect) {
+    if (!tunaPath || !tunaMask || !rect) {
       fish = null;
       fishLayer.style.display = 'none';
       return;
     }
-    const tm = getTunaMask();
+    const tm = tunaMask;
     const mx = (tm.s * TUNA_BOX.w) / rect.w;   // mask px per CSS px, across
     const my = (tm.s * TUNA_BOX.h) / rect.h;   // and down
 
     // 1. The fish layer, at the screen's full resolution with a 2 CSS px
-    //    border: the path filled navy (the slowest speed color) keeps its
-    //    own soft edge pixels, so the outline is sharp and smooth, and the
-    //    mask fills the holes inside.
+    //    border: the inner shape scaled up, then the path filled navy (the
+    //    slowest speed color) over it. The path keeps its own soft edge
+    //    pixels, so the outline is sharp and smooth, and the inner shape
+    //    fills the holes inside.
     const fdpr = Math.min(3, window.devicePixelRatio || 1);
     const LW = Math.ceil((rect.w + 4) * fdpr);
     const LH = Math.ceil((rect.h + 4) * fdpr);
@@ -651,27 +756,14 @@ export function startCurrents(canvas, options = {}) {
     const sy = (rect.h * fdpr) / TUNA_BOX.h;
     fishLayer.width = LW;
     fishLayer.height = LH;
+    // In SVG units from here: the mask's pixel (0, 0) sits pad / s units
+    // up and left of the tuna's box.
     fishCtx.setTransform(sx, 0, 0, sy, 2 * fdpr - TUNA_BOX.x * sx, 2 * fdpr - TUNA_BOX.y * sy);
+    fishCtx.imageSmoothingEnabled = true;
+    fishCtx.drawImage(tm.innerCanvas, TUNA_BOX.x - tm.pad / tm.s, TUNA_BOX.y - tm.pad / tm.s, tm.W / tm.s, tm.H / tm.s);
     fishCtx.fillStyle = SPEED_RAMP[0];
     fishCtx.fill(tunaPath, 'evenodd');
     fishCtx.setTransform(1, 0, 0, 1, 0, 0);
-    const img = fishCtx.getImageData(0, 0, LW, LH);
-    const data = img.data;
-    for (let Y = 0; Y < LH; Y++) {
-      const my2 = Math.floor(((Y + 0.5) / fdpr - 2) * my + tm.pad);
-      if (my2 < 0 || my2 >= tm.H) continue;
-      const row = my2 * tm.W;
-      for (let X = 0; X < LW; X++) {
-        const mx2 = Math.floor(((X + 0.5) / fdpr - 2) * mx + tm.pad);
-        if (mx2 < 0 || mx2 >= tm.W || !tm.inner[row + mx2]) continue;
-        const o = (Y * LW + X) * 4;
-        data[o] = fishRgb[0];
-        data[o + 1] = fishRgb[1];
-        data[o + 2] = fishRgb[2];
-        data[o + 3] = 255;
-      }
-    }
-    fishCtx.putImageData(img, 0, 0);
     Object.assign(fishLayer.style, {
       display: 'block',
       left: `${rect.x - 2}px`,
@@ -849,7 +941,9 @@ export function startCurrents(canvas, options = {}) {
       px[i] = nx;
       py[i] = ny;
       const s = Math.sqrt(u * u + v * v) * invHot;
-      pushSegment(levelFor(s, a < BIRTH_S ? a / BIRTH_S : 1), x, y, nx, ny);
+      let fadeIn = a < BIRTH_S ? a / BIRTH_S : 1;
+      if (y < topClear || y > bottomClear) fadeIn *= bandKeep(y, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+      pushSegment(levelFor(s, fadeIn), x, y, nx, ny);
     }
   }
 
@@ -933,7 +1027,9 @@ export function startCurrents(canvas, options = {}) {
         const nx = x + su * k;
         const ny = y + sv * k;
         const s = Math.sqrt(su * su + sv * sv) * invHot;
-        pushSegment(levelFor(s, Math.pow(fadePerStep, STILL_STEPS - 1 - q)), x, y, nx, ny);
+        let fade = Math.pow(fadePerStep, STILL_STEPS - 1 - q);
+        if (y < topClear || y > bottomClear) fade *= bandKeep(y, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+        pushSegment(levelFor(s, fade), x, y, nx, ny);
         x = nx;
         y = ny;
       }
@@ -955,19 +1051,22 @@ export function startCurrents(canvas, options = {}) {
     speedLayer.height = oh;
     overlayImg = speedCtx.createImageData(ow, oh);
     blurTmp = new Uint8ClampedArray(ow * oh * 4);
+    overlayKeep = new Float32Array(oh);
+    for (let j = 0; j < oh; j++) overlayKeep[j] = bandKeep((j - OVERLAY_MARGIN + 0.5) * OVERLAY_CELL, NAV_SPEED_KEEP, BOTTOM_SPEED_KEEP);
   }
 
   // One pixel per OVERLAY_CELL px, colored through SPEED_RAMP by the speed
   // there and blurred a little, then scaled up smoothly by composite().
   // Inside the fish it uses the rim speed, so the blur doesn't dim the
-  // bright rim. The fish layer covers the inside anyway.
+  // bright rim. The fish layer covers the inside anyway. Behind the nav and
+  // at the bottom edge only a share of the speed counts (overlayKeep).
   function drawOverlay() {
     const d = overlayImg.data;
-    const scale = (rampLut.length / 3 - 1) / (HOT_SPEED * unit);
     const top = rampLut.length / 3 - 1;
     let o = 0;
     for (let j = 0; j < oh; j++) {
       const y = (j - OVERLAY_MARGIN + 0.5) * OVERLAY_CELL;
+      const scale = (top * overlayKeep[j]) / (HOT_SPEED * unit);
       for (let i = 0; i < ow; i++) {
         const x = (i - OVERLAY_MARGIN + 0.5) * OVERLAY_CELL;
         const s = sampleAt(x, y) ? fish.rim : Math.sqrt(su * su + sv * sv);
@@ -991,8 +1090,10 @@ export function startCurrents(canvas, options = {}) {
     return cssW > 0 && cssH > 0 && fishState !== 'loading';
   }
 
+  // The loop only runs after drawFirst(), whose full screen of trails is
+  // always the first frame.
   function running() {
-    return !stopped && !reduced && tabVisible && onScreen && ready();
+    return !stopped && !reduced && tabVisible && onScreen && ready() && drewOnce;
   }
 
   function sync() {
@@ -1072,7 +1173,28 @@ export function startCurrents(canvas, options = {}) {
       layoutQueued = 0;
       if (stopped) return;
       const changed = layout();
-      if ((changed || !drewOnce) && ready()) drawFirst();
+      if ((changed || !drewOnce) && ready()) {
+        if (drewOnce) {
+          drawFirst();   // a resize: draw at once, so the water never blinks navy
+        } else {
+          // A first frame waits for the next animation frame, so the layout
+          // and it are two shorter tasks instead of one long one. On a
+          // first load the hero is still plain navy meanwhile.
+          queueFirst();
+          return;
+        }
+      }
+      sync();
+    });
+  }
+
+  let firstQueued = 0;
+  function queueFirst() {
+    if (firstQueued || stopped) return;
+    firstQueued = requestAnimationFrame(() => {
+      firstQueued = 0;
+      if (stopped) return;
+      if (!drewOnce && ready()) drawFirst();
       sync();
     });
   }
@@ -1122,13 +1244,25 @@ export function startCurrents(canvas, options = {}) {
   if (motionQuery?.addEventListener) motionQuery.addEventListener('change', onMotionChange);
   else motionQuery?.addListener?.(onMotionChange);
 
-  // The tuna's outline. Until it arrives (or FISH_WAIT_MS passes) nothing
-  // is drawn, so the water never runs through where the fish will be.
+  // The tuna's outline and its mask. Until both are ready (or FISH_WAIT_MS
+  // passes) no water is drawn, so it never runs through where the fish
+  // will be. The hero stays plain navy meanwhile.
+  function setFishState(state) {
+    if (stopped || state === fishState) return;
+    fishState = state;
+    if (onFish) {
+      try {
+        onFish(state === 'ready');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
   let fishTimer = 0;
   if (fishSlot) {
     fishTimer = setTimeout(() => {
       if (fishState === 'loading') {
-        fishState = 'failed';
+        setFishState('failed');
         queueLayout();
       }
     }, FISH_WAIT_MS);
@@ -1141,26 +1275,31 @@ export function startCurrents(canvas, options = {}) {
         const d = [...text.matchAll(/<path\b[^>]*?\sd="([^"]+)"/g)].map((m) => m[1]).join(' ');
         if (!d) throw new Error('no path in the SVG');
         tunaPath = new Path2D(d);
-        fishState = 'ready';
+        return buildTunaMask();
+      })
+      .then((mask) => {
+        if (!mask) return;   // stopped meanwhile
+        tunaMask = mask;
+        setFishState('ready');
       })
       .catch((err) => {
         console.warn('Flight Console: the fish outline did not load, so the currents run without it', err);
-        if (fishState === 'loading') fishState = 'failed';
+        tunaPath = null;
+        setFishState('failed');
       })
       .finally(() => {
         clearTimeout(fishTimer);
         if (stopped) return;
-        drewOnce = false;
+        // A fish that arrives after the water started redraws the first
+        // frame around it.
+        if (fishState === 'ready') drewOnce = false;
         queueLayout();
       });
   }
 
-  // First layout and frame right away when possible.
-  {
-    layout();
-    if (ready()) drawFirst();
-    sync();
-  }
+  // The first layout waits for the next animation frame, so it isn't added
+  // to the task that started the page. The canvas is navy until then.
+  queueLayout();
 
   return function stop() {
     if (stopped) return;
@@ -1171,6 +1310,8 @@ export function startCurrents(canvas, options = {}) {
     raf = 0;
     if (layoutQueued) cancelAnimationFrame(layoutQueued);
     layoutQueued = 0;
+    if (firstQueued) cancelAnimationFrame(firstQueued);
+    firstQueued = 0;
     resizeObserver?.disconnect();
     window.removeEventListener('resize', queueResize);
     intersectionObserver?.disconnect();
@@ -1279,27 +1420,73 @@ function mulberry32(seed) {
 // round brush), and one last fill from the border keeps only the outside
 // that really connects to it. The outline keeps its shape and the open
 // mouth stays open.
-function solidify(rgba, W, H, seal) {
+// A generator: it yields between its big steps so runInSlices() can spread
+// the work over several tasks, and returns the mask.
+function* solidify(rgba, W, H, seal) {
   const n = W * H;
   const ink = new Uint8Array(n);
   for (let p = 0; p < n; p++) ink[p] = rgba[p * 4 + 3] >= 128 ? 1 : 0;
   const r2 = seal * seal;
   let open = new Uint8Array(n);
   if (seal > 0) {
-    const toInk = distanceSquared(ink, W, H);
+    const toInk = yield* distanceSquaredSteps(ink, W, H);
     for (let p = 0; p < n; p++) open[p] = toInk[p] > r2 ? 1 : 0;
+    yield;
   } else {
     for (let p = 0; p < n; p++) open[p] = ink[p] ? 0 : 1;
   }
   let outside = fillFromBorder(open, W, H);
   if (seal > 0) {
-    const toOutside = distanceSquared(outside, W, H);
+    yield;
+    const toOutside = yield* distanceSquaredSteps(outside, W, H);
     open = new Uint8Array(n);
     for (let p = 0; p < n; p++) open[p] = outside[p] || (!ink[p] && toOutside[p] <= r2) ? 1 : 0;
+    yield;
     outside = fillFromBorder(open, W, H);
   }
+  yield;
   for (let p = 0; p < n; p++) outside[p] = outside[p] ? 0 : 1;
   return outside;
+}
+
+// Runs a generator one step per task, so no single task holds the page
+// for long, and resolves with what it returns. The steps run back to back
+// through a MessageChannel (setTimeout would wait at least 4 ms between
+// them after the first few). If isStopped() turns true it gives up and
+// resolves with undefined.
+function runInSlices(gen, isStopped) {
+  return new Promise((resolve, reject) => {
+    const channel = typeof MessageChannel === 'function' ? new MessageChannel() : null;
+    const finish = (settle, value) => {
+      if (channel) channel.port1.close();
+      settle(value);
+    };
+    const step = () => {
+      if (isStopped()) {
+        finish(resolve, undefined);
+        return;
+      }
+      let r;
+      try {
+        r = gen.next();
+      } catch (err) {
+        finish(reject, err);
+        return;
+      }
+      if (r.done) finish(resolve, r.value);
+      else if (channel) channel.port2.postMessage(0);
+      else setTimeout(step, 0);
+    };
+    if (channel) channel.port1.onmessage = step;
+    step();
+  });
+}
+
+// Runs a generator to its end at once and returns what it returns.
+function runNow(gen) {
+  let r = gen.next();
+  while (!r.done) r = gen.next();
+  return r.value;
 }
 
 // 1 for every open pixel the border reaches through open pixels
@@ -1338,6 +1525,13 @@ function fillFromBorder(open, W, H) {
 // fish node, by Felzenszwalb and Huttenlocher's two-pass method (one pass
 // down the columns, one along the rows).
 function distanceSquared(mask, cols, rows) {
+  return runNow(distanceSquaredSteps(mask, cols, rows));
+}
+
+// The same as a generator that yields between its two passes, and every
+// SLICE_CELLS cells or so within each.
+const SLICE_CELLS = 160000;
+function* distanceSquaredSteps(mask, cols, rows) {
   const BIG = 1e12;
   const n = cols * rows;
   const out = new Float64Array(n);
@@ -1347,12 +1541,17 @@ function distanceSquared(mask, cols, rows) {
   const d = new Float64Array(len);
   const v = new Int32Array(len);
   const z = new Float64Array(len + 1);
+  const colsPerSlice = Math.max(1, Math.floor(SLICE_CELLS / rows));
   for (let i = 0; i < cols; i++) {
     for (let j = 0; j < rows; j++) f[j] = out[j * cols + i];
     edt1d(f, rows, d, v, z);
     for (let j = 0; j < rows; j++) out[j * cols + i] = d[j];
+    if ((i + 1) % colsPerSlice === 0) yield;
   }
+  yield;
+  const rowsPerSlice = Math.max(1, Math.floor(SLICE_CELLS / cols));
   for (let j = 0; j < rows; j++) {
+    if (j > 0 && j % rowsPerSlice === 0) yield;
     const row = j * cols;
     for (let i = 0; i < cols; i++) f[i] = out[row + i];
     edt1d(f, cols, d, v, z);

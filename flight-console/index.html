@@ -78,9 +78,10 @@
 
       <header class="fc-hero">
         <!-- The water: made-up ocean currents drawn live behind the whole
-             hero (js/hero-currents.js). It adds a speed color layer under
-             this canvas and the fish layer over it. It pauses while hidden
-             or off screen and shows one still frame with reduced motion. -->
+             hero (js/hero-currents.js). It draws the speed colors and the
+             streaks in this canvas and adds the fish layer after it. It
+             pauses while hidden or off screen and shows one still frame
+             with reduced motion. -->
         <div class="fc-hero-water" aria-hidden="true"><canvas class="fc-hero-water-canvas"></canvas></div>
 
         <!-- Stacked and centered like the home page hero. Every size comes
@@ -88,7 +89,9 @@
         <div class="fc-hero-stack">
           <!-- The fish slot: an empty box the size of the tuna. The currents
                script reads its box and makes the water flow around a fish
-               there, so this layout decides where the fish goes. -->
+               there, so this layout decides where the fish goes. When the
+               currents can't draw the fish, the CSS shows the plain logo
+               tuna in it. -->
           <div class="fc-hero-fish" aria-hidden="true"></div>
           <h1 id="fc-landing-title" class="fc-hero-title">FLIGHT CONSOLE</h1>
           <div class="fc-hero-actions">

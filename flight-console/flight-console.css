@@ -256,9 +256,17 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
    half the window on a desktop, the full width less the gutters on a
    phone, and never so big that the stack doesn't fit under the nav.
    8.007 is the title's width in ems in Saira Stencil One (its letters'
-   outer edges, without the space the font leaves on each side). */
+   outer edges, without the space the font leaves on each side).
+   --fc-hero-fit is the width part. The hero is a size container, so it
+   uses cqw, which leaves out a desktop scrollbar (vw counts it, and the
+   title would then be wider than the fish and buttons on a narrow window).
+   The vw line is for browsers without container units. 100cqw is the
+   hero's width inside its 1.25rem side padding. --fc-hero-tall is the
+   height part. */
 .fc-page .fc-hero {
-  --fc-hero-w: min(max(46vw, min(100vw - 2.5rem, 34rem)), (100vh - var(--fc-nav-h) - 5rem) * 1.25, 64rem);
+  --fc-hero-fit: max(46vw, min(100vw - 2.5rem, 34rem));
+  --fc-hero-tall: calc((100vh - var(--fc-nav-h) - 5rem) * 1.25);
+  --fc-hero-w: min(var(--fc-hero-fit), var(--fc-hero-tall), 64rem);
   --fc-title-size: calc(var(--fc-hero-w) / 8.007);
   position: relative;
   isolation: isolate;
@@ -271,8 +279,14 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 }
 @supports (height: 100svh) {
   .fc-page .fc-hero {
-    --fc-hero-w: min(max(46vw, min(100vw - 2.5rem, 34rem)), (100svh - var(--fc-nav-h) - 5rem) * 1.25, 64rem);
+    --fc-hero-tall: calc((100svh - var(--fc-nav-h) - 5rem) * 1.25);
     min-height: 100svh;
+  }
+}
+@supports (width: 1cqw) {
+  .fc-page .fc-hero {
+    container-type: inline-size;
+    --fc-hero-fit: max((100cqw + 2.5rem) * 0.46, min(100cqw, 34rem));
   }
 }
 
@@ -305,9 +319,11 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 }
 
 /* The fish slot, the size of the tuna (its outline is 1251 by 524 in the
-   logo's SVG). The currents draw the fish here. Without them (no
-   JavaScript, or a start that failed) it shows the plain logo tuna
-   instead: the SVG is cropped to the tuna by its size and position. */
+   logo's SVG). The currents draw the fish here, and launcher.js sets
+   data-currents while they do. Without it (no JavaScript, a start that
+   failed, or a fish outline that didn't load in time) the slot shows the
+   plain logo tuna instead: the SVG is cropped to the tuna by its size and
+   position. */
 .fc-page .fc-hero-fish {
   width: 100%;
   aspect-ratio: 1251 / 524;
