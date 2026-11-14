@@ -28,6 +28,12 @@
 //   --board TEXT         board description for the matching --file
 //   --description TEXT   one or two plain sentences
 //   --site TEXT          launch site name
+//   --gs-lat DEG         where Manta (the ground station) stood, latitude...
+//   --gs-lon DEG         ...and longitude. Give both or neither. They go in
+//                        the entry as groundStation, and the summary's ground
+//                        station distances are measured from there instead of
+//                        the demo position in config.js.
+//   --gs-alt M           Manta's altitude above sea level (optional, with the two above)
 //   --featured           make this the featured flight (clears it from the others).
 //                        The page no longer shows it differently.
 //   --replace            allowed to overwrite a flight with the same id
@@ -65,13 +71,14 @@ function fail(message) {
 function parseArgs(argv) {
   const repeatable = new Set(['--file', '--rocket-id', '--rocket-name', '--board']);
   const flags = new Set(['--featured', '--replace']);
-  const single = new Set(['--id', '--title', '--kind', '--date', '--description', '--site']);
+  const single = new Set(['--id', '--title', '--kind', '--date', '--description', '--site', '--gs-lat', '--gs-lon', '--gs-alt']);
   const args = { '--file': [], '--rocket-id': [], '--rocket-name': [], '--board': [] };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (flags.has(key)) { args[key] = true; continue; }
     if (!repeatable.has(key) && !single.has(key)) fail(`unknown option ${key}`);
     const value = argv[i + 1];
+    // (A negative number like -8.53 starts with one dash, so it counts as a value.)
     if (value === undefined || value.startsWith('--')) fail(`${key} needs a value`);
     i += 1;
     if (repeatable.has(key)) args[key].push(value);
@@ -90,6 +97,20 @@ if (!id || !title || !kind || !date || args['--file'].length === 0) {
 }
 if (!['simulated', 'real'].includes(kind)) fail('--kind must be simulated or real');
 if (args['--rocket-id'].length > args['--file'].length) fail('there are more --rocket-id values than --file values');
+
+// Manta's position, if given. Checked again with the whole entry below.
+let groundStation = null;
+if (args['--gs-lat'] !== undefined || args['--gs-lon'] !== undefined || args['--gs-alt'] !== undefined) {
+  if (args['--gs-lat'] === undefined || args['--gs-lon'] === undefined) fail('--gs-lat and --gs-lon go together (and --gs-alt needs both)');
+  const num = (key) => {
+    const text = args[key];
+    const n = Number(text);
+    if (text === undefined) return null;
+    if (text.trim() === '' || !Number.isFinite(n)) fail(`${key} must be a number, not "${text}"`);
+    return n;
+  };
+  groundStation = { lat: num('--gs-lat'), lon: num('--gs-lon'), altMsl: num('--gs-alt') };
+}
 
 // The id becomes a folder name, so it must stay inside data/flights.
 const idCheck = validateEntry({ id, title, date, kind, rockets: [{ rocketId: 'x', name: 'x', file: 'x.log' }] });
@@ -163,7 +184,7 @@ if (duplicateId) {
 // ------------------------------------------------------------------
 // Summary, from the same parser and detector the page uses
 // ------------------------------------------------------------------
-const draft = validateEntry({ id, title, date, kind, rockets });
+const draft = validateEntry({ id, title, date, kind, rockets, groundStation });
 if (!draft.ok) fail(`the new entry is not valid: ${draft.reason}`);
 const flight = buildFlight(draft.entry, new Map(sources.map((s) => [s.name, s.text])));
 
@@ -313,12 +334,15 @@ function summarizePicture(rocket, gs) {
     out.maxGsDistanceM = round(farthest, 0);
   }
 
-  // Pad and landing: the pad is the last good position before liftoff (as
-  // the console draws it), the landing point the first good position from
-  // the moment the landing was detected. Drift is the distance between them.
+  // Pad and landing: the pad is where the console puts the launch point
+  // (the average of the pad fixes before liftoff), the landing point is the
+  // detector's recovery position (the average of the fixes in its landing
+  // window), or the first good position from the landing on if it has
+  // none. Drift is the distance between them.
   if (rocket.padPosition) out.padPoint = [round(rocket.padPosition.lat, 6), round(rocket.padPosition.lon, 6)];
   const landed = d?.events?.landed;
-  const landing = landed ? rocket.track.find((p) => p.t >= landed.t - 1e-6) : null;
+  const averaged = Number.isFinite(d?.landing?.lat) && Number.isFinite(d?.landing?.lon) ? d.landing : null;
+  const landing = averaged ?? (landed ? rocket.track.find((p) => p.t >= landed.t - 1e-6) : null);
   if (landing) out.landingPoint = [round(landing.lat, 6), round(landing.lon, 6)];
   if (rocket.padPosition && landing) {
     out.driftM = round(distanceM(rocket.padPosition.lat, rocket.padPosition.lon, landing.lat, landing.lon), 0);
@@ -366,7 +390,9 @@ function summarizePicture(rocket, gs) {
   return out;
 }
 
-const scan = createStore({ fleet: createFleet() });
+// The same store a replay of this flight gets: Manta's position when one
+// was given, the demo position otherwise.
+const scan = createStore({ fleet: createFleet(), ...(draft.entry.groundStation ? { groundStation: draft.entry.groundStation } : {}) });
 for (const r of draft.entry.rockets) scan.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
 scan.addSamples(flight.samples
   .filter((s) => Number.isFinite(s.t))
@@ -390,6 +416,7 @@ const entry = {
   description: args['--description'] ?? '',
   site: args['--site'] ?? null,
   ...(keptCover ? { cover: keptCover } : {}),
+  ...(draft.entry.groundStation ? { groundStation: { ...draft.entry.groundStation } } : {}),
   rockets: rockets.map(({ rocketId, name, board, file }) => ({ rocketId, name, board, file })),
   summary: {
     rocketCount: rockets.length,
@@ -399,7 +426,8 @@ const entry = {
     events: FLIGHT_EVENT_TYPES.filter((e) => eventTypes.has(e)),
     ...picture,
     // True when the ground station distances use the demo position in
-    // config.js, because the data had no ground station GPS packets.
+    // config.js, because no --gs-lat and --gs-lon were given and the data
+    // had no ground station GPS packets.
     gsDemo: gsNow.source === 'config',
   },
 };
