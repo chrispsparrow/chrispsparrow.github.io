@@ -27,8 +27,8 @@
   <link rel="stylesheet" href="../css/style.css?v=31">
   <!-- The colors and fonts shared by every Flight Console page -->
   <link rel="stylesheet" href="../css/flight-console-theme.css?v=2">
-  <!-- What only this page needs: the scroll tour, the serial output and 3D view side by side, and the links -->
-  <link rel="stylesheet" href="../css/flight-console-overview.css?v=9">
+  <!-- What only this page needs: the scroll tour and the serial output and 3D view side by side -->
+  <link rel="stylesheet" href="../css/flight-console-overview.css?v=10">
   <!-- Picks the scroll tour or, with reduced motion, the still pictures before the
        first paint, so the page never shows one layout and then jumps to the other.
        js/flight-console-overview.js does the rest. -->
@@ -62,13 +62,15 @@
     <!-- ── THE SCROLL TOUR ─────────────────────────────────────
          Four steps, driven by the scroll position (js/flight-console-overview.js):
            1. a close-up of the Dogtooth board
-           2. zoom way out to the board inside the rocket
-           3. the rocket rises and its radio signal goes down to Manta
+           2. the board shrinks into the avionics bay of the rocket on its pad
+           3. the rocket launches and climbs, then its radio signal goes down to Manta
            4. pan along the ground to the Flight Console
          .fco-tour is a tall wrapper and .fco-stage sticks to the window while it
          scrolls past, the same way the Toothpaste Dispenser page works. Everything
          in .fco-world is one scene, and the "camera" is a transform on it, so the
          board image is the same element from the close-up to the last step.
+         The scene sits in the middle of the window and the four sentences take
+         turns on its left and right (under it on a phone).
          The scene is only a picture (aria-hidden). The four sentences in the list
          below carry the same story for screen readers, in order. With reduced
          motion the script shows each step as a still picture next to its sentence. -->
@@ -79,8 +81,8 @@
         <div class="fco-view" aria-hidden="true">
           <div class="fco-world">
 
-            <!-- Lines in scene units: the ground, the rocket's trail, the radio signal,
-                 Manta's antenna and the cable to the laptop. The script places them. -->
+            <!-- Lines in scene units: the ground, the rocket's exhaust trail, the radio
+                 signal, Manta's antenna and the cable to the laptop. The script places them. -->
             <svg class="fco-lines" width="1" height="1" focusable="false">
               <line class="ln-ground" x1="0" y1="1000" x2="0" y2="1000"/>
               <line class="ln-trail" x1="0" y1="1000" x2="0" y2="1000"/>
@@ -119,26 +121,34 @@
             </div>
 
             <!-- The rocket, nose up, in scene units: 160 wide and 1000 tall, with the
-                 nose tip at the top middle. The board image sits in the avionics bay's
-                 window, in the rocket's own frame, so it rides along when it rises. -->
+                 nose tip at the top middle. The board image sits in the avionics bay,
+                 in the rocket's own frame, so it rides along when the rocket climbs.
+                 .fco-rocket-shake holds everything that shakes at liftoff, and the
+                 flame hangs under the tail, behind the body. -->
             <div class="fco-rocket">
-              <svg class="fco-rocket-art" viewBox="-80 0 160 1000" width="160" height="1000" focusable="false">
-                <!-- fins -->
-                <path class="r-fin" d="M-22 830 L-74 922 L-74 1000 L-22 976 Z"/>
-                <path class="r-fin" d="M22 830 L74 922 L74 1000 L22 976 Z"/>
-                <!-- body tube and the short tail cone under it -->
-                <rect class="r-body" x="-22" y="190" width="44" height="796"/>
-                <path class="r-body" d="M-22 986 L-15 998 L15 998 L22 986"/>
-                <!-- nose cone -->
-                <path class="r-body" d="M0 0 C7 34 22 112 22 190 L-22 190 C-22 112 -7 34 0 0 Z"/>
-                <!-- section joints and two rail buttons -->
-                <path class="r-detail" d="M-22 340 H22 M-22 560 H22 M-22 744 H22"/>
-                <rect class="r-detail" x="22" y="470" width="3.5" height="7"/>
-                <rect class="r-detail" x="22" y="800" width="3.5" height="7"/>
-                <!-- the avionics bay's window -->
-                <rect class="r-window" x="-17" y="240" width="34" height="36"/>
-              </svg>
-              <img class="fco-board" src="../assets/flight-console/dogtooth-board-blue.png" width="2400" height="2523" alt="" decoding="async" fetchpriority="high">
+              <div class="fco-rocket-shake">
+                <div class="fco-flame">
+                  <svg class="fco-flame-art" viewBox="-20 0 40 200" width="40" height="200" focusable="false">
+                    <path class="f-outer" d="M-17 0 C-17 56 -8 128 0 200 C8 128 17 56 17 0 Z"/>
+                    <path class="f-inner" d="M-9 0 C-9 35 -4 83 0 128 C4 83 9 35 9 0 Z"/>
+                  </svg>
+                </div>
+                <svg class="fco-rocket-art" viewBox="-80 0 160 1000" width="160" height="1000" focusable="false">
+                  <!-- fins -->
+                  <path class="r-fin" d="M-22 830 L-74 922 L-74 1000 L-22 976 Z"/>
+                  <path class="r-fin" d="M22 830 L74 922 L74 1000 L22 976 Z"/>
+                  <!-- body tube and the short tail cone under it -->
+                  <rect class="r-body" x="-22" y="190" width="44" height="796"/>
+                  <path class="r-body" d="M-22 986 L-15 998 L15 998 L22 986"/>
+                  <!-- nose cone -->
+                  <path class="r-body" d="M0 0 C7 34 22 112 22 190 L-22 190 C-22 112 -7 34 0 0 Z"/>
+                  <!-- section joints and two rail buttons -->
+                  <path class="r-detail" d="M-22 340 H22 M-22 560 H22 M-22 744 H22"/>
+                  <rect class="r-detail" x="22" y="470" width="3.5" height="7"/>
+                  <rect class="r-detail" x="22" y="800" width="3.5" height="7"/>
+                </svg>
+                <img class="fco-board" src="../assets/flight-console/dogtooth-board-blue.png" width="2400" height="2523" alt="" decoding="async" fetchpriority="high">
+              </div>
             </div>
 
           </div>
@@ -162,16 +172,21 @@
       <h2 id="fco-built-title">What I built</h2>
       <p>Check out <a href="../flight-console/?track">Track a Rocket</a> to see everything it tracks.</p>
 
-      <!-- The same reading on both sides. Left: the board's real serial output from a
-           bench test on the Northeastern campus, two status blocks in a row (heartbeats
-           3533 and 3534). It is real text, typed in character for character from the
+      <!-- The same reading on both sides, with the caption above them and an amber
+           arrow between them (pointing down when they stack on a phone).
+           Left: the board's real serial output from a bench test on the Northeastern
+           campus, two status blocks in a row (heartbeats 3533 and 3534, one second
+           apart). It is real text, typed in character for character from the
            TERMINAL constant in flight-console/test/bench-terminal.test.mjs, with the
            values at column 40 as the board prints them. The runs of = and - are hidden
-           from screen readers, so they read each label and its value. The first block's
-           latitude, longitude and altitude are marked orange. On a wide screen the text
-           scales to fit the panel. On a narrow one it keeps a readable size and the panel
-           scrolls sideways inside itself (js/flight-console-overview.js makes it a tab
-           stop then). If the board's output changes, update the test and this together.
+           from screen readers, so they read each label and its value. The older block
+           (3533) is wrapped in .fco-term-old, which dims it. In the newer block (3534)
+           the values that changed since 3533 are marked amber (.fco-term-mark): the
+           heartbeat number, the time, the latitude, the longitude, the altitude, the
+           GPS data rate and the packets sent. On a wide screen the text scales to fit
+           the panel. On a narrow one it keeps a readable size and the panel scrolls
+           sideways inside itself (js/flight-console-overview.js makes it a tab stop
+           then). If the board's output changes, update the test and this together.
            Right: that first block in the 3D view of Track a Rocket, a screenshot taken
            with a fake serial board, More readings open. The console only places a
            board after 3 s of still readings, so the fake board first sent ten copies
@@ -179,22 +194,24 @@
            and altitude). The AGL, speeds and ground level rows come from those copies,
            as they would from the hour of real blocks before it. Its credits are the ones the
            view's "Data attribution" listed for that camera spot. A new screenshot needs
-           its credits read again. On a wide screen the two panels are the same height
-           and the picture fills its frame (object-fit: cover), so it is cropped to
-           about the frame's shape (1100 by 1430). -->
+           its credits read again. On a wide screen the picture's frame is as tall as
+           the serial output's panel, and on a phone it has a fixed 4:5 shape. The
+           picture fills its frame either way (object-fit: cover), so a new one dropped
+           in under the same file name is cropped to fit. -->
       <figure class="fco-shots">
+        <figcaption>Raw Dogtooth serial output, translated into 3D data.</figcaption>
         <div class="fco-shot fco-shot-term">
           <p class="fco-shot-label" id="fco-term-label">Real serial output from testing on school campus</p>
           <div class="fco-term" role="region" aria-labelledby="fco-term-label">
-<pre class="fco-term-text"><span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3533 | TIME RUNNING: 58 min 53.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
+<pre class="fco-term-text"><span class="fco-term-old"><span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3533 | TIME RUNNING: 58 min 53.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
 
 GPS
   TARGET LOCK [GPS]: <span class="fco-term-dim" aria-hidden="true">------------------</span> LOCKED
   CONNECTED SATELLITES: <span class="fco-term-dim" aria-hidden="true">---------------</span> 12
   LOCK QUALITY: <span class="fco-term-dim" aria-hidden="true">-----------------------</span> 89 % (HDOP 1.45)
-  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">42.3368853</span>
-  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> <span class="fco-term-mark">-71.0857403</span>
-  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">49.4 m</span>
+  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 42.3368853
+  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> -71.0857403
+  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 49.4 m
   GPS DATA RATE: <span class="fco-term-dim" aria-hidden="true">----------------------</span> GOOD 772 char/s
   CORRUPTED DATA OCCURRENCES (GPS): <span class="fco-term-dim" aria-hidden="true">---</span> 0
 
@@ -207,18 +224,18 @@ GPS MOTION MODEL
 RADIO
   RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> 3532
   RADIO PACKETS SKIPPED: <span class="fco-term-dim" aria-hidden="true">--------------</span> 0
-  RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0
+  RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0</span>
 
-<span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3534 | TIME RUNNING: 58 min 54.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
+<span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #<span class="fco-term-mark">3534</span> | TIME RUNNING: <span class="fco-term-mark">58 min 54.0 s</span> <span class="fco-term-dim" aria-hidden="true">====================</span>
 
 GPS
   TARGET LOCK [GPS]: <span class="fco-term-dim" aria-hidden="true">------------------</span> LOCKED
   CONNECTED SATELLITES: <span class="fco-term-dim" aria-hidden="true">---------------</span> 12
   LOCK QUALITY: <span class="fco-term-dim" aria-hidden="true">-----------------------</span> 89 % (HDOP 1.45)
-  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 42.3368821
-  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> -71.0857330
-  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 48.3 m
-  GPS DATA RATE: <span class="fco-term-dim" aria-hidden="true">----------------------</span> GOOD 763 char/s
+  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">42.3368821</span>
+  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> <span class="fco-term-mark">-71.0857330</span>
+  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">48.3 m</span>
+  GPS DATA RATE: <span class="fco-term-dim" aria-hidden="true">----------------------</span> GOOD <span class="fco-term-mark">763 char/s</span>
   CORRUPTED DATA OCCURRENCES (GPS): <span class="fco-term-dim" aria-hidden="true">---</span> 0
 
 GPS MOTION MODEL
@@ -228,10 +245,17 @@ GPS MOTION MODEL
   OTHER: <span class="fco-term-dim" aria-hidden="true">------------------------------</span> OFF
 
 RADIO
-  RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> 3533
+  RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> <span class="fco-term-mark">3533</span>
   RADIO PACKETS SKIPPED: <span class="fco-term-dim" aria-hidden="true">--------------</span> 0
   RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0</pre>
           </div>
+        </div>
+        <!-- The arrow from the serial output to the 3D view. Only a picture: the
+             caption above already says what it means. -->
+        <div class="fco-shot-arrow" aria-hidden="true">
+          <svg viewBox="0 0 48 24" width="48" height="24" focusable="false">
+            <path d="M2 12 H44 M34 3 L45 12 L34 21"/>
+          </svg>
         </div>
         <div class="fco-shot fco-shot-3d">
           <p class="fco-shot-label">The same reading in the 3D view</p>
@@ -247,16 +271,8 @@ RADIO
             <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
           </div>
         </details>
-        <figcaption>Raw Dogtooth serial output, translated into 3D data.</figcaption>
       </figure>
     </section>
-
-    <!-- ── RELATED PAGES ──────────────────────────────────────── -->
-    <nav class="fco-after fco-related" aria-label="Related pages">
-      <a href="avionics-pcb.html">THE DOGTOOTH BOARD</a>
-      <a href="flight-firmware.html">FLIGHT COMPUTER FIRMWARE</a>
-      <a href="../index.html#work">BACK TO MY PROJECTS</a>
-    </nav>
   </main>
 
   <!-- ── FOOTER (same as the other pages) ───────────────── -->
@@ -279,7 +295,7 @@ RADIO
   <script src="../js/main.js?v=17"></script>
   <script src="../js/fish-logo.js?v=1"></script>
   <!-- If the tour's script can't load, fall back to the plain list of sentences -->
-  <script src="../js/flight-console-overview.js?v=3"
+  <script src="../js/flight-console-overview.js?v=4"
           onerror="document.documentElement.classList.remove('fco-anim', 'fco-static')"></script>
 </body>
 </html>
