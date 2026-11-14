@@ -1,7 +1,7 @@
 // main.js
 // The page's starting point. It reads the address and shows one of three
 // screens:
-//   /flight-console/              the landing: the hero and two cards
+//   /flight-console/              the landing: one full-screen hero
 //   /flight-console/?track        the console, live. Connect a board (or,
 //                                 later, the ground station) and watch it.
 //   /flight-console/?flight=<id>  the console, playing a saved flight
@@ -51,7 +51,7 @@ import { createStore } from './store.js?v=2';
 import { createPlayer } from './player.js';
 import { createFleet } from './fleet.js';
 import { h, setChildren } from './views/dom.js';
-import { createLanding, createSavedFlights } from './views/launcher.js?v=2';
+import { createLanding } from './views/launcher.js?v=3';
 import { createSavedMenu } from './views/saved-menu.js';
 import { createPanels } from './views/panels.js';
 import { createMissionHeader } from './views/mission-header.js?v=3';

@@ -26,23 +26,35 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 
 `js/main.js` reads the address bar and shows one of three screens.
 
-- `/flight-console/` with nothing after it is the landing: the hero and two cards, nothing else. It downloads no flight data.
+- `/flight-console/` with nothing after it is the landing: one full-screen hero, nothing else. It downloads no flight data.
 - `/flight-console/?track` is the console, live. The CONNECT button opens the board's serial port, and the SAVED FLIGHTS dropdown in the same bar lists the saved flights. `?track#fc-saved` (the overview's "Saved flights" link) opens the console with that dropdown open and keyboard focus on its button.
 - `/flight-console/?flight=gps-board-sim-01` is the console, playing that saved flight. While it loads, the console stays up and its 3D panel says "Loading the flight...".
 - If the flight id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a BACK TO THE CONSOLE button (and TRY AGAIN when it looks like a connection problem). The message says whether it looks like a connection problem or a missing or damaged file on the site.
 - Until `main.js` starts, the page says "Loading the Flight Console...". If the page's own code fails to download, a small script in `index.html` says so instead of leaving the page empty.
 
-Links inside the page ("Track a Rocket", "Open the console", the lines in SAVED FLIGHTS, the close button on a replay's name, BACK TO THE CONSOLE) change the address with `history.pushState`, so no page reload happens. A middle click or Ctrl+click still opens a new tab, since every link has a real address. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. After every switch inside the page, keyboard focus moves to the new screen's main heading.
+Links inside the page (TRACK A ROCKET on the landing, the lines in SAVED FLIGHTS, the close button on a replay's name, BACK TO THE CONSOLE) change the address with `history.pushState`, so no page reload happens. A middle click or Ctrl+click still opens a new tab, since every link has a real address. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. After every switch inside the page, keyboard focus moves to the new screen's main heading.
 
 Page titles: "Flight Console | Dogtooth Systems" on the landing, and "Track a Rocket | Dogtooth Systems" on the live console and on every replay.
 
 ## The landing
 
-The landing's text is all in `index.html`: two small tags, the title, one sentence, the "Track a Rocket" and "Project Overview" buttons, and one card for each button under the hero. "Project Overview" goes to `../projects/flight-console.html`, which explains the whole system.
+The landing is one full-screen hero, and its text is all in `index.html`. Stacked in the middle, like the home page hero: the Dogtooth tuna, FLIGHT CONSOLE in orange stencil letters, and two buttons. TRACK A ROCKET opens the console in place (`./?track`, with `data-fc-nav="track"`). HOW IT WORKS goes to `../projects/flight-console.html`, which explains the whole system.
 
-Behind the hero, the sea floor moves. `js/hero-seafloor.js` draws contour lines live on a canvas from a smooth made-up height field that drifts and swells over a 24 second loop, with a few thin gold "ocean current" lines whose dashes drift along them. It redraws at most 20 times a second, pauses while the tab is hidden or the hero is off screen (or the landing isn't showing), and draws one still frame for visitors who ask for reduced motion. A soft dark band behind the text column keeps the text readable over the lines.
+Every size in the stack comes from one CSS variable, `--fc-hero-w`, the title's width: about half the window on a desktop, the full width less the gutters on a phone, and smaller on short windows so the stack always fits under the nav. The hero is a CSS size container, so the width uses `cqw` units, which leave out a desktop scrollbar (with `vw` the title came out wider than the fish and buttons on narrow windows). Browsers without container units fall back to `vw`. The two buttons are each half of it, less half the gap, so together they line up with the ends of the title. On phones under 360 px wide they stack.
 
-`js/views/launcher.js` starts it once with `startSeafloor(canvas)`, which returns a `stop()` function. Nothing else on the page uses `hero-seafloor.js`. So a later real-data ocean currents animation can replace `hero-seafloor.js` completely, as long as it exports the same shape: a start function that takes the canvas (and an optional options object) and returns a stop function. Its colors come from CSS variables on the canvas (`--seafloor-line`, `--seafloor-current` and the others listed at the top of the file), set in the landing part of `flight-console.css`.
+Behind the hero, made-up ocean currents move, in the style of earth.nullschool.net. `js/hero-currents.js` draws them on Canvas 2D:
+
+- The flow is a stream function on a grid: three layers of smooth noise at different sizes, turned down in calm patches, plus two meandering jets and a few drifting eddies. The water moves along its lines, so it never piles up anywhere. A new grid is built every 0.3 s of motion, a few rows per frame, and the streaks read a blend of two.
+- A soft speed color sits under the streaks. It is worked out at 1/8 of the screen's resolution, blurred, and scaled up. The colors are one array at the top of the file (`SPEED_RAMP`), dark navy for still water up to near white in the fastest jets, with a warm ramp in a comment to swap in for comparison.
+- Thousands of pale streaks ride the flow and leave fading trails. `SPEED`, `PARTICLE_COUNT` and `TRAIL_FADE` at the top of the file set how fast they move, how many there are on a 1920 by 1080 window, and how long the trails last.
+- The fish is not a picture. The script fills the tuna's outline from `01_primary_full_logo_kicad_white_tuna.svg` into a solid mask (holes and the thin lines in the logo filled in, the open mouth kept), and bends the flow around it with a distance field, so no streak ever crosses it and the fastest water hugs its edge. A navy layer with a sharp edge sits on top. The mask goes where the empty `.fc-hero-fish` box is in the layout, so the CSS decides where the fish goes and how big it is.
+- The nav is see-through and sits over the top of the water, so the water right behind it is drawn dimmer: the speed colors use only a share of the real speed there and the streaks are fainter, easing back to full strength a little below the nav. The flow itself doesn't change. The bottom edge of the hero fades the same way, so a bright jet doesn't stop in a hard line where the footer starts. The settings are `NAV_FADE_START` and the lines under it.
+
+It runs at most about 60 frames a second, scales the number of streaks and the canvas resolution to the window, pauses while the tab is hidden or the hero is off screen (or the landing isn't showing), and draws one still frame for visitors who ask for reduced motion. The hero is plain navy until the first frame of water. The fish mask takes the most work, so it is built once, in short slices spread over several tasks, and the page keeps answering clicks and keys meanwhile.
+
+Without JavaScript, the fish box shows the plain logo tuna instead. The same happens when the script can't get the tuna's outline within 1.5 s or at all: the water runs without the fish and the plain logo shows in the box. If the outline arrives later, the currents take the fish over.
+
+`js/views/launcher.js` starts it once with `startCurrents(canvas, { fishSlot, onFish })`, which returns a `stop()` function. `onFish(true or false)` tells the page whether the currents are drawing the fish, and launcher.js sets or removes `data-currents` on the landing to match, which shows or hides the plain logo. Nothing else on the page uses `hero-currents.js`. So a real-data currents animation could replace it later, as long as it exports the same shape: a start function that takes the canvas and an options object and returns a stop function.
 
 ## The console: the bar, two panels and the modes
 
@@ -264,7 +276,7 @@ node --test "flight-console/test/*.test.mjs"
 ### Code for the page
 
 - `js/main.js`: picks the screen from the address, runs the routing, makes the live session (link, panel, detector, live stores) and the live map, loads saved flights, runs the pre-scan, and connects each replay's store, player and views. The "MANTA HOOK" is here.
-- `js/hero-seafloor.js`: the moving sea floor behind the landing's hero. One export, `startSeafloor(canvas, options)`, which returns `stop()`.
+- `js/hero-currents.js`: the moving ocean currents and the fish behind the landing's hero. One export, `startCurrents(canvas, options)`, which returns `stop()`.
 - `js/live/serial-link.js`: the serial port, opened with Web Serial at 115,200 baud and read line by line.
 - `js/live/bench-panel.js`: the CONNECT button (its words and its square), the Chrome or Edge warning, errors, readings, graphs, raw output and Save as CSV. It finds its parts by the `bc-*` ids in `index.html`.
 - `js/bench/charts.js`: draws the live graphs on canvas, in the colors from the `--bc-*` variables (the browser works each one out, color-mix included) and the readout font. Before any data a graph says NO DATA.
@@ -273,7 +285,7 @@ node --test "flight-console/test/*.test.mjs"
 
 - `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, and drawing an event's dot by how it was found.
 - `js/views/icons.js`: the drawings the page shares: the rocket (always pointing straight up, since no board sends orientation), the launch rail, the ground station tower, and the button icons.
-- `js/views/launcher.js`: starts the landing's sea floor. It still has `createSavedFlights()`, the old Saved flights list, which nothing uses now (left for the landing's merge, safe to delete).
+- `js/views/launcher.js`: starts the landing's ocean currents (`js/hero-currents.js`).
 - `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped. It only reads the manifest, never a flight's data files.
 - `js/views/panels.js`: the two panels: the arrow tabs, the left and right arrow keys (and where they belong to something else), and keeping the panel off screen inert.
 - `js/views/esri.js`: asks Esri once whether it accepts the satellite key. Every map in the visit shares the answer, so a visit only asks once.
