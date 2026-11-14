@@ -1,6 +1,12 @@
 // charts.js: the time graphs and the position trace, drawn on <canvas>.
 // Both redraw from scratch each time. With 10 minutes of readings at about
-// one per second, that is only a few hundred points per graph.
+// one per second, that is only a few hundred points per graph, and a whole
+// saved flight is a few thousand.
+//
+// Used by: js/live/bench-panel.js (a board on USB, graphs on the board's own
+// clock) and js/views/data-panel.js (a saved flight or a live flight
+// source, graphs on flight time). Both read the colors and the font from
+// the page's --bc-* variables, so the graphs match panel 2 around them.
 
 // 1, 2 or 5 times a power of ten, at or above `raw`.
 export function niceStep(raw) {
@@ -14,7 +20,10 @@ export function niceStep(raw) {
 // always match the panels around them. Each color is worked out by the
 // browser itself (a variable can hold a color-mix() of the theme colors,
 // which a canvas can't always read as it is) and handed on as rgba().
-//   accent  the line color of a one-line graph (the theme's orange)
+//   panel   the color behind the graphs, for the halo around a dot and
+//           behind NO DATA (panel 2 sets it to the page background)
+//   accent  the line color of a one-line graph (white)
+//   sent, err  the two lines of the radio graph (off-white, and amber for errors)
 //   font    the small labels and readouts (Share Tech Mono)
 export function readTheme(el = document.body) {
   const s = getComputedStyle(el);
@@ -143,10 +152,13 @@ export function formatRunning(ms) {
 
 // One time graph. `series` is a list of { key, color }. The page hands it
 // the points ({ t, v }) for each key and the time span to show. Times are
-// the board's TIME RUNNING in ms.
+// in ms: the board's TIME RUNNING on the bench, flight time in a replay.
+// formatTime(ms) writes the labels along the bottom (the board's running
+// time by default). A null v breaks the line there.
 export class TimeChart {
-  constructor(canvas, { series, theme, integer = false, floorZero = true, minSpan = 1, gapMs = 6000, onHover, onKey }) {
+  constructor(canvas, { series, theme, integer = false, floorZero = true, minSpan = 1, gapMs = 6000, formatTime = formatAxisTime, onHover, onKey }) {
     this.canvas = canvas;
+    this.formatTime = formatTime;
     this.series = series;
     this.theme = theme;
     this.integer = integer;
@@ -263,14 +275,14 @@ export class TimeChart {
       ctx.fillText(v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }), left - 6, y);
     }
 
-    // The board's running time along the bottom, spaced at least 96 px apart.
+    // The time along the bottom, spaced at least 96 px apart.
     const span = t1 - t0;
     const tStep = TIME_STEPS.find((s) => (span / s) * 96 <= right - left) || TIME_STEPS[TIME_STEPS.length - 1];
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let t = Math.ceil(t0 / tStep) * tStep; t <= t1; t += tStep) {
       const x = xOf(t);
-      const text = formatAxisTime(t);
+      const text = this.formatTime(t);
       const half = ctx.measureText(text).width / 2;
       if (x - half < 0 || x + half > w) continue;
       ctx.fillText(text, x, bottom + 6);

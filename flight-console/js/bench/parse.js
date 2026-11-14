@@ -49,8 +49,8 @@ const ON_OFF = { ON: 'on', OFF: 'off' };
 //   rate     a word from `words`, then a number and unit (GOOD 723 char/s)
 //   onoff    ON or OFF. The panel shows the fields in the section that are ON.
 // `unit` is the unit to show when the board doesn't print one.
-// Word colors: good is off-white, warn is orange text, bad is navy on an
-// orange fill (the .bc-pill rules in flight-console.css).
+// Word colors: good is plain white, warn is amber text, bad is near-black
+// on an amber fill (the .bc-pill rules in flight-console-data.css).
 export const FIELDS = [
   { key: 'lock', section: 'GPS', label: 'TARGET LOCK [GPS]', kind: 'status',
     words: { LOCKED: 'good', SEARCHING: 'bad' } },

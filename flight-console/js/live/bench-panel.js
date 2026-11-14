@@ -1,8 +1,10 @@
-// bench-panel.js: the Bench Console's panels, moved here from its main.js
-// so the Flight Console can show them for a board on USB. It reads the
-// lines it's handed and keeps every part up to date: the CONNECT button in
-// the console's bar (it shows the link state on itself), the errors box,
-// the latest readings, the graphs, the raw output and Save as CSV.
+// bench-panel.js: panel 2 for a Dogtooth board on USB (the old Bench
+// Console's panels). It reads the lines it's handed and keeps every part
+// up to date: the CONNECT button in the console's bar (it shows the link
+// state on itself), the errors strip, the readings, the graphs, the raw
+// output and SAVE AS CSV. Its parts sit in index.html in the same layout
+// js/views/data-panel.js builds for a saved flight, so panel 2 looks the
+// same live and in a replay.
 //
 // Data flow: text lines -> BlockParser (one status block per second) -> one
 // record per block (kept for the CSV) -> latest values and the 10-minute
@@ -44,8 +46,8 @@ const STALE_MS = 3000;              // readings older than this are marked as ol
 const RAW_LINES = 1000;             // lines kept in "Raw serial output", about 45 blocks
 const ERRORS_SHOWN = 50;
 
-// The readings' group headings for the board's section names. Acronyms
-// stay short, with no expansion.
+// The readings' group headings for the board's section names (the CSS
+// shows them in capitals). Acronyms stay short, with no expansion.
 const SECTION_TITLES = {
   GPS: 'GPS',
   'GPS MOTION MODEL': 'GPS motion model',
@@ -53,12 +55,13 @@ const SECTION_TITLES = {
 };
 
 // One entry per graph: its canvas, its series and how to show a value.
+// The names match the graphs' titles in index.html.
 const CHARTS = [
-  { id: 'alt', name: 'Altitude', series: [{ key: 'alt', name: 'Altitude' }], minSpan: 10, floorZero: false, digits: 1 },
-  { id: 'sats', name: 'Connected satellites', series: [{ key: 'sats', name: 'Satellites' }], minSpan: 4, integer: true, digits: 0 },
+  { id: 'alt', name: 'ALT MSL', series: [{ key: 'alt', name: 'ALT MSL' }], minSpan: 10, floorZero: false, digits: 1 },
+  { id: 'sats', name: 'GPS SATS', series: [{ key: 'sats', name: 'GPS SATS' }], minSpan: 4, integer: true, digits: 0 },
   { id: 'quality', name: 'Lock quality', series: [{ key: 'quality', name: 'Lock quality' }], minSpan: 100, integer: true, digits: 0 },
   { id: 'gpsRate', name: 'GPS data rate', series: [{ key: 'gpsRate', name: 'GPS data rate' }], minSpan: 100, integer: true, digits: 0 },
-  { id: 'radio', name: 'Radio packets', series: [{ key: 'radioSent', name: 'Sent' }, { key: 'radioErrors', name: 'Errors' }], minSpan: 4, integer: true, digits: 0 },
+  { id: 'radio', name: 'Radio PKT', series: [{ key: 'radioSent', name: 'Sent' }, { key: 'radioErrors', name: 'Errors' }], minSpan: 4, integer: true, digits: 0 },
 ];
 
 // options:
@@ -67,8 +70,9 @@ const CHARTS = [
 //   onConnect()       CONNECT was pressed while not connected
 //   onDisconnect()    it was pressed while connected (it says DISCONNECT then)
 //   supported         whether the browser can open serial ports (default: it checks)
-//   root              where the graphs ([data-chart]) are looked for, and where
-//                     the --bc-* colors are read from (default: document.body)
+//   root              where the graphs ([data-chart]) are looked for (default:
+//                     document.body). The --bc-* colors are read from panel 2
+//                     (#fc-panel-data) when the page has it, or from root.
 export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, supported = serialSupported(), root = document.body } = {}) {
   const $ = (id) => document.getElementById(id);
   const el = {
@@ -419,8 +423,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
 
   // One group per section, in the board's order, built once at the start.
   // A section of ON and OFF fields (GPS MOTION MODEL) shows only the ones
-  // that are ON. The headings are the board's section names, with GPS
-  // spelled out the first time it shows (SECTION_TITLES).
+  // that are ON. The headings are the board's section names (SECTION_TITLES).
   function buildReadings() {
     const groups = SECTIONS.map((section) => {
       const fields = FIELDS.filter((f) => f.section === section);
@@ -659,7 +662,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   let timer = null;
 
   function start() {
-    theme = readTheme(root);
+    theme = readTheme($('fc-panel-data') ?? root);
     const colors = {
       alt: theme.accent, sats: theme.accent, quality: theme.accent, gpsRate: theme.accent,
       radioSent: theme.sent, radioErrors: theme.err,
