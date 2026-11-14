@@ -857,6 +857,8 @@ function liveMode() {
 // Puts the live store on the stage.
 function showLive() {
   showOnStage(liveStore(liveMode()), { kind: 'live', loading: false, entry: null, prescan: new Map(), player: null });
+  // The live panel 2's mission timeline strip follows the same store.
+  live?.panel?.showEvents(liveStore(liveMode()));
 }
 
 // A source was found on this connection.

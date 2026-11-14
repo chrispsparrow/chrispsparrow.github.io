@@ -2,7 +2,8 @@
 // Console's panels). It reads the lines it's handed and keeps every part
 // up to date: the CONNECT button in the console's bar (it shows the link
 // state on itself), the errors strip, the readings, the graphs, the raw
-// output and SAVE AS CSV. Its parts sit in index.html in the same layout
+// output and SAVE AS CSV. It also holds the live mission timeline strip
+// (see showEvents below). Its parts sit in index.html in the same layout
 // js/views/data-panel.js builds for a saved flight, so panel 2 looks the
 // same live and in a replay.
 //
@@ -21,6 +22,15 @@
 //   link onLink:  panel.setLink(state, text)
 //   link onNote:  panel.note(text, kind)
 //
+// The mission timeline strip at the top (bc-log) is the one exception: it
+// reads the live store, the same way a replay's strip reads the replay's
+// store (js/views/event-log.js). The page hands the panel the live store
+// whenever it puts one on screen:
+//   panel.showEvents(store)
+// The strip is made the first time and kept. A later call with another
+// store (a new source) switches it through a store switch, so there is
+// only ever one strip.
+//
 // It looks up the bc-* element ids in the page. The Position trace
 // (bc-track-canvas, bc-track-info, bc-track-osm) and the connection parts
 // (bc-connect, bc-connect-text, bc-link-text, bc-link-note, bc-unsupported)
@@ -38,6 +48,9 @@ import { FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '..
 import { buildCsv, csvFileName } from '../bench/csv.js?v=4';
 import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=4';
 import { LINK_TEXT, serialSupported } from './serial-link.js';
+import { createEventLog } from '../views/event-log.js?v=2';
+import { createStoreSwitch } from '../store-switch.js';
+import * as config from '../config.js';
 
 const WINDOW_MS = 10 * 60 * 1000;   // the graphs and the trace keep the last 10 minutes
 const GAP_MS = 6000;                // graph lines break across longer gaps (the board prints every second)
@@ -45,6 +58,8 @@ const HEARTBEAT_LATE_MS = 3000;     // a block comes every second, so 3 s withou
 const STALE_MS = 3000;              // readings older than this are marked as old
 const RAW_LINES = 1000;             // lines kept in "Raw serial output", about 45 blocks
 const ERRORS_SHOWN = 50;
+// What the open mission timeline says before the first live event.
+const EVENTS_WAITING = 'No events yet. They show up here as they happen.';
 
 // The readings' group headings for the board's section names (the CSS
 // shows them in capitals). Acronyms stay short, with no expansion.
@@ -96,6 +111,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     raw: $('bc-raw'),
     rawLog: $('bc-raw-log'),
     announce: $('bc-announce'),
+    log: $('bc-log'),
   };
   // The Position trace is optional. The Flight Console's 3D view shows
   // the position, so a page can leave it out.
@@ -630,6 +646,30 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   }
 
   // ------------------------------------------------------------------
+  // The mission timeline strip
+  // ------------------------------------------------------------------
+
+  // events: { stores, log } once the strip is made. stores is a store
+  // switch in front of the live store, so a new store reaches the same
+  // strip (it starts over quietly on the switch's 'source' change).
+  let events = null;
+
+  function showEvents(store) {
+    if (!el.log || !store || destroyed) return;
+    if (events) {
+      events.stores.use(store);
+      return;
+    }
+    try {
+      const stores = createStoreSwitch(store);
+      events = { stores, log: createEventLog(el.log, { store: stores, config, waitingText: EVENTS_WAITING }) };
+    } catch (err) {
+      // The rest of the panel still works without the strip.
+      console.error('Flight Console: the live mission timeline failed to start', err);
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Save as CSV
   // ------------------------------------------------------------------
 
@@ -708,7 +748,8 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   }
 
   // Stops the timer and the listeners, for a page that takes the panel
-  // away. The elements and what they show stay as they are.
+  // away. The mission timeline strip goes too. The other elements and what
+  // they show stay as they are.
   function destroy() {
     destroyed = true;
     clearInterval(timer);
@@ -717,6 +758,12 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     el.save.removeEventListener('click', saveCsv);
     el.errorsClear.removeEventListener('click', clearErrors);
     el.raw.removeEventListener('toggle', onRawToggle);
+    if (events) {
+      events.log.destroy();
+      events.stores.destroy();
+      el.log.replaceChildren();
+      events = null;
+    }
   }
 
   start();
@@ -727,6 +774,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     closed,
     setLink,
     note,
+    showEvents,
     render: scheduleRender,
     hasBlocks: () => state.blocks.length > 0,
     // Blocks that came in after the last Save as CSV (or with no save yet).

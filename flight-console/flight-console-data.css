@@ -16,8 +16,10 @@
    #fc-data-replay. Both use the bc-* classes for the graphs and rows.
 
    The look: near-black, no boxes (thin lines at most), Share Tech Mono
-   in capitals for titles, labels and numbers, Barlow Condensed for
-   sentences. Graph lines are white, and amber only marks warnings and
+   for everything you read at a glance: titles, labels and numbers in
+   capitals, and the mission timeline's events and the board's errors as
+   they are written. Barlow Condensed only for notes written as full
+   sentences (a flight's description, the "no events yet" note). Graph lines are white, and amber only marks warnings and
    errors. The graphs read their colors from the --bc-* variables.
 
    On a wide screen panel 2 fits the window with no page scroll, and long
@@ -160,8 +162,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-family: var(--fc-font-sentence);
-  font-size: 0.95rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.8rem;
   color: var(--fc-text-2);
 }
 .fc-page .fc-strip.is-fresh .fc-strip-msg { color: var(--fc-text); }
@@ -253,9 +255,9 @@
   text-transform: uppercase;
   color: var(--dot, var(--fc-text));
 }
-.fc-page .fc-log-msg { font-size: 0.95rem; line-height: var(--log-line); color: var(--fc-text-2); overflow-wrap: anywhere; }
+.fc-page .fc-data .fc-log-msg { font-family: var(--fc-font-mono); font-size: 0.8rem; line-height: var(--log-line); color: var(--fc-text-2); overflow-wrap: anywhere; }
 .fc-page .fc-log-item.is-now .fc-log-time,
-.fc-page .fc-log-item.is-now .fc-log-msg { color: var(--fc-text); }
+.fc-page .fc-data .fc-log-item.is-now .fc-log-msg { color: var(--fc-text); }
 /* NOW, on the newest entry while the playhead is on it. */
 .fc-page .fc-log-now {
   grid-area: now;
@@ -312,7 +314,9 @@
   text-transform: uppercase;
   color: var(--fc-muted);
 }
-.fc-page .fc-info-list dd { margin: 0; min-width: 0; color: var(--fc-text); font-family: var(--fc-font-sentence); overflow-wrap: anywhere; }
+.fc-page .fc-info-list dd { margin: 0; min-width: 0; color: var(--fc-text); font-family: var(--fc-font-mono); font-size: 0.82rem; overflow-wrap: anywhere; }
+/* A note from the parser is a full sentence, so it is in the sentence font. */
+.fc-page .fc-info-list .fc-info-note { font-family: var(--fc-font-sentence); font-size: 0.95rem; }
 .fc-page .fc-info-line { display: block; }
 .fc-page .fc-info-line + .fc-info-line { margin-top: 0.25rem; }
 .fc-page .fc-info-rocket { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.45rem; }
@@ -372,8 +376,8 @@
   gap: 0.1rem 0.7rem;
   padding: 0.2rem 0;
   border-top: 1px solid var(--fc-divider);
-  font-family: var(--fc-font-sentence);
-  font-size: 0.95rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.8rem;
   line-height: 1.35;
 }
 .fc-page .bc-errors-list li:first-child { border-top: 0; }
@@ -624,6 +628,13 @@
   .fc-page .fc-dp { --bc-row-pad: 0.12rem; }
   .fc-page .bc-readings-groups { gap: 0.5rem; }
   .fc-page .bc-graph-grid { row-gap: 8px; }
+}
+
+/* Both strips open at once on a desktop window: each keeps to a shorter
+   height, so the graphs under them still have room. */
+@media (min-width: 821px) and (min-height: 521px) {
+  .fc-page .fc-dp-strips:has(.fc-log.is-open):has(.fc-info.is-open) .fc-log-list,
+  .fc-page .fc-dp-strips:has(.fc-log.is-open):has(.fc-info.is-open) .fc-info-body { max-height: min(10rem, 18vh); }
 }
 
 /* Tablets and phones: panel 2 is one column that scrolls inside itself,

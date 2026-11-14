@@ -8,6 +8,9 @@
 // source, graphs on flight time). Both read the colors and the font from
 // the page's --bc-* variables, so the graphs match panel 2 around them.
 
+// Settings
+const MIN_TICK_GAP_PX = 18;   // value labels up the side sit at least this far apart
+
 // 1, 2 or 5 times a power of ten, at or above `raw`.
 export function niceStep(raw) {
   if (!(raw > 0)) return 1;
@@ -236,10 +239,18 @@ export class TimeChart {
       if (this.floorZero && lo === 0) hi = lo + this.minSpan;
       else { const mid = (hi + lo) / 2; lo = mid - this.minSpan / 2; hi = mid + this.minSpan / 2; }
     }
-    let step = niceStep((hi - lo) / 3);
+    // About three steps up the side. A short graph (a strip open above
+    // it, say) takes bigger steps, so its value labels never overlap.
+    const room = Math.max(1, Math.floor((h - 30) / MIN_TICK_GAP_PX));
+    let step = niceStep((hi - lo) / Math.min(3, room));
     if (this.integer) step = Math.max(1, Math.round(step));
-    const yLo = Math.floor(lo / step) * step;
+    let yLo = Math.floor(lo / step) * step;
     let yHi = Math.ceil(hi / step) * step;
+    while ((yHi - yLo) / step > room) {
+      step = niceStep(step * 1.01);
+      yLo = Math.floor(lo / step) * step;
+      yHi = Math.ceil(hi / step) * step;
+    }
     if (yHi <= yLo) yHi = yLo + step;
     const decimals = step >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(step)));
     const ticks = [];

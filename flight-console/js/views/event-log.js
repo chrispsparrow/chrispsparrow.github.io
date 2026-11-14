@@ -23,20 +23,27 @@
 //
 //   createEventLog(root, ctx) -> { destroy() }
 //     root   the element to fill
-//     ctx    store and config, from main.js
+//     ctx    store and config, from main.js, and optionally:
+//            waitingText   what the open list says before the first
+//                          event (a replay's words by default)
 //
-// Used by: js/views/data-panel.js. Reads the store, never other views.
+// Used by: js/views/data-panel.js (a replay's panel 2) and
+// js/live/bench-panel.js (the live panel 2). Reads the store, never other
+// views.
 
 import { h, setText, setChildren, createScheduler, eventMarkerKind, markerClass, rocketDot, prefersReducedMotion } from './dom.js';
 import { formatFlightClock } from '../geo.js';
 
 // How many announcements the hidden log keeps. Older ones were already read.
 const ANNOUNCE_KEEP = 4;
+// The open list before the first event, unless ctx.waitingText says otherwise.
+const WAITING_TEXT = 'No events yet. They show up here as the flight plays.';
 
 let nextId = 0;
 
 export function createEventLog(root, ctx) {
   const { store, config } = ctx;
+  const waitingText = ctx.waitingText ?? WAITING_TEXT;
   const id = `fc-log-${++nextId}`;
 
   // The closed line: the newest event. It is the button's own text, so a
@@ -110,7 +117,7 @@ export function createEventLog(root, ctx) {
     if (added) {
       list.append(...added.map((e) => item(e, showRocket, animate)));
     } else if (!events.length) {
-      setChildren(list, h('li', { class: 'fc-log-empty' }, 'No events yet. They show up here as the flight plays.'));
+      setChildren(list, h('li', { class: 'fc-log-empty' }, waitingText));
     } else {
       setChildren(list, events.map((e) => item(e, showRocket, false)));
     }
