@@ -418,7 +418,7 @@
 }
 .fc-page .fc-nomap-head { max-width: 40rem; margin-bottom: 1rem; padding: 0.4rem 0; }
 .fc-page .fc-nomap-title { font-family: var(--fc-font-mono); font-size: 1rem; font-weight: 400; letter-spacing: 0.04em; line-height: 1.2; color: var(--fc-amber); margin: 0 0 0.35rem; }
-.fc-page .fc-main .fc-nomap-note { color: var(--fc-text-2); line-height: 1.45; margin: 0; }
+.fc-page .fc-main .fc-nomap-note { color: var(--fc-text-2); font-family: var(--fc-font-sentence); line-height: 1.45; margin: 0; }
 .fc-page .fc-main .fc-nomap-head .fc-nomap-note + .fc-nomap-note { margin-top: 0.4rem; }
 .fc-page .fc-nomap-list {
   list-style: none;

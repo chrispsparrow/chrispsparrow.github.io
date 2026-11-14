@@ -259,7 +259,8 @@ export const LINK_STALE_S = 5;
 // Altitude and vertical speed older than this (s) are marked as old in the
 // HUD and in panel 2's readings instead of looking live.
 export const ALTITUDE_STALE_S = 1.5;
-// Vertical speeds smaller than this (m/s) show with no up or down arrow.
+// A vertical speed shows an up or down arrow only when the number on screen
+// (rounded to 0.1 m/s) is more than this.
 // GPS height noise on a board that is lying still reads as about 0.3 m/s
 // either way, so anything under this would only make the arrow flicker.
 export const LEVEL_VSPEED_MPS = 0.5;

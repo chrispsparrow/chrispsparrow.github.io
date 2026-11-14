@@ -196,13 +196,13 @@
            sideways inside itself (js/flight-console-overview.js makes it a tab stop
            then, and fades the edge where more text is hidden, through .fco-term-box).
            If the board's output changes, update the test and this together.
-           Right: that first block in the 3D view of Track a Rocket, a screenshot taken
-           with a fake serial board, More readings open. The console only places a
-           board after 3 s of still readings, so the fake board first sent ten copies
-           of block 3533 with earlier heartbeat numbers and times (the same position
-           and altitude). The AGL, speeds and ground level rows come from those copies,
-           as they would from the hour of real blocks before it. Its credits are the ones the
-           view's "Data attribution" listed for that camera spot. A new screenshot needs
+           Right: the newer block (3534) in the 3D view of Track a Rocket, a screenshot
+           taken with a fake serial board that sends that block's reading once a second
+           (the same position, altitude, 12 satellites and HDOP 1.45). The board is on
+           the pad, so the HUD shows the pad checklist: GPS LOCK, HDOP, LINK and STATUS.
+           The camera was zoomed in and tilted down with the view's own keys, so the
+           blue board marker is easy to find. Its credits are the ones the view's
+           "Data attribution" listed for that camera spot. A new screenshot needs
            its credits read again. On a wide screen the picture's frame is as tall as
            the serial output's panel, which comes out close to the picture's own
            1100 by 1430 shape. Stacked, the frame has exactly that shape. The picture
@@ -274,7 +274,7 @@ RADIO
           <p class="fco-shot-label">The same reading in the 3D view</p>
           <div class="fco-shot-frame">
             <img src="../assets/flight-console/bench-test-3d.webp" width="1100" height="1430" loading="lazy" decoding="async"
-                 alt="The Flight Console's 3D view over the Northeastern campus in Boston. The blue board marker with orange rings sits at latitude 42.3368853, longitude -71.0857403. The readings panel beside it shows the same latitude and longitude and an altitude of 49.4 m above sea level.">
+                 alt="The Flight Console's 3D view over the Northeastern campus in Boston. A blue board marker labeled DOGTOOTH sits where the reading puts it. The checklist in the top left corner shows GPS lock with 12 satellites, HDOP 1.45, one packet per second and a READY status.">
           </div>
         </div>
         <details class="fco-credit">

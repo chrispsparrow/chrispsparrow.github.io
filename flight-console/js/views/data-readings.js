@@ -139,7 +139,9 @@ function describe(store, rocket, config) {
   const altOld = store.altitudeIsOld(rocket);
   const altAge = store.ageOf(d.altitudeT);
   const v = altOld ? null : d.vSpeed;
-  const level = Number.isFinite(v) && Math.abs(v) < config.LEVEL_VSPEED_MPS;
+  // The same rule as the HUD: an arrow only when the speed on screen
+  // (rounded to 0.1 m/s) is more than LEVEL_VSPEED_MPS.
+  const level = Number.isFinite(v) && Math.round(Math.abs(v) * 10) / 10 <= config.LEVEL_VSPEED_MPS;
   const gs = groundSpeed(store, rocket);
   const landed = d.events?.landed;
   let flightTime = MISSING;
