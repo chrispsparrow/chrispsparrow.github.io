@@ -13,6 +13,8 @@
 //   lat, lon, altMsl   only with a fix, so no made-up position is ever
 //           drawn. The board keeps printing 0.0000000 while it searches.
 //   sats, hdop         as the board printed them
+//   speed, course      null: the block doesn't print the receiver's ground
+//           speed or course (the radio packet carries both)
 //   stale   null: the block's LOCKED is the packet's "location fresh" flag,
 //           and it doesn't say whether the altitude is fresh (the same as
 //           bench_rx lines, see the stale channel in js/schema.js)
@@ -35,24 +37,23 @@ import { GROUPS, channelsInGroup } from '../schema.js';
 import { KNOWN_ROCKETS } from '../fleet.js';
 import { DETECTOR_DEFAULTS } from '../config.js';
 
-// A board on USB sits on a desk, not on a launch rail. One GPS altitude
-// jump of 30 m or more would read as "Liftoff detected", so the live bench
-// store never detects liftoff. (The same two numbers also decide when data
-// "started in flight", which a board on a desk never did either.) The pad
-// is still found, and the 3D view needs it. config.js keeps the real
-// thresholds for flights and replays.
-export const BENCH_DETECTOR = Object.freeze({
-  ...DETECTOR_DEFAULTS,
-  LIFTOFF_AGL_M: Infinity,
-  LIFTOFF_VSPEED_MPS: Infinity,
-});
+// The live bench store uses the normal detector, liftoff included, so the
+// four Track a Rocket states (idle, pad, flight, recovery) follow the data
+// here too. It used to have liftoff switched off, because one GPS altitude
+// jump of 30 m read as "Liftoff detected" on a board sitting on a desk.
+// detector.js now needs a fast climb of several readings in a row, or the
+// fix coming back far above the pad, which a still board can't fake
+// however much it wanders (test/bench-wander.test.mjs checks it). The pad
+// is found as before, and the 3D view needs it. Kept as its own name so
+// code that imports it keeps working.
+export const BENCH_DETECTOR = DETECTOR_DEFAULTS;
 
 // createStore() options for the live stores, one per mode (main.js makes
-// each the first time that mode is used). Neither has a ground station: a
-// board on the bench has none, and a real ground station sends its own
-// position ("gs" packets), so the demo position in config.js is never used
-// for live data. Kept here, away from the page, so the tests use the same
-// options the page does.
+// each the first time that mode is used). Both use the normal detector.
+// Neither has a ground station: a board on the bench has none, and a real
+// ground station sends its own position ("gs" packets), so the demo
+// position in config.js is never used for live data. Kept here, away from
+// the page, so the tests use the same options the page does.
 export const LIVE_STORE_OPTIONS = Object.freeze({
   bench: Object.freeze({ detectorConfig: BENCH_DETECTOR, groundStation: null }),
   flight: Object.freeze({ groundStation: null }),

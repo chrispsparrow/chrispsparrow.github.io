@@ -24,13 +24,19 @@ export const PAD_CONFIRM_S = 3;
 // rocket could look still between two readings at 20 Hz.)
 export const PAD_SPREAD_M = 8;
 export const PAD_RUN_MIN_S = 1;
-// The data counts as starting in flight only if the rocket keeps moving
-// one way (faster than PAD_STILL_MAX_MPS) for DESCENT_CONFIRM_S and its
-// altitude changes by more than LIFTOFF_AGL_M, or if it is still falling
-// and already LIFTOFF_AGL_M below its highest reading. A rocket on a
-// confirmed pad that sinks more than LIFTOFF_AGL_M below it and keeps
-// falling for DESCENT_CONFIRM_S was never on a pad (for example, data that
-// starts under a main parachute). A short GPS glitch doesn't keep falling.
+/// Data that starts with the rocket already flying. Climbing counts once
+// the liftoff climb below is seen with no pad under it, rising more than
+// LIFTOFF_FIX_BACK_AGL_M (a GPS settling after power-up can have its first
+// fixes far too low and climb toward the truth). Falling counts once
+// the vertical speed stays under -START_FALL_MIN_MPS (m/s) for
+// START_FALL_CONFIRM_S (s) and the altitude drops more than LIFTOFF_AGL_M
+// in that time. That also covers a confirmed "pad" that keeps sinking more
+// than LIFTOFF_AGL_M below itself (data that starts under a main
+// parachute can look still at first). A GPS that settles after power-up
+// sinks about 1 m/s at most, and wander changes direction, so neither can
+// keep it up for 10 s.
+export const START_FALL_MIN_MPS = 3;
+export const START_FALL_CONFIRM_S = 10;
 
 // Ground height (m above mean sea level) assumed when a rocket has no pad
 // readings, for example when the data starts in flight. 700 m is the
@@ -40,15 +46,40 @@ export const GROUND_ELEV_FALLBACK_M = 700;
 // Vertical speed is averaged over this many seconds before it is shown or used.
 export const VSPEED_AVG_S = 3;
 
-// Liftoff: higher than this above the ground (m)...
+// Liftoff needs evidence a board sitting on a desk can't produce. On my
+// bench a still board wandered 15 m by 30 m sideways, and GPS altitude
+// wanders a few times more than that, with single jumps of 30 m or more.
+// A real rocket climbs at 100 m/s or more, so my 1 Hz GPS goes from the
+// pad to hundreds of meters in a few seconds. There are two ways in.
+//
+// 1. A climb: LIFTOFF_CONFIRM_READINGS altitude readings in a row (at
+//    least LIFTOFF_CONFIRM_S apart from first to last), each higher than
+//    the one before by at least LIFTOFF_MIN_STEP_MPS (m/s), each more than
+//    LIFTOFF_AGL_M (m) above the pad, and an average climb rate over the
+//    whole run (from the last reading before it) faster than
+//    LIFTOFF_VSPEED_MPS (m/s). One jump, a step that stays, or slow wander
+//    can't do all of that.
 export const LIFTOFF_AGL_M = 30;
-// ...or climbing faster than this (m/s).
-export const LIFTOFF_VSPEED_MPS = 15;
-// (Liftoff time and a lost GPS fix: if the fix dropped on the pad and no
-// altitude reading arrived between the drop and the liftoff detection, as
-// with a GPS-only board losing its fix in boost, the drop is taken as the
-// estimated liftoff time. If altitude readings did arrive, they time the
-// liftoff themselves.)
+export const LIFTOFF_VSPEED_MPS = 30;
+export const LIFTOFF_MIN_STEP_MPS = 5;
+export const LIFTOFF_CONFIRM_READINGS = 3;
+export const LIFTOFF_CONFIRM_S = 1;
+// 2. A comeback far above the pad: the first altitude reading after a
+//    break (the GPS fix dropped, or nothing came for more than
+//    LIFTOFF_BREAK_S) is more than LIFTOFF_FIX_BACK_AGL_M (m) above the
+//    pad, it means climbing faster than LIFTOFF_VSPEED_MPS since the last
+//    pad reading, and the next reading is that high too. My GPS often
+//    loses its fix in boost and gets it back high above the pad.
+export const LIFTOFF_FIX_BACK_AGL_M = 150;
+export const LIFTOFF_BREAK_S = 2.5;
+// (Liftoff time: the first reading of the climb. If the GPS fix dropped on
+// the pad after the last pad reading, the drop is the estimated liftoff
+// time instead, as with a GPS-only board losing its fix in boost. After a
+// plain break in the data, it is the last pad reading. Both are marked as
+// estimated.)
+// The receiver's ground speed (gps.speed) is horizontal only, so a rocket
+// going straight up reports about the same speed as a board on a desk. It
+// can't help with liftoff. It is used for the landing below.
 
 // Apogee can only be detected after the rocket has climbed this high (m AGL).
 export const APOGEE_ARM_AGL_M = 100;
@@ -68,12 +99,37 @@ export const MAIN_MIN_AGL_M = 30;
 // How long (s) a descent rate must hold to infer drogue or main.
 export const DESCENT_CONFIRM_S = 3;
 
-// Landed: over this many seconds (s)...
-export const LANDED_WINDOW_S = 5;
-// ...the altitude changes by less than this (m)...
-export const LANDED_ALT_RANGE_M = 8;
-// ...and, for rockets with GPS, horizontal speed stays under this (m/s).
+// Landed. Only possible after liftoff and apogee, or once the altitude is
+// at least LANDED_ARM_DROP_M (m) below its highest point (a low flight
+// that never armed apogee). A board on a desk never gets there.
+export const LANDED_ARM_DROP_M = 50;
+// Then, over a sliding window of this many seconds (s)...
+export const LANDED_WINDOW_S = 20;
+// ...the altitude stays within this range (m). With 10 or more readings
+// the single highest and single lowest are set aside first, so one bad
+// GPS altitude can't hold the landing off...
+export const LANDED_ALT_RANGE_M = 15;
+// ...with no downward trend: the best straight line through the window's
+// altitudes sinks slower than this (m/s)...
+export const LANDED_MAX_SINK_MPS = 0.5;
+// ...every GPS fix in the window is within this distance (m) of the
+// window's average position (so they all fit in a circle this size). With
+// 10 or more fixes the one farthest from the average is set aside first,
+// so one wild fix can't hold the landing off, and it stays out of the
+// recovery position too...
+export const LANDED_RADIUS_M = 50;
+// ...and, when the receiver sent its own ground speed, every one in the
+// window is under this (m/s). A still board reports almost 0 however much
+// its position wanders. Without ground speed the rest decides alone.
 export const LANDED_MAX_SPEED_MPS = 2;
+// The window needs at least this many altitude readings, so two readings
+// 20 s apart (the fix lost in the grass) can't confirm a landing.
+export const LANDED_MIN_READINGS = 5;
+// The landing time is the first reading in the window no more than this
+// (m) above the window's middle (median) altitude: the touchdown. The
+// recovery position is the average of the fixes from there to the moment
+// the landing was confirmed, never the last fix on its own.
+export const LANDED_TOUCHDOWN_M = 5;
 
 // Collected in one object, the shape createDetector() expects.
 export const DETECTOR_DEFAULTS = Object.freeze({
@@ -82,10 +138,17 @@ export const DETECTOR_DEFAULTS = Object.freeze({
   PAD_CONFIRM_S,
   PAD_SPREAD_M,
   PAD_RUN_MIN_S,
+  START_FALL_MIN_MPS,
+  START_FALL_CONFIRM_S,
   GROUND_ELEV_FALLBACK_M,
   VSPEED_AVG_S,
   LIFTOFF_AGL_M,
   LIFTOFF_VSPEED_MPS,
+  LIFTOFF_MIN_STEP_MPS,
+  LIFTOFF_CONFIRM_READINGS,
+  LIFTOFF_CONFIRM_S,
+  LIFTOFF_FIX_BACK_AGL_M,
+  LIFTOFF_BREAK_S,
   APOGEE_ARM_AGL_M,
   APOGEE_CONFIRM_S,
   DROGUE_MIN_DESCENT_MPS,
@@ -93,9 +156,14 @@ export const DETECTOR_DEFAULTS = Object.freeze({
   MAIN_MIN_DESCENT_MPS,
   MAIN_MIN_AGL_M,
   DESCENT_CONFIRM_S,
+  LANDED_ARM_DROP_M,
   LANDED_WINDOW_S,
   LANDED_ALT_RANGE_M,
+  LANDED_MAX_SINK_MPS,
+  LANDED_RADIUS_M,
   LANDED_MAX_SPEED_MPS,
+  LANDED_MIN_READINGS,
+  LANDED_TOUCHDOWN_M,
 });
 
 // ------------------------------------------------------------------
@@ -103,23 +171,40 @@ export const DETECTOR_DEFAULTS = Object.freeze({
 // ------------------------------------------------------------------
 
 // The quality gate. A fix joins the line only if it is a 3D fix (a fresh
-// position with an altitude) with at least this many satellites...
+// position with a fresh altitude, see track.js) with at least this many
+// satellites...
 export const MIN_SATS = 6;
 // ...and an HDOP at most this. Other fixes show as hollow grey dots.
 export const MAX_HDOP = 3;
 // Outlier rejection. A fix that would mean the board moved faster than
 // this (m/s, straight line through the air) since the last good fix is
-// skipped. About Mach 2.5, well past anything my rockets do.
-export const OUTLIER_MAX_SPEED_MPS = 850;
+// skipped. The GPS itself stops tracking at 500 m/s even in its airborne
+// mode, so anything faster can't be a real fix.
+export const OUTLIER_MAX_SPEED_MPS = 600;
 // ...and no single hop under this many meters counts as an outlier, so
 // normal GPS wander (two fixes 1 s apart can sit 20 m apart) never does.
 export const OUTLIER_MIN_JUMP_M = 150;
+// If this many outliers in a row agree with each other (each one possible
+// from the one before), the last good fix was the wrong one. The trail
+// starts again from them, after a gap.
+export const OUTLIER_RESET_FIXES = 3;
 // Packets further apart than this (s) leave a gap in the line instead of
-// a bridge. The board sends one packet a second.
+// a bridge, when the packets carry no sequence number. With one, any
+// missed number is a gap. The line also never bridges more than this
+// between two good fixes (weak ones in between included). The board sends
+// one packet a second.
 export const TRACK_GAP_S = 2.5;
 // The line (never the dots) is smoothed with a moving average of this
-// many good fixes.
+// many good fixes...
 export const LINE_SMOOTH_FIXES = 3;
+// ...but a line point never sits more than this (m) from its own fix. The
+// smoothing only takes out small jitter, and the line keeps up with a
+// rocket climbing at hundreds of meters a second.
+export const LINE_SMOOTH_MAX_M = 10;
+// A fix right after a gap gets the average speed across the gap for its
+// color, if the gap is no longer than this (s). After a longer gap its
+// speed is unknown.
+export const TRACK_SPEED_GAP_MAX_S = 10;
 // The speed (m/s) at the fast end of the track's speed colors.
 export const TRACK_SPEED_MAX_MPS = 300;
 
