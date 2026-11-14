@@ -81,6 +81,10 @@ export const RING_FROM_SCALE = 0.3;
 // ------------------------------------------------------------------
 export const LINK_COLOR = WHITE;
 export const LINK_ALPHA = 0.5;
+// The 3D view draws the link solid, in about the color the faint white
+// makes over the ground, so the markers can sit on top of it (a
+// see-through line would be drawn after them, over the board).
+export const LINK_SOLID = '#C9CCD1';
 export const LINK_PX = 1.25;
 export const LINK_DASH_PX = [6, 5];
 export const LINK_TRAVEL_MS = 700;
@@ -164,16 +168,21 @@ export function diamondSvg() {
 
 // ------------------------------------------------------------------
 // The recovery position (the average of the fixes after landing, the spot
-// OPEN IN MAPS goes to): a small white crosshair, a ring with four ticks,
-// so it can be told apart from the landed diamond. Its middle sits on the
-// spot.
+// OPEN IN MAPS goes to): a thin white crosshair, a ring with four ticks
+// outside it, so it can be told apart from the landed diamond. A landed
+// board sits right on it, so the ring is drawn just wide enough to show
+// around the board marker. Its middle sits on the spot.
 // ------------------------------------------------------------------
-export const CROSSHAIR_SIZE = 20;
+export const CROSSHAIR_SIZE = 40;
+const CROSS_RING_R = 14;   // the ring's radius (px), just past the board's sides
+const CROSS_TICK_FROM = 16; // the ticks run from here to the edge (px from the middle)
 
 export function crosshairSvg() {
   const c = CROSSHAIR_SIZE / 2;
-  const lines = `<circle cx="${c}" cy="${c}" r="4.5"/>` +
-    `<path d="M${c} 1.5V${c - 6}M${c} ${c + 6}V${CROSSHAIR_SIZE - 1.5}M1.5 ${c}H${c - 6}M${c + 6} ${c}H${CROSSHAIR_SIZE - 1.5}"/>`;
+  const a = c - CROSS_TICK_FROM;
+  const b = c + CROSS_TICK_FROM;
+  const lines = `<circle cx="${c}" cy="${c}" r="${CROSS_RING_R}"/>` +
+    `<path d="M${c} 1.5V${a}M${c} ${b}V${CROSSHAIR_SIZE - 1.5}M1.5 ${c}H${a}M${b} ${c}H${CROSSHAIR_SIZE - 1.5}"/>`;
   return `<svg class="fc-ico-cross" viewBox="0 0 ${CROSSHAIR_SIZE} ${CROSSHAIR_SIZE}" width="${CROSSHAIR_SIZE}" height="${CROSSHAIR_SIZE}" aria-hidden="true" focusable="false">` +
     `<g fill="none" stroke="${HALO}" stroke-opacity="0.85" stroke-width="3.2" stroke-linecap="round">${lines}</g>` +
     `<g fill="none" stroke="${WHITE}" stroke-width="1.4" stroke-linecap="round">${lines}</g>` +

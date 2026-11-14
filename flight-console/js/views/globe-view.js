@@ -83,7 +83,7 @@ import {
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX,
   OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, NEAR_BLACK, WHITE,
   RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
-  LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
+  LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js';
 import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js';
 
@@ -1061,8 +1061,9 @@ export function createGlobeView(container, ctx, options) {
   const station = { icon: null, position: null, ground: null, groundSpot: null, approx: false };
   // The radio link's two ends ([board, Manta]) while it shows, else null.
   // It is drawn without the depth test, like the path, so the ground
-  // between a landed board and Manta never hides it. It is built again
-  // only when an end moves.
+  // between a landed board and Manta never hides it, and solid
+  // (LINK_SOLID in markers.js), so it is drawn before the markers and the
+  // board stays on top of it. It is built again only when an end moves.
   let linkEnds = null;
   let linkPrim = null;
 
@@ -1073,17 +1074,21 @@ export function createGlobeView(container, ctx, options) {
     linkPrim = null;
     linkEnds = from && to ? [C.Cartesian3.clone(from), C.Cartesian3.clone(to)] : null;
     if (!linkEnds || C.Cartesian3.distanceSquared(from, to) < 1) return;
+    // Cesium's dash material skips the see-through gaps itself, so it can
+    // be drawn as solid (in the opaque pass, before the markers).
+    const material = C.Material.fromType('PolylineDash', {
+      color: rgba(LINK_SOLID),
+      gapColor: clearColor,
+      dashLength: LINK_DASH_PX[0] + LINK_DASH_PX[1],
+    });
+    material.translucent = false;
     linkPrim = linkLines.add(new C.Primitive({
       geometryInstances: new C.GeometryInstance({
         geometry: new C.PolylineGeometry({ positions: linkEnds, width: LINK_PX, arcType: C.ArcType.NONE, vertexFormat: C.PolylineMaterialAppearance.VERTEX_FORMAT }),
       }),
       appearance: new C.PolylineMaterialAppearance({
-        material: C.Material.fromType('PolylineDash', {
-          color: rgba(LINK_COLOR, LINK_ALPHA),
-          gapColor: clearColor,
-          dashLength: LINK_DASH_PX[0] + LINK_DASH_PX[1],
-        }),
-        translucent: true,
+        material,
+        translucent: false,
         renderState: NO_DEPTH,
       }),
       asynchronous: false,
