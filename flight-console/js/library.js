@@ -5,7 +5,7 @@
 // loads one flight's data files when it is opened.
 //
 // A broken manifest entry is skipped with a console warning and reported
-// back as a "problem" so the launcher can mention it. One bad entry never
+// back as a "problem" so SAVED FLIGHTS can mention it. One bad entry never
 // stops the others from loading.
 //
 // An entry may carry groundStation: { lat, lon, altMsl }, where Manta stood
@@ -13,7 +13,7 @@
 // on the entry. main.js hands it to createStore(), so the replay measures
 // recovery distances from Manta instead of the demo position.
 //
-// Used by: main.js and views/launcher.js in the page, and by
+// Used by: main.js in the page, and by
 // tools/add_flight.mjs and tools/check_detection.mjs in Node (they pass
 // their own file reader instead of fetch). No DOM.
 

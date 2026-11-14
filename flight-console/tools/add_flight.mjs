@@ -19,7 +19,7 @@
 //
 // Options:
 //   --id ID              folder name and ?flight= value (letters, numbers, - and _)
-//   --title TEXT         shown on the launcher and in the console
+//   --title TEXT         shown in SAVED FLIGHTS and in the console's top bar
 //   --kind KIND          simulated or real
 //   --date YYYY-MM-DD    flight date
 //   --file PATH          a data file (.log, .csv or .jsonl). Repeat for more rockets.
@@ -467,7 +467,7 @@ console.log(`  featured card picture from rocket ${picture.trackRocketId}: track
   `${trackGaps.length ? ` (GPS gaps before points ${trackGaps.join(', ')})` : ''}, altitude line ${altProfile?.length ?? 0} points`);
 if (keptCover) console.log(`  kept the cover picture ${keptCover.file ?? ''} from the old entry. If the flight's data changed, make a new one.`);
 if (entry.featured) console.log('  this is now the featured flight');
-if (!entry.description) console.log('  note: no --description given, the launcher will show none');
+if (!entry.description) console.log('  note: no --description given, so "About this flight" will show none');
 if (check.problems.length) {
   console.log(`  warning: the manifest has ${check.problems.length} other entr${check.problems.length === 1 ? 'y' : 'ies'} the page will skip:`);
   for (const p of check.problems) console.log(`    entry ${p.index === null ? '' : p.index + 1}${p.id ? ` ("${p.id}")` : ''}: ${p.reason}`);

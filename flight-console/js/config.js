@@ -254,27 +254,26 @@ export const MAX_FRAME_STEP_S = 0.25;
 // ------------------------------------------------------------------
 
 // A rocket with no packet for this long (s) is shown as out of contact:
-// no "GPS fix", a hollow map marker with the age of its last good fix.
+// the HUD's PKT line turns amber and the map draws its marker hollow.
 export const LINK_STALE_S = 5;
 // Altitude and vertical speed older than this (s) are marked as old in the
-// readings panel, the altitude tape and the map label instead of looking live.
+// HUD and in panel 2's readings instead of looking live.
 export const ALTITUDE_STALE_S = 1.5;
 // Vertical speeds smaller than this (m/s) show with no up or down arrow.
-export const LEVEL_VSPEED_MPS = 0.05;
-// Below this horizontal speed (m/s) a GPS course points nowhere in
-// particular, so it gets no compass name.
-export const COURSE_MIN_SPEED_MPS = 0.5;
+// GPS height noise on a board that is lying still reads as about 0.3 m/s
+// either way, so anything under this would only make the arrow flicker.
+export const LEVEL_VSPEED_MPS = 0.5;
 
 // ------------------------------------------------------------------
 // How often each part of the console redraws while a flight plays
 // (times per second). Lower numbers save battery on phones.
 // ------------------------------------------------------------------
 
-// Mission header (clock, flags) and the phase strip.
+// The flight phase bar.
 export const HEADER_MAX_FPS = 10;
 // Rocket chips.
 export const ROCKET_BAR_MAX_FPS = 8;
-// Readings panel and altitude tape.
+// The HUD.
 export const STATS_MAX_FPS = 10;
 // Map markers, tracks and the no-map panel, and everything drawn in the
 // 3D view.
@@ -364,9 +363,6 @@ export const MAP_LAYER_STORAGE_KEY = 'fc-map-layer';
 // stay easy to see on bright photos and over dark water (the theme's
 // near-black background color).
 export const HALO_COLOR = '#07060D';
-export const HALO_OPACITY = 0.7;
-// Outline width (px) on each side of a line or ring.
-export const HALO_WIDTH_PX = 1.5;
 // More tile errors than this, with no tile loaded at all...
 export const TILE_FAIL_COUNT = 3;
 // ...within this many milliseconds, and that layer counts as failed: the
@@ -382,9 +378,9 @@ export const MAP_DEFAULT_ZOOM = 15;
 export const FIT_PADDING_PX = 60;
 // ...without zooming in closer than this.
 export const FIT_MAX_ZOOM = 17;
-// FOLLOW BOARD pans once the focused rocket gets this close (px) to the
-// map's edge or a floating panel. Kept smaller than FIT_PADDING_PX so the
-// first view stays put.
+// FOLLOW BOARD pans once the focused board gets this close (px) to the
+// map's edge or a HUD block (2D map). Kept smaller than FIT_PADDING_PX so
+// the first view stays put.
 export const FOLLOW_EDGE_PX = 40;
 
 // ------------------------------------------------------------------
@@ -419,10 +415,10 @@ export const DEFAULT_VIEW = '3d';
 // the ground height at a launch pad, before drawing with approximate
 // heights instead.
 export const TERRAIN_SAMPLE_TIMEOUT_MS = 8000;
-// Once Cesium has downloaded and the 3D view has started, the "Loading
-// the 3D view..." panel goes away when the first picture is in, or after
-// this long (ms) whatever has loaded by then. The download has its own
-// limit, CESIUM_LOAD_TIMEOUT_MS.
+// Once Cesium has downloaded and the 3D view has started, the
+// "3D VIEWER LOADING..." message goes away when the first picture is in,
+// or after this long (ms) whatever has loaded by then. The download has
+// its own limit, CESIUM_LOAD_TIMEOUT_MS.
 export const GLOBE_READY_TIMEOUT_MS = 8000;
 // A launch pad that moves less than this (m) keeps the ground height
 // already looked up for it (GPS readings wander a little on the pad).
@@ -464,26 +460,22 @@ export const GLOBE_PITCH_MIN_DEG = -88;
 export const GLOBE_PITCH_MAX_DEG = 30;
 // The camera stays at least this far (m) above the ground.
 export const GLOBE_GROUND_CLEARANCE_M = 15;
-// How long (ms) the camera takes to glide to a new view (FOLLOW BOARD,
-// WHOLE FLIGHT, RESET VIEW). With less motion asked for, it jumps.
+// How long (ms) the camera takes to glide to a new view (WHOLE FLIGHT,
+// RESET VIEW). With less motion asked for, it jumps. The follow camera
+// has its own glide, in globe-view.js.
 export const GLOBE_MOVE_MS = 600;
-// "Whole flight" leaves this much room around everything it frames (1 is
-// a tight fit).
-export const GLOBE_FIT_MARGIN = 1.35;
 
 // ------------------------------------------------------------------
 // Colors. The Flight Console has one palette, in
 // css/flight-console-theme.css: near-black #07060D, white #FFFFFF,
 // off-white #E8EDF2 and amber #F9A23A (hover, active states and
-// warnings). They are written out as hex here because the map and the 3D
-// view need plain colors (and Node reads this file too).
+// warnings). The few the map and the 3D view draw with are written out
+// as hex here, because they need plain colors (and Node reads this file
+// too). The near-black is HALO_COLOR, above.
 // ------------------------------------------------------------------
 
-// The theme's four colors.
-export const COLOR_BG = '#07060D';
+// The theme's white.
 export const COLOR_WHITE = '#FFFFFF';
-export const COLOR_OFFWHITE = '#E8EDF2';
-export const COLOR_AMBER = '#F9A23A';
 // The thermal "ironbow" ramp, slow to fast (the same seven stops as the
 // hero's currents and --fc-ramp-0 to --fc-ramp-6 in the theme).
 export const THERMAL_RAMP = Object.freeze(['#07060D', '#1E0B3A', '#5A0F6B', '#A3215A', '#E0552B', '#F9A23A', '#FFF1B0']);

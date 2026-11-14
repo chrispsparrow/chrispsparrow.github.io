@@ -15,7 +15,7 @@
 //   'number' (the default), 'flag' (1 or 0, also accepts yes/no and
 //   true/false), or 'text'.
 
-// Sensor groups, in the order the stats panel shows them.
+// Sensor groups, in the order the HUD's MORE column and panel 2 show them.
 export const GROUPS = Object.freeze(['gps', 'baro', 'imu', 'radio', 'power', 'status']);
 
 // How each group is named on the page.

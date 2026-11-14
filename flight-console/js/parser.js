@@ -16,8 +16,8 @@
 //   parseFile(text, fileName)       picks one of the above
 //
 // A "phase" field is simulated ground truth. It never goes on a sample. It is
-// returned in a separate `truth` array that only the debug panel and
-// tools/check_detection.mjs read.
+// returned in a separate `truth` array that only
+// tools/check_detection.mjs and the tests read.
 //
 // Used by: library.js (page and Node tools). Later, live sources will call
 // parseJsonLine() and parseSerialLine() for each line they receive and pass
@@ -567,7 +567,7 @@ function newResult(format, fileName) {
 
 function addBad(result, lineNumber, reason) {
   result.badRows++;
-  // Keep the first few reasons for the debug panel and the tools.
+  // Keep the first few reasons for the tools.
   if (result.badRowDetails.length < 20) result.badRowDetails.push({ line: lineNumber, reason });
 }
 
