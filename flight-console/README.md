@@ -47,12 +47,14 @@ The palette is four colors, as CSS variables:
 - `--fc-offwhite` (#E8EDF2), quieter text and thin outlines on markers.
 - `--fc-amber` (#F9A23A), hover, active states and warnings.
 
-The theme also mixes a few shades from them (`--fc-text-dim`, `--fc-line`, `--fc-line-strong` and others) and holds the thermal "ironbow" ramp, `--fc-ramp-0` to `--fc-ramp-6`, from near-black through purple and red to pale yellow. The hero's currents use the ramp, and the map's speed colors use a lifted version of it (see "The breadcrumb trail"). Scripts that draw on a canvas or in Cesium can't read CSS variables, so they keep their own copies of these colors: `COLOR_*` and `THERMAL_RAMP` in `js/config.js`, `SPEED_RAMP` in `js/hero-currents.js` and `TRACK_RAMP` in `js/track.js`. The one color outside the palette is the Dogtooth board marker's blue, #184590 (`BOARD_BLUE` in `js/views/markers.js`).
+The theme also mixes a few shades from them (`--fc-text-dim`, `--fc-line`, `--fc-line-strong` and others) and holds the thermal "ironbow" ramp, `--fc-ramp-0` to `--fc-ramp-6`, from near-black through purple and red to pale yellow. The hero's currents use the ramp, and the map's speed colors use a lifted version of it (see "The breadcrumb trail"). Scripts that draw on a canvas or in Cesium can't read CSS variables, so they keep their own copies of the few colors they draw with: `COLOR_WHITE`, `HALO_COLOR` (the near-black), `PAD_COLOR` (the off-white) and `THERMAL_RAMP` in `js/config.js`, `SPEED_RAMP` in `js/hero-currents.js` and `TRACK_RAMP` in `js/track.js`. The one color outside the palette is the Dogtooth board marker's blue, #184590 (`BOARD_BLUE` in `js/views/markers.js`).
 
 Two fonts, from Google Fonts, loaded without holding up the page:
 
 - Share Tech Mono (`--fc-font-mono`) for titles, labels, buttons and readouts, mostly in capitals.
 - Barlow Condensed (`--fc-font-sentence`) for longer sentences.
+
+On Track a Rocket, Barlow Condensed only reaches real sentences, and each one is picked by its class: the message screen, the status lines under the bar, the notes in SAVED FLIGHTS, the MORE column's notes, the map's notes, and panel 2's notes written as full sentences (like the parser's notes and the "no events yet" line). Everything else is Share Tech Mono, including the HUD's clock, the timeline's tooltip, the mission timeline's events and the board's errors.
 
 Funnel Sans and Space Grotesk are only for the site's own nav and footer. Space Mono is not loaded on these pages.
 
@@ -69,7 +71,7 @@ It also styles the site nav (see-through, with a soft fade once the page scrolls
 
 Track a Rocket and the hero are one page, `index.html`, with four stylesheets of its own, loaded in this order after the theme:
 
-- `flight-console.css`: the tokens that give the theme's colors jobs (`--fc-bg`, `--fc-text`, `--fc-warn`, `--fc-text-outline` and the rest, plus the `--bc-*` names the live panel and the graphs read), then Track a Rocket's frame (the bar, the status lines, the two panels and the arrows between them) and everything over the map in panel 1: the overlay grid, the HUD, the phase bar, the rocket chips and the altitude timeline. It also has the layouts for narrow, short and phone-sized windows.
+- `flight-console.css`: the tokens that give the theme's colors jobs (`--fc-bg`, `--fc-text`, `--fc-warn`, `--fc-text-outline` and the rest, plus the `--bc-*` names the live panel and the graphs read), then Track a Rocket's frame (the bar, the status lines, the two panels and the switches between them) and everything over the map in panel 1: the overlay grid, the HUD, the phase bar, the rocket chips and the altitude timeline. It also has the layouts for narrow, short and phone-sized windows.
 - `flight-console-hero.css`: the landing's hero.
 - `flight-console-map.css`: the map and 3D view, the controls row inside `#fc-map-controls`, the KEY, the labels, the markers, the scale bar, the credits and the map's notes. Where the controls row sits is up to `flight-console.css`.
 - `flight-console-data.css`: panel 2, the graphs and readings, live and in a replay.
@@ -94,17 +96,25 @@ The landing is one full-screen hero, and its text is all in `index.html`. Made-u
 - The nav is see-through and sits over the top of the water, so the water right behind it is drawn dimmer, easing back to full strength a little below the nav. The bottom edge of the hero fades the same way. The settings are `NAV_FADE_START` and the lines under it.
 - The settings worth changing are in the CONFIG block at the top of the file: `SPEED`, `PARTICLE_COUNT`, `TRAIL_FADE`, `SPEED_RAMP`, `CENTER_DIM`, `FISH_VISIBILITY` and `DRIFT_SPEED`, each with a plain comment.
 
-**The two tuna.** Two tuna from the Dogtooth logo swim in the water, both facing right. The big one starts top right and swims in the space between the nav and the title. The small one starts bottom left and swims below the buttons, a little slower. They bob slightly and wrap from the right edge to the left. They are camouflaged, with no fill and no outline:
+**The two tuna.** Two tuna from the Dogtooth logo swim in the water, both facing right. The big one starts top right and swims in the space between the nav and the title. The small one starts bottom left and swims below the buttons, a little slower. The big one takes 48 seconds to cross the window (`DRIFT_SPEED`), and the small one swims at 0.85 of that speed (`SMALL_FISH_DRIFT`). They bob slightly and wrap from the right edge to the left. They are camouflaged, with no fill and no outline, and the speed colors under a fish are the ocean's:
 
 - The script builds an "anatomy field" once from the logo's path in `01_primary_full_logo_kicad_white_tuna.svg`, mirrored so the fish faces right. Every line in the logo (the outline, the gill arc, the mouth, the stripe and the fins) gives its direction, and those directions are spread over the whole body.
-- Inside a fish the ocean's velocity is turned toward those lines, by a soft edge weight times `FISH_VISIBILITY`. Its speed is kept exactly, so the colors never change and the fish has no dark shape or bright edge.
-- The eye is a tiny whirlpool.
-- Turning water without changing its speed squeezes streaks together in places, so each streak tracks how squeezed it is and is drawn that much fainter. That keeps the fish from leaving bright seams.
-- So the fish only show as a change in which way the streaks run. `FISH_VISIBILITY` goes from 0 (hidden) to 1 (obvious). How visible they are by default is that one setting in the CONFIG block.
+- For each fish size it traces flow lines through that field, about one streak gap apart (`traceFishLines()`). They all run nose to tail, or downward where they cross the fish, as on the gill arc. A few arms wind in to the eye like water going down a drain.
+- The ocean's water is never changed. Each fish has its own streaks, which run along its lines and never leave it. Where a fish is, the ocean's streaks are drawn fainter and the fish's brighter by the same amount, so the light stays the same and the edge fades softly. The fish's streaks take their speed and opacity from the ocean right where they are.
+- Since the fish's streaks never meet the ocean's water, nothing piles up into bright seams, and every streak inside a fish runs the same way. So a fish only shows as a change in which way the streaks run.
 
-**Keeping it light.** It runs at most about 60 frames a second on a computer. Phones (a touch-only pointer or a window under 640 px wide) get fewer streaks, at most 30 frames a second and a coarser fish grid. If the first second runs slow, the streak count is cut to fit, and it checks once more a second later. It pauses while the tab is hidden, the landing isn't showing or the hero is scrolled away. With reduced motion it draws one still frame with the fish at their starting places. The fish field takes the most work, so it is built once, in short slices spread over several tasks, and the page keeps answering clicks and keys meanwhile. Until the field is ready, or 1.5 s pass (`FISH_WAIT_MS`), the hero is plain near-black, so the first frame already has the fish in it. If the tuna's outline never loads, the water runs without the fish.
+`FISH_VISIBILITY` goes from 0 to 1, and the default is 0.6:
 
-**For tests.** `startCurrents` also takes `fishVisibility` (in place of `FISH_VISIBILITY`), `seed` and `onFrame` (called after every frame with `{ frame, ms, particles, width, height, dpr, still, cut, fish }`). `buildFishField(d)` is exported, so the anatomy field can be checked in Node.
+- At 0 there are no fish at all. The tuna's outline isn't even downloaded.
+- Up to 0.4 the fish's streaks take over from the ocean's inside the fish (`FISH_SWAP_GAIN`).
+- From 0.3 up (`FISH_BOOST_FROM`), the streaks gather onto the flow lines and keep a little speed in calm water. Near 1 the edge gets sharper and there are more of them.
+- At 1 the two tuna are plain to see, drawn like the logo's own linework.
+- At 0.6, someone who knows to look finds both after a few seconds, and a glance doesn't.
+- Phones add `PHONE_FISH_VISIBILITY` (0.1) on top, never going past 1, since their fish are smaller and have fewer streaks.
+
+**Keeping it light.** It runs at most about 60 frames a second on a computer. Phones (a touch-only pointer or a window under 640 px wide) get fewer streaks, at most 30 frames a second and a coarser fish grid. If the first second runs slow, the streak count is cut to fit, and it checks once more a second later. It pauses while the tab is hidden, the landing isn't showing or the hero is scrolled away. With reduced motion it draws one still frame with the fish at their starting places. The fish field takes the most work, so it is built once, in short slices spread over several tasks, and the page keeps answering clicks and keys meanwhile. The fish's flow lines are traced again when the window changes size (10 to 15 ms a fish), and moving the fish's streaks costs about as much as a few hundred more ocean streaks. Until the field is ready, or 1.5 s pass (`FISH_WAIT_MS`), the hero is plain near-black, so the first frame already has the fish in it. If the tuna's outline never loads, the water runs without the fish.
+
+**For tests.** `startCurrents` also takes `fishVisibility` (in place of `FISH_VISIBILITY`), `seed`, `time` (seconds of motion to start from), `still` (draw one still frame at that time and stop) and `onFrame` (called after every frame with `{ frame, ms, particles, width, height, dpr, still, cut, fish }`). With `time` and `still`, a test can compare two visibilities at the same moment of the swim. `buildFishField(d)` and `traceFishLines(field, w, margin, gap)` are exported, so the anatomy field and the flow lines can be checked in Node.
 
 Without JavaScript, the hero is the title and the buttons on the plain near-black page.
 
@@ -116,14 +126,14 @@ The console (`<section id="fc-console">` in `index.html`) fills the window under
 
 - **The bar.** `← FLIGHT CONSOLE`, `[ CONNECT ]`, the replay's name while one is open, and `[ SAVED FLIGHTS ]` on the right. All are bracket buttons in Share Tech Mono, white and turning amber on hover.
   - CONNECT shows the link on itself. It says CONNECTING while the port picker is open and the port opens, DISCONNECT while connected, and DISCONNECTING. While the link is open, a small square inside the brackets is filled amber while the board's status blocks arrive on time, and is an empty amber outline when one is 3 s late. It blinks while the link is busy. A line only screen readers hear says the same in words ("Connected at 115,200 baud"). Pressed during a replay, CONNECT goes back to live first and opens the port picker right away.
-  - While a replay is open the bar shows REPLAY, the flight's name, a blinking LOADING while its data downloads, and `[ CLOSE ]` to go back to live.
+  - While a replay is open the bar shows the flight's name, a blinking LOADING while its data downloads, and `[ CLOSE ]` to go back to live. The word "Replay" before the name is only for screen readers.
   - SAVED FLIGHTS opens its list under the button (see "Saved flights and replays").
-- **Status lines**, under the bar, only while one has something to say. They are plain text, each with a `[ HIDE ]` button: a note about the link ("No port was picked, so nothing changed.", "The board was unplugged..."), NO SERIAL PORTS (only after CONNECT is pressed in a browser without Web Serial), and NOT RECOGNIZED for data the console doesn't know, with `[ RAW OUTPUT ]`, which opens the raw output in panel 2.
+- **Status lines**, under the bar, only while one has something to say. They are plain text, each with a `[ HIDE ]` button: a note about the link ("No port was picked, so nothing changed.", "The board was unplugged..."), NO SERIAL PORTS (only after CONNECT is pressed in a browser without Web Serial), and NOT RECOGNIZED for data the console doesn't know, with `[ RAW OUTPUT ]`, which opens the raw output in panel 2. On a phone the raw output sits below the graphs, so `revealInPanel()` in `main.js` scrolls panel 2 up or down to show it. It never scrolls sideways, which used to leave a blank screen while panel 2 was still sliding in.
 - **Two panels**, side by side in one sliding track, like the pages of a monitor (`js/views/panels.js`). One is on screen at a time:
   - **Panel 1, the 3D view**, in every mode, with the HUD, the phase bar, the map's controls and (in a replay) the altitude timeline over it.
   - **Panel 2, graphs and readings** (see "Panel 2: graphs and readings").
 
-  The arrow buttons at the left and right edges switch the panels. Only the one toward the other panel shows. The left and right arrow keys switch them too, except while keyboard focus is in something that uses those keys itself: the 3D view (its camera), a graph (it picks a time), the altitude timeline, the SAVED FLIGHTS dropdown, a form field, or anything that scrolls sideways. The panel off screen is inert, so the keyboard and screen readers skip it. The panels slide, except for viewers who ask for less motion. `data-panel` on the console (`globe` or `data`) says which panel is on screen.
+  `[ GRAPHS ]` at the right edge of the 3D view and `[ MAP ]` at the left edge of panel 2 switch the panels. They are the theme's bracket buttons with the HUD's outline, written along the edge like the tabs of a monitor (GRAPHS reads top to bottom, MAP bottom to top), so they fit in the strip each panel keeps free for them (`--fc-tab-w`). Only the one toward the other panel shows. The left and right arrow keys switch them too, except while keyboard focus is in something that uses those keys itself: the 3D view (its camera), a graph (it picks a time), the altitude timeline, the SAVED FLIGHTS dropdown, a form field, or anything that scrolls sideways. The panel off screen is inert, so the keyboard and screen readers skip it. The panels slide, except for viewers who ask for less motion. Only that slide moves the panel track. A script or the browser (scrolling something into view, or find in page) could also scroll it sideways and leave the panels out of line with the window, so `panels.js` puts any sideways scroll straight back. `data-panel` on the console (`globe` or `data`) says which panel is on screen.
 
 ### data-mode and data-state
 
@@ -143,7 +153,7 @@ Panel 2 uses it to pick the live parts or the replay's parts.
 - `idle`: nothing connected or loaded. Only the globe and the map's controls show.
 - `pad`: a board is connected, or data is coming in, and there is no liftoff yet. Only the top left of the HUD (PAD, the labels and the pad checklist) and the phase bar show.
 - `flight`: liftoff was detected. The full HUD shows.
-- `recovery`: the landing was detected. The full HUD shows, plus the recovery block. On phones the recovery block takes the place of ALT, VS and GS.
+- `recovery`: the landing was detected. The full HUD shows, plus the recovery block. On phones ALT, VS and GS step aside for the recovery block, and `[ MORE ]` moves down next to GPS, HDOP and PKT, so MORE still works after the landing.
 
 The states follow the detector (see "Detection"), so a board on a desk that wanders tens of meters never leaves `pad`. Going quiet never changes the state. A board that stops sending in flight stays in `flight` (the HUD marks the packets as old), and one that landed stays in `recovery`, so the recovery position is still there after the link is unplugged. A replay goes through pad, flight and recovery as it plays, and back again when the viewer seeks, because a seek feeds the store again from the start. A board restart starts over on the pad. Liftoff and the landing are read out to screen readers, unless they came from a seek.
 
@@ -162,11 +172,20 @@ In `recovery`, the top left shows LAST FIX (how old the newest good fix is, ambe
 
 ### The HUD
 
-`js/views/hud.js` draws the HUD over the 3D view, drone-camera style: white Share Tech Mono with a thin black outline (`--fc-text-outline`) straight on the picture, no boxes, and soft dark fades behind the top corners and along the bottom. It fills four blocks, each a child of the overlay grid:
+`js/views/hud.js` draws the HUD over the 3D view, drone-camera style: Share Tech Mono straight on the picture, with no boxes. It fills four blocks, each a child of the overlay grid.
+
+How it stays readable over bright ground:
+
+- The values are white. Labels, units, the small lines under the clock, the line under ALT, the checklist's dot leaders and the timeline's labels are off-white (`--fc-hud-2` in `flight-console.css`). Only a phase that hasn't come yet is a little quieter (`--fc-hud-later`). The HUD shows what matters most with size, never with grey.
+- Every letter has a thin black outline (`--fc-text-outline`): 1 px on all eight sides, plus a soft dark glow, so thin letters don't break up.
+- Soft dark fades sit behind the two top corners and along the bottom, a little darker in the bottom left corner behind GPS, HDOP and PKT. They show once there is something to read (not in `idle`).
+- The top left block and the open MORE column each have their own soft fade, a blurred dark patch a little bigger than the block, so it has no edge.
+
+The four blocks:
 
 - **Top left**: the flight time and the phase on one line (`T+0:56  DROGUE`), then small honest labels: SIMULATED FLIGHT or REAL FLIGHT in a replay, LIVE DATA live, plus LIFTOFF TIME ESTIMATED, DATA STARTS IN FLIGHT and GROUND LEVEL ESTIMATED when they apply. Under them goes the pad checklist or the recovery block. In `pad` there is no clock, only PAD.
 - **Top right**: ALT in meters AGL (the largest number on the screen, with `M AGL` and the feet or the age of an old reading under it), VS with ▲ or ▼, GS, and `[ MORE ]`.
-- **MORE**: every reading, as a column under the top right block that scrolls inside itself. It has the position (latitude, longitude, ALT MSL, LAST FIX and the distance and bearing from Manta, marked as the demo spot when it is the demo position), an altitude section (the highest so far, where the altitude comes from, the last reading and the ground level), one section per sensor group the board really sent (built from `js/schema.js`), and any fields the console has no place for yet. Escape closes it.
+- **MORE**: every reading, as a column under the top right block that scrolls inside itself. It has the position (latitude, longitude, ALT MSL, LAST FIX and the distance and bearing from Manta, marked as the demo spot when it is the demo position), an altitude section (the highest so far, where the altitude comes from, the last reading and the ground level), one section per sensor group the board really sent (built from `js/schema.js`), and any fields the console has no place for yet. It is plain HUD text with no box or border. Where the list is scrolled out of sight at the top or bottom, the lines at that edge fade out (hud.js adds `is-cut-top` and `is-cut-bottom`), so a cut never shows half a line. Opening it moves keyboard focus into the list, where the arrow keys scroll it, and the cue for that focus is the first heading turning amber, not a box. Escape closes it and puts focus back on `[ MORE ]`.
 - **Bottom left**: GPS (satellites and fix), HDOP and PKT (the last packet's age).
 
 GS is the receiver's own ground speed when the data has one (a radio packet does). The USB status block doesn't, so then it is worked out from the last few good fixes (`groundSpeed()` in `js/flight-state.js`).
@@ -175,9 +194,10 @@ The rules it keeps:
 
 - A missing value shows `--`, never 0, and gets no unit.
 - A warning (no fix, packets gone stale, an old altitude, HDOP over `MAX_HDOP`) turns its line amber and blinks it once, but only when it starts during play, never after a seek or a source change.
-- VS shows `--` while the altitude is old.
-- Every value sits in a fixed-width field, so the layout never moves when a value or a warning changes.
-- The HUD's blocks don't take clicks (only their buttons do), so a drag over the HUD text still reaches the map.
+- VS shows `--` while the altitude is old. It shows ▲ or ▼ only when the speed on screen, rounded to 0.1 m/s, is more than `LEVEL_VSPEED_MPS` (0.5 m/s), so a board lying still never flips between "▼ 0.5" and "0.5". Panel 2's readings use the same rule.
+- Every value sits in a field with a fixed width in characters, set by `FIELD_CH` at the top of `hud.js`: the clock 7, ALT 6, VS and GS 7, GPS, HDOP and PKT 13, and the checklist and recovery values at least 16. The units have fixed fields too (`UNIT_CH`), and an empty unit or arrow keeps its room. So no label and no value column moves when a value changes, goes missing or turns amber.
+- The line under ALT never widens its block. It ends in an ellipsis when it is too long.
+- The HUD's blocks don't take clicks (only their buttons and the open MORE column, which scrolls, do), so a drag over the HUD text still reaches the map.
 
 ### The phase bar and the rocket chips
 
@@ -187,7 +207,9 @@ The rules it keeps:
 
 ### The altitude timeline
 
-`js/views/timeline.js` runs along the bottom of panel 1 in a replay, with no box. It is the console's one altitude curve. It shows the focused rocket's height above ground over the whole recording, white up to the playhead (an amber line) and dim after it, with other rockets as thin grey lines. A GPS fix gap, or a stretch with no readings for longer than `LINK_STALE_S`, leaves a break in the curve. Event markers sit on the curve, shaped by how each event was found (a filled dot for reported, a ring for detected, a dashed ring for inferred or estimated). They are dim until the playhead reaches them, white after, and amber on hover. A click on one jumps to it. A small key for the shapes sits in the strip's top right corner, hidden on phones and short windows.
+`js/views/timeline.js` runs along the bottom of panel 1 in a replay, with no box. It is the console's one altitude curve. It shows the focused rocket's height above ground over the whole recording, white up to the playhead (an amber line) and dim after it, with other rockets as thin grey lines. A GPS fix gap, or a stretch with no readings for longer than `LINK_STALE_S`, leaves a break in the curve. Event markers sit on the curve, shaped by how each event was found (a filled dot for reported, a ring for detected, a dashed ring for inferred or estimated). They are dim until the playhead reaches them, white after, and amber on hover. A click on one jumps to it. A small key for the shapes sits in the strip's top right corner, hidden on phones and short windows. What screen readers hear (the markers, the strip's summary and the slider's value) gives heights in m AGL, like "about 3,010 m AGL".
+
+A dashed line marks the focused rocket's highest point, with its height as a label on it (`3,012 M`). The label has the same color and outline as the time labels, and it sits over the playhead, so it stays readable while the playhead passes. The label sits at the left end of the line when nothing is in the way. If a marker, a marker's label or the shapes key is there, it tries the right end, then every spot in between (`placePeakLabel()`), and it hides when the whole line is taken. The dashed line stops 4 px either side of the label, so the dashes never run through the text. In a short strip the curve keeps at least 14 px of height (`MIN_PLOT_PX`).
 
 `[ PLAY ]` or `[ PAUSE ]` (or `[ REPLAY ]` at the end) and `[ 1X ] [ 5X ] [ 20X ]` sit beside it, with the speed in use in amber. A flight starts playing at `DEFAULT_SPEED` (5x). Click or drag anywhere on the strip to seek. With keyboard focus the strip is a slider: the arrow keys move the playhead by `TIMELINE_KEY_STEP_S`, Shift with an arrow or Page Up and Page Down move it by `TIMELINE_KEY_BIG_STEP_S`, and Home and End go to the start and end.
 
@@ -200,11 +222,25 @@ Panel 1 is one overlay grid over the map (`.fc-overlay` in `flight-console.css`)
 - `#fc-map-controls`, bottom left, directly above the timeline. `map-view.js` fills it.
 - `#fc-timeline`, along the bottom.
 
-The bottom right corner above the timeline is left free for the map's notes, scale bar and credits. Every block is marked `data-fc-cover`, so WHOLE FLIGHT frames the flight in the part of the view they leave free, and FOLLOW BOARD keeps the board clear of them. Hidden blocks have no size, so they don't count.
+The bottom right corner above the timeline is left free for the map's notes, scale bar and credits. Every block is marked `data-fc-cover`, so WHOLE FLIGHT frames the flight in the part of the view they leave free, and FOLLOW BOARD keeps the board clear of them. The panel switch at the edge (`[ GRAPHS ]`) counts as a cover too. Hidden blocks have no size, so they don't count.
 
-`main.js` keeps two numbers on `#fc-panel-globe` for the map's CSS, in px from the panel's bottom edge: `--fc-tl-space` up to the top of the timeline plus 8 (0 with no timeline), and `--fc-ctl-space` up to the top of the map's controls plus 8 (the same as `--fc-tl-space` when the controls are empty).
+`map-view.js` watches these blocks for size changes, and picks up the HUD's own blocks as the HUD makes them (`watchCovers()`). It also checks them again right after the console's state or mode changes and right after anything in the overlay is shown or hidden, before the next frame is painted. On every draw it compares each block's place and size too (`checkCovers()`), so a block that moves without changing size (GPS, HDOP and PKT at the landing in a short window) never covers the board.
 
-From 641 to 960 px wide, the phase bar takes its own row at the top. Shorter windows (820 px tall or less) make everything a little tighter. On phones the HUD gets compact: the flight time and phase with GPS, HDOP and PKT under them on the left, ALT, VS and GS on the right, then the phase bar, the MORE column across the middle, the controls and the timeline. Very short windows (520 px tall or less, like a phone turned sideways) get the smallest HUD, with the honest labels on one short line. The page never scrolls, and never scrolls sideways.
+`main.js` keeps three numbers on `#fc-panel-globe` for the CSS, in px:
+
+- `--fc-tl-space`: from the panel's bottom edge up to the top of the timeline, plus 8 (0 with no timeline).
+- `--fc-ctl-space`: the same up to the top of the map's controls (the same as `--fc-tl-space` when the controls are empty).
+- `--fc-corner-h`: the height of the map's bottom right corner plus 8 (0 before the map view makes it). `main.js` finds the corner again after each new stage.
+
+The layouts:
+
+- From 641 to 960 px wide, the phase bar takes its own row at the top.
+- Shorter windows (820 px tall or less, and again at 640 px) make everything a little tighter.
+- On phones the HUD gets compact: the flight time and phase with GPS, HDOP and PKT under them on the left, ALT, VS and GS on the right, then the phase bar, the MORE column across the middle, the controls and the timeline. While MORE is open, an empty band above the controls (`--fc-corner-h` tall) keeps the scale bar and credits clear. On the smallest phones that band gives way before anything is pushed off the bottom. The timeline strip is 56 px tall.
+- Any window 520 px tall or less gets the smallest HUD, with no feet line under ALT.
+- Short, wide windows (at least 641 px wide and at most 520 px tall, like a phone turned sideways) have their own layout. The phase bar runs across the top. ALT, VS and GS sit top right, and MORE opens to their left, since there is no room under them. GPS, HDOP and PKT sit in a third row that is at least as tall as the map's bottom right corner (`--fc-corner-h`). The controls take one row, and the timeline has PLAY, the speeds and the time in one row left of a 46 px strip. In `pad` and `recovery` the top left block runs down into the third row. In `recovery`, GPS, HDOP and PKT move to where MORE opens, and an open MORE column takes their place.
+
+The page never scrolls, and never scrolls sideways.
 
 ### The stage and the store switch
 
@@ -234,8 +270,9 @@ Panel 1 is one frame with two views: the 3D view (CesiumJS on Cesium World Terra
   - A weak fix is a hollow grey ring and is left off the line. Outliers are not drawn.
   - The line goes through the smoothed positions (`crumb.line`). The dots are the raw fixes.
   - The line breaks wherever packets were missed. If the fix right after a gap is weak, the break carries on to the next good fix.
-- **A ground shadow** in 3D only: the same line laid faintly on the terrain. The 2D map has no shadow, since its path is already flat.
-- **The Dogtooth board**: a rounded rectangle in the board's blue (#184590) with a thin off-white outline. It always stands upright and keeps one size on screen, since no board sends orientation. It sits on the newest good fix. It turns hollow when there is no fix right now, or a newer fix failed the quality gate. Each packet grows one thin white ring out of it (a new one only starts once the last has finished).
+  - The dots are drawn in two passes in both views: every dark edge first, then every fill. So a slow run of fixes that overlap reads as its speed color with one thin dark edge around it, and dots far apart keep their own ring. In 3D the edges are an opaque billboard collection with hard-edged images, and the fills are a see-through one that Cesium draws after it. On the 2D canvas the edges are simply painted first.
+- **A ground shadow** in 3D only: the same line laid faintly on the terrain, a dark 3 px line at 50 percent with a faint off-white 6 px band under it (`SHADOW_*` and `SHADOW_EDGE_*` in `markers.js`), so it can still be found over dark ground. The 2D map has no shadow, since its path is already flat.
+- **The Dogtooth board**: a rounded rectangle in the board's blue (#184590) with a thin off-white outline. It always stands upright and keeps one size on screen, since no board sends orientation. It sits on the newest good fix. It turns hollow when there is no fix right now, or a newer fix failed the quality gate. A board that has only sent weak fixes so far shows hollow on its newest weak fix, with its DOGTOOTH label and the radio link, in both views. The first good fix brings back the normal rule. Each packet grows one thin white ring out of it (a new one only starts once the last has finished).
 - **Manta** (the ground station): a small off-white dish. A faint dashed line, the radio link, runs from the board to Manta, and a small white dot travels along it for each packet. In 3D the line is a solid light grey (`LINK_SOLID`), so the markers stay on top of it. With no ground station there is no dish and no line.
 - **The launch point**: a small off-white dot.
 - **Event markers** for the focused rocket: a small white diamond at apogee, drogue, main and landed, on the fix where each happened (`eventCrumb()` in `js/flight-state.js`). A marker only appears once playback reaches its event, and an event that fell in a GPS gap gets none.
@@ -248,14 +285,55 @@ With less motion asked for, the ring and the traveling dot don't run, and the ca
 
 One row, the same in every view: `[ SATELLITE ] [ DARK MAP ] [ 3D ]`, `[x] FOLLOW BOARD` and `[ KEY ]`, plus `[ WHOLE FLIGHT ]` and `[ RESET VIEW ]` while a saved flight is on screen. `map-view.js` builds the row and puts it in `#fc-map-controls`, and the HUD's CSS decides where that sits. The active view is amber.
 
-- FOLLOW BOARD is one setting for both views. With it on, the camera keeps the focused board in view. It switches on by itself when the state turns to `flight`, and sliding the view switches it off. Exactly how the camera moves while it follows is in `globe-view.js` (3D) and `map-view.js` (2D).
-- WHOLE FLIGHT frames every point drawn so far, the launch point, the events and Manta inside the part of the view the HUD leaves free (every element marked `data-fc-cover`), with 28 px to spare. In 3D it keeps framing them as the path grows, until the viewer zooms or slides the view.
-- RESET VIEW goes back to the starting angle and distance. While following, it centers on the board. Otherwise it aims above the launch pad, so the pad and the highest point both fit.
-- KEY opens a legend upward from the row: the board, the board with no fix right now, a good fix and the path (slow to fast), a weak fix, the ground shadow (3D), the launch point, Manta and the radio link, the event diamond, and the recovery position. With no ground station the Manta rows drop out, and with the demo position Manta's row says so.
+- FOLLOW BOARD is one setting for both views. With it on, the camera keeps the focused board in view (see "FOLLOW BOARD" below). It switches on by itself when the state turns to `flight`, and sliding the view switches it off.
+- WHOLE FLIGHT frames every point drawn so far, the launch point, the events and Manta inside the part of the view the HUD leaves free (every element marked `data-fc-cover`), with 28 px to spare (`WHOLE_ROOM_PX` in `map-view.js`). In 3D it keeps framing them as the path grows, and frames again if the board leaves the free part, until the viewer zooms or slides the view.
+- RESET VIEW goes back to the starting angle and distance. While following, the follow camera eases back to the starting angle at its own distance. Otherwise it aims above the launch pad, so the pad and the highest point both fit.
+- KEY opens a legend for every marker and line (see "The KEY" below).
 
 The 2D map has no zoom buttons and no labels checkbox. The wheel, a pinch, a double click and the keyboard still zoom it. Over SATELLITE, Esri's place and road names are always on.
 
-The bottom right corner holds the map's notes (amber), a scale bar in both views, and the required map credits (Cesium's or Leaflet's). It stays above the timeline, and on narrow screens above the controls too.
+The bottom right corner holds the map's notes (amber), a scale bar in both views, and the required map credits (Cesium's or Leaflet's). It sits as low as it can, above the timeline. It only moves up when something is really in its spot, and then into the lowest free gap tall enough for it, so it never lands on a HUD block, the phase bar or the MORE column (`placeCorner()` in `map-view.js`). If no gap is tall enough (the smallest phones), it takes the tallest one. The scale bar is white Share Tech Mono with the HUD's dark outline, and the credits are off-white with the same outline.
+
+### FOLLOW BOARD
+
+In 3D, FOLLOW BOARD works like a camera operator on the ground (the "Follow camera" section of `globe-view.js`, with its settings, `FOLLOW_*` and `RECOVERY_*`, near the top of the file):
+
+- It frames the board, the launch point, Manta (when it is within 3 km of the launch point), the event diamonds and the path so far inside the free part of the view. That is the part the HUD's `data-fc-cover` blocks leave free, the same area WHOLE FLIGHT uses. It keeps the visitor's heading and tilt.
+- It leads the board by one fix (where the board will be at the next fix if it keeps going) and pulls back as the board climbs.
+- It comes no closer than 1.5 km on its own and goes no farther than 15 km. Past 15 km it keeps only the board and its newest 20 path points.
+- It eases toward each new framing, closing most of the gap in about 0.7 of the time between fixes (never faster than 0.12 s or slower than 0.8 s). It ignores changes under 18 px, so a board wandering on the pad doesn't make it creep.
+- The board itself is never left under the HUD, the phase bar, the controls or the timeline. On every frame the real camera checks this and nudges the view at once if needed. When a HUD block changes size, both views move the board clear before the frame is painted.
+- After a seek, or any jump of the board too big for one fix, it jumps straight to the new framing instead of easing there.
+- After landing it glides in to 1.5 km and tilts to at least 35 degrees down, so the recovery crosshair and the DOGTOOTH label stand out.
+- Turning, tilting and zooming by hand keep following from the new angle, and the zoom becomes a factor on the camera's own distance. Sliding the view with the mouse (right drag, or Shift and drag) switches FOLLOW BOARD off, as dragging the 2D map does. Two fingers only slide the view once FOLLOW BOARD is off, so a pinch can't switch it off by accident.
+- Ticking FOLLOW BOARD again, by hand or at liftoff, glides back to the board in 0.9 s (`FOLLOW_GLIDE_MS`).
+- With less motion asked for, the camera jumps instead of easing.
+
+On the 2D map, FOLLOW BOARD keeps the visitor's zoom. It pans when the board gets within `FOLLOW_EDGE_PX` of the free part's edge, and never leaves the board right on an edge. When the board is near an edge the other way too, that direction is centered again in the same pan. If a HUD block grows over the board, the map moves at once.
+
+### The KEY
+
+The KEY's rows are:
+
+- the board, and the packet ring (only for viewers who haven't asked for less motion, since no ring is drawn for the others)
+- the board with no good fix right now
+- a good fix and the path (slow to fast), and a gap where packets were missed or the fix was lost
+- a weak fix
+- the ground shadow (3D only)
+- the launch point, Manta and the radio link
+- the event diamond
+- the recovery position
+
+With no ground station the Manta rows drop out, and with the demo position Manta's row says so.
+
+The legend opens in a part of the view the HUD leaves free. `placeLegend()` in `map-view.js` measures the HUD's `data-fc-cover` blocks, the panel switch and the map's corner, and looks for the lowest free gap next to the controls.
+
+- It tries the column lined up with the controls row first. On a desktop that puts it just above GPS, HDOP and PKT. If that column has no room, it tries the column lined up with the KEY button, and only then the rest of the view.
+- When no free gap holds the whole legend, it takes one at least 140 px tall (`LEGEND_MIN_PX`) and scrolls inside itself. Its last line fades until it is scrolled to the end.
+- Only on the smallest screens, where no gap is at least 44 px tall (`LEGEND_FLOOR_PX`, like a 320 by 568 phone, or a 740 by 360 window after landing), does it open as a dark sheet over the HUD. Even then it stays clear of the scale bar and credits.
+- When an open MORE column leaves the KEY no room (on a phone, say), the one opened last closes the other.
+
+It has no box. It is mono text with the HUD's outline over a soft dark fade.
 
 ### Loading and failures
 
@@ -268,7 +346,7 @@ The bottom right corner holds the map's notes (amber), a scale bar in both views
 
 ### Idle and switching stores
 
-- With nothing connected, the camera looks straight down at the whole Earth, sized to fit the part of the stage above the controls and credits at any window size, and fitted again on resize.
+- With nothing connected, the camera looks straight down at the whole Earth, sized to fit the part of the stage above the controls and credits at any window size, and fitted again on resize. `aimIdle()` sets the camera's position, direction and up by hand. Cesium's `setView` turns a view this close to straight down into a heading taken from "up", which used to tilt the camera the wrong way and push the Earth down into the controls.
 - A `'source'` change from the store switch drops everything drawn, every ground height and the camera mode, then flies to the new site. While a saved flight is still downloading, the camera heads for its launch point from the library entry. Going back to live with nothing connected flies out to the whole Earth.
 - Leaving for the landing destroys the Cesium viewer and lets go of its WebGL context, so opening many flights doesn't use more and more memory.
 
@@ -309,11 +387,11 @@ Nothing keeps moving after you let go. The camera can't go under the ground or f
 
 ### Drawing only when needed
 
-The 3D scene only redraws when something changes: new data, a camera move, or new terrain or imagery arriving (Cesium's `requestRenderMode`). The packet ring and the traveling dot ask for frames only while they move, under a second after each packet. The 3D line is built in chunks of 100 points, and only the newest chunk is rebuilt when a fix comes in. The dots are batched in one billboard collection per board. The newest piece of the ground shadow is laid again at most once a second. The 2D breadcrumbs are painted on one canvas.
+The 3D scene only redraws when something changes: new data, a camera move, or new terrain or imagery arriving (Cesium's `requestRenderMode`). The packet ring and the traveling dot ask for frames only while they move, under a second after each packet. The 3D line is built in chunks of 100 points, and only the newest chunk is rebuilt when a fix comes in. The dots are batched in two billboard collections per board, one for the dark edges and one for the fills. The newest piece of the ground shadow is laid again at most once a second. The 2D breadcrumbs are painted on one canvas.
 
 ### For tests
 
-`#fc-map` has a small hook, `fcMapTest.fit()` and `fcMapTest.counts()`, that reports where the framed points are on screen and how much is drawn.
+`#fc-map` has a small hook for tests. `fcMapTest.fit()` reports where the framed points are on screen, `fcMapTest.counts()` how much is drawn, and `fcMapTest.camera()` where the focused board is on screen and the free part of the view FOLLOW BOARD keeps it in, with the camera or map position. In 3D the last one comes from `debugCamera()` in `globe-view.js`.
 
 ## Detection
 
@@ -358,11 +436,12 @@ With 10 or more readings, the single highest and lowest altitudes and the single
 
 ## Panel 2: graphs and readings
 
-Panel 2 has one layout, live and in a replay. Across the top are one-line strips that open when pressed. Under them are the graphs, and on a wide screen the readings sit in a column on their left. On a wide screen panel 2 fits the window and long lists (the readings, an open strip, the raw output) scroll inside their own box. On a phone it is one column that scrolls inside itself: strips, then graphs, then readings. The look follows the theme: near-black, thin lines only, Share Tech Mono capitals for titles, labels and numbers, Barlow Condensed for sentences, white graph lines, and amber only for warnings and errors.
+Panel 2 has one layout, live and in a replay. Across the top are one-line strips that open when pressed. Under them are the graphs, and on a wide screen the readings sit in a column on their left. On a wide screen panel 2 fits the window and long lists (the readings, an open strip, the raw output) scroll inside their own box. On a phone it is one column that scrolls inside itself: strips, then graphs, then readings. The look follows the theme: near-black, thin lines only, Share Tech Mono for everything read at a glance (titles, labels and numbers in capitals, and the mission timeline's events and the board's errors as they are written), Barlow Condensed only for notes written as full sentences, white graph lines, and amber only for warnings and errors.
 
 **Live** (a Dogtooth board on USB): `js/live/bench-panel.js` fills the parts written in `index.html`, found by their `bc-*` ids.
 
-- Errors from the board are an amber strip at the top, with `[ CLEAR ]`.
+- The mission timeline is the first strip, the same strip a replay has (`js/views/event-log.js`), in the `#bc-log` spot. It reads the live store. `main.js` hands the store over through `panel.showEvents(store)` from `showLive()`, every time it puts a live store on the stage. The strip is made the first time and then switches stores through a store switch of its own, so a reconnect, a new source or a trip to a replay and back never adds a second one. It follows the live store, so a board restart clears it. Before the first event the closed line says "No events yet", and the open list says "No events yet. They show up here as they happen." Liftoff, apogee, drogue, main and the landing appear as they happen, with T+ times, marks, the count and NOW.
+- Errors from the board are a strip with an amber edge under it, with `[ CLEAR ]`.
 - The graphs cover the last 10 minutes: ALT MSL, GPS SATS, Lock quality, GPS data rate and Radio PKT (sent, and errors in amber). `[ SAVE AS CSV ]` sits next to the Graphs heading.
 - The readings show the board's own labels, grouped by section (GPS, GPS motion model and Radio).
 - The raw serial output is closed at first, at the bottom of the readings column.
@@ -378,6 +457,8 @@ Panel 2 has one layout, live and in a replay. Across the top are one-line strips
 - `data-panel.js` follows the store's changes (`'samples'`, `'reset'`, `'time'`, `'focus'`, `'clear'` and `'source'`) and redraws at most 6 times a second (`DRAW_MAX_FPS`). While panel 1 is on screen it only notes that something changed, and draws once panel 2 comes back. It also works with no player, for a live flight source later.
 
 Pointing at any graph (or tabbing to one and using the left and right arrows, Home, End or Escape) picks a moment, and every graph shows it. A graph with nothing to draw says NO DATA. `TimeChart` in `js/bench/charts.js` takes a `formatTime` option for its time labels, so a replay can label them in flight time. Both panels read their colors from the `--bc-*` variables on panel 2, where `--bc-panel` is the page background, so the graphs have no box behind them.
+
+A short graph (with strips open on a small window, say) takes bigger value steps up its side, so its value labels stay at least `MIN_TICK_GAP_PX` (18 px) apart. A graph too short even for that labels only its bottom and top lines. When both replay strips are open on a desktop window (wider than 820 px and taller than 520 px), each open list stays within `min(10rem, 18vh)`, so the graphs keep some room.
 
 ## The live console
 
@@ -452,7 +533,7 @@ How the console reads it:
 - **Lost blocks.** If the heartbeat number skips ahead (64, then 66), the missing numbers count as lost blocks. The jump across a disconnect doesn't count, because nobody was listening. Neither does a board restart. The panel keeps the count, but the console doesn't show it.
 - **Heartbeat.** Each banner is a heartbeat. While connected, the square on DISCONNECT is filled amber, and it empties once 3 s pass with no new block. When the port closes (DISCONNECT, or the board is unplugged), the NOT RECOGNIZED line goes away, since nothing is coming in any more.
 - **Restarts.** If `TIME RUNNING` or the heartbeat number goes back, the board restarted. The graphs start over, since their times would overlap, and so does the live store (the 3D path and the state). The CSV keeps every block.
-- **Errors.** A line starting with `Error:` can come at any time, even inside a block. It goes in the errors strip at the top of panel 2. The same error again, with no other error in between, adds to its count instead of making a new row. It's also kept with the newest block for the CSV's `ERRORS` column.
+- **Errors.** A line starting with `Error:` can come at any time, even inside a block. It goes in the errors strip near the top of panel 2. The same error again, with no other error in between, adds to its count instead of making a new row. It's also kept with the newest block for the CSV's `ERRORS` column.
 - **Position.** A position only counts if latitude and longitude are both numbers on the globe, they aren't both 0, and the same block doesn't say SEARCHING. The board prints 0.0000000 while it searches, so no made-up position is ever drawn. LOCKED with a readable altitude counts as a 3D fix for the trail, since the block doesn't say whether the altitude is fresh.
 
 Lines outside a block, like the startup banner, go in the raw output only.
@@ -528,7 +609,7 @@ node --test "flight-console/test/*.test.mjs"
 
 - `test/bench-parse.test.mjs` feeds the example block and a set of edge cases through the block parser and the CSV builder: a SEARCHING block, LOW and SILENT rates, `Error:` lines inside and between blocks, times past a minute and past an hour, skipped heartbeat numbers, a reconnect, a restart, unknown labels and lines before the first banner.
 - `test/bench-terminal.test.mjs` checks the parser and the CSV against real serial output: two blocks in a row (heartbeats 3533 and 3534), copied character for character from my terminal during a bench test. The How it works page shows the same text, so the two must be changed together (see "The How it works page").
-- `test/bench-feed.test.mjs` checks the bench feed: blocks become samples with a good fix only when they should, the store's clock keeps moving, a restart starts over, and a board on a desk shows a pad and fires no flight events. The desk runs use the page's own live store options (`LIVE_STORE_OPTIONS.bench`), including a 35 m GPS jump and a steady 40 m climb that must not read as liftoff. The same live store does see a real liftoff climb. A store with no ground station keeps none until a "gs" packet sets one.
+- `test/bench-feed.test.mjs` checks the bench feed: blocks become samples with a good fix only when they should, the store's clock keeps moving, a restart starts over, and a board on a desk shows a pad and fires no flight events. The desk runs use the page's own live store options (`LIVE_STORE_OPTIONS.bench`), including a 35 m GPS jump and a steady 40 m climb that must not read as liftoff. The same live store does see a real liftoff climb. A store with no ground station keeps none until a "gs" packet sets one. It also checks what the HUD would show for a board that goes quiet (no fix while the block says SEARCHING, the altitude old after 2 s, and silent with "10 S" after 10 s), through the store and `hudAge()` directly.
 - `test/bench-wander.test.mjs` checks that a still board wandering for 30 minutes stays PAD, over many seeds, through both kinds of store and through the status block text. Jumps, steps, slow climbs and a settling GPS are never a liftoff, and a fix that comes back higher is only a liftoff when it is far higher, fast.
 - `test/landing.test.mjs` runs 160 synthetic flights that land into the same bench wander: each must reach FLIGHT within 6 s of liftoff and RECOVERY within 30 s of touchdown, with the recovery position the average of the window's fixes. It also checks a low flight that never arms apogee, a board still moving along the ground (by the receiver's ground speed), and that the saved simulated flight still detects every event near the truth.
 - `test/flight-state.test.mjs` checks `js/flight-state.js`: the four states, the pad checklist and its thresholds (edges included), the recovery block from Manta or from the launch point, bearings and distances in capitals, ground speed, `eventCrumb()`, `packetRate()`, and the hard cases: a connected board that is silent, the fix lost on the pad, the link going quiet in flight, a replay seeking backward, a board restart, and data that starts in flight.
@@ -548,7 +629,7 @@ node --test "flight-console/test/*.test.mjs"
 
 ### Page
 
-- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console (the bar, the status lines, the two panels and the arrow buttons, with panel 2's live parts and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. Its comments say what each part is. It has no tag for CesiumJS on purpose (see "Loading and failures").
+- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console (the bar, the status lines, the two panels and the `[ GRAPHS ]` and `[ MAP ]` switches, with panel 2's live parts (the live mission timeline's `#bc-log` spot among them) and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. Its comments say what each part is. It has no tag for CesiumJS on purpose (see "Loading and failures").
 - `flight-console.css`, `flight-console-hero.css`, `flight-console-map.css` and `flight-console-data.css`: this page's styles, one file per part (see "The stylesheets and who owns what").
 - `../css/flight-console-theme.css`: the colors, fonts and shared pieces of all three Flight Console pages (see "The look: colors and fonts").
 - `README.md`: this guide.
@@ -585,33 +666,33 @@ node --test "flight-console/test/*.test.mjs"
 
 ### Code for the page
 
-- `js/main.js`: picks the screen from the address, runs the routing, makes the live session and the stage, sets `ctx.session` and the console's `data-mode` and `data-state`, loads saved flights, runs the pre-scan, and makes each replay's player, timeline and panel 2. It also keeps `--fc-tl-space` and `--fc-ctl-space` up to date. The "MANTA HOOK" is here.
-- `js/hero-currents.js`: the moving ocean currents and the two hidden tuna behind the landing's hero. It exports `startCurrents(canvas, options)`, which returns `stop()`, and `buildFishField(d)` for tests.
+- `js/main.js`: picks the screen from the address, runs the routing, makes the live session and the stage, sets `ctx.session` and the console's `data-mode` and `data-state`, loads saved flights, runs the pre-scan, and makes each replay's player, timeline and panel 2. It also keeps `--fc-tl-space`, `--fc-ctl-space` and `--fc-corner-h` up to date, hands the live store to the live mission timeline (`showEvents()`), and scrolls RAW OUTPUT into view inside panel 2 (`revealInPanel()`). The "MANTA HOOK" is here.
+- `js/hero-currents.js`: the moving ocean currents and the two hidden tuna behind the landing's hero. It exports `startCurrents(canvas, options)`, which returns `stop()`, and `buildFishField(d)` and `traceFishLines()` for tests.
 - `js/live/serial-link.js`: the serial port, opened with Web Serial at 115,200 baud and read line by line.
-- `js/live/bench-panel.js`: the CONNECT button (its words and its square), the NO SERIAL PORTS warning, and panel 2 for a board on USB: the errors strip, readings, graphs, raw output and SAVE AS CSV. It finds its parts by the `bc-*` ids in `index.html`.
+- `js/live/bench-panel.js`: the CONNECT button (its words and its square), the NO SERIAL PORTS warning, and panel 2 for a board on USB: the live mission timeline strip (`showEvents()`), the errors strip, readings, graphs, raw output and SAVE AS CSV. It finds its parts by the `bc-*` ids in `index.html`.
 - `js/bench/charts.js`: draws the graphs on canvas (`TimeChart`), live and in a replay, in the colors from the `--bc-*` variables (the browser works each one out, `color-mix` included) and the readout font. Before any data a graph says NO DATA.
 
 ### Views (they draw parts of the page)
 
 - `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, drawing an event's mark by how it was found, and copying text (`copyText()`).
 - `js/views/icons.js`: the few button icons the map uses, and `iconNode()`, which turns markup from here or from `markers.js` into an element.
-- `js/views/markers.js`: the look of everything the map and the 3D view draw: the breadcrumb dots and line, the board marker, the launch point, Manta's dish, the event diamond, the recovery crosshair, the packet ring, the radio link and its traveling dot, and the small samples of each for the KEY.
+- `js/views/markers.js`: the look of everything the map and the 3D view draw: the breadcrumb dots and line, the board marker, the launch point, Manta's dish, the event diamond, the recovery crosshair, the packet ring, the radio link and its traveling dot, the ground shadow's sizes, and the small samples of each for the KEY (the gap and the packet ring included).
 - `js/views/map-labels.js`: the label layer both views share (DOGTOOTH, MANTA, LAUNCH POINT, APOGEE).
 - `js/views/launcher.js`: types the landing's title and starts its ocean currents (`js/hero-currents.js`).
 - `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped.
-- `js/views/panels.js`: the two panels: the arrow buttons, the left and right arrow keys (and where they belong to something else), and keeping the panel off screen inert.
+- `js/views/panels.js`: the two panels: the `[ GRAPHS ]` and `[ MAP ]` switches, the left and right arrow keys (and where they belong to something else), keeping the panel off screen inert, and putting back any sideways scroll of the panel track.
 - `js/views/esri.js`: asks Esri once whether it accepts the satellite key. Every map in the visit shares the answer.
 - `js/views/hud.js`: the HUD over the 3D view (see "The HUD").
-- `js/views/hud-text.js`: `hudAge()`, the HUD's short ages ("4 S", "2 MIN"). It also keeps `FLIGHT_WORDS` and `BENCH_WORDS` and `rocketHudLine()`, the status line the map used to draw next to a rocket. The map no longer uses them, but `test/bench-feed.test.mjs` still checks the age rules through `rocketHudLine()`.
+- `js/views/hud-text.js`: only `hudAge()`, the HUD's short ages ("4 S", "2 MIN"). `hud.js` and `test/bench-feed.test.mjs` use it.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with two or more rockets. Click one to focus it.
 - `js/views/phase-strip.js`: the phase bar (see "The phase bar and the rocket chips").
-- `js/views/map-view.js`: the map's frame, the controls row, the KEY, the loading and failure messages, the bottom right corner, the 2D map and the NO MAP panel (see "The map and 3D view").
-- `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer, draws the breadcrumbs, the ground shadow, the markers and the radio link, looks up ground heights and moves the camera.
+- `js/views/map-view.js`: the map's frame, the controls row, the KEY and where it opens, the loading and failure messages, the bottom right corner and where it sits, watching the HUD's covers, the 2D map with its FOLLOW BOARD, and the NO MAP panel (see "The map and 3D view").
+- `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer, draws the breadcrumbs, the ground shadow, the markers and the radio link, looks up ground heights and moves the camera, the follow camera included (see "FOLLOW BOARD").
 - `js/views/cesium-loader.js`: downloads CesiumJS when the 3D view opens.
 - `js/views/timeline.js`: the altitude timeline and the playback buttons (see "The altitude timeline").
 - `js/views/data-panel.js`: panel 2 for a store, in a replay (see "Panel 2: graphs and readings").
 - `js/views/data-readings.js`: panel 2's full readings list for a store.
-- `js/views/event-log.js`: the mission timeline strip in panel 2.
+- `js/views/event-log.js`: the mission timeline strip in panel 2, in a replay (through `data-panel.js`) and live (through `bench-panel.js`). `ctx.waitingText` sets what the open list says before the first event.
 - `js/views/flight-info.js`: the About this flight strip in panel 2.
 
 ### Tests and tools (run with Node from the website folder)
@@ -714,7 +795,7 @@ These are in `js/config.js` unless it says otherwise.
 - The pad checklist: `PAD_READY_MIN_SATS`, `PAD_READY_MAX_HDOP`, `PAD_READY_MIN_PKT_PER_S` and `PAD_LINK_WINDOW_S` (see "The pad checklist").
 - `GROUND_STATION`: the demo ground station position for replays without their own, 1 km southwest of the simulator's placeholder pad. Once the real ground station sends its own GPS position, the page uses that instead. Live data never uses the demo position (see "The live stores").
 - `LINK_STALE_S` and `ALTITUDE_STALE_S`: how long before a quiet rocket, or an old altitude, is shown as old instead of live. `LINK_STALE_S` also decides where a radio silence breaks the altitude timeline's curve, and when LAST FIX turns amber.
-- `LEVEL_VSPEED_MPS`: vertical speeds smaller than this show with no up or down arrow.
+- `LEVEL_VSPEED_MPS` (0.5): VS shows an up or down arrow only when the speed on screen, rounded to 0.1 m/s, is more than this, in the HUD and in panel 2's readings. GPS height noise on a board lying still reads as about 0.3 m/s either way.
 - `PLAYBACK_SPEEDS`, `DEFAULT_SPEED` and `MAX_FRAME_STEP_S`: the speed buttons, the speed a flight starts at, and the longest step the playback clock takes in one frame.
 - The `..._MAX_FPS` values: how often each part of the console redraws during playback (`HEADER_MAX_FPS` for the phase bar, `ROCKET_BAR_MAX_FPS`, `STATS_MAX_FPS` for the HUD, `MAP_MAX_FPS` for the map and the 3D view, `LOG_MAX_FPS` for the mission timeline and `CONTROLS_MAX_FPS` for the altitude timeline). `SCRUB_SEEKS_PER_S` limits seeks while the timeline is dragged. Panel 2 has its own, `DRAW_MAX_FPS` in `js/views/data-panel.js`.
 - `TIMELINE_KEY_STEP_S` and `TIMELINE_KEY_BIG_STEP_S`: how far the arrow keys (and Shift with an arrow, or Page Up and Page Down) move the playhead on the altitude timeline.
@@ -733,12 +814,13 @@ These are in `js/config.js` unless it says otherwise.
 - `GLOBE_START_HEADING_DEG`, `GLOBE_START_PITCH_DEG`, `GLOBE_START_RANGE_PER_APOGEE`, `GLOBE_START_RANGE_MIN_M` and `GLOBE_START_RANGE_MAX_M`: the 3D camera's starting angle and distance.
 - `GLOBE_ZOOM_MIN_M` and `GLOBE_ZOOM_MAX_M`: how close and how far the 3D camera can zoom.
 - `GLOBE_ORBIT_DEG_PER_PX` and `GLOBE_ZOOM_PER_NOTCH`: how fast a drag turns the 3D camera and how much one wheel notch zooms. Lower both for a calmer view. `GLOBE_KEY_TURN_DEG` and `GLOBE_KEY_ZOOM` do the same for the keyboard.
-- `GLOBE_PITCH_MIN_DEG`, `GLOBE_PITCH_MAX_DEG` and `GLOBE_GROUND_CLEARANCE_M`: how steep and how flat the 3D camera can look, and how far it stays above the ground. `GLOBE_MOVE_MS` is how long it takes to glide to a new view.
+- `GLOBE_PITCH_MIN_DEG`, `GLOBE_PITCH_MAX_DEG` and `GLOBE_GROUND_CLEARANCE_M`: how steep and how flat the 3D camera can look, and how far it stays above the ground. `GLOBE_MOVE_MS` is how long it takes to glide to a new view (WHOLE FLIGHT, RESET VIEW and a short trip to a near site). The follow camera has its own glide, `FOLLOW_GLIDE_MS` in `globe-view.js`.
 - `GLOBE_MAX_PIXEL_RATIO`: the sharpest the 3D view draws on high-resolution screens. Lower it to save battery.
-- `COLOR_BG`, `COLOR_WHITE`, `COLOR_OFFWHITE`, `COLOR_AMBER` and `THERMAL_RAMP`: hex copies of the theme's colors, for code that can't read CSS. `PAD_COLOR` is the off-white of the launch point, the dish and the board marker's outline. `ROCKET_PALETTE` gives each extra rocket a white or grey, so they stay apart from the focused rocket's speed colors.
-- In `js/views/markers.js`: the sizes of everything on the map, like `DOT_PX`, `LINE_PX`, `RING_PX` and `RING_MS` (the packet ring), `LINK_SOLID` and `LINK_TRAVEL_MS` (the radio link), and `BOARD_BLUE`, the board marker's blue.
-- In `js/views/map-view.js`: `THREE_SLOW_MS` and `THREE_RETRY_MS` (the 3D loading message and retries), and `LABEL_FAR_ZOOM` (where the 2D labels fade out). In `js/views/globe-view.js`: the sky, haze and horizon settings at the top, `FLY_IN_S`, and `LABEL_FAR_M_PER_PX` (where the 3D labels fade out).
-- In `js/hero-currents.js`: the CONFIG block for the hero (see "The landing").
+- `COLOR_WHITE` and `THERMAL_RAMP`: hex copies of the theme's white and its ironbow ramp, for code that can't read CSS. The near-black is `HALO_COLOR`, and `PAD_COLOR` is the off-white of the launch point, the dish and the board marker's outline. `ROCKET_PALETTE` gives each extra rocket a white or grey, so they stay apart from the focused rocket's speed colors.
+- In `js/views/markers.js`: the sizes of everything on the map, like `DOT_PX`, `LINE_PX`, `RING_PX` and `RING_MS` (the packet ring), `LINK_SOLID` and `LINK_TRAVEL_MS` (the radio link), `SHADOW_*` and `SHADOW_EDGE_*` (the 3D ground shadow and its light edge), and `BOARD_BLUE`, the board marker's blue.
+- In `js/views/map-view.js`: `THREE_SLOW_MS` and `THREE_RETRY_MS` (the 3D loading message and retries), `LABEL_FAR_ZOOM` (where the 2D labels fade out), `WHOLE_ROOM_PX` (WHOLE FLIGHT's room), `CORNER_*` (the bottom right corner) and `LEGEND_*` (where the open KEY goes). In `js/views/globe-view.js`: the sky, haze and horizon settings at the top, `FLY_IN_S`, `LABEL_FAR_M_PER_PX` (where the 3D labels fade out), and the follow camera's `FOLLOW_*` and `RECOVERY_*` (see "FOLLOW BOARD").
+- In `js/views/hud.js`: `FIELD_CH` and `UNIT_CH`, the fixed widths of the HUD's values and units, in characters. In `js/views/timeline.js`: `MIN_PLOT_PX` and the peak label's settings. In `js/bench/charts.js`: `MIN_TICK_GAP_PX`.
+- In `js/hero-currents.js`: the CONFIG block for the hero, with `FISH_VISIBILITY` (0.6), and `PHONE_FISH_VISIBILITY` (0.1) just under it (see "The landing").
 - The page's colors and fonts come from `../css/flight-console-theme.css`. The tokens at the top of `flight-console.css` give them jobs.
 
 ## Map keys
@@ -788,13 +870,18 @@ The 3D view's terrain (Cesium World Terrain) and its aerial imagery (ion's defau
 
 The scene sits centered in the window, and the four sentences take turns on its left and right (under it on a phone). Everything follows the scroll position, so it looks the same scrolling either way or after a reload. Only the flame's flicker and the shake run on time. They are CSS keyframe loops, switched on with the `is-lit` and `is-shaking` classes while they are on screen, and only inside `prefers-reduced-motion: no-preference`. With reduced motion the page shows four still pictures, each with its sentence, on alternating sides.
 
+**The flame** has three SVG layers, each widest at the nozzle and tapering to a point: a faint amber glow a little wider than the body, the amber flame about as wide as the body, and a pale core in `--fc-ramp-6` (#FFF1B0). It flickers with three loops of different lengths: the whole flame stretches and narrows, the core jumps in length, and the glow pulses.
+
+**The fade under the nav.** The nav and the back link stay put while the page scrolls under them. A fixed layer between them and the page, `.fco-veil`, is the page's own near-black. It is solid down to `--fco-clear` (the nav's height plus 2.4rem, just under the back link) and then fades to clear over 2rem, so text or a picture scrolling up fades out before it reaches their letters. Over the bare background it can't be seen. The script places the tour's scene below the veil (its measured height, less 8 px), so the climbing rocket is never dimmed. The phone layout and the reduced motion pictures start below it too.
+
 The laptop's screen is still a placeholder. The HTML comment next to it says how to swap in a real screenshot (`assets/flight-console/console-screen.webp`).
 
-**What I built.** The board's real serial output (two status blocks, 3533 and 3534) beside the same reading in the 3D view, with a caption above both panels and an amber arrow between them.
+**What I built.** The board's real serial output (two status blocks, 3533 and 3534) beside the same reading in the 3D view, with a caption above both panels and an amber arrow between them. The two panel labels are written in sentence case, as typed, in Share Tech Mono.
 
 - The terminal text must match `TERMINAL` in `flight-console/test/bench-terminal.test.mjs` character for character. Change both together.
 - The older block is dimmed (`.fco-term-old`). In the newer block the values that changed are amber (`.fco-term-mark`).
-- The 3D picture is `assets/flight-console/bench-test-3d.webp`. Its frame is as tall as the terminal panel on a wide screen and 4:5 when stacked, and the picture fills it (`object-fit: cover`). Shoot a replacement at about 1100 by 1425 px.
+- The serial output sits in `.fco-term-box`. On narrow screens, where it scrolls sideways, the script fades the edge that has more text hidden behind it (`has-more-left` and `has-more-right`).
+- The 3D picture is `assets/flight-console/bench-test-3d.webp`, 1100 by 1430 px. It was taken from the real Track a Rocket page, with a fake serial board sending block 3534's reading once a second, so the HUD shows the pad checklist. Its frame is as tall as the terminal panel on a wide screen and exactly the picture's 1100 by 1430 shape when stacked, and the picture fills it, centered (`object-fit: cover`). Shoot a replacement at 1100 by 1430 px, and read its credits again from the 3D view's "Data attribution" at the same camera spot.
 
 ## What the page promises
 
