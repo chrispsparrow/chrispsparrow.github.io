@@ -2,11 +2,11 @@
   "flights": [
     {
       "id": "gps-board-sim-01",
-      "title": "Global Positioning System (GPS) and radio board simulated flight",
+      "title": "GPS and radio board simulated flight",
       "date": "2026-09-30",
       "kind": "simulated",
       "featured": true,
-      "description": "This log came from my firmware's own GPS parser and packet code, running on a personal computer (PC) with a simulated GPS feed. The packets have the same format the board sends over the radio.",
+      "description": "This log came from my firmware's own GPS parser and packet code, running on a PC with a simulated GPS feed. The packets have the same format the board sends over the radio.",
       "site": "Placeholder launch site",
       "cover": {
         "file": "cover-3d.webp",
@@ -17,7 +17,7 @@
         {
           "rocketId": "1",
           "name": "GPS and radio board",
-          "board": "SAMD21, SAM-M8Q GPS and E22 long range (LoRa) radio",
+          "board": "SAMD21, SAM-M8Q GPS and E22 LoRa radio",
           "file": "pc_sim_flight.log"
         }
       ],

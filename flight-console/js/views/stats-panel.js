@@ -20,9 +20,7 @@
 // never 0. Old values never look live: an old altitude is dimmed and
 // says how old it is, and an old vertical speed isn't shown at all.
 //
-// The labels spell out each acronym the first time the screen shows it:
-// above ground level (AGL), vertical speed (VS), the Global Positioning
-// System (GPS) and the horizontal dilution of precision (HDOP).
+// Acronyms stay short on the page (AGL, VS, GPS, HDOP), with no expansion.
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, rocketDot } from './dom.js';
@@ -113,14 +111,14 @@ export function createStatsPanel(root, ctx) {
     const altFrom = d.altSource === 'barometer' ? 'Barometer' : d.altSource === 'GPS' ? 'GPS' : 'No altitude yet';
 
     const hero = {
-      label: 'Altitude above ground level (AGL)',
+      label: 'AGL',
       value: num(d.agl, 0),
       unit: 'm',
       small: old && hasAgl ? `Last known, ${formatAge(altAge)}` : feet(d.agl),
       tone: !hasAgl ? null : old ? 'old' : 'live',
     };
     const rows = [{
-      label: 'Vertical speed (VS)',
+      label: 'VS',
       value: hasV ? formatNumber(Math.abs(v), 1) : MISSING,
       unit: 'm/s',
       small: !hasV && old && Number.isFinite(altAge) ? `No new altitude for ${formatDuration(altAge)}` : '',
@@ -168,7 +166,7 @@ export function createStatsPanel(root, ctx) {
       const sats = Number.isFinite(gps.sats) ? `, ${formatNumber(gps.sats, 0)} ${gps.sats === 1 ? 'satellite' : 'satellites'}` : '';
       let fixText = fixNow ? `Fix${sats}` : `No fix${sats}`;
       if (silent || gpsQuiet) fixText = 'No recent data';
-      rows.push({ label: 'Global Positioning System (GPS)', value: fixText, tone: fixNow ? null : 'warn', wide: true });
+      rows.push({ label: 'GPS', value: fixText, tone: fixNow ? null : 'warn', wide: true });
 
       more.push({
         kind: 'gps',
@@ -176,7 +174,7 @@ export function createStatsPanel(root, ctx) {
         note: '',
         rows: [
           { label: 'Altitude above sea level', value: fix ? meters(fix.altMsl, 1) : MISSING },
-          { label: 'Horizontal dilution of precision (HDOP)', value: num(gps.hdop, 2) },
+          { label: 'HDOP', value: num(gps.hdop, 2) },
           { label: 'Latitude', value: fix ? `${formatNumber(fix.lat, 7)}°` : MISSING },
           { label: 'Longitude', value: fix ? `${formatNumber(fix.lon, 7)}°` : MISSING },
           { label: 'Last good fix', value: fix ? formatAge(fixAge) : MISSING },

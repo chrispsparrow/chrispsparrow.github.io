@@ -1,0 +1,170 @@
+/* ============================================================
+   flight-console-hero.css
+   The landing at /flight-console/ (the hero). Loaded by
+   flight-console/index.html after flight-console.css, which holds the
+   shared tokens. Scoped under .fc-page like the rest.
+   ============================================================ */
+
+/* ============================================================
+   The landing at /flight-console/: one full-screen hero. Made-up ocean
+   currents fill the window behind the fixed nav, the Dogtooth tuna sits in
+   the middle as a dark shape the water flows around, and under it come
+   the title and two buttons. Its text is in index.html, and
+   js/views/launcher.js starts the currents (js/hero-currents.js).
+   ============================================================ */
+.fc-page .fc-landing { max-width: none; margin: 0; }
+
+/* Every size in the stack comes from --fc-hero-w, the title's width: about
+   half the window on a desktop, the full width less the gutters on a
+   phone, and never so big that the stack doesn't fit under the nav.
+   8.007 is the title's width in ems in Saira Stencil One (its letters'
+   outer edges, without the space the font leaves on each side).
+   --fc-hero-fit is the width part. The hero is a size container, so it
+   uses cqw, which leaves out a desktop scrollbar (vw counts it, and the
+   title would then be wider than the fish and buttons on a narrow window).
+   The vw line is for browsers without container units. 100cqw is the
+   hero's width inside its 1.25rem side padding. --fc-hero-tall is the
+   height part. */
+.fc-page .fc-hero {
+  --fc-hero-fit: max(46vw, min(100vw - 2.5rem, 34rem));
+  --fc-hero-tall: calc((100vh - var(--fc-nav-h) - 5rem) * 1.25);
+  --fc-hero-w: min(var(--fc-hero-fit), var(--fc-hero-tall), 64rem);
+  --fc-title-size: calc(var(--fc-hero-w) / 8.007);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: calc(var(--fc-nav-h) + 1rem) 1.25rem 2.5rem;
+  overflow: hidden;
+}
+@supports (height: 100svh) {
+  .fc-page .fc-hero {
+    --fc-hero-tall: calc((100svh - var(--fc-nav-h) - 5rem) * 1.25);
+    min-height: 100svh;
+  }
+}
+@supports (width: 1cqw) {
+  .fc-page .fc-hero {
+    container-type: inline-size;
+    --fc-hero-fit: max((100cqw + 2.5rem) * 0.46, min(100cqw, 34rem));
+  }
+}
+
+/* The water covers the whole hero, behind the nav. hero-currents.js draws
+   the speed colors and the streaks into the canvas, and adds the fish
+   layer after it, placed over the fish slot by the script itself. */
+.fc-page .fc-hero-water {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  background: var(--fc-black);
+}
+.fc-page .fc-hero-water-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fc-page .fc-hero-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: var(--fc-hero-w);
+  max-width: 100%;
+}
+
+/* The fish slot, the size of the tuna (its outline is 1251 by 524 in the
+   logo's SVG). The currents draw the fish here, and launcher.js sets
+   data-currents while they do. Without it (no JavaScript, a start that
+   failed, or a fish outline that didn't load in time) the slot shows the
+   plain logo tuna instead: the SVG is cropped to the tuna by its size and
+   position. */
+.fc-page .fc-hero-fish {
+  width: 100%;
+  aspect-ratio: 1251 / 524;
+  background: url("../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg") 73.36% 5.76% / 108.39% auto no-repeat;
+  opacity: 0.85;
+}
+.fc-page .fc-landing[data-currents] .fc-hero-fish { background: none; }
+
+/* FLIGHT CONSOLE, typed in capitals in the HTML. The negative left margin
+   takes off the space Saira Stencil One leaves before the F, so the
+   letters start exactly at the stack's left edge and end at its right
+   edge, where the buttons start and end. */
+.fc-page .fc-hero-title {
+  width: max-content;
+  margin: clamp(0.6rem, calc(var(--fc-title-size) * 0.32), 2.4rem) 0 0 -0.06em;
+  font-family: var(--fc-font-mono);
+  font-size: var(--fc-title-size);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--fc-amber);
+  text-shadow:
+    0 0 0.08em var(--fc-black),
+    0 0 0.3em color-mix(in srgb, var(--fc-black) 80%, transparent),
+    0 0 0.7em color-mix(in srgb, var(--fc-black) 55%, transparent);
+}
+/* The page moves focus to the title when it switches to the landing. It
+   isn't a control, so it gets no focus ring. */
+.fc-page .fc-hero-title:focus { outline: none; }
+
+/* Two buttons side by side, each half the title's width less half the gap,
+   so together they line up with the title's ends. width 0 plus min-width
+   100% keeps the labels from ever widening the stack. */
+.fc-page .fc-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.6rem, calc(var(--fc-title-size) * 0.16), 1.1rem);
+  width: 0;
+  min-width: 100%;
+  margin-top: clamp(1rem, calc(var(--fc-title-size) * 0.36), 2.2rem);
+}
+.fc-page .fc-main a.fc-hero-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 2.9rem;
+  padding: 0.85em 0.7em 0.8em;
+  font-family: var(--fc-font-mono);
+  font-size: clamp(0.95rem, calc(var(--fc-title-size) * 0.19), 1.35rem);
+  font-weight: 400;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  color: var(--fc-offwhite);
+  text-shadow: 0 0 0.5em var(--fc-black);
+  background: color-mix(in srgb, var(--fc-black) 55%, transparent);
+  border: 1px solid var(--fc-amber);
+  border-radius: 0;
+}
+/* Filled amber on hover and focus. The label turns near-black, since off-white
+   on amber is only about 2 to 1. */
+.fc-page .fc-main a.fc-hero-btn:hover,
+.fc-page .fc-main a.fc-hero-btn:focus-visible {
+  color: var(--fc-black);
+  text-shadow: none;
+  background: var(--fc-amber);
+  border-color: var(--fc-amber);
+}
+.fc-page .fc-main a.fc-hero-btn:focus-visible {
+  outline: 2px solid var(--fc-offwhite);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-main a.fc-hero-btn { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* The narrowest phones: the buttons take a row each. */
+@media (max-width: 359px) {
+  .fc-page .fc-hero-actions { grid-template-columns: minmax(0, 1fr); }
+}

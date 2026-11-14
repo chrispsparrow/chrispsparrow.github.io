@@ -22,9 +22,9 @@ import { HALO_COLOR, PAD_COLOR } from '../config.js';
 // blue before any light falls on it and reads almost black on a map.
 export const BOARD_BLUE = '#184590';
 const OFF_WHITE = PAD_COLOR;   // the theme's off-white, #E8EDF2
-const DIM = '#A1A9B3';         // the theme's dim off-white (68% off-white, 32% navy)
-const NAVY = '#0B1A2E';        // the theme's navy
-const HALO = HALO_COLOR;       // the theme's deep navy, #081221
+const DIM = '#A0A3A9';         // the theme's dim off-white
+const NAVY = '#07060D';        // the theme's near-black background
+const HALO = HALO_COLOR;       // the dark outline, #07060D
 
 // The trail behind each board marker, on the map and in 3D: a thin solid
 // line that fades out like a comet's tail. It shows the last TRAIL_WINDOW_S

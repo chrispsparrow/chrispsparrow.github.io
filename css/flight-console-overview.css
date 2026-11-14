@@ -28,12 +28,12 @@
    (css/style.css), and a blur makes the nav the frame its fixed menu panel is
    placed in. The panel then measures 0 px tall and its links end up off screen or
    loose over the scene. This page is scrolled for the whole tour, so while the
-   menu is open the nav drops the blur and turns solid navy, and the panel fills
+   menu is open the nav drops the blur and turns solid near-black, and the panel fills
    the screen under it again. */
 .fco #nav:has(.nav-links.open) {
   -webkit-backdrop-filter: none;
           backdrop-filter: none;
-  background: var(--fc-navy);
+  background: var(--fc-black);
 }
 
 /* ── 1. The scroll tour ──────────────────────────────────── */
@@ -105,19 +105,19 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 .ln-ground { stroke: var(--fc-line-strong); stroke-width: calc(var(--px) * 1); }
 .ln-trail { stroke: var(--fc-line); stroke-width: calc(var(--px) * 1.5); }
 .ln-link { stroke: var(--fc-text-dim); stroke-width: calc(var(--px) * 1.5); }
-.ln-pulse { fill: var(--fc-orange); }
+.ln-pulse { fill: var(--fc-amber); }
 .ln-antenna { stroke: var(--fc-offwhite); stroke-width: calc(var(--px) * 1.5); }
 .ln-antenna-tip { fill: var(--fc-offwhite); }
-.ln-arc { stroke: var(--fc-orange); stroke-width: calc(var(--px) * 1.5); }
+.ln-arc { stroke: var(--fc-amber); stroke-width: calc(var(--px) * 1.5); }
 .ln-signal {
-  stroke: var(--fc-orange);
+  stroke: var(--fc-amber);
   stroke-width: calc(var(--px) * 2);
   stroke-dasharray: calc(var(--px) * 7) calc(var(--px) * 7);
   stroke-linecap: butt;
 }
-.ln-signal-head { fill: var(--fc-orange); }
+.ln-signal-head { fill: var(--fc-amber); }
 
-/* The rocket: a navy outline in off-white with orange fins */
+/* The rocket: a near-black outline in off-white with amber fins */
 .fco-rocket {
   left: -80px;
   top: 0;
@@ -132,20 +132,20 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   overflow: visible;
 }
 .r-body {
-  fill: var(--fc-navy-raised);
+  fill: var(--fc-black-raised);
   stroke: var(--fc-offwhite);
   stroke-width: calc(var(--px) * 1.5);
   stroke-linejoin: round;
 }
-.r-fin { fill: var(--fc-orange); }
+.r-fin { fill: var(--fc-amber); }
 .r-detail {
   fill: none;
   stroke: var(--fc-line-strong);
   stroke-width: calc(var(--px) * 1);
 }
-/* The window shows the page's own navy, so at the close-up the board sits on plain navy */
+/* The window shows the page's own near-black, so at the close-up the board sits on plain near-black */
 .r-window {
-  fill: var(--fc-navy);
+  fill: var(--fc-black);
   stroke: var(--fc-offwhite);
   stroke-width: calc(var(--px) * 1.5);
 }
@@ -169,20 +169,20 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   padding: 0.75em 1.05em 0.8em;
   width: max-content;
   border: calc(var(--px) * 1.5) dashed var(--fc-line-strong);
-  background: var(--fc-navy-raised);
-  font-family: var(--fc-font-readout);
+  background: var(--fc-black-raised);
+  font-family: var(--fc-font-mono);
   line-height: 1.25;
   color: var(--fc-offwhite);
   white-space: nowrap;
 }
 .fco-manta p { margin: 0; }
-.fco-manta .fco-manta-status { margin-top: 0.35em; color: var(--fc-orange); }
+.fco-manta .fco-manta-status { margin-top: 0.35em; color: var(--fc-amber); }
 
 /* The laptop. The script sets its width and font size in scene units. */
 .fco-laptop { margin: 0; }
 .fco-laptop-name {
   margin: 0 0 0.7em;
-  font-family: var(--fc-font-readout);
+  font-family: var(--fc-font-mono);
   line-height: 1.2;
   text-align: center;
   color: var(--fc-offwhite);
@@ -193,7 +193,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   padding: 0.55em;
   border: calc(var(--px) * 1.5) solid var(--fc-offwhite);
   border-bottom-width: calc(var(--px) * 1);
-  background: var(--fc-navy-raised);
+  background: var(--fc-black-raised);
 }
 .fco-laptop-screen > .fco-placeholder,
 .fco-laptop-screen > img {
@@ -204,7 +204,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 .fco-laptop-base {
   height: 0.8em;
   border: calc(var(--px) * 1.5) solid var(--fc-offwhite);
-  background: var(--fc-navy-raised);
+  background: var(--fc-black-raised);
   clip-path: polygon(0 100%, 2% 0, 98% 0, 100% 100%);
 }
 
@@ -214,8 +214,8 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   place-items: center;
   padding: 1em;
   border: calc(var(--px, 1px) * 1) dashed var(--fc-line-strong);
-  background: var(--fc-navy-deep);
-  font-family: var(--fc-font-readout);
+  background: var(--fc-black-deep);
+  font-family: var(--fc-font-mono);
   font-size: 0.85em;
   line-height: 1.35;
   text-align: center;
@@ -251,7 +251,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 .fco-step > p {
   margin: 0;
   max-width: 19em;
-  font-family: var(--fc-font-head);
+  font-family: var(--fc-font-mono);
   font-weight: 500;
   font-size: clamp(1.55rem, 0.95rem + 1.35vw, 2.45rem);
   line-height: 1.16;
@@ -345,7 +345,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-built { padding-top: clamp(4.5rem, 12vw, 8rem); }
 .fco-built h2 {
   margin: 0;
-  font-family: var(--fc-font-head);
+  font-family: var(--fc-font-mono);
   font-weight: 700;
   font-size: clamp(2.1rem, 1.5rem + 2vw, 3.2rem);
   line-height: 1.05;
@@ -353,7 +353,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 }
 .fco-built > p {
   margin: 0.9rem 0 0;
-  font-family: var(--fc-font-body);
+  font-family: var(--fc-font-sentence);
   font-size: clamp(1.05rem, 1rem + 0.3vw, 1.25rem);
   line-height: 1.55;
   color: var(--fc-text-dim);
@@ -361,13 +361,13 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-built > p a {
   color: var(--fc-offwhite);
   text-decoration: underline;
-  text-decoration-color: var(--fc-orange);
+  text-decoration-color: var(--fc-amber);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.25em;
   transition: color 0.2s;
 }
-.fco-built > p a:hover { color: var(--fc-orange); }
-.fco-built > p a:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+.fco-built > p a:hover { color: var(--fc-amber); }
+.fco-built > p a:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 3px; }
 
 /* The figure: the serial output and the 3D view, then the picture's credits
    under the picture, then the caption under both. Narrow windows stack them
@@ -389,7 +389,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-shot-3d { grid-area: pic; margin-top: clamp(1.75rem, 5vw, 2.5rem); }
 .fco-shot-label {
   margin: 0 0 0.55rem;
-  font-family: var(--fc-font-readout);
+  font-family: var(--fc-font-mono);
   font-size: 0.85rem;
   line-height: 1.3;
   color: var(--fc-text-dim);
@@ -407,15 +407,15 @@ html.fco-static .fco-step > .fco-view.fco-still {
   overflow-y: hidden;
   padding: 14px;
   border: 1px solid var(--fc-line);
-  background: var(--fc-navy-deep);
+  background: var(--fc-black-deep);
   scrollbar-width: thin;
   scrollbar-color: var(--fc-line-strong) transparent;
 }
-.fco-term:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+.fco-term:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 3px; }
 .fco-term-text {
   width: max-content;
   margin: 0;
-  font-family: var(--fc-font-readout);
+  font-family: var(--fc-font-mono);
   font-size: max(11.5px, min(13px, 100cqi / 47.2));
   font-variant-ligatures: none;
   line-height: 1.25;
@@ -425,7 +425,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 /* The runs of = and - (hidden from screen readers) */
 .fco-term-dim { color: var(--fc-text-dim); }
 /* The first block's position, the reading the 3D view shows */
-.fco-term-mark { color: var(--fc-orange); }
+.fco-term-mark { color: var(--fc-amber); }
 
 /* The 3D view's screenshot. The image is placed absolutely, so on a wide
    screen it takes the height the serial output sets instead of adding its
@@ -435,7 +435,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
   aspect-ratio: 1100 / 1430;
   overflow: hidden;
   border: 1px solid var(--fc-line);
-  background: var(--fc-navy-deep);
+  background: var(--fc-black-deep);
 }
 .fco-shot-frame > img {
   position: absolute;
@@ -455,7 +455,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-credit summary {
   width: fit-content;
   cursor: pointer;
-  font-family: var(--fc-font-body);
+  font-family: var(--fc-font-sentence);
   font-size: 0.8rem;
   line-height: 1.4;
   color: var(--fc-text-dim);
@@ -463,11 +463,11 @@ html.fco-static .fco-step > .fco-view.fco-still {
 }
 .fco-credit summary:hover,
 .fco-credit[open] summary { color: var(--fc-offwhite); }
-.fco-credit summary:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 2px; }
+.fco-credit summary:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 2px; }
 .fco-credit-body { margin-top: 0.5rem; }
 .fco-credit-body p {
   margin: 0;
-  font-family: var(--fc-font-body);
+  font-family: var(--fc-font-sentence);
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--fc-text-dim);
@@ -477,7 +477,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-shots figcaption {
   grid-area: cap;
   margin-top: 1rem;
-  font-family: var(--fc-font-body);
+  font-family: var(--fc-font-sentence);
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--fc-text-dim);
@@ -519,17 +519,17 @@ html.fco-static .fco-step > .fco-view.fco-still {
   padding: 0.75em 1.15em 0.7em;
   border: 1px solid var(--fc-line-strong);
   border-radius: 0;
-  font-family: var(--fc-font-stencil);
+  font-family: var(--fc-font-mono);
   font-weight: 400;
   font-size: 1.05rem;
   line-height: 1.1;
   color: var(--fc-offwhite);
   transition: color 0.2s, border-color 0.2s, background-color 0.2s;
 }
-/* Filled orange on hover and focus, with a navy label (off-white on orange is
+/* Filled amber on hover and focus, with a near-black label (off-white on amber is
    only about 2 to 1) */
 .fco-related a:hover,
-.fco-related a:focus-visible { color: var(--fc-navy); border-color: var(--fc-orange); background: var(--fc-orange); }
+.fco-related a:focus-visible { color: var(--fc-black); border-color: var(--fc-amber); background: var(--fc-amber); }
 .fco-related a:focus-visible { outline: 2px solid var(--fc-offwhite); outline-offset: 3px; }
 
 @media (max-width: 640px) {

@@ -145,7 +145,7 @@ export function createGlobeView(container, ctx, options) {
   // ------------------------------------------------------------------
   const rgba = (css, alpha = 1) => C.Color.fromCssColorString(css).withAlpha(alpha);
   const color = (name, fallback) => cssColor(container, name, fallback);
-  const PAGE = color('--fc-navy', '#0B1A2E');             // the space around the Earth
+  const PAGE = color('--fc-black', '#07060D');             // the space around the Earth
 
   // ------------------------------------------------------------------
   // The viewer. Every built-in widget is off. Cesium's logo and data
@@ -227,7 +227,7 @@ export function createGlobeView(container, ctx, options) {
   // station line included. Markers are never hidden (see ALWAYS).
   scene.globe.depthTestAgainstTerrain = true;
   // The ground's color where there is no imagery: the theme's raised navy.
-  scene.globe.baseColor = rgba(color('--fc-navy-raised', '#1D2B3E'));
+  scene.globe.baseColor = rgba(color('--fc-black-raised', '#1E1D24'));
   // The page's navy all around the Earth, with no stars, sun or moon.
   scene.backgroundColor = rgba(PAGE);
   if (scene.skyBox) scene.skyBox.show = false;

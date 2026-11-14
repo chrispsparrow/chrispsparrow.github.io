@@ -48,6 +48,13 @@ export function compassName(deg) {
   return COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 }
 
+// Sixteen compass directions: 62 degrees is "ENE".
+const COMPASS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+export function compass16Name(deg) {
+  if (!Number.isFinite(deg)) return '';
+  return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+}
+
 // Distance and bearing between two {lat, lon} points, or null if either is
 // missing.
 export function rangeAndBearing(from, to) {

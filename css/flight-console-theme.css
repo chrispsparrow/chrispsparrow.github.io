@@ -1,92 +1,253 @@
 /* ============================================================
    FLIGHT CONSOLE THEME  (css/flight-console-theme.css)
-   The colors and fonts shared by the three Flight Console pages:
-   the hero (flight-console/), Track a Rocket (flight-console/?track)
-   and the Project Overview (projects/flight-console.html). Each of
-   those pages gives its <body> the class fc-theme.
+   The colors, fonts and small shared pieces of the three Flight Console
+   pages: the hero (flight-console/), Track a Rocket (flight-console/?track)
+   and How it works (projects/flight-console.html). Each of those pages
+   gives its <body> the class fc-theme.
 
-   This is the one place the palette lives. Change a color here and
-   every page in the section follows. The site's black and gold theme
-   doesn't apply in this section.
+   This is the one place the palette lives. Change a color here and every
+   page in the section follows. The look is a thermal camera: a near-black
+   background, white text, and one amber accent for hover, active states
+   and warnings. The site's own black and gold theme doesn't apply here.
 
-   Fonts come from Google Fonts, loaded in each page's <head>:
-   Saira Stencil One for the big title and button labels, Barlow
-   Condensed for headings and Share Tech Mono for small labels and
-   readouts. Paragraphs keep the site's Funnel Sans.
+   Fonts come from Google Fonts, loaded in each page's <head> without
+   holding up the page: Share Tech Mono for titles, labels, buttons and
+   readouts, and Barlow Condensed for longer sentences.
+
+   Shared pieces, all usable on any fc-theme page:
+     .fc-bkt      a bracket button: [ TRACK A ROCKET ]
+     .fc-bkt-check  a bracket checkbox: [x] FOLLOW BOARD
+     .fc-back     the "← FLIGHT CONSOLE" link back to the hero
+     .fc-cursor   the blinking "_" after typed text
    ============================================================ */
 
 :root {
-  /* The three base colors */
-  --fc-navy: #0B1A2E;       /* page background */
-  --fc-orange: #FF7A1A;     /* accent, used sparingly */
-  --fc-offwhite: #E8EDF2;   /* text */
+  /* The base colors */
+  --fc-black: #07060D;      /* page background, near-black */
+  --fc-white: #FFFFFF;      /* text */
+  --fc-offwhite: #E8EDF2;   /* quieter text, thin outlines on markers */
+  --fc-amber: #F9A23A;      /* hover, active states and warnings */
 
-  /* Shades mixed from the three */
-  --fc-navy-deep: color-mix(in srgb, var(--fc-navy) 72%, #000);          /* wells inside panels */
-  --fc-navy-raised: color-mix(in srgb, var(--fc-navy) 92%, var(--fc-offwhite)); /* panels */
-  --fc-text-dim: color-mix(in srgb, var(--fc-offwhite) 68%, var(--fc-navy));    /* secondary text, about 7:1 on navy */
-  --fc-line: color-mix(in srgb, var(--fc-offwhite) 16%, transparent);           /* thin outlines */
-  --fc-line-strong: color-mix(in srgb, var(--fc-offwhite) 34%, transparent);    /* outlines that need to read */
-  --fc-orange-soft: color-mix(in srgb, var(--fc-orange) 16%, transparent);      /* orange tints */
+  /* Shades mixed from them */
+  --fc-black-deep: #000000;                                                       /* wells and the outline behind text over the map */
+  --fc-black-raised: color-mix(in srgb, var(--fc-black) 90%, var(--fc-offwhite));  /* the few surfaces that need to lift off the page */
+  --fc-text-dim: color-mix(in srgb, var(--fc-offwhite) 66%, var(--fc-black));      /* secondary text, about 7:1 on the background */
+  --fc-line: color-mix(in srgb, var(--fc-offwhite) 16%, transparent);              /* thin lines */
+  --fc-line-strong: color-mix(in srgb, var(--fc-offwhite) 36%, transparent);       /* lines that need to read */
+  --fc-amber-soft: color-mix(in srgb, var(--fc-amber) 16%, transparent);           /* amber tints */
+
+  /* The thermal "ironbow" ramp, slow to fast. The hero's currents and the
+     map's speed colors use the same seven stops (their scripts keep their
+     own copies, since a canvas can't read these). */
+  --fc-ramp-0: #07060D;
+  --fc-ramp-1: #1E0B3A;
+  --fc-ramp-2: #5A0F6B;
+  --fc-ramp-3: #A3215A;
+  --fc-ramp-4: #E0552B;
+  --fc-ramp-5: #F9A23A;
+  --fc-ramp-6: #FFF1B0;
 
   /* Fonts */
-  --fc-font-stencil: 'Saira Stencil One', 'Barlow Condensed', 'Arial Narrow', sans-serif; /* the big title and button labels */
-  --fc-font-head: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;             /* headings */
-  --fc-font-readout: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace; /* small labels and readouts */
-  --fc-font-body: var(--font-text);                                                      /* paragraphs */
+  --fc-font-mono: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace; /* the main font */
+  --fc-font-sentence: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;                        /* longer sentences only */
 
   /* The nav's height on these pages, so a page can fit itself under it */
   --fc-nav-h: 64px;
 }
 
-html:has(body.fc-theme) { background: var(--fc-navy); }
+html:has(body.fc-theme) { background: var(--fc-black); }
 body.fc-theme {
-  background: var(--fc-navy);
-  color: var(--fc-offwhite);
+  background: var(--fc-black);
+  color: var(--fc-white);
 }
-.fc-theme ::selection { background: var(--fc-orange); color: var(--fc-navy); }
+.fc-theme ::selection { background: var(--fc-amber); color: var(--fc-black); }
 
 /* ── The site nav ──────────────────────────────────────────── */
-/* It blends into the navy page the way it blends into the black on the
-   avionics page: no bar at the top, and once the page scrolls, a see-through
-   navy with a blur and no line under it. */
+/* It blends into the page: no bar, no line under it and no blur. At the
+   top of a page it is see-through. Once the page scrolls, the background
+   color fades in behind it and fades out again below the links, so there
+   is never a hard edge. */
 .fc-theme #nav {
   height: var(--fc-nav-h);
   padding-block: 0;
   background: transparent;
-  border-bottom-color: transparent;
+  border-bottom: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.fc-theme #nav::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -28px;
+  z-index: -1;
+  background: linear-gradient(to bottom,
+    var(--fc-black) 0%,
+    color-mix(in srgb, var(--fc-black) 88%, transparent) 55%,
+    transparent 100%);
+  opacity: 0;
+  pointer-events: none;
 }
 .fc-theme #nav.scrolled {
-  background: color-mix(in srgb, var(--fc-navy) 82%, transparent);
-  border-color: transparent;
+  background: transparent;
+  border: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
-.fc-theme #nav .nav-name { color: var(--fc-offwhite); }
-.fc-theme #nav .nav-name:hover { color: var(--fc-orange); }
+.fc-theme #nav.scrolled::before { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .fc-theme #nav::before { transition: opacity 0.3s ease; }
+}
+.fc-theme #nav .nav-name { color: var(--fc-white); }
+.fc-theme #nav .nav-name:hover { color: var(--fc-amber); }
 .fc-theme #nav .nav-links a { color: var(--fc-text-dim); }
-.fc-theme #nav .nav-links a:hover { color: var(--fc-offwhite); }
+.fc-theme #nav .nav-links a:hover { color: var(--fc-white); }
 .fc-theme #nav .nav-links a.nav-resume {
-  color: var(--fc-offwhite);
+  color: var(--fc-white);
   border-color: var(--fc-line-strong);
   border-radius: 0;
 }
 .fc-theme #nav .nav-links a.nav-resume:hover {
-  color: var(--fc-orange);
+  color: var(--fc-amber);
   background: transparent;
-  border-color: var(--fc-orange);
+  border-color: var(--fc-amber);
 }
-.fc-theme #nav .nav-hamburger span { background: var(--fc-offwhite); }
+.fc-theme #nav .nav-hamburger span { background: var(--fc-white); }
 .fc-theme #nav a:focus-visible,
-.fc-theme #nav button:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+.fc-theme #nav button:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 3px; }
 @media (max-width: 640px) {
   .fc-theme #nav { padding-inline: 1rem; }
-  .fc-theme #nav .nav-links { inset: var(--fc-nav-h) 0 0; background: var(--fc-navy); }
+  .fc-theme #nav .nav-links { inset: var(--fc-nav-h) 0 0; background: var(--fc-black); }
 }
 
 /* ── The site footer ───────────────────────────────────────── */
-.fc-theme footer { background: var(--fc-navy); }
+.fc-theme footer { background: var(--fc-black); }
 .fc-theme .footer-lockup { color: var(--fc-text-dim); }
-.fc-theme .footer-links a { color: var(--fc-offwhite); }
+.fc-theme .footer-links a { color: var(--fc-white); }
 .fc-theme .footer-links a:hover,
-.fc-theme .footer-social a:hover { color: var(--fc-orange); }
+.fc-theme .footer-social a:hover { color: var(--fc-amber); }
 .fc-theme .footer-social a { color: var(--fc-text-dim); }
-.fc-theme footer a:focus-visible { outline-color: var(--fc-orange); }
+.fc-theme footer a:focus-visible { outline-color: var(--fc-amber); }
+
+/* ── Bracket buttons ───────────────────────────────────────── */
+/* [ TRACK A ROCKET ]. No box. White text, and on hover or keyboard focus
+   the brackets and the text turn amber. Works on <a> and <button>. The
+   brackets are drawn by CSS, so the label in the HTML is just the words.
+     .fc-bkt--sm     a smaller one, for rows of controls
+     .is-active      or aria-pressed="true" or aria-current: amber, the
+                     one that is on (the active map view, say)
+   The doubled class keeps these rules ahead of a page's own link colors. */
+.fc-theme .fc-bkt.fc-bkt {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.6ch;
+  margin: 0;
+  padding: 0.35em 0.2em;
+  min-height: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--fc-white);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-theme .fc-bkt.fc-bkt::before { content: "["; }
+.fc-theme .fc-bkt.fc-bkt::after { content: "]"; }
+.fc-theme .fc-bkt.fc-bkt:hover,
+.fc-theme .fc-bkt.fc-bkt:focus-visible,
+.fc-theme .fc-bkt.fc-bkt.is-active,
+.fc-theme .fc-bkt.fc-bkt[aria-pressed="true"],
+.fc-theme .fc-bkt.fc-bkt[aria-current]:not([aria-current="false"]) {
+  color: var(--fc-amber);
+  background: none;
+  border: 0;
+}
+.fc-theme .fc-bkt.fc-bkt:focus-visible { outline: 1px dashed var(--fc-amber); outline-offset: 3px; }
+.fc-theme .fc-bkt.fc-bkt:disabled,
+.fc-theme .fc-bkt.fc-bkt[aria-disabled="true"] { color: var(--fc-text-dim); cursor: default; }
+.fc-theme .fc-bkt.fc-bkt--sm { font-size: 0.8rem; padding: 0.3em 0.15em; gap: 0.45ch; }
+
+/* [x] FOLLOW BOARD: a real checkbox drawn as brackets. Markup:
+     <label class="fc-bkt-check"><input type="checkbox"><span>FOLLOW BOARD</span></label>
+   The box shows "x" while checked. Hover and keyboard focus turn it amber. */
+.fc-theme .fc-bkt-check {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6ch;
+  padding: 0.3em 0.15em;
+  font-family: var(--fc-font-mono);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fc-white);
+  cursor: pointer;
+}
+.fc-theme .fc-bkt-check input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.fc-theme .fc-bkt-check::before { content: "[\00a0]"; }
+.fc-theme .fc-bkt-check:has(input:checked)::before { content: "[x]"; }
+.fc-theme .fc-bkt-check:hover,
+.fc-theme .fc-bkt-check:has(input:focus-visible) { color: var(--fc-amber); }
+.fc-theme .fc-bkt-check:has(input:focus-visible) { outline: 1px dashed var(--fc-amber); outline-offset: 3px; }
+
+/* ── The back link ─────────────────────────────────────────── */
+/* "← FLIGHT CONSOLE", to the hero. Track a Rocket puts it at the far left
+   of its top bar. How it works pins it under the nav (.fc-back--pinned). */
+.fc-theme .fc-back.fc-back {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.7ch;
+  padding: 0.35em 0.2em;
+  font-family: var(--fc-font-mono);
+  font-size: 0.85rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--fc-white);
+}
+.fc-theme .fc-back.fc-back:hover,
+.fc-theme .fc-back.fc-back:focus-visible { color: var(--fc-amber); }
+.fc-theme .fc-back.fc-back:focus-visible { outline: 1px dashed var(--fc-amber); outline-offset: 3px; }
+.fc-theme .fc-back--pinned.fc-back {
+  position: fixed;
+  top: calc(var(--fc-nav-h) + 0.35rem);
+  left: 2rem;
+  z-index: 450;
+  text-shadow: 0 0 6px var(--fc-black), 0 0 14px var(--fc-black);
+}
+@media (max-width: 640px) {
+  .fc-theme .fc-back--pinned.fc-back { left: 1rem; }
+}
+
+/* ── The blinking cursor ───────────────────────────────────── */
+/* The "_" after typed text (the hero's title, "3D VIEWER LOADING..."). It
+   blinks only for viewers who haven't asked for less motion. */
+.fc-theme .fc-cursor { display: inline-block; color: inherit; }
+@media (prefers-reduced-motion: no-preference) {
+  .fc-theme .fc-cursor { animation: fc-cursor-blink 1.06s steps(1, end) infinite; }
+}
+@keyframes fc-cursor-blink {
+  0%, 49.9% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}

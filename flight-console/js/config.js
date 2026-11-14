@@ -99,6 +99,44 @@ export const DETECTOR_DEFAULTS = Object.freeze({
 });
 
 // ------------------------------------------------------------------
+// The track on the map (track.js): which fixes join the line
+// ------------------------------------------------------------------
+
+// The quality gate. A fix joins the line only if it is a 3D fix (a fresh
+// position with an altitude) with at least this many satellites...
+export const MIN_SATS = 6;
+// ...and an HDOP at most this. Other fixes show as hollow grey dots.
+export const MAX_HDOP = 3;
+// Outlier rejection. A fix that would mean the board moved faster than
+// this (m/s, straight line through the air) since the last good fix is
+// skipped. About Mach 2.5, well past anything my rockets do.
+export const OUTLIER_MAX_SPEED_MPS = 850;
+// ...and no single hop under this many meters counts as an outlier, so
+// normal GPS wander (two fixes 1 s apart can sit 20 m apart) never does.
+export const OUTLIER_MIN_JUMP_M = 150;
+// Packets further apart than this (s) leave a gap in the line instead of
+// a bridge. The board sends one packet a second.
+export const TRACK_GAP_S = 2.5;
+// The line (never the dots) is smoothed with a moving average of this
+// many good fixes.
+export const LINE_SMOOTH_FIXES = 3;
+// The speed (m/s) at the fast end of the track's speed colors.
+export const TRACK_SPEED_MAX_MPS = 300;
+
+// ------------------------------------------------------------------
+// The pad checklist (flight-state.js): what READY needs
+// ------------------------------------------------------------------
+
+// GPS LOCK is good with a fix and at least this many satellites.
+export const PAD_READY_MIN_SATS = 6;
+// HDOP is good at or under this.
+export const PAD_READY_MAX_HDOP = 3;
+// LINK is good while packets arrive at this rate or better (packets a
+// second, averaged over PAD_LINK_WINDOW_S).
+export const PAD_READY_MIN_PKT_PER_S = 0.5;
+export const PAD_LINK_WINDOW_S = 10;
+
+// ------------------------------------------------------------------
 // Ground station
 // ------------------------------------------------------------------
 
@@ -238,10 +276,10 @@ export const SATELLITE_LABELS_ATTRIBUTION = 'Sources: Esri, TomTom, Garmin, FAO,
 export const DEFAULT_MAP_LAYER = 'satellite';
 // Where the browser remembers the viewer's choice (localStorage).
 export const MAP_LAYER_STORAGE_KEY = 'fc-map-layer';
-// A dark outline under tracks, markers and the ground station line, so they
-// stay easy to see on bright photos. It is the theme's deep navy
-// (--fc-navy-deep in css/flight-console-theme.css: 72% navy, 28% black).
-export const HALO_COLOR = '#081221';
+// A dark outline under tracks, markers and the radio link line, so they
+// stay easy to see on bright photos and over dark water (the theme's
+// near-black background color).
+export const HALO_COLOR = '#07060D';
 export const HALO_OPACITY = 0.7;
 // Outline width (px) on each side of a line or ring.
 export const HALO_WIDTH_PX = 1.5;
@@ -351,30 +389,38 @@ export const GLOBE_FIT_MARGIN = 1.35;
 
 // ------------------------------------------------------------------
 // Colors. The Flight Console has one palette, in
-// css/flight-console-theme.css: navy #0B1A2E, orange #FF7A1A (the accent,
-// used sparingly) and off-white #E8EDF2. Every color here is one of those
-// three or a mix of them, written out as hex because the map and the 3D
+// css/flight-console-theme.css: near-black #07060D, white #FFFFFF,
+// off-white #E8EDF2 and amber #F9A23A (hover, active states and
+// warnings). They are written out as hex here because the map and the 3D
 // view need plain colors (and Node reads this file too).
 // ------------------------------------------------------------------
 
+// The theme's four colors.
+export const COLOR_BG = '#07060D';
+export const COLOR_WHITE = '#FFFFFF';
+export const COLOR_OFFWHITE = '#E8EDF2';
+export const COLOR_AMBER = '#F9A23A';
+// The thermal "ironbow" ramp, slow to fast (the same seven stops as the
+// hero's currents and --fc-ramp-0 to --fc-ramp-6 in the theme).
+export const THERMAL_RAMP = Object.freeze(['#07060D', '#1E0B3A', '#5A0F6B', '#A3215A', '#E0552B', '#F9A23A', '#FFF1B0']);
+
 // Rocket colors, handed out in order, for the rockets that aren't focused
-// (flights with two or more rockets). Mixes of the three theme colors,
-// chosen to stand apart from each other on the 3D view and the altitude
-// timeline.
+// (flights with two or more rockets): whites and greys, so they stay
+// apart from the focused rocket's speed colors.
 export const ROCKET_PALETTE = Object.freeze([
   '#E8EDF2', // off-white
-  '#F4B486', // half orange, half off-white
-  '#A1A9B3', // dim off-white (68% off-white, 32% navy)
-  '#B65D20', // dark orange (70% orange, 30% navy)
-  '#636E7C', // slate (40% off-white, 60% navy)
-  '#EED0BC', // pale orange (25% orange, 75% off-white)
+  '#C3C7CD', // light grey
+  '#A0A3A9', // dim off-white (66% off-white, 34% background)
+  '#FFFFFF', // white
+  '#7C7F86', // mid grey
+  '#D9DDE2', // pale grey
 ]);
-// The focused rocket's trail, the rings around its marker, and its played
-// curve on the altitude timeline (the theme's orange).
-export const TRACK_COLOR = '#FF7A1A';
-// The line from the ground station to the focused rocket (the theme's dim
-// off-white).
-export const GROUND_STATION_COLOR = '#A1A9B3';
+// The focused rocket's played curve on the altitude timeline, and the
+// plain color of its track where speed colors aren't used.
+export const TRACK_COLOR = '#FFFFFF';
+// The radio link line from the board to the ground station (the theme's
+// dim off-white).
+export const GROUND_STATION_COLOR = '#A0A3A9';
 // The start point's dot, the ground station's dish and the board marker's
 // outline (the theme's off-white).
 export const PAD_COLOR = '#E8EDF2';

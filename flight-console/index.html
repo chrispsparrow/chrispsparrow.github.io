@@ -12,43 +12,55 @@
     readings). Its data-mode (idle, bench, flight or replay) says what the
     panels hold (see the console part of flight-console.css). The views in
     js/views/ and js/live/ fill the panels in.
-    Uses: ../css/style.css (site styles), flight-console.css (page styles),
-    Leaflet from cdnjs (optional, the page works without it), the section's
-    fonts and colors from ../css/flight-console-theme.css, Space Mono for the
-    raw serial output, ../js/main.js (site nav menu), ../js/fish-logo.js (footer logo)
-    and js/main.js (this page).
+    Uses: ../css/style.css (site styles), the section's fonts and colors from
+    ../css/flight-console-theme.css, this page's own styles (flight-console.css,
+    flight-console-hero.css, flight-console-map.css and flight-console-data.css),
+    Leaflet from cdnjs (optional, the page works without it), ../js/main.js (site
+    nav menu), ../js/fish-logo.js (footer logo) and js/main.js (this page).
     CesiumJS, for the 3D view, has no tag here on purpose. js/views/cesium-loader.js
     adds it when the 3D view first opens.
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Flight Console | Dogtooth Systems</title>
-  <meta name="description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
+  <meta name="description" content="Plug one of my rocket avionics boards into a computer to see its GPS position and readings live in a 3D view, or play back a saved flight.">
   <meta property="og:site_name" content="Dogtooth Systems">
   <meta property="og:title" content="Flight Console | Dogtooth Systems">
-  <meta property="og:description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
+  <meta property="og:description" content="Plug one of my rocket avionics boards into a computer to see its GPS position and readings live in a 3D view, or play back a saved flight.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
+  <meta name="twitter:description" content="Plug one of my rocket avionics boards into a computer to see its GPS position and readings live in a 3D view, or play back a saved flight.">
   <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <!-- Fonts never hold up the page. The font stylesheet is fetched in the
+       background and switched on when it arrives, and display=swap shows the
+       text in a fallback font until each font is in. Share Tech Mono is the
+       section's main font and Barlow Condensed is for longer sentences. Funnel
+       Sans and Space Grotesk are only for the site's own nav and footer. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Funnel+Sans:wght@400;500;600&family=Saira+Stencil+One&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap"></noscript>
   <link rel="stylesheet" href="../css/style.css?v=31">
   <!-- Leaflet 1.9.4 map styles. The integrity hash was computed from the downloaded file. -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
         integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
         crossorigin="anonymous" referrerpolicy="no-referrer">
   <!-- The colors and fonts shared by every Flight Console page -->
-  <link rel="stylesheet" href="../css/flight-console-theme.css?v=1">
-  <link rel="stylesheet" href="flight-console.css?v=10">
+  <link rel="stylesheet" href="../css/flight-console-theme.css?v=2">
+  <!-- This page's own styles, one file per part: the shared tokens and the
+       console, the landing's hero, the map and 3D view, and the graphs panel. -->
+  <link rel="stylesheet" href="flight-console.css?v=11">
+  <link rel="stylesheet" href="flight-console-hero.css?v=1">
+  <link rel="stylesheet" href="flight-console-map.css?v=1">
+  <link rel="stylesheet" href="flight-console-data.css?v=1">
   <!-- With JavaScript off, hide the "Loading..." line (the noscript note
        explains) and show the landing, which is plain HTML. -->
   <noscript><style>.fc-page #fc-message { display: none; } .fc-page #fc-landing[hidden] { display: block !important; }</style></noscript>
@@ -75,6 +87,7 @@
     <!-- ── LANDING: shown at /flight-console/ with nothing after it ──
          One full-screen hero, nothing else. All of its text is here.
          js/views/launcher.js only starts the moving currents. -->
+    <!-- HERO:START -->
     <section id="fc-landing" class="fc-landing" aria-labelledby="fc-landing-title" hidden>
 
       <header class="fc-hero">
@@ -98,12 +111,13 @@
           <div class="fc-hero-actions">
             <!-- data-fc-nav: a plain click opens the console in place
                  (js/main.js). The href still works in a new tab. -->
-            <a class="fc-hero-btn" href="./?track" data-fc-nav="track">TRACK A ROCKET</a>
-            <a class="fc-hero-btn" href="../projects/flight-console.html">HOW IT WORKS</a>
+            <a class="fc-bkt fc-hero-btn" href="./?track" data-fc-nav="track">TRACK A ROCKET</a>
+            <a class="fc-bkt fc-hero-btn" href="../projects/flight-console.html">HOW IT WORKS</a>
           </div>
         </div>
       </header>
     </section>
+    <!-- HERO:END -->
 
     <!-- ── CONSOLE: /flight-console/?track (live) and ?flight=<id> (replay) ──
          One screen that fits the window under the nav, with no page scroll:
@@ -131,6 +145,8 @@
            DISCONNECT while connected), and the status line under it (for
            screen readers only) says the same in words. -->
       <div class="fc-bar">
+        <!-- Back to the hero. A plain click switches screens in place (js/main.js). -->
+        <a class="fc-back" href="./" data-fc-nav="landing" aria-label="Back to the Flight Console"><span aria-hidden="true">←</span> FLIGHT CONSOLE</a>
         <button id="bc-connect" class="fc-connect" type="button" data-state="idle">
           <span class="fc-connect-mark" aria-hidden="true"></span>
           <span id="bc-connect-text" class="fc-connect-text">CONNECT</span>
@@ -230,7 +246,7 @@
               <section class="bc-graphs" aria-labelledby="bc-graphs-title">
                 <div class="bc-graphs-head">
                   <h2 id="bc-graphs-title" class="bc-box-title">The last 10 minutes</h2>
-                  <button id="bc-save" class="fc-btn fc-btn--xs" type="button" disabled>SAVE AS COMMA-SEPARATED VALUES (CSV)</button>
+                  <button id="bc-save" class="fc-btn fc-btn--xs" type="button" disabled>SAVE AS CSV</button>
                 </div>
                 <div class="bc-graph-grid">
                   <section class="bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">

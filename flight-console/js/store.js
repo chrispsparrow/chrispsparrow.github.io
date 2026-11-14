@@ -20,6 +20,7 @@ import { GROUND_STATION, DETECTOR_DEFAULTS, LINK_STALE_S, ALTITUDE_STALE_S } fro
 import { GROUPS, hasGoodPosition } from './schema.js';
 import { createDetector, FLIGHT_EVENT_TYPES } from './detector.js';
 import { createFleet } from './fleet.js';
+import { createCrumbTrail } from './track.js';
 
 export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_DEFAULTS, groundStation = GROUND_STATION } = {}) {
   const listeners = new Set();
@@ -40,6 +41,7 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
   // One rocket's state. Everything here except the profile and pre-scan is
   // cleared by reset().
   function makeRocket(id) {
+    const trail = createCrumbTrail();
     return {
       id,
       profile: fleet.get(id),
@@ -58,6 +60,8 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
       padPosition: null,         // last good position before liftoff
       padLookedUp: false,        // pad position searched for once after a short-log liftoff
       track: [],                 // good positions: { t, lat, lon, altMsl, gapBefore }
+      trail,                     // the breadcrumb trail (track.js): every fix, graded for the map
+      crumbs: trail.crumbs,      // its crumbs, oldest first. The map and the 3D view draw these.
       altSeries: [],             // { t, alt } per altitude reading, alt null marks a gap
       altitudeMissing: false,    // the latest sample that should have had an altitude didn't
       gapPending: false,
@@ -125,6 +129,9 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
     const newEvents = rocket.detector.push(sample);
     const derived = rocket.detector.getState();
     rocket.derived = derived;
+
+    // The breadcrumb trail takes every sample and grades its fix.
+    rocket.trail.push(sample);
 
     // Positions: only good ones are ever drawn or measured.
     const good = hasGoodPosition(sample);

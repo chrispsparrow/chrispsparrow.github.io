@@ -2,7 +2,7 @@
 // The 3D view's frame, and the 2D map it falls back to.
 //
 // The console's first panel is the 3D view (globe-view.js), in every mode.
-// This file starts it, shows "Loading the three-dimensional (3D) view..." until its first
+// This file starts it, shows "Loading the 3D view..." until its first
 // picture is in, and owns its small controls in the bottom left corner:
 // the camera buttons (FOLLOW, WHOLE FLIGHT, RESET VIEW) and the KEY, which
 // opens a short legend for the markers and lines. If the 3D
@@ -821,17 +821,17 @@ export function createMapView(root, ctx) {
   // 3D view.
   function showThreePanel(kind) {
     if (kind === 'loading') {
-      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the three-dimensional (3D) view...'));
-      setText(globeSay, 'Loading the three-dimensional (3D) view...');
+      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the 3D view...'));
+      setText(globeSay, 'Loading the 3D view...');
       return;
     }
     const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'BACK TO THE MAP');
     const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
     setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
-      h('h3', { class: 'fc-nomap-title' }, 'No three-dimensional (3D) view'),
+      h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
       h('p', { class: 'fc-nomap-note' }, problem),
       h('div', { class: 'fc-globe-actions' }, back)));
-    setText(globeSay, `No three-dimensional (3D) view. ${problem}`);
+    setText(globeSay, `No 3D view. ${problem}`);
   }
 
   // ------------------------------------------------------------------

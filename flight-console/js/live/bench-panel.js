@@ -44,10 +44,10 @@ const STALE_MS = 3000;              // readings older than this are marked as ol
 const RAW_LINES = 1000;             // lines kept in "Raw serial output", about 45 blocks
 const ERRORS_SHOWN = 50;
 
-// The readings' group headings for the board's section names. GPS is
-// spelled out here, its first use on the screen.
+// The readings' group headings for the board's section names. Acronyms
+// stay short, with no expansion.
 const SECTION_TITLES = {
-  GPS: 'Global Positioning System (GPS)',
+  GPS: 'GPS',
   'GPS MOTION MODEL': 'GPS motion model',
   RADIO: 'Radio',
 };
@@ -209,8 +209,8 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     if (r.restarted) {
       clearSeries();
       note(hasTrack
-        ? 'The board restarted, so the graphs and the position trace started over. The comma-separated values (CSV) file still has every block.'
-        : 'The board restarted, so the graphs started over. The comma-separated values (CSV) file still has every block.');
+        ? 'The board restarted, so the graphs and the position trace started over. The CSV file still has every block.'
+        : 'The board restarted, so the graphs started over. The CSV file still has every block.');
       tell(onRestart);
     }
   }
@@ -387,11 +387,10 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
       else if (!value.word) parts.push(value.text);
     } else if (field.kind === 'quality') {
       parts.push(numberText(value, unit));
-      // The HDOP goes on its own line under the row (readingRow made it),
-      // spelled out, since this is its first use on the screen.
+      // The HDOP goes on its own line under the row (readingRow made it).
       const note = dd.parentElement?.querySelector('.bc-reading-note');
       if (note) {
-        note.textContent = value.hdopRaw ? `Horizontal dilution of precision (${field.hdop}) ${value.hdopRaw}` : '';
+        note.textContent = value.hdopRaw ? `${field.hdop} ${value.hdopRaw}` : '';
         note.hidden = !value.hdopRaw;
       }
     } else {

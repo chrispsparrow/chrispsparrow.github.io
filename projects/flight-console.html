@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Overview | Dogtooth Systems</title>
-  <meta name="description" content="How flight data gets from my Dogtooth printed circuit board (PCB) in a rocket to the Flight Console on my laptop, over a long range (LoRa) radio link and through Manta, the ground station I'm building.">
+  <title>How It Works | Dogtooth Systems</title>
+  <meta name="description" content="How flight data gets from my Dogtooth printed circuit board in a rocket to the Flight Console on my laptop, over a LoRa radio link and through Manta, the ground station I'm building.">
   <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -14,14 +14,21 @@
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+  <!-- Fonts never hold up the page. The font stylesheet is fetched in the
+       background and switched on when it arrives, and display=swap shows the
+       text in a fallback font until each font is in. Share Tech Mono is the
+       section's main font and Barlow Condensed is for longer sentences. Funnel
+       Sans and Space Grotesk are only for the site's own nav and footer. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Funnel+Sans:wght@400;500;600&family=Saira+Stencil+One&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Funnel+Sans:wght@400;500;600&family=Share+Tech+Mono&family=Space+Grotesk:wght@700&display=swap"></noscript>
   <link rel="stylesheet" href="../css/style.css?v=31">
   <!-- The colors and fonts shared by every Flight Console page -->
-  <link rel="stylesheet" href="../css/flight-console-theme.css?v=1">
+  <link rel="stylesheet" href="../css/flight-console-theme.css?v=2">
   <!-- What only this page needs: the scroll tour, the serial output and 3D view side by side, and the links -->
-  <link rel="stylesheet" href="../css/flight-console-overview.css?v=8">
+  <link rel="stylesheet" href="../css/flight-console-overview.css?v=9">
   <!-- Picks the scroll tour or, with reduced motion, the still pictures before the
        first paint, so the page never shows one layout and then jumps to the other.
        js/flight-console-overview.js does the rest. -->
@@ -48,7 +55,9 @@
   </nav>
 
   <main class="fco-main">
-    <h1 class="sr-only">Flight Console project overview</h1>
+    <!-- Back to the Flight Console hero, pinned under the nav while the page scrolls. -->
+    <a class="fc-back fc-back--pinned" href="../flight-console/" aria-label="Back to the Flight Console"><span aria-hidden="true">←</span> FLIGHT CONSOLE</a>
+    <h1 class="sr-only">How the Flight Console works</h1>
 
     <!-- ── THE SCROLL TOUR ─────────────────────────────────────
          Four steps, driven by the scroll position (js/flight-console-overview.js):
@@ -139,10 +148,10 @@
         </div>
 
         <ol class="fco-steps">
-          <li class="fco-step"><p>This is Dogtooth, the printed circuit board (PCB) I designed to track a rocket with the Global Positioning System (GPS).</p></li>
-          <li class="fco-step"><p>On launch day it rides inside the rocket's avionics bay.</p></li>
-          <li class="fco-step"><p>Its long range (LoRa) radio link carries the data down to Manta, the ground station I'm building.</p></li>
-          <li class="fco-step"><p>Manta will pass the data to the Flight Console on my laptop over Universal Serial Bus (USB) or Bluetooth.</p></li>
+          <li class="fco-step"><p>This is DOGTOOTH, a printed circuit board I designed to track rockets with GPS.</p></li>
+          <li class="fco-step"><p>On launch day, it rides inside our avionics bay.</p></li>
+          <li class="fco-step"><p>It sends its data over a LoRa radio link to MANTA, the ground station I'm building.</p></li>
+          <li class="fco-step"><p>MANTA passes that data to this Flight Console over USB or Bluetooth.</p></li>
         </ol>
 
       </div>
@@ -175,7 +184,7 @@
            about the frame's shape (1100 by 1430). -->
       <figure class="fco-shots">
         <div class="fco-shot fco-shot-term">
-          <p class="fco-shot-label" id="fco-term-label">Raw serial output</p>
+          <p class="fco-shot-label" id="fco-term-label">Real serial output from testing on school campus</p>
           <div class="fco-term" role="region" aria-labelledby="fco-term-label">
 <pre class="fco-term-text"><span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3533 | TIME RUNNING: 58 min 53.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
 
@@ -225,7 +234,7 @@ RADIO
           </div>
         </div>
         <div class="fco-shot fco-shot-3d">
-          <p class="fco-shot-label">Three-dimensional (3D) view</p>
+          <p class="fco-shot-label">The same reading in the 3D view</p>
           <div class="fco-shot-frame">
             <img src="../assets/flight-console/bench-test-3d.webp" width="1100" height="1430" loading="lazy" decoding="async"
                  alt="The Flight Console's 3D view over the Northeastern campus in Boston. The blue board marker with orange rings sits at latitude 42.3368853, longitude -71.0857403. The readings panel beside it shows the same latitude and longitude and an altitude of 49.4 m above sea level.">
@@ -238,7 +247,7 @@ RADIO
             <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
           </div>
         </details>
-        <figcaption>Parsed data from the Dogtooth PCB (printed circuit board) turned into real 3D data.</figcaption>
+        <figcaption>Raw Dogtooth serial output, translated into 3D data.</figcaption>
       </figure>
     </section>
 
