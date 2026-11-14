@@ -807,10 +807,11 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 /* The MORE column: every reading, under the top right readout, as plain
    HUD text like the rest. No box and no border: it sits on the same soft
    dark fade as the top left block (see "A soft dark fade" above), which
-   reaches past the text and fades out with no edge. The list inside (.fc-hud-more-body) scrolls when it is
-   taller than its part of the grid. While more of it is hidden below
-   (hud.js adds is-clipped), its last lines fade out, so the cut never
-   shows half a line. */
+   reaches past the text and fades out with no edge. The list inside
+   (.fc-hud-more-body) scrolls when it is taller than its part of the
+   grid. Where some of it is scrolled out of sight (hud.js adds
+   is-cut-bottom and is-cut-top), the lines at that edge fade out, so a
+   cut never shows half a line. */
 .fc-page .fc-hud-more {
   position: relative;
   display: flex;
@@ -829,9 +830,17 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   scrollbar-color: var(--fc-border) transparent;
   padding: 0.1rem 0.15rem 0.3rem 0;
 }
-.fc-page .fc-hud-more-body.is-clipped {
+.fc-page .fc-hud-more-body.is-cut-bottom {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.6rem), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 2.6rem), transparent);
+}
+.fc-page .fc-hud-more-body.is-cut-top {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.6rem);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.6rem);
+}
+.fc-page .fc-hud-more-body.is-cut-top.is-cut-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.6rem, #000 calc(100% - 2.6rem), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.6rem, #000 calc(100% - 2.6rem), transparent);
 }
 /* Keyboard focus moves into the list when the column opens. Instead of a
    box around the whole column, the first heading turns amber. */

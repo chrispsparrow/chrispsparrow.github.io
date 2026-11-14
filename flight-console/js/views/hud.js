@@ -145,8 +145,8 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
   // Top right: ALT, VS, GS and MORE
   // ------------------------------------------------------------------
-  // ALT's label sits above it, and the number grows to the left from the
-  // right edge, so nothing else moves when it gains a digit.
+  // ALT's label sits above it. The number is right aligned in its fixed
+  // field, so nothing else moves when it gains a digit.
   const alt = valueCell('fc-hud-big', FIELD_CH.alt, UNIT_CH.alt);
   const altNote = h('p', { class: 'fc-hud-note' });
   const altRow = h('div', { class: 'fc-hud-alt' },
@@ -172,8 +172,9 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
   // The column is plain HUD text over a soft dark fade (the CSS draws the
   // fade around the section). The list inside scrolls when it is taller
-  // than its room. While more of it is hidden below, it gets is-clipped
-  // and its bottom lines fade out, so the cut never shows half a line.
+  // than its room. While more of it is hidden below it gets is-cut-bottom,
+  // and while some is scrolled away above it gets is-cut-top. The lines at
+  // that edge then fade out, so a cut never shows half a line.
   // Opening the column moves keyboard focus into the list, so the arrow
   // keys scroll it.
   const moreBody = h('div', { class: 'fc-hud-more-body', tabindex: '-1' });
@@ -469,11 +470,13 @@ export function createHud(root, ctx) {
     markMoreClip();
   }
 
-  // Marks the list while some of it is hidden below its bottom edge.
+  // Marks the list's edges where some of it is scrolled out of sight.
   function markMoreClip() {
     if (more.hidden) return;
-    const clipped = moreBody.scrollTop + moreBody.clientHeight < moreBody.scrollHeight - 1;
-    if (clipped !== moreBody.classList.contains('is-clipped')) moreBody.classList.toggle('is-clipped', clipped);
+    const top = moreBody.scrollTop > 1;
+    const bottom = moreBody.scrollTop + moreBody.clientHeight < moreBody.scrollHeight - 1;
+    if (top !== moreBody.classList.contains('is-cut-top')) moreBody.classList.toggle('is-cut-top', top);
+    if (bottom !== moreBody.classList.contains('is-cut-bottom')) moreBody.classList.toggle('is-cut-bottom', bottom);
   }
 
   // The sections of the MORE column. Each is { title, note, rows }, and a
