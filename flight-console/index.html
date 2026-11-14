@@ -92,22 +92,21 @@
 
       <header class="fc-hero">
         <!-- The water: made-up ocean currents drawn live behind the whole
-             hero (js/hero-currents.js). It draws the speed colors and the
-             streaks in this canvas and adds the fish layer after it. It
-             pauses while hidden or off screen and shows one still frame
-             with reduced motion. -->
+             hero (js/hero-currents.js), with two camouflaged tuna swimming
+             in them. It pauses while hidden or off screen and shows one
+             still frame with reduced motion. Without JavaScript the hero is
+             the title and the buttons on the plain near-black page. -->
         <div class="fc-hero-water" aria-hidden="true"><canvas class="fc-hero-water-canvas"></canvas></div>
 
-        <!-- Stacked and centered like the home page hero. Every size comes
-             from the title's width (see the landing part of flight-console.css). -->
+        <!-- The title and the buttons, centered. The currents script reads
+             this box: the big fish swims above it and the small one below.
+             js/views/launcher.js types the title out letter by letter.
+             Screen readers get the aria-label once, and the spans inside
+             are hidden from them. The rest span holds the letters still to
+             come, invisible, so the title keeps its full width while it
+             types. -->
         <div class="fc-hero-stack">
-          <!-- The fish slot: an empty box the size of the tuna. The currents
-               script reads its box and makes the water flow around a fish
-               there, so this layout decides where the fish goes. When the
-               currents can't draw the fish, the CSS shows the plain logo
-               tuna in it. -->
-          <div class="fc-hero-fish" aria-hidden="true"></div>
-          <h1 id="fc-landing-title" class="fc-hero-title">FLIGHT CONSOLE</h1>
+          <h1 id="fc-landing-title" class="fc-hero-title" aria-label="FLIGHT CONSOLE"><span class="fc-hero-typed" aria-hidden="true">FLIGHT CONSOLE</span><span class="fc-cursor" aria-hidden="true">_</span><span class="fc-hero-rest" aria-hidden="true"></span></h1>
           <div class="fc-hero-actions">
             <!-- data-fc-nav: a plain click opens the console in place
                  (js/main.js). The href still works in a new tab. -->
