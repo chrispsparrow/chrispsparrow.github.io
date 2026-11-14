@@ -1118,15 +1118,20 @@ export function createMapView(root, ctx) {
     const own = rocket.profile?.color ?? WHITE;
     const colorOf = (c) => (isFocused ? speedColor(c.speedMps) : own);
     const width = isFocused ? LINE_PX : OTHER_LINE_PX;
-    // The line's runs, split where packets were missed.
+    // The line's runs, split where packets were missed. (gapBefore sits on
+    // the crumb right after the gap, which can be a weak fix or an outlier
+    // the line skips, so the break is carried to the next good one.)
     const runs = [];
     let run = null;
+    let broken = true;
     for (const c of crumbs) {
+      if (c.gapBefore) broken = true;
       if (c.quality !== 'good' || !c.line) continue;
       const p = map.latLngToLayerPoint([c.line.lat, c.line.lon]);
-      if (!run || c.gapBefore) {
+      if (broken) {
         run = [];
         runs.push(run);
+        broken = false;
       }
       run.push({ x: p.x, y: p.y, color: colorOf(c) });
     }

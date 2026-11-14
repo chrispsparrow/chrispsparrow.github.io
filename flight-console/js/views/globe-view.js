@@ -846,10 +846,14 @@ export function createGlobeView(container, ctx, options) {
     const otherColor = cesiumColor(rocket.profile?.color ?? WHITE);
     const dotId = isFocused ? 'dot' : 'dot-other';
     // True when the next line point must start a new piece: the first
-    // point, or the one after a good fix with no height.
+    // point, the one after a good fix with no height, and the first good
+    // fix after missed packets. (gapBefore sits on the crumb right after
+    // the gap, which can be a weak fix or an outlier the line skips, so it
+    // is carried to the next good one.)
     let lineBroken = parts.verts.length === 0 || parts.lineBroken;
     for (let i = parts.count; i < crumbs.length; i++) {
       const c = crumbs[i];
+      if (c.gapBefore) lineBroken = true;
       if (c.quality === 'outlier') {
         parts.dotAt.push(null);
         continue;
@@ -868,7 +872,7 @@ export function createGlobeView(container, ctx, options) {
           parts.verts.push({
             position: linePos,
             color: isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor,
-            breakBefore: lineBroken || c.gapBefore,
+            breakBefore: lineBroken,
           });
           lineBroken = false;
         } else {
