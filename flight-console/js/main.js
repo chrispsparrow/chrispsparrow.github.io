@@ -312,21 +312,46 @@ $('fc-notice-raw').addEventListener('click', () => {
   if (raw && !raw.open) raw.open = true;
   raw?.querySelector('summary')?.focus({ preventScroll: true });
   // On a phone the raw output sits below the graphs, so bring it into view.
-  raw?.scrollIntoView({ block: 'nearest' });
+  if (raw) revealInPanel(raw, $('fc-panel-data'));
 });
 
-// The map's scale bar and credits sit just above the altitude timeline,
-// and on narrow screens just above the map's controls. So the panel keeps
-// two numbers for map-view.js's CSS, in px from its bottom edge:
-//   --fc-tl-space   up to the top of the timeline, plus a gap (0px when
-//                   there is no timeline)
-//   --fc-ctl-space  up to the top of the map's controls, plus a gap (the
+// Scrolls el into view inside its panel, only up and down. (scrollIntoView
+// would also scroll the sliding track sideways while the panel is still
+// off screen, which left a blank screen on phones.) Every box between el
+// and the panel that scrolls up and down moves just enough to show el's
+// top, with an 8 px gap.
+function revealInPanel(el, panel) {
+  if (!el || !panel) return;
+  const gap = 8;
+  for (let box = el.parentElement; box; box = box.parentElement) {
+    const y = getComputedStyle(box).overflowY;
+    if ((y === 'auto' || y === 'scroll') && box.scrollHeight > box.clientHeight + 1) {
+      const outer = box.getBoundingClientRect();
+      const inner = el.getBoundingClientRect();
+      if (inner.top < outer.top || inner.bottom > outer.bottom) box.scrollTop += inner.top - outer.top - gap;
+    }
+    if (box === panel) break;
+  }
+}
+
+// The map's scale bar and credits (its bottom right corner) sit just above
+// the altitude timeline, and on narrow screens just above the map's
+// controls. So the panel keeps three numbers for the CSS, in px:
+//   --fc-tl-space   from the panel's bottom edge up to the top of the
+//                   timeline, plus a gap (0px when there is no timeline)
+//   --fc-ctl-space  the same up to the top of the map's controls (the
 //                   same as --fc-tl-space when the controls are empty)
-(() => {
+//   --fc-corner-h   the corner's own height plus a gap (0px before the
+//                   map view makes it). In short windows the overlay keeps
+//                   a band this tall free for it (flight-console.css).
+// The map view makes the corner, so spaces.findCorner() looks for it
+// again after each new stage.
+const spaces = (() => {
   const stage = $('fc-panel-globe');
   const timeline = $('fc-timeline');
   const controls = $('fc-map-controls');
-  if (!stage || !timeline || !controls || !('ResizeObserver' in window)) return;
+  if (!stage || !timeline || !controls || !('ResizeObserver' in window)) return null;
+  let corner = null;
   const above = (el) => {
     const box = el.getBoundingClientRect();
     if (!(box.height > 0)) return null;
@@ -335,11 +360,23 @@ $('fc-notice-raw').addEventListener('click', () => {
   const update = () => {
     const tl = above(timeline) ?? 0;
     const ctl = above(controls) ?? tl;
+    const cornerH = corner?.isConnected ? corner.getBoundingClientRect().height : 0;
     stage.style.setProperty('--fc-tl-space', `${tl}px`);
     stage.style.setProperty('--fc-ctl-space', `${ctl}px`);
+    stage.style.setProperty('--fc-corner-h', `${cornerH > 0 ? Math.round(cornerH + SPACE_GAP_PX) : 0}px`);
   };
   const observer = new ResizeObserver(update);
   for (const el of [stage, timeline, controls]) observer.observe(el);
+  return {
+    findCorner() {
+      const found = stage.querySelector('.fc-map-corner');
+      if (found === corner) return;
+      if (corner) observer.unobserve(corner);
+      corner = found;
+      if (corner) observer.observe(corner);
+      update();
+    },
+  };
 })();
 
 // ------------------------------------------------------------------
@@ -486,6 +523,7 @@ function ensureStage() {
   ], ctx);
   const [hud] = startViews([['fc-hud', createHud]], ctx);
   stage = { store, session, ctx, views: [...views, hud], hud };
+  spaces?.findCorner();
   return stage;
 }
 
