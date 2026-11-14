@@ -54,6 +54,11 @@
     </div>
   </nav>
 
+  <!-- A soft fade in the page's own color behind the nav and the back link.
+       Whatever scrolls up under them fades out before it reaches their text, so
+       they always stay readable, with no bar or edge you can see. -->
+  <div class="fco-veil" aria-hidden="true"></div>
+
   <main class="fco-main">
     <!-- Back to the Flight Console hero, pinned under the nav while the page scrolls. -->
     <a class="fc-back fc-back--pinned" href="../flight-console/" aria-label="Back to the Flight Console"><span aria-hidden="true">←</span> FLIGHT CONSOLE</a>
@@ -128,9 +133,12 @@
             <div class="fco-rocket">
               <div class="fco-rocket-shake">
                 <div class="fco-flame">
-                  <svg class="fco-flame-art" viewBox="-20 0 40 200" width="40" height="200" focusable="false">
-                    <path class="f-outer" d="M-17 0 C-17 56 -8 128 0 200 C8 128 17 56 17 0 Z"/>
-                    <path class="f-inner" d="M-9 0 C-9 35 -4 83 0 128 C4 83 9 35 9 0 Z"/>
+                  <!-- Three layers, each wide at the nozzle and tapering to a point:
+                       a faint glow, the amber flame and a pale core -->
+                  <svg class="fco-flame-art" viewBox="-30 0 60 200" width="60" height="200" focusable="false">
+                    <path class="f-glow" d="M-22 0 C-34 46 -24 128 0 200 C24 128 34 46 22 0 Z"/>
+                    <path class="f-outer" d="M-18 0 C-28 36 -20 98 0 160 C20 98 28 36 18 0 Z"/>
+                    <path class="f-inner" d="M-10 0 C-15 26 -10 66 0 108 C10 66 15 26 10 0 Z"/>
                   </svg>
                 </div>
                 <svg class="fco-rocket-art" viewBox="-80 0 160 1000" width="160" height="1000" focusable="false">
@@ -186,7 +194,8 @@
            GPS data rate and the packets sent. On a wide screen the text scales to fit
            the panel. On a narrow one it keeps a readable size and the panel scrolls
            sideways inside itself (js/flight-console-overview.js makes it a tab stop
-           then). If the board's output changes, update the test and this together.
+           then, and fades the edge where more text is hidden, through .fco-term-box).
+           If the board's output changes, update the test and this together.
            Right: that first block in the 3D view of Track a Rocket, a screenshot taken
            with a fake serial board, More readings open. The console only places a
            board after 3 s of still readings, so the fake board first sent ten copies
@@ -195,13 +204,16 @@
            as they would from the hour of real blocks before it. Its credits are the ones the
            view's "Data attribution" listed for that camera spot. A new screenshot needs
            its credits read again. On a wide screen the picture's frame is as tall as
-           the serial output's panel, and on a phone it has a fixed 4:5 shape. The
-           picture fills its frame either way (object-fit: cover), so a new one dropped
-           in under the same file name is cropped to fit. -->
+           the serial output's panel, which comes out close to the picture's own
+           1100 by 1430 shape. Stacked, the frame has exactly that shape. The picture
+           fills its frame either way (object-fit: cover, centered), so a new one
+           dropped in under the same file name is cropped to fit, by at most a few
+           pixels on each side. -->
       <figure class="fco-shots">
         <figcaption>Raw Dogtooth serial output, translated into 3D data.</figcaption>
         <div class="fco-shot fco-shot-term">
           <p class="fco-shot-label" id="fco-term-label">Real serial output from testing on school campus</p>
+          <div class="fco-term-box">
           <div class="fco-term" role="region" aria-labelledby="fco-term-label">
 <pre class="fco-term-text"><span class="fco-term-old"><span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3533 | TIME RUNNING: 58 min 53.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
 
@@ -248,6 +260,7 @@ RADIO
   RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> <span class="fco-term-mark">3533</span>
   RADIO PACKETS SKIPPED: <span class="fco-term-dim" aria-hidden="true">--------------</span> 0
   RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0</pre>
+          </div>
           </div>
         </div>
         <!-- The arrow from the serial output to the 3D view. Only a picture: the

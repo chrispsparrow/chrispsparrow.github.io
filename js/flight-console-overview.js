@@ -45,7 +45,7 @@
   const stage = tour.querySelector('.fco-stage');
   const mainView = tour.querySelector('.fco-view');
   const steps = Array.from(tour.querySelectorAll('.fco-step'));
-  const nav = document.getElementById('nav');
+  const veil = document.querySelector('.fco-veil');
   const reducedMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
@@ -365,17 +365,22 @@
     if (!vw || !vh) return;
     const css = getComputedStyle(stage);
     const stacked = css.getPropertyValue('--fco-layout').trim() === 'stacked';
+    /* The scene starts below the fade behind the nav and the back link (.fco-veil),
+       less 8 px where that fade is nearly clear, so nothing in it is dimmed. The
+       view's top is counted from the stage's top, which is the window's top while
+       the stage is pinned. */
+    const veilBottom = veil ? veil.offsetHeight : 134;
+    const top = Math.max(veilBottom - 8 - mainView.offsetTop, 24);
     let region;
     if (stacked) {
-      /* The view already starts under the pinned back link (CSS). Leave its 24 px
-         soft top edge clear. */
-      region = { x: 16, y: 20, w: vw - 32, h: vh - 20 - 26 };
+      /* The view already starts under the pinned back link (CSS), with a 24 px soft
+         top edge of its own, and the sentence sits under it */
+      region = { x: 16, y: top, w: vw - 32, h: vh - top - 26 };
     } else {
       /* The view is the middle of the window, full height. Keep clear of its soft
-         side edges and of the nav. */
-      const navH = nav ? nav.offsetHeight : 64;
+         side edges. The CSS centers the sentences on this same middle. */
       const fade = parseFloat(css.getPropertyValue('--fco-fade')) || 48;
-      const top = navH + 24, bottom = Math.max(28, vh * 0.06);
+      const bottom = Math.max(28, vh * 0.06);
       region = { x: fade + 8, y: top, w: vw - 2 * (fade + 8), h: vh - top - bottom };
     }
     layoutScene(main, region, stacked, vw);
@@ -459,17 +464,28 @@
 /* The serial output under "What I built" (.fco-term) scrolls sideways inside
    itself when the window is too narrow for its 87-character lines. Only then
    is it a tab stop, so a keyboard can scroll it, and a wide screen doesn't get
-   a tab stop that does nothing. */
+   a tab stop that does nothing. Its box (.fco-term-box) gets has-more-right
+   while text is hidden to the right and has-more-left once it has scrolled, and
+   the CSS fades that edge, so a visitor can tell the lines go on. */
 (() => {
   'use strict';
 
   const term = document.querySelector('.fco-term');
   if (!term) return;
+  const box = term.closest('.fco-term-box');
+  function edges() {
+    if (!box) return;
+    const hidden = term.scrollWidth - term.clientWidth;
+    box.classList.toggle('has-more-left', hidden > 1 && term.scrollLeft > 1);
+    box.classList.toggle('has-more-right', hidden > 1 && term.scrollLeft < hidden - 1);
+  }
   function update() {
     if (term.scrollWidth > term.clientWidth + 1) term.tabIndex = 0;
     else term.removeAttribute('tabindex');
+    edges();
   }
   update();
+  term.addEventListener('scroll', edges, { passive: true });
   if ('ResizeObserver' in window) new ResizeObserver(update).observe(term);
   else window.addEventListener('resize', update);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(update);

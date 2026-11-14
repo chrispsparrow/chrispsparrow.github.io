@@ -2,6 +2,7 @@
    HOW IT WORKS  (projects/flight-console.html)
    The colors and fonts come from css/flight-console-theme.css.
    This file holds what only this page needs:
+     0. the soft fade behind the nav and the pinned back link
      1. the scroll tour (a tall wrapper with a sticky stage, run by
         js/flight-console-overview.js): the scene in the middle of the
         window and the four sentences taking turns on its left and right
@@ -23,15 +24,37 @@
   /* How far the scene's box sits in from each side of the window, so it is
      centered with a sentence column on each side */
   --fco-side: calc(var(--fco-gut) + var(--fco-cap-w) + var(--fco-cap-gap) - var(--fco-fade));
-  /* The soft edge where the scene meets the nav: nothing shows under the nav, and
-     the scene fades in over the 24 px below its bottom edge */
-  --fco-top-fade: linear-gradient(180deg,
-    transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px));
+  /* The fade behind the nav and the back link (.fco-veil): solid page color down
+     to just under the link, then clear over the next 2rem */
+  --fco-clear: calc(var(--fc-nav-h) + 2.4rem);
+  --fco-veil-fade: 2rem;
 }
 
 /* The phone menu. While it is open the nav turns solid near-black, so the
    scene doesn't show through the nav's soft fade above the menu panel. */
 .fco #nav:has(.nav-links.open) { background: var(--fc-black); }
+
+/* ── 0. The fade behind the nav and the back link ─────────── */
+/* The nav and the back link stay put while the page scrolls under them. This
+   layer sits between the two and the page. It is the page's own color, solid
+   down to just under the back link and then fading to clear, so text or a
+   picture scrolling up fades out before it reaches their letters. Over the bare
+   background it can't be seen, so there is no bar and no edge. The stops ease
+   in and out, so even the start and end of the fade don't show as a line. */
+.fco-veil {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 400;   /* under the back link (450) and the nav (500), over the page */
+  height: calc(var(--fco-clear) + var(--fco-veil-fade));
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    var(--fc-black) 0,
+    var(--fc-black) var(--fco-clear),
+    color-mix(in srgb, var(--fc-black) 88%, transparent) calc(var(--fco-clear) + var(--fco-veil-fade) * 0.25),
+    color-mix(in srgb, var(--fc-black) 50%, transparent) calc(var(--fco-clear) + var(--fco-veil-fade) * 0.5),
+    color-mix(in srgb, var(--fc-black) 12%, transparent) calc(var(--fco-clear) + var(--fco-veil-fade) * 0.75),
+    transparent 100%);
+}
 
 /* ── 1. The scroll tour ──────────────────────────────────── */
 .fco-tour { position: relative; }
@@ -61,17 +84,10 @@ html.fco-anim .fco-view {
   left: var(--fco-side);
   right: var(--fco-side);
   overflow: hidden;
-  /* Things leave the scene through soft edges instead of hard cuts: on the left
-     and right, where the sentences are, and at the top, so the rocket fades out
-     before it passes under the see-through nav */
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%),
-    var(--fco-top-fade);
-          mask-image:
-    linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%),
-    var(--fco-top-fade);
-  -webkit-mask-composite: source-in;
-          mask-composite: intersect;
+  /* Things leave the scene through soft edges instead of hard cuts, on the left
+     and right, where the sentences are. At the top, .fco-veil does the same. */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%);
 }
 
 /* The scene. Its children are placed in scene units (1 unit is 1 CSS px when the
@@ -164,14 +180,18 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   user-select: none;
 }
 
-/* The flame under the tail: 40 wide and 200 long, its top tucked just inside the
-   tail cone (which ends at 998). The script grows it from nothing at ignition
-   (a scale on .fco-flame), and the flicker is a loop on the art inside. */
+/* The flame under the tail: 60 wide and 200 long (the faint glow's tip), its top
+   tucked just inside the tail cone (which ends at 998). Three layers, each one
+   wide at the nozzle and tapering to a point: a faint amber glow a little wider
+   than the body, the amber flame about as wide as the body (36 at the nozzle,
+   up to 44) and a pale core from the thermal ramp. The script grows it from
+   nothing at ignition (a scale on .fco-flame), and the flicker is a loop on the
+   art and on each layer. */
 .fco-flame {
   position: absolute;
-  left: 60px;
+  left: 50px;
   top: 990px;
-  width: 40px;
+  width: 60px;
   height: 200px;
   transform-origin: 50% 0;
   pointer-events: none;
@@ -183,28 +203,38 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   overflow: visible;
   transform-origin: 50% 0;
 }
-.f-outer { fill: var(--fc-amber); opacity: 0.45; }
-.f-inner { fill: var(--fc-amber); transform-box: fill-box; transform-origin: 50% 0; }
+.fco-flame-art path { transform-box: fill-box; transform-origin: 50% 0; }
+.f-glow { fill: var(--fc-amber); opacity: 0.38; }
+.f-outer { fill: var(--fc-amber); }
+.f-inner { fill: var(--fc-ramp-6); }
 
 /* The flicker and the shake only run with the tour on screen and for viewers who
    haven't asked for less motion. The script adds is-lit while the flame is in view
    and is-shaking around liftoff, and sets --fco-shake (0 to 1), how hard it shakes.
-   The shake is a couple of screen pixels at any zoom (var(--px)). */
+   The shake is a couple of screen pixels at any zoom (var(--px)).
+   The flicker is three loops of different lengths, so the flame never repeats the
+   same way twice in a row: the whole flame stretches and narrows, the core jumps
+   in length, and the glow pulses. */
 @media (prefers-reduced-motion: no-preference) {
-  html.fco-anim .fco-rocket.is-lit .fco-flame-art { animation: fco-flicker 0.26s linear infinite alternate; }
-  html.fco-anim .fco-rocket.is-lit .f-inner { animation: fco-core 0.09s steps(2, end) infinite alternate; }
+  html.fco-anim .fco-rocket.is-lit .fco-flame-art { animation: fco-flicker 0.34s ease-in-out infinite alternate; }
+  html.fco-anim .fco-rocket.is-lit .f-inner { animation: fco-core 0.13s ease-in-out infinite alternate; }
+  html.fco-anim .fco-rocket.is-lit .f-glow { animation: fco-glow 0.21s ease-in-out infinite alternate; }
   html.fco-anim .fco-rocket.is-shaking .fco-rocket-shake { animation: fco-shake 0.08s linear infinite; }
 }
 @keyframes fco-flicker {
   0%   { transform: scale(1, 1); }
-  30%  { transform: scale(0.9, 1.12); }
-  55%  { transform: scale(1.06, 0.9); }
-  80%  { transform: scale(0.95, 1.07); }
-  100% { transform: scale(1.03, 0.95); }
+  25%  { transform: scale(0.88, 1.16); }
+  50%  { transform: scale(1.08, 0.86); }
+  75%  { transform: scale(0.93, 1.1); }
+  100% { transform: scale(1.05, 0.92); }
 }
 @keyframes fco-core {
-  from { opacity: 1; transform: scaleY(1); }
-  to   { opacity: 0.7; transform: scaleY(0.82); }
+  from { opacity: 1; transform: scale(1, 1); }
+  to   { opacity: 0.8; transform: scale(0.82, 0.72); }
+}
+@keyframes fco-glow {
+  from { opacity: 0.28; transform: scale(0.94, 0.92); }
+  to   { opacity: 0.48; transform: scale(1.06, 1.08); }
 }
 @keyframes fco-shake {
   0%   { transform: translate(0, 0); }
@@ -315,12 +345,14 @@ html.fco-anim .fco-steps {
   inset: 0;
   pointer-events: none;
 }
-/* Centered on the scene's middle, which sits half a nav lower than the window's.
-   The script sets transform for a short drift as each one fades, so the centering
-   uses translate, which adds to it. */
+/* Centered on the scene's middle. The script frames the scene between the bottom
+   of .fco-veil (less 8 px) and max(28px, 6vh) above the window's bottom, so its
+   middle sits half the difference lower than the window's. The script sets
+   transform for a short drift as each one fades, so the centering uses translate,
+   which adds to it. */
 html.fco-anim .fco-step {
   position: absolute;
-  top: calc(50% + var(--fc-nav-h) / 2);
+  top: calc(50% + (var(--fco-clear) + var(--fco-veil-fade) - 8px - max(28px, 6vh)) / 2);
   width: var(--fco-cap-w);
   translate: 0 -50%;
   opacity: 0;
@@ -336,7 +368,7 @@ html.fco-anim .fco-step:first-child { opacity: 1; }
   .fco-stage {
     --fco-layout: stacked;
     --fco-cap-h: clamp(8.5rem, 27svh, 14rem);
-    --fco-view-top: calc(var(--fc-nav-h) + 2.4rem);   /* under the pinned back link */
+    --fco-view-top: var(--fco-clear);   /* under the pinned back link, where .fco-veil starts to fade */
   }
   html.fco-anim .fco-view {
     top: var(--fco-view-top);
@@ -376,7 +408,8 @@ html:not(.fco-anim) .fco-steps {
   gap: clamp(2.5rem, 6vw, 4.5rem);
   max-width: 1320px;   /* the same as .fco-after, so What I built lines up under the pictures */
   margin: 0 auto;
-  padding: calc(var(--fc-nav-h) + clamp(2.5rem, 6vw, 4rem)) var(--fco-gut) 0;
+  /* Starts below .fco-veil, so the first picture isn't faded at the top */
+  padding: calc(var(--fco-clear) + var(--fco-veil-fade) + clamp(0.5rem, 3vw, 2rem)) var(--fco-gut) 0;
 }
 /* Each step is a picture with its sentence beside it. The sentences take turns
    on the left and the right, like the tour's. */
@@ -479,13 +512,12 @@ html.fco-static .fco-step > .fco-view.fco-still {
 }
 .fco-shot-term { grid-area: term; }
 .fco-shot-3d { grid-area: pic; }
+/* The two labels, shown just as they are typed in the HTML (sentence case) */
 .fco-shot-label {
   margin: 0 0 0.6rem;
   font-family: var(--fc-font-mono);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.3;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--fc-offwhite);
 }
 
@@ -513,6 +545,29 @@ html.fco-static .fco-step > .fco-view.fco-still {
    its width over 47.2 (a little room for rounding), kept between a readable
    floor and 13 px. Below the floor the text keeps that size and the panel
    scrolls sideways inside itself, never the page. */
+/* .fco-term-box holds the panel and the soft fades on its left and right edges.
+   The script adds has-more-right while there is hidden text to the right and
+   has-more-left once the panel has scrolled, so a cut-off line fades out at the
+   edge and reads as "there is more this way". */
+.fco-term-box { position: relative; }
+.fco-term-box::before,
+.fco-term-box::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 3rem;
+  opacity: 0;
+  pointer-events: none;
+}
+.fco-term-box::before { left: 1px; background: linear-gradient(270deg, transparent, var(--fc-black-deep) 85%); }
+.fco-term-box::after { right: 1px; background: linear-gradient(90deg, transparent, var(--fc-black-deep) 85%); }
+.fco-term-box.has-more-left::before,
+.fco-term-box.has-more-right::after { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .fco-term-box::before,
+  .fco-term-box::after { transition: opacity 0.2s; }
+}
 .fco-term {
   container-type: inline-size;
   overflow-x: auto;
@@ -542,12 +597,15 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-term-mark { color: var(--fc-amber); }
 
 /* The 3D view's picture. The image is placed absolutely and fills its frame
-   (object-fit: cover), so a new picture with the same file name drops in and is
-   cropped to fit. Stacked, the frame is 4:5. On a wide screen it takes the
-   height the serial output sets instead (see below). */
+   (object-fit: cover, centered), so a new picture with the same file name drops
+   in and is cropped to fit. Stacked, the frame has the picture's own shape
+   (1100 by 1430), so nothing is cropped. On a wide screen it takes the height
+   the serial output sets instead (see below), which comes out within a few
+   percent of that shape, so at most a few pixels go from the edges. The
+   picture's readouts sit in its corners, so the crop is kept even on all sides. */
 .fco-shot-frame {
   position: relative;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1100 / 1430;
   overflow: hidden;
   border: 1px solid var(--fc-line);
   background: var(--fc-black-deep);
@@ -559,7 +617,7 @@ html.fco-static .fco-step > .fco-view.fco-still {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 40%;
+  object-position: 50% 50%;
 }
 
 /* The Cesium ion credits for the picture's imagery and terrain */
@@ -573,10 +631,10 @@ html.fco-static .fco-step > .fco-view.fco-still {
   font-family: var(--fc-font-sentence);
   font-size: 0.9rem;
   line-height: 1.4;
-  color: var(--fc-text-dim);
+  color: var(--fc-offwhite);
 }
 .fco-credit summary:hover,
-.fco-credit[open] summary { color: var(--fc-offwhite); }
+.fco-credit[open] summary { color: var(--fc-white); }
 .fco-credit summary:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 2px; }
 .fco-credit-body { margin-top: 0.5rem; }
 .fco-credit-body p {
@@ -584,13 +642,15 @@ html.fco-static .fco-step > .fco-view.fco-still {
   font-family: var(--fc-font-sentence);
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--fc-text-dim);
+  color: var(--fc-offwhite);
 }
 .fco-credit-body p + p { margin-top: 0.35rem; }
 
 /* Wide windows: side by side, with the arrow in a narrow column between them.
-   At 1180 px the serial output's panel is about 520 px, which fits the text at
-   about 10.5 px, so the floor drops to 10.5 px here. The 3D view's frame
+   At 1180 px the serial output's panel is about 514 px, which fits the text at
+   about 10 px, so the floor drops to 10 px here and the lines never get cut
+   off side by side. From about 1280 px up the text is 11 px or more. The 3D
+   view's frame
    stretches to the serial output's height. The arrow's padding-top is the
    labels' height, so it sits in the middle of the panels, not of the labels. */
 @media (min-width: 1180px) {
@@ -600,11 +660,11 @@ html.fco-static .fco-step > .fco-view.fco-still {
     max-width: none;
   }
   .fco-shot-arrow {
-    padding: calc(0.85rem * 1.3 + 0.6rem) 1rem 0;
+    padding: calc(0.9rem * 1.3 + 0.6rem) 1rem 0;
   }
   .fco-shot-arrow svg { transform: none; }
   .fco-term { padding: 20px; }
-  .fco-term-text { font-size: max(10.5px, min(13px, 100cqi / 47.2)); }
+  .fco-term-text { font-size: max(10px, min(13px, 100cqi / 47.2)); }
   .fco-shot-3d .fco-shot-frame {
     flex: 1 1 0;
     min-height: 0;
