@@ -1,40 +1,37 @@
 /* ============================================================
-   FLIGHT CONSOLE PROJECT OVERVIEW  (projects/flight-console.html)
+   HOW IT WORKS  (projects/flight-console.html)
    The colors and fonts come from css/flight-console-theme.css.
    This file holds what only this page needs:
      1. the scroll tour (a tall wrapper with a sticky stage, run by
-        js/flight-console-overview.js)
+        js/flight-console-overview.js): the scene in the middle of the
+        window and the four sentences taking turns on its left and right
      2. the same four steps as still pictures, for reduced motion
-     3. What I built (the serial output and the 3D view side by
-        side) and the related links
+     3. What I built (the serial output and the 3D view side by side)
    Everything is under body.fco, so none of it reaches other pages.
    The script adds fco-anim (scroll tour) or fco-static (still
    pictures) to <html>. With neither (no JavaScript), the four
    sentences show as a plain list.
+   Every animation (the flame's flicker and the shake at liftoff) runs
+   only inside @media (prefers-reduced-motion: no-preference).
    ============================================================ */
 
 .fco {
   --fco-gut: clamp(1rem, 5vw, 5rem);         /* page side margin */
-  --fco-cap-w: clamp(220px, 30vw, 440px);    /* the sentence column beside the scene */
-  --fco-cap-gap: clamp(1rem, 2vw, 2rem);
-  --fco-fade: 48px;                          /* the soft edge where the scene meets the sentences */
+  --fco-cap-w: clamp(180px, 21vw, 330px);    /* each sentence column, left and right of the scene */
+  --fco-cap-gap: clamp(0.75rem, 2vw, 2rem);  /* space between a sentence column and the scene */
+  --fco-fade: 48px;                          /* the soft edges where the scene ends on each side */
+  /* How far the scene's box sits in from each side of the window, so it is
+     centered with a sentence column on each side */
+  --fco-side: calc(var(--fco-gut) + var(--fco-cap-w) + var(--fco-cap-gap) - var(--fco-fade));
   /* The soft edge where the scene meets the nav: nothing shows under the nav, and
      the scene fades in over the 24 px below its bottom edge */
   --fco-top-fade: linear-gradient(180deg,
     transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px));
 }
 
-/* The phone menu. Once the page scrolls, the site nav gets a backdrop blur
-   (css/style.css), and a blur makes the nav the frame its fixed menu panel is
-   placed in. The panel then measures 0 px tall and its links end up off screen or
-   loose over the scene. This page is scrolled for the whole tour, so while the
-   menu is open the nav drops the blur and turns solid near-black, and the panel fills
-   the screen under it again. */
-.fco #nav:has(.nav-links.open) {
-  -webkit-backdrop-filter: none;
-          backdrop-filter: none;
-  background: var(--fc-black);
-}
+/* The phone menu. While it is open the nav turns solid near-black, so the
+   scene doesn't show through the nav's soft fade above the menu panel. */
+.fco #nav:has(.nav-links.open) { background: var(--fc-black); }
 
 /* ── 1. The scroll tour ──────────────────────────────────── */
 .fco-tour { position: relative; }
@@ -48,7 +45,7 @@
 /* No JavaScript, or still pictures: the scene itself is not shown */
 .fco-view { display: none; }
 
-html.fco-anim .fco-tour { height: 540vh; height: 540svh; }
+html.fco-anim .fco-tour { height: 600vh; height: 600svh; }
 html.fco-anim .fco-stage {
   position: sticky;
   top: 0;
@@ -61,14 +58,18 @@ html.fco-anim .fco-view {
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 0;
-  left: calc(var(--fco-gut) + var(--fco-cap-w) + var(--fco-cap-gap) - var(--fco-fade));
+  left: var(--fco-side);
+  right: var(--fco-side);
   overflow: hidden;
-  /* Things leave the scene through soft edges instead of hard cuts: on the left,
-     where the sentences are, and at the top, so the rocket fades out before it
-     passes under the see-through nav instead of being cut off at its edge */
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade)), var(--fco-top-fade);
-          mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade)), var(--fco-top-fade);
+  /* Things leave the scene through soft edges instead of hard cuts: on the left
+     and right, where the sentences are, and at the top, so the rocket fades out
+     before it passes under the see-through nav */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%),
+    var(--fco-top-fade);
+          mask-image:
+    linear-gradient(90deg, transparent 0, #000 var(--fco-fade), #000 calc(100% - var(--fco-fade)), transparent 100%),
+    var(--fco-top-fade);
   -webkit-mask-composite: source-in;
           mask-composite: intersect;
 }
@@ -103,7 +104,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   stroke-linecap: round;
 }
 .ln-ground { stroke: var(--fc-line-strong); stroke-width: calc(var(--px) * 1); }
-.ln-trail { stroke: var(--fc-line); stroke-width: calc(var(--px) * 1.5); }
+.ln-trail { stroke: var(--fc-line-strong); stroke-width: calc(var(--px) * 1.5); }
 .ln-link { stroke: var(--fc-text-dim); stroke-width: calc(var(--px) * 1.5); }
 .ln-pulse { fill: var(--fc-amber); }
 .ln-antenna { stroke: var(--fc-offwhite); stroke-width: calc(var(--px) * 1.5); }
@@ -117,12 +118,19 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 }
 .ln-signal-head { fill: var(--fc-amber); }
 
-/* The rocket: a near-black outline in off-white with amber fins */
+/* The rocket: an off-white outline on the page's own near-black, with amber fins.
+   The body is filled with the background color, so while the rocket fades in
+   around the shrinking board there is no lighter column behind it. */
 .fco-rocket {
   left: -80px;
   top: 0;
   width: 160px;
   height: 1000px;
+}
+/* Everything that shakes at liftoff: the art, the board and the flame */
+.fco-rocket-shake {
+  position: absolute;
+  inset: 0;
 }
 .fco-rocket-art {
   position: absolute;
@@ -132,7 +140,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   overflow: visible;
 }
 .r-body {
-  fill: var(--fc-black-raised);
+  fill: var(--fc-black);
   stroke: var(--fc-offwhite);
   stroke-width: calc(var(--px) * 1.5);
   stroke-linejoin: round;
@@ -143,15 +151,9 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   stroke: var(--fc-line-strong);
   stroke-width: calc(var(--px) * 1);
 }
-/* The window shows the page's own near-black, so at the close-up the board sits on plain near-black */
-.r-window {
-  fill: var(--fc-black);
-  stroke: var(--fc-offwhite);
-  stroke-width: calc(var(--px) * 1.5);
-}
-/* The board fills the window: 30.4 wide, centered on (0, 258) in the rocket's frame,
-   which is (80, 258) from the rocket box's top left corner. Its height follows the
-   image (2400 by 2523). */
+/* The board sits in the avionics bay: 30.4 wide, centered on (0, 258) in the
+   rocket's frame, which is (80, 258) from the rocket box's top left corner. Its
+   height follows the image (2400 by 2523). */
 .fco-board {
   position: absolute;
   left: 64.8px;
@@ -160,6 +162,56 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   height: auto;
   pointer-events: none;
   user-select: none;
+}
+
+/* The flame under the tail: 40 wide and 200 long, its top tucked just inside the
+   tail cone (which ends at 998). The script grows it from nothing at ignition
+   (a scale on .fco-flame), and the flicker is a loop on the art inside. */
+.fco-flame {
+  position: absolute;
+  left: 60px;
+  top: 990px;
+  width: 40px;
+  height: 200px;
+  transform-origin: 50% 0;
+  pointer-events: none;
+}
+.fco-flame-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 50% 0;
+}
+.f-outer { fill: var(--fc-amber); opacity: 0.45; }
+.f-inner { fill: var(--fc-amber); transform-box: fill-box; transform-origin: 50% 0; }
+
+/* The flicker and the shake only run with the tour on screen and for viewers who
+   haven't asked for less motion. The script adds is-lit while the flame is in view
+   and is-shaking around liftoff, and sets --fco-shake (0 to 1), how hard it shakes.
+   The shake is a couple of screen pixels at any zoom (var(--px)). */
+@media (prefers-reduced-motion: no-preference) {
+  html.fco-anim .fco-rocket.is-lit .fco-flame-art { animation: fco-flicker 0.26s linear infinite alternate; }
+  html.fco-anim .fco-rocket.is-lit .f-inner { animation: fco-core 0.09s steps(2, end) infinite alternate; }
+  html.fco-anim .fco-rocket.is-shaking .fco-rocket-shake { animation: fco-shake 0.08s linear infinite; }
+}
+@keyframes fco-flicker {
+  0%   { transform: scale(1, 1); }
+  30%  { transform: scale(0.9, 1.12); }
+  55%  { transform: scale(1.06, 0.9); }
+  80%  { transform: scale(0.95, 1.07); }
+  100% { transform: scale(1.03, 0.95); }
+}
+@keyframes fco-core {
+  from { opacity: 1; transform: scaleY(1); }
+  to   { opacity: 0.7; transform: scaleY(0.82); }
+}
+@keyframes fco-shake {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(calc(var(--px) * var(--fco-shake, 0) * 1.6), calc(var(--px) * var(--fco-shake, 0) * -0.8)); }
+  50%  { transform: translate(calc(var(--px) * var(--fco-shake, 0) * -1.2), calc(var(--px) * var(--fco-shake, 0) * 0.6)); }
+  75%  { transform: translate(calc(var(--px) * var(--fco-shake, 0) * 0.8), calc(var(--px) * var(--fco-shake, 0) * 0.9)); }
+  100% { transform: translate(0, 0); }
 }
 
 /* Manta: a plain block on the ground. The script sets its font size in scene units,
@@ -225,7 +277,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 /* The hint to scroll, under the close-up. It fades as soon as the page moves. */
 .fco-cue {
   position: absolute;
-  left: calc(50% + var(--fco-fade) / 2);
+  left: 50%;
   bottom: clamp(1rem, 3.5vh, 2rem);
   width: 24px;
   height: 24px;
@@ -241,8 +293,9 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   stroke-linejoin: round;
 }
 
-/* The four sentences. With the tour running, they share one spot beside the scene
-   and the script fades between them. */
+/* The four sentences, in Barlow Condensed. With the tour running, each one has
+   its own spot (1 and 3 on the left, 2 and 4 on the right) and the script fades
+   between them. */
 .fco-steps {
   list-style: none;
   margin: 0;
@@ -251,59 +304,70 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
 .fco-step > p {
   margin: 0;
   max-width: 19em;
-  font-family: var(--fc-font-mono);
+  font-family: var(--fc-font-sentence);
   font-weight: 500;
-  font-size: clamp(1.55rem, 0.95rem + 1.35vw, 2.45rem);
-  line-height: 1.16;
-  color: var(--fc-offwhite);
+  font-size: clamp(1.45rem, 0.8rem + 1.45vw, 2.3rem);
+  line-height: 1.14;
+  color: var(--fc-white);
 }
 html.fco-anim .fco-steps {
   position: absolute;
-  left: var(--fco-gut);
-  width: var(--fco-cap-w);
-  top: calc(50% + var(--fc-nav-h) / 2);
-  transform: translateY(-50%);
-  display: grid;
+  inset: 0;
+  pointer-events: none;
 }
-html.fco-anim .fco-step { grid-area: 1 / 1; opacity: 0; }
+/* Centered on the scene's middle, which sits half a nav lower than the window's.
+   The script sets transform for a short drift as each one fades, so the centering
+   uses translate, which adds to it. */
+html.fco-anim .fco-step {
+  position: absolute;
+  top: calc(50% + var(--fc-nav-h) / 2);
+  width: var(--fco-cap-w);
+  translate: 0 -50%;
+  opacity: 0;
+}
+html.fco-anim .fco-step:nth-child(odd) { left: var(--fco-gut); }
+html.fco-anim .fco-step:nth-child(even) { right: var(--fco-gut); }
 html.fco-anim .fco-step:first-child { opacity: 1; }
 
-/* Phones, and windows taller than they are wide: the scene on top, the sentence under it */
+/* Phones, and windows taller than they are wide: no room beside the scene, so
+   the scene takes the whole width, starts under the back link, and the sentence
+   sits under it, centered */
 @media (max-width: 600px), (max-aspect-ratio: 1/1) {
   .fco-stage {
     --fco-layout: stacked;
     --fco-cap-h: clamp(8.5rem, 27svh, 14rem);
+    --fco-view-top: calc(var(--fc-nav-h) + 2.4rem);   /* under the pinned back link */
   }
   html.fco-anim .fco-view {
+    top: var(--fco-view-top);
     left: 0;
+    right: 0;
     bottom: var(--fco-cap-h);
-    /* Soft edges at the top (the nav) and at the bottom (the sentence) */
-    -webkit-mask-image: linear-gradient(180deg,
-      transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px),
-      #000 calc(100% - 32px), transparent);
-            mask-image: linear-gradient(180deg,
-      transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px),
-      #000 calc(100% - 32px), transparent);
+    /* Soft edges at the top and at the bottom (the sentence) */
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 32px), transparent);
+            mask-image: linear-gradient(180deg, transparent, #000 24px, #000 calc(100% - 32px), transparent);
   }
-  .fco-cue { left: 50%; }
   html.fco-anim .fco-steps {
+    top: auto;
+    height: var(--fco-cap-h);
+  }
+  html.fco-anim .fco-step,
+  html.fco-anim .fco-step:nth-child(odd),
+  html.fco-anim .fco-step:nth-child(even) {
+    top: 0;
     left: 1rem;
     right: 1rem;
     width: auto;
-    top: auto;
-    bottom: 0;
-    height: var(--fco-cap-h);
-    transform: none;
-    align-content: start;
-    justify-items: center;
+    translate: none;
     padding-top: 0.4rem;
     text-align: center;
   }
-  .fco-step > p { font-size: clamp(1.2rem, 0.85rem + 2vw, 1.75rem); line-height: 1.2; }
+  html.fco-anim .fco-step > p { margin-inline: auto; }
+  .fco-step > p { font-size: clamp(1.35rem, 1rem + 2vw, 1.9rem); line-height: 1.16; }
 }
 /* Short, wide windows (phones on their side) */
 @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
-  .fco-step > p { font-size: clamp(1.1rem, 4.6vh, 1.55rem); }
+  .fco-step > p { font-size: clamp(1.15rem, 5vh, 1.6rem); }
 }
 
 /* ── 2. Still pictures (reduced motion), and the plain list ─ */
@@ -312,14 +376,21 @@ html:not(.fco-anim) .fco-steps {
   gap: clamp(2.5rem, 6vw, 4.5rem);
   max-width: 1320px;   /* the same as .fco-after, so What I built lines up under the pictures */
   margin: 0 auto;
-  padding: calc(var(--fc-nav-h) + clamp(1.5rem, 5vw, 3.5rem)) var(--fco-gut) 0;
+  padding: calc(var(--fc-nav-h) + clamp(2.5rem, 6vw, 4rem)) var(--fco-gut) 0;
 }
+/* Each step is a picture with its sentence beside it. The sentences take turns
+   on the left and the right, like the tour's. */
 html.fco-static .fco-step {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: clamp(1.25rem, 4vw, 3rem);
   align-items: center;
 }
+html.fco-static .fco-step > p { grid-row: 1; grid-column: 1; }
+html.fco-static .fco-step > .fco-view.fco-still { grid-row: 1; grid-column: 2; }
+html.fco-static .fco-step:nth-child(even) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+html.fco-static .fco-step:nth-child(even) > p { grid-column: 2; }
+html.fco-static .fco-step:nth-child(even) > .fco-view.fco-still { grid-column: 1; }
 /* One copy of the scene per step, held at that step */
 html.fco-static .fco-step > .fco-view.fco-still {
   display: block;
@@ -330,55 +401,76 @@ html.fco-static .fco-step > .fco-view.fco-still {
 }
 .fco-still .fco-cue { display: none; }
 @media (max-width: 600px), (max-aspect-ratio: 1/1) {
-  html.fco-static .fco-step { grid-template-columns: minmax(0, 1fr); }
-  html.fco-static .fco-step > .fco-view.fco-still { aspect-ratio: 4 / 3; }
+  html.fco-static .fco-step,
+  html.fco-static .fco-step:nth-child(even) { grid-template-columns: minmax(0, 1fr); }
+  html.fco-static .fco-step > p,
+  html.fco-static .fco-step:nth-child(even) > p { grid-row: 2; grid-column: 1; margin-inline: auto; text-align: center; }
+  html.fco-static .fco-step > .fco-view.fco-still,
+  html.fco-static .fco-step:nth-child(even) > .fco-view.fco-still { grid-row: 1; grid-column: 1; aspect-ratio: 4 / 3; }
 }
 
-/* ── 3. What I built, the side by side and the related links ─ */
-/* A little wider than the tour's sentences, so the serial output beside the
-   3D view can use a readable size */
+/* ── 3. What I built: the serial output and the 3D view side by side ─ */
+/* A little wider than the tour, so the serial output beside the 3D view can use
+   a readable size */
 .fco-after {
   max-width: 1320px;
   margin: 0 auto;
   padding-inline: var(--fco-gut);
 }
-.fco-built { padding-top: clamp(4.5rem, 12vw, 8rem); }
+.fco-built {
+  padding-top: clamp(4.5rem, 12vw, 8rem);
+  padding-bottom: clamp(4rem, 10vw, 7rem);
+}
 .fco-built h2 {
   margin: 0;
   font-family: var(--fc-font-mono);
-  font-weight: 700;
-  font-size: clamp(2.1rem, 1.5rem + 2vw, 3.2rem);
+  font-weight: 400;
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
   line-height: 1.05;
-  color: var(--fc-offwhite);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--fc-white);
 }
 .fco-built > p {
   margin: 0.9rem 0 0;
   font-family: var(--fc-font-sentence);
-  font-size: clamp(1.05rem, 1rem + 0.3vw, 1.25rem);
-  line-height: 1.55;
+  font-size: clamp(1.15rem, 1.05rem + 0.35vw, 1.4rem);
+  line-height: 1.45;
   color: var(--fc-text-dim);
 }
 .fco-built > p a {
-  color: var(--fc-offwhite);
+  color: var(--fc-white);
   text-decoration: underline;
   text-decoration-color: var(--fc-amber);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.25em;
-  transition: color 0.2s;
 }
 .fco-built > p a:hover { color: var(--fc-amber); }
 .fco-built > p a:focus-visible { outline: 2px solid var(--fc-amber); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .fco-built > p a,
+  .fco-credit summary { transition: color 0.2s; }
+}
 
-/* The figure: the serial output and the 3D view, then the picture's credits
-   under the picture, then the caption under both. Narrow windows stack them
-   in that order. Wide ones put the two panels side by side at the same
-   height, with the serial output a little wider. */
+/* The figure: the caption on top, then the serial output, the amber arrow and the
+   3D view, then the picture's credits. Narrow windows stack them in that order,
+   with the arrow pointing down. Wide ones put the two panels side by side at the
+   same height, the arrow between them pointing right. */
 .fco-shots {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "term" "pic" "credit" "cap";
+  grid-template-areas: "cap" "term" "arrow" "pic" "credit";
   max-width: 680px;
   margin: clamp(2rem, 5vw, 3rem) 0 0;
+}
+.fco-shots figcaption {
+  grid-area: cap;
+  margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
+  font-family: var(--fc-font-sentence);
+  font-weight: 500;
+  font-size: clamp(1.4rem, 1.1rem + 1vw, 2rem);
+  line-height: 1.2;
+  color: var(--fc-white);
 }
 .fco-shot {
   display: flex;
@@ -386,13 +478,33 @@ html.fco-static .fco-step > .fco-view.fco-still {
   min-width: 0;
 }
 .fco-shot-term { grid-area: term; }
-.fco-shot-3d { grid-area: pic; margin-top: clamp(1.75rem, 5vw, 2.5rem); }
+.fco-shot-3d { grid-area: pic; }
 .fco-shot-label {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.6rem;
   font-family: var(--fc-font-mono);
   font-size: 0.85rem;
   line-height: 1.3;
-  color: var(--fc-text-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-offwhite);
+}
+
+/* The arrow from the serial output to the 3D view */
+.fco-shot-arrow {
+  grid-area: arrow;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.9rem 0 1.1rem;
+}
+.fco-shot-arrow svg {
+  display: block;
+  fill: none;
+  stroke: var(--fc-amber);
+  stroke-width: 2.5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  transform: rotate(90deg);   /* pointing down while the panels are stacked */
 }
 
 /* The serial output, as real text in a terminal-like panel. The banner lines
@@ -420,19 +532,22 @@ html.fco-static .fco-step > .fco-view.fco-still {
   font-variant-ligatures: none;
   line-height: 1.25;
   white-space: pre;
-  color: var(--fc-offwhite);
+  color: var(--fc-white);
 }
 /* The runs of = and - (hidden from screen readers) */
 .fco-term-dim { color: var(--fc-text-dim); }
-/* The first block's position, the reading the 3D view shows */
+/* The older block (3533): off-white and a little dimmed, nothing marked */
+.fco-term-old { color: var(--fc-offwhite); opacity: 0.6; }
+/* In the newer block (3534), the values that changed since the one before */
 .fco-term-mark { color: var(--fc-amber); }
 
-/* The 3D view's screenshot. The image is placed absolutely, so on a wide
-   screen it takes the height the serial output sets instead of adding its
-   own. When stacked, the frame has the picture's shape. */
+/* The 3D view's picture. The image is placed absolutely and fills its frame
+   (object-fit: cover), so a new picture with the same file name drops in and is
+   cropped to fit. Stacked, the frame is 4:5. On a wide screen it takes the
+   height the serial output sets instead (see below). */
 .fco-shot-frame {
   position: relative;
-  aspect-ratio: 1100 / 1430;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
   border: 1px solid var(--fc-line);
   background: var(--fc-black-deep);
@@ -456,10 +571,9 @@ html.fco-static .fco-step > .fco-view.fco-still {
   width: fit-content;
   cursor: pointer;
   font-family: var(--fc-font-sentence);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   line-height: 1.4;
   color: var(--fc-text-dim);
-  transition: color 0.2s;
 }
 .fco-credit summary:hover,
 .fco-credit[open] summary { color: var(--fc-offwhite); }
@@ -468,32 +582,27 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-credit-body p {
   margin: 0;
   font-family: var(--fc-font-sentence);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: var(--fc-text-dim);
 }
 .fco-credit-body p + p { margin-top: 0.35rem; }
 
-.fco-shots figcaption {
-  grid-area: cap;
-  margin-top: 1rem;
-  font-family: var(--fc-font-sentence);
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: var(--fc-text-dim);
-}
-
-/* Wide windows: side by side. At 1180 px the serial output's panel is about
-   540 px, which fits the text at about 10.6 px, so the floor drops to 10.5 px
-   here. The 3D view's frame stretches to the serial output's height. */
+/* Wide windows: side by side, with the arrow in a narrow column between them.
+   At 1180 px the serial output's panel is about 520 px, which fits the text at
+   about 10.5 px, so the floor drops to 10.5 px here. The 3D view's frame
+   stretches to the serial output's height. The arrow's padding-top is the
+   labels' height, so it sits in the middle of the panels, not of the labels. */
 @media (min-width: 1180px) {
   .fco-shots {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    grid-template-areas: "term pic" ". credit" "cap cap";
-    column-gap: 1.75rem;
+    grid-template-columns: minmax(0, 1.1fr) auto minmax(0, 1fr);
+    grid-template-areas: "cap cap cap" "term arrow pic" ". . credit";
     max-width: none;
   }
-  .fco-shot-3d { margin-top: 0; }
+  .fco-shot-arrow {
+    padding: calc(0.85rem * 1.3 + 0.6rem) 1rem 0;
+  }
+  .fco-shot-arrow svg { transform: none; }
   .fco-term { padding: 20px; }
   .fco-term-text { font-size: max(10.5px, min(13px, 100cqi / 47.2)); }
   .fco-shot-3d .fco-shot-frame {
@@ -501,44 +610,4 @@ html.fco-static .fco-step > .fco-view.fco-still {
     min-height: 0;
     aspect-ratio: auto;
   }
-}
-
-.fco-related {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding-top: clamp(3.5rem, 8vw, 5.5rem);
-  padding-bottom: clamp(4rem, 10vw, 7rem);
-}
-/* Button labels use the stencil font, like the buttons on the Flight Console
-   pages, and are typed in capitals in the HTML */
-.fco-related a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 48px;
-  padding: 0.75em 1.15em 0.7em;
-  border: 1px solid var(--fc-line-strong);
-  border-radius: 0;
-  font-family: var(--fc-font-mono);
-  font-weight: 400;
-  font-size: 1.05rem;
-  line-height: 1.1;
-  color: var(--fc-offwhite);
-  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
-}
-/* Filled amber on hover and focus, with a near-black label (off-white on amber is
-   only about 2 to 1) */
-.fco-related a:hover,
-.fco-related a:focus-visible { color: var(--fc-black); border-color: var(--fc-amber); background: var(--fc-amber); }
-.fco-related a:focus-visible { outline: 2px solid var(--fc-offwhite); outline-offset: 3px; }
-
-@media (max-width: 640px) {
-  .fco-related { flex-direction: column; }
-  .fco-related a { justify-content: center; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fco-built > p a,
-  .fco-credit summary,
-  .fco-related a { transition: none; }
 }
