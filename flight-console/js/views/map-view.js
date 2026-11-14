@@ -1717,8 +1717,7 @@ export function createMapView(root, ctx) {
   // first). But when another shift keeps
   // more of Manta and the launch pads on the map and clear of covered
   // areas, that one wins (never closer than a sixth of the way from an
-  // edge in the leaving direction, so it doesn't nudge the map on every
-  // frame).
+  // edge, so it doesn't nudge the map on every frame).
   function followShift(box, ins, size, covers) {
     const axis = (a0, a1, lo0, hi0) => {
       // Shifts that keep [a0, a1] inside [lo0, hi0].
@@ -1726,11 +1725,12 @@ export function createMapView(root, ctx) {
       const hi = a0 - lo0;
       const middle = (lo + hi) / 2;
       if (lo > hi) return { list: [middle], aim: middle };
-      const steps = Array.from({ length: 7 }, (_, i) => lo + ((hi - lo) * i) / 6);
+      // Spots a sixth, two sixths ... five sixths of the way across. Never
+      // the two ends, which would leave the box right on an edge, where the
+      // next fix pans the map straight back.
+      const steps = Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * (i + 1)) / 6);
       if (lo <= 0 && hi >= 0) return { list: [0, ...steps], aim: Math.min(-lo, hi) < (hi - lo) / 4 ? middle : 0 };
-      // Leaving: not the end that only just brings the box back inside.
-      const nearEnd = Math.abs(lo) < Math.abs(hi) ? 0 : 6;
-      return { list: steps.filter((_, i) => i !== nearEnd), aim: middle };
+      return { list: steps, aim: middle };
     };
     const xs = axis(box.left, box.right, ins.left, size.x - ins.right);
     const ys = axis(box.top, box.bottom, ins.top, size.y - ins.bottom);
