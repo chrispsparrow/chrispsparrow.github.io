@@ -126,14 +126,18 @@
 }
 .fc-page .fc-map-status:empty { display: none; }
 
-/* The scale bar: the distance in mono over a thin bar with end ticks. */
+/* The scale bar: the distance in white mono over a thin white bar with
+   end ticks, both with the HUD's thin dark outline, so they read over
+   bright desert and dark ground alike. The bar's outline runs on both
+   sides of each white line (outside with box-shadow, inside with an
+   inset one). */
 .fc-page .fc-scale {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 3px;
   font-family: var(--fc-font-mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1;
   letter-spacing: 0.04em;
   color: var(--fc-white);
@@ -142,23 +146,27 @@
 }
 .fc-page .fc-scale-bar {
   display: block;
-  height: 5px;
+  height: 6px;
   min-width: 10px;
-  border: 1px solid var(--fc-white);
+  border: 1.5px solid var(--fc-white);
   border-top: 0;
-  box-shadow: 0 1px 0 var(--fc-black-deep), -1px 0 0 var(--fc-black-deep), 1px 0 0 var(--fc-black-deep);
+  box-shadow:
+    0 1px 0 var(--fc-black-deep), -1px 0 0 var(--fc-black-deep), 1px 0 0 var(--fc-black-deep),
+    inset 0 -1px 0 var(--fc-black-deep), inset 1px 0 0 var(--fc-black-deep), inset -1px 0 0 var(--fc-black-deep),
+    0 0 6px color-mix(in srgb, var(--fc-black-deep) 60%, transparent);
 }
 
 /* The credits: Cesium's logo and data credits in 3D, Leaflet's credit
    line on the map. They are required, so they always show, small and
-   quiet. */
+   quiet, in off-white with the same thin dark outline, so they can still
+   be read over bright ground. */
 .fc-page .fc-globe-credits,
 .fc-page .fc-map-credits {
   max-width: 100%;
   font-family: var(--fc-font-mono);
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   line-height: 1.3;
-  color: var(--fc-text-2);
+  color: var(--fc-offwhite);
   text-shadow: var(--fc-text-outline);
 }
 .fc-page .fc-globe-credits:empty,
@@ -175,9 +183,9 @@
   color: inherit;
   text-shadow: inherit;
 }
-.fc-page .fc-globe-credits img { display: block; max-height: 16px; width: auto; }
+.fc-page .fc-globe-credits img { display: block; max-height: 16px; width: auto; filter: drop-shadow(0 0 1px var(--fc-black-deep)) drop-shadow(0 0 2px var(--fc-black-deep)); }
 .fc-page .fc-main .fc-globe-credits a,
-.fc-page .fc-main .fc-map-credits a { color: var(--fc-text-2); text-underline-offset: 2px; }
+.fc-page .fc-main .fc-map-credits a { color: var(--fc-offwhite); text-underline-offset: 2px; }
 .fc-page .fc-main .fc-globe-credits a:hover,
 .fc-page .fc-main .fc-map-credits a:hover { color: var(--fc-amber); }
 /* Leaflet's credit line, moved into the corner. The satellite credits are

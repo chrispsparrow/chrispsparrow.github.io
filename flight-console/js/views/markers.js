@@ -57,9 +57,13 @@ export const LINE_OUTLINE_PX = 1;
 export const OTHER_LINE_PX = 1.5;
 export const OTHER_DOT_PX = 4;
 // The ground shadow in 3D: the same line laid flat on the terrain under
-// the real one, this wide (px), in near-black at this opacity.
+// the real one, this wide (px), in near-black at this opacity. A wider,
+// very faint off-white band under it keeps it findable over dark ground
+// (roofs, trees, water), where a dark line alone disappears.
 export const SHADOW_PX = 3;
-export const SHADOW_ALPHA = 0.45;
+export const SHADOW_ALPHA = 0.5;
+export const SHADOW_EDGE_PX = SHADOW_PX + 3;
+export const SHADOW_EDGE_ALPHA = 0.2;
 
 // ------------------------------------------------------------------
 // The packet ring: one thin white ring that grows out of the board marker
@@ -218,10 +222,10 @@ export function weakKeySvg() {
     `<circle cx="14" cy="7" r="${r}" fill="none" stroke="${WEAK_COLOR}" stroke-width="${WEAK_LINE_PX}"/>`);
 }
 
-// The ground shadow: a short soft dark band.
+// The ground shadow: a short dark band with its faint light edge.
 export function shadowKeySvg() {
   return keySvg(
-    `<line x1="3" y1="9" x2="25" y2="9" stroke="${OFF_WHITE}" stroke-opacity="0.18" stroke-width="${SHADOW_PX + 3}" stroke-linecap="round"/>` +
+    `<line x1="3" y1="9" x2="25" y2="9" stroke="${OFF_WHITE}" stroke-opacity="${SHADOW_EDGE_ALPHA}" stroke-width="${SHADOW_EDGE_PX}" stroke-linecap="round"/>` +
     `<line x1="3" y1="9" x2="25" y2="9" stroke="${NEAR_BLACK}" stroke-opacity="0.9" stroke-width="${SHADOW_PX}" stroke-linecap="round"/>`);
 }
 

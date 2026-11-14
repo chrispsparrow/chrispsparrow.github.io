@@ -21,8 +21,9 @@
 //   - The dots are the raw fixes. Only the line is smoothed (a moving
 //     average of the last few good fixes, worked out in track.js).
 //   - A gap in the packets is left as a break in the line, never bridged.
-//   - The board marker sits on the newest good fix. It always stands
-//     upright, since no board sends orientation data.
+//   - The board marker sits on the newest good fix (or, while no fix has
+//     passed the quality gate yet, hollow on the newest weak one). It
+//     always stands upright, since no board sends orientation data.
 //   - With no GPS fix right now (or a newer fix that failed the quality
 //     gate) the marker turns hollow at its last good position.
 //   - Event markers only appear once playback has reached the event.
@@ -57,7 +58,8 @@
 // whole globe, and up close they turn far too fast. They are switched off,
 // and this file has its own: drag to orbit around what the camera looks
 // at, the wheel or a pinch to zoom, and the right button or two fingers to
-// slide the view (see "Controls" near the end).
+// slide the view (see "Controls" near the end). FOLLOW BOARD moves the
+// camera like an operator on the ground (see "Follow camera").
 //
 // Look. The view sits on the page with no frame: the space around the
 // Earth is the page's near-black, there are no stars, sun or moon, and the
@@ -76,12 +78,12 @@
 import { createScheduler, prefersReducedMotion } from './dom.js';
 import { distanceM } from '../geo.js';
 import { speedColor } from '../track.js';
-import { eventCrumb, recoveryInfo } from '../flight-state.js';
+import { eventCrumb, recoveryInfo, flightState, STATE } from '../flight-state.js';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE,
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX,
-  OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, NEAR_BLACK, WHITE,
+  OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, SHADOW_EDGE_PX, SHADOW_EDGE_ALPHA, OFF_WHITE, NEAR_BLACK, WHITE,
   RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
   LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js';
@@ -156,6 +158,48 @@ const HORIZON_FADE_TO_MAX = 0.38;
 // Labels fade out once one screen pixel covers more than this many meters
 // where the camera looks (zoomed far out).
 const LABEL_FAR_M_PER_PX = 60;
+// FOLLOW BOARD works like a camera operator on the ground (see "Follow
+// camera" below). It keeps the board, the launch point, Manta when it is
+// close and the path so far inside the free part of the view, and pulls
+// back as the board climbs. These are its settings.
+// The closest it comes on its own (m). Zooming by hand still goes closer.
+const FOLLOW_RANGE_MIN_M = 1500;
+// The farthest it pulls back to keep the launch point and the whole path
+// in view (m). Past that it keeps the board and its newest
+// FOLLOW_TAIL_POINTS path points instead.
+const FOLLOW_RANGE_MAX_M = 15000;
+const FOLLOW_TAIL_POINTS = 20;
+// The camera leads the board by one fix (where it will be if it keeps
+// going), unless that step is longer than this (m), which no flight does
+// between two fixes.
+const FOLLOW_LEAD_MAX_M = 800;
+// Manta is kept in view while it is this close (m) to the launch point.
+const FOLLOW_STATION_M = 3000;
+// At most this many path points are used to work out the framing.
+const FOLLOW_SAMPLE = 120;
+// The framing keeps the board this far (px) inside the free part, so it
+// stays clear while the camera is still catching up with a new fix.
+const FOLLOW_ROOM_PX = 40;
+// Changes smaller than this (px on screen) are ignored, so a board that
+// wanders a few meters on the pad doesn't make the camera creep.
+const FOLLOW_STILL_PX = 18;
+// How fast the camera catches up: it closes most of the gap in about this
+// share of the time between fixes, never slower than FOLLOW_SMOOTH_MAX_S
+// or faster than FOLLOW_SMOOTH_MIN_S (s).
+const FOLLOW_SMOOTH_SHARE = 0.7;
+const FOLLOW_SMOOTH_MAX_S = 0.8;
+const FOLLOW_SMOOTH_MIN_S = 0.12;
+// Ticking FOLLOW BOARD (by hand or at liftoff) brings the camera over in
+// a glide this long (ms).
+const FOLLOW_GLIDE_MS = 900;
+// The free part of the view is measured again this often (ms) while the
+// camera follows, since the HUD's blocks change size.
+const FOLLOW_FREE_MS = 300;
+// After landing the camera settles on the board from this far (m),
+// looking down at least this steeply (degrees), so the recovery crosshair
+// and the DOGTOOTH label stand out on the ground.
+const RECOVERY_RANGE_M = 1500;
+const RECOVERY_PITCH_DEG = -35;
 
 export function createGlobeView(container, ctx, options) {
   const { Cesium: C, credits, dialogs, covers, freeInsets, labels, onScale, onReady, onChange, onFail, onFollowOff } = options;
@@ -371,7 +415,7 @@ export function createGlobeView(container, ctx, options) {
   const linkLines = scene.primitives.add(new C.PrimitiveCollection());    // the radio link
   const haloLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines' dark outlines
   const lineLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines in their speed colors
-  const dotLayer = scene.primitives.add(new C.PrimitiveCollection());     // one billboard collection of dots per rocket
+  const dotLayer = scene.primitives.add(new C.PrimitiveCollection());     // two billboard collections per rocket: dot edges, then dot fills
   const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // launch points and Manta's dish
   const eventIcons = scene.primitives.add(new C.BillboardCollection({ ...blend, scene })); // diamonds and the recovery crosshair
   const ringIcons = scene.primitives.add(new C.BillboardCollection(blend)); // the packet rings, under the boards
@@ -478,11 +522,16 @@ export function createGlobeView(container, ctx, options) {
     icons.set(id, { canvas, width: size, height: size });
   }
 
-  // The breadcrumb dots: a white disc with a thin dark outline, tinted to
-  // its speed color when drawn (dot, and dot-other for other rockets), and
-  // a hollow grey ring for a weak fix (dot-weak).
+  // The breadcrumb dots, in two parts drawn in two passes (see addCrumbs):
+  //   - the fill: a white disc, tinted to its speed color when drawn (dot,
+  //     and dot-other for other rockets), or a grey ring for a weak fix
+  //     (dot-weak)
+  //   - the edge: the same shape in near-black, a little bigger, with a
+  //     hard edge (no soft pixels), so it can be drawn in the opaque pass
+  //     (dot-edge, dot-other-edge, dot-weak-edge)
+  const EDGE_GROWTH_PX = 1 / iconScale;
   function dotIcons() {
-    const make = (id, diameter, paint) => {
+    const make = (id, diameter, paint, { hard = false } = {}) => {
       const size = Math.ceil(diameter + 2 * DOT_OUTLINE_PX + 2);
       const canvas = document.createElement('canvas');
       canvas.width = size * iconScale;
@@ -492,25 +541,33 @@ export function createGlobeView(container, ctx, options) {
       g.beginPath();
       g.arc(size / 2, size / 2, diameter / 2, 0, Math.PI * 2);
       paint(g);
+      if (hard) {
+        // Every pixel fully on or fully off.
+        const img = g.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] >= 128 ? 255 : 0;
+        g.putImageData(img, 0, 0);
+      }
       icons.set(id, { canvas, width: size, height: size });
     };
-    const solid = (g) => {
-      g.fillStyle = WHITE;
+    const fill = (color) => (g) => {
+      g.fillStyle = color;
       g.fill();
-      g.lineWidth = DOT_OUTLINE_PX;
-      g.strokeStyle = NEAR_BLACK;
+    };
+    const ring = (color, width) => (g) => {
+      g.lineWidth = width;
+      g.strokeStyle = color;
       g.stroke();
     };
-    make('dot', DOT_PX, solid);
-    make('dot-other', OTHER_DOT_PX, solid);
-    make('dot-weak', WEAK_DOT_PX, (g) => {
-      g.lineWidth = WEAK_LINE_PX + 2;
-      g.strokeStyle = NEAR_BLACK;
-      g.stroke();
-      g.lineWidth = WEAK_LINE_PX;
-      g.strokeStyle = WEAK_COLOR;
-      g.stroke();
-    });
+    make('dot', DOT_PX, fill(WHITE));
+    make('dot-other', OTHER_DOT_PX, fill(WHITE));
+    make('dot-weak', WEAK_DOT_PX, ring(WEAK_COLOR, WEAK_LINE_PX));
+    // (The opaque pass draws every pixel the image touches at all, which
+    // makes a shape about EDGE_GROWTH_PX wider, so the edges are drawn
+    // that much smaller to end up DOT_OUTLINE_PX wide.)
+    const edge = 2 * DOT_OUTLINE_PX - EDGE_GROWTH_PX;
+    make('dot-edge', DOT_PX + edge, fill(NEAR_BLACK), { hard: true });
+    make('dot-other-edge', OTHER_DOT_PX + edge, fill(NEAR_BLACK), { hard: true });
+    make('dot-weak-edge', WEAK_DOT_PX, ring(NEAR_BLACK, WEAK_LINE_PX + edge), { hard: true });
   }
 
   const iconsReady = Promise.all([
@@ -737,6 +794,7 @@ export function createGlobeView(container, ctx, options) {
   const drawn = new Map(); // rocketId -> everything drawn for that rocket
   const haloColor = rgba(NEAR_BLACK);
   const shadowColor = rgba(NEAR_BLACK, SHADOW_ALPHA);
+  const shadowEdgeColor = rgba(OFF_WHITE, SHADOW_EDGE_ALPHA);
   const clearColor = new C.Color(0, 0, 0, 0);
   const colorCache = new Map(); // css -> C.Color
   const cesiumColor = (css) => {
@@ -756,9 +814,10 @@ export function createGlobeView(container, ctx, options) {
         key: '',          // the height model, ground level and focus it was worked out with
         count: 0,         // crumbs looked at so far
         dotAt: [],        // one 3D position per crumb (null: not drawn)
-        dots: null,       // the point collection with one dot per drawn crumb
+        dots: null,       // the billboards with each drawn crumb's dot (its fill)
+        edges: null,      // the billboards with each dot's dark edge, drawn first
         verts: [],        // the line's points: { position, color, breakBefore }
-        chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowAt }
+        chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowEdge, shadowAt }
         lastGood: -1,     // index of the newest good crumb that has a position
         focused: null,
         icon: null, iconHome: null, ring: null, ringStart: null,
@@ -780,7 +839,9 @@ export function createGlobeView(container, ctx, options) {
     parts.dotAt = [];
     parts.lineBroken = false;
     if (parts.dots) dotLayer.remove(parts.dots);
+    if (parts.edges) dotLayer.remove(parts.edges);
     parts.dots = null;
+    parts.edges = null;
     parts.count = 0;
     parts.lastGood = -1;
   }
@@ -830,10 +891,12 @@ export function createGlobeView(container, ctx, options) {
   // One breadcrumb dot. The dots are billboards like the markers, so they
   // stack in drawing order with them (the board always sits on top of its
   // own dots). Each one shows a small canvas image (see dotIcons), tinted
-  // by color when it has one.
-  function addDot(collection, id, position, tint) {
-    const icon = icons.get(id);
-    collection.add({ position, image: icon.canvas, imageId: id, width: icon.width, height: icon.height, color: tint ?? undefined, ...ALWAYS });
+  // by color when it has one, over its dark edge in the other collection.
+  function addDot(parts, id, position, tint) {
+    for (const [collection, image] of [[parts.edges, `${id}-edge`], [parts.dots, id]]) {
+      const icon = icons.get(image);
+      collection.add({ position, image: icon.canvas, imageId: image, width: icon.width, height: icon.height, color: image === id ? tint ?? undefined : undefined, ...ALWAYS });
+    }
   }
 
   // The dots and the line's points for the crumbs since the last draw.
@@ -842,7 +905,17 @@ export function createGlobeView(container, ctx, options) {
   function addCrumbs(rocket, parts, model, isFocused) {
     const crumbs = parts.crumbs;
     if (parts.count >= crumbs.length) return;
-    if (!parts.dots) parts.dots = dotLayer.add(new C.BillboardCollection(blend));
+    // Two passes, so a run of dots that overlap on screen (a slow descent,
+    // or the view zoomed out) reads as its speed colors with one thin dark
+    // edge around the run, not as a dark band of outlines over fills. The
+    // edges are opaque, so Cesium draws all of them before anything
+    // see-through, and the fills (see-through at their soft rims) are
+    // drawn after every edge. Dots far enough apart each keep their own
+    // dark ring.
+    if (!parts.dots) {
+      parts.edges = dotLayer.add(new C.BillboardCollection({ blendOption: C.BlendOption.OPAQUE }));
+      parts.dots = dotLayer.add(new C.BillboardCollection(blend));
+    }
     const otherColor = cesiumColor(rocket.profile?.color ?? WHITE);
     const dotId = isFocused ? 'dot' : 'dot-other';
     // True when the next line point must start a new piece: the first
@@ -862,9 +935,9 @@ export function createGlobeView(container, ctx, options) {
       parts.dotAt.push(position);
       if (c.quality === 'good') {
         if (position) {
-          // The white dot image, tinted to the speed color (its dark
-          // outline stays dark).
-          addDot(parts.dots, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
+          // The white dot image, tinted to the speed color, over its dark
+          // edge (see addDot).
+          addDot(parts, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
           parts.lastGood = i;
         }
         const linePos = c.line ? pointPosition(rocket, model, { t: c.t, lat: c.line.lat, lon: c.line.lon, altMsl: c.line.altMsl }) : null;
@@ -880,7 +953,7 @@ export function createGlobeView(container, ctx, options) {
         }
       } else if (position) {
         // A weak fix: a hollow grey ring.
-        addDot(parts.dots, 'dot-weak', position, null);
+        addDot(parts, 'dot-weak', position, null);
       }
     }
     // Kept for the next draw, so a break at the end of this batch isn't
@@ -906,7 +979,7 @@ export function createGlobeView(container, ctx, options) {
           dirty.add(chunk);
         }
         const start = !chunk || v.breakBefore ? i : i - 1;
-        chunk = { start, end: i + 1, final: false, halo: null, line: null, shadow: null, shadowAt: 0 };
+        chunk = { start, end: i + 1, final: false, halo: null, line: null, shadow: null, shadowEdge: null, shadowAt: 0 };
         parts.chunks.push(chunk);
       } else {
         chunk.end = i + 1;
@@ -957,14 +1030,19 @@ export function createGlobeView(container, ctx, options) {
     if (chunk.line) lineLayer.remove(chunk.line);
     chunk.halo = null;
     chunk.line = null;
-    if (!keepShadow && chunk.shadow) {
-      scene.groundPrimitives.remove(chunk.shadow);
-      chunk.shadow = null;
-    }
+    if (!keepShadow) removeShadow(chunk);
   }
 
-  // The ground shadow: each chunk's line laid flat on the terrain. A
-  // finished chunk is laid once. The newest one is laid again at most
+  function removeShadow(chunk) {
+    if (chunk.shadow) scene.groundPrimitives.remove(chunk.shadow);
+    if (chunk.shadowEdge) scene.groundPrimitives.remove(chunk.shadowEdge);
+    chunk.shadow = null;
+    chunk.shadowEdge = null;
+  }
+
+  // The ground shadow: each chunk's line laid flat on the terrain, as a
+  // faint light band with the dark shadow on top. A finished chunk is
+  // laid once. The newest one is laid again at most
   // every SHADOW_TAIL_MS, and none is laid while a seek is still settling.
   function syncShadows(parts) {
     if (!shadowsReady) return;
@@ -981,19 +1059,21 @@ export function createGlobeView(container, ctx, options) {
       }
       chunk.shadowDirty = false;
       chunk.shadowAt = now;
-      if (chunk.shadow) scene.groundPrimitives.remove(chunk.shadow);
-      chunk.shadow = null;
+      removeShadow(chunk);
       const { positions } = chunkPoints(parts, chunk);
       if (positions.length < 2) continue;
+      const lay = (width, colorOf) => scene.groundPrimitives.add(new C.GroundPolylinePrimitive({
+        geometryInstances: new C.GeometryInstance({
+          geometry: new C.GroundPolylineGeometry({ positions, width }),
+          attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(colorOf) },
+        }),
+        appearance: new C.PolylineColorAppearance(),
+        asynchronous: false,
+      }));
       try {
-        chunk.shadow = scene.groundPrimitives.add(new C.GroundPolylinePrimitive({
-          geometryInstances: new C.GeometryInstance({
-            geometry: new C.GroundPolylineGeometry({ positions, width: SHADOW_PX }),
-            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(shadowColor) },
-          }),
-          appearance: new C.PolylineColorAppearance(),
-          asynchronous: false,
-        }));
+        chunk.shadowEdge = lay(SHADOW_EDGE_PX, shadowEdgeColor);
+        chunk.shadow = lay(SHADOW_PX, shadowColor);
+        chunk.shadowEdge.show = chunk.shadow.show = !siteHidden;
       } catch (err) {
         // A shadow that can't be laid is left out. The path itself is fine.
         console.warn('Flight Console: a ground shadow could not be drawn', err);
@@ -1017,18 +1097,26 @@ export function createGlobeView(container, ctx, options) {
 
   // The board marker at the newest good fix that has a position: the
   // board's blue while the fix is good right now, hollow when there is no
-  // fix now or a newer fix failed the quality gate or has no height. It is
-  // a billboard with no rotation and no scaling, so it always stands
-  // upright and keeps one size on screen.
+  // fix now or a newer fix failed the quality gate or has no height. A
+  // board that has only sent weak fixes so far (too few satellites, as on
+  // a bench indoors) still shows, hollow, at its newest weak fix, so its
+  // label and radio link show too. It is a billboard with no rotation and
+  // no scaling, so it always stands upright and keeps one size on screen.
   function drawRocketIcon(rocket, parts, isFocused) {
-    const position = parts.lastGood >= 0 ? parts.dotAt[parts.lastGood] : null;
+    let at = parts.lastGood;
+    if (at < 0) {
+      for (let i = parts.dotAt.length - 1; i >= 0; i--) {
+        if (parts.dotAt[i]) { at = i; break; }
+      }
+    }
+    const position = at >= 0 ? parts.dotAt[at] : null;
     if (!position) {
       if (parts.icon) parts.icon.show = false;
       if (parts.ring) parts.ring.show = false;
       return;
     }
-    const newest = parts.lastGood === parts.crumbs.length - 1;
-    const live = store.hasFixNow(rocket) && newest;
+    const newest = at === parts.crumbs.length - 1;
+    const live = store.hasFixNow(rocket) && newest && at === parts.lastGood;
     const id = `board${isFocused ? '-focus' : ''}${live ? '' : '-hollow'}`;
     if (!parts.icon) {
       parts.iconHome = isFocused ? focusIcons : rocketIcons;
@@ -1349,7 +1437,10 @@ export function createGlobeView(container, ctx, options) {
     siteHidden = hidden;
     for (const layer of siteLayers) layer.show = !hidden;
     for (const parts2 of drawn.values()) {
-      for (const chunk of parts2.chunks) if (chunk.shadow) chunk.shadow.show = !hidden;
+      for (const chunk of parts2.chunks) {
+        if (chunk.shadow) chunk.shadow.show = !hidden;
+        if (chunk.shadowEdge) chunk.shadowEdge.show = !hidden;
+      }
     }
   }
 
@@ -1365,8 +1456,9 @@ export function createGlobeView(container, ctx, options) {
   // four values in `look` and calls aim().
   //
   // Three ways the pivot is chosen:
-  //   'follow'  the focused board. The camera steps with it, one fix at a
-  //             time, and keeps the viewer's angle and distance.
+  //   'follow'  FOLLOW BOARD: the board, the launch point and the path so
+  //             far, framed in the free part of the view and followed
+  //             smoothly (see "Follow camera").
   //   'whole'   framed so every point drawn so far fits the part of the
   //             view the HUD leaves free. It is framed again as the path
   //             grows, until the viewer zooms or slides the view.
@@ -1464,7 +1556,14 @@ export function createGlobeView(container, ctx, options) {
     const v = idleCamera();
     Object.assign(look, v.look);
     camera.lookAtTransform(C.Matrix4.IDENTITY);
-    camera.setView({ destination: v.destination, orientation: { direction: v.direction, up: v.up } });
+    // The camera's directions are set as they are. (camera.setView would
+    // turn a view this close to straight down into a heading taken from
+    // `up`, which points north, and so tilt the camera north instead of
+    // south, pushing the Earth down into the controls.)
+    C.Cartesian3.clone(v.destination, camera.position);
+    C.Cartesian3.clone(v.direction, camera.direction);
+    C.Cartesian3.clone(v.up, camera.up);
+    C.Cartesian3.normalize(C.Cartesian3.cross(v.direction, v.up, camera.right), camera.right);
     scene.requestRender();
   }
 
@@ -1609,7 +1708,11 @@ export function createGlobeView(container, ctx, options) {
     const landed = () => {
       if (!flying) return;
       flying = false;
-      if (!destroyed) aim();
+      if (destroyed) return;
+      aim();
+      // FOLLOW BOARD takes over from here, with a glide.
+      chase.needsGlide = true;
+      scheduler.schedule();
     };
     camera.lookAtTransform(C.Matrix4.IDENTITY);
     flying = true;
@@ -1642,9 +1745,12 @@ export function createGlobeView(container, ctx, options) {
     aim();
   }
 
+  // Where the focused board's marker is, as a copy. (A billboard hands out
+  // its own position object and changes it in place when it moves, so
+  // keeping that object would make an old position look like the new one.)
   const focusedTarget = () => {
     const parts = drawn.get(store.getFocusedId());
-    return parts?.icon?.show ? parts.icon.position : null;
+    return parts?.icon?.show ? C.Cartesian3.clone(parts.icon.position) : null;
   };
   const firstPad = () => {
     const focusedParts = drawn.get(store.getFocusedId());
@@ -1761,6 +1867,383 @@ export function createGlobeView(container, ctx, options) {
     return out;
   }
 
+  // ------------------------------------------------------------------
+  // Follow camera (FOLLOW BOARD). It works like a camera operator on the
+  // ground following a rocket:
+  //   - It frames the board, the launch point, Manta (when it is close)
+  //     and the path so far inside the free part of the view (the part
+  //     the HUD leaves free, from freeInsets()), keeping the visitor's
+  //     heading and tilt. As the board climbs, it pulls back so the
+  //     picture still shows where the flight started. Past
+  //     FOLLOW_RANGE_MAX_M it keeps only the board and its newest path.
+  //   - The board itself always stays inside the free part, never under
+  //     the HUD, the controls or the timeline. That is checked on every
+  //     frame with the real camera, and the view is nudged if needed.
+  //   - It moves smoothly. Fixes come about once a second and wander a
+  //     little, so the camera eases toward each new framing instead of
+  //     jumping, and it ignores changes under FOLLOW_STILL_PX.
+  //   - After landing it settles on the board, a little steeper, so the
+  //     recovery crosshair and the DOGTOOTH label are easy to see.
+  //   - The visitor stays in charge. Turning or tilting the view keeps
+  //     following from the new angle, and zooming makes the camera
+  //     closer or farther than its own choice (chase.zoom). Sliding the
+  //     view switches FOLLOW BOARD off (slideBy).
+  // The sums are done in a flat east, north, up frame at the launch point
+  // (fine over a few kilometers), with the same pinhole camera Cesium uses.
+  // A loop runs once per screen refresh while the camera still moves, and
+  // stops once it has caught up.
+  // ------------------------------------------------------------------
+  const chase = {
+    frame: 0,          // the waiting animation frame, or 0
+    last: 0,           // when the last step ran (ms)
+    anchor: null,      // the frame's origin (world), and the two matrices
+    toWorld: null,
+    toLocal: null,
+    board: null,       // the board, in the local frame
+    boardWorld: null,  // the board, in world coordinates
+    lead: null,        // where the board will be at the next fix if it keeps going (local)
+    crumbs: null,      // the crumbs list the board was last seen in (a new one means a seek)
+    want: [],          // local points to keep in view if possible
+    tail: [],          // the newest path points (local), for a long flight
+    key: '',           // what `want` was worked out from
+    recovery: false,   // landed: settle on the board
+    target: null,      // the framing the camera eases toward: { pivot (local), range }
+    zoom: 1,           // the visitor's zoom on top of the camera's own range
+    tiltTo: null,      // a pitch the camera eases to (radians), or null
+    headTo: null,      // a heading it eases to (radians), or null
+    glide: null,       // a glide in progress: { from: { pivot, range }, start, keep, nudge }
+    needsGlide: true,  // the next step starts with a glide: true (a fresh start) or
+                       // 'keep' (one that keeps the board in the free part all the way)
+    fixAt: 0,          // when the board last moved (ms)
+    fixGap: 1000,      // the usual time between board moves (ms)
+    free: null,        // the free part of the view: { x0, x1, y0, y1 } in canvas px
+    freeAt: 0,
+  };
+
+  const vec = (x, y, z) => ({ x, y, z });
+  const dot3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+  const addScaled = (a, b, k) => vec(a.x + b.x * k, a.y + b.y * k, a.z + b.z * k);
+  const toLocal = (world) => {
+    const p = C.Matrix4.multiplyByPoint(chase.toLocal, world, new C.Cartesian3());
+    return vec(p.x, p.y, p.z);
+  };
+  const toWorld = (local) => C.Matrix4.multiplyByPoint(chase.toWorld, new C.Cartesian3(local.x, local.y, local.z), new C.Cartesian3());
+
+  // Starts the follow camera over: a new site, or FOLLOW BOARD ticked.
+  function chaseReset() {
+    window.cancelAnimationFrame(chase.frame);
+    Object.assign(chase, {
+      frame: 0, anchor: null, toWorld: null, toLocal: null, board: null, boardWorld: null, lead: null, crumbs: null,
+      want: [], tail: [], key: '', recovery: false, target: null, zoom: 1,
+      tiltTo: null, headTo: null, glide: null, needsGlide: true, free: null, freeAt: 0,
+    });
+  }
+
+  // Brings the follow camera's points up to date after a draw: the board,
+  // and the points it tries to keep in view.
+  function chaseData(target) {
+    const focused = store.getFocused();
+    const parts = focused ? drawn.get(focused.id) : null;
+    if (!parts) return;
+    const origin = parts.padAt ?? target;
+    if (!chase.anchor || C.Cartesian3.distance(chase.anchor, origin) > 1) {
+      chase.anchor = C.Cartesian3.clone(origin);
+      chase.toWorld = frameOf(chase.anchor);
+      chase.toLocal = C.Matrix4.inverseTransformation(chase.toWorld, new C.Matrix4());
+      chase.key = '';
+      chase.target = null;
+    }
+    // How often the board moves, so the camera eases at a pace that suits
+    // the playback speed. And where it will be at the next fix if it keeps
+    // going the same way, so the camera can lead it like an operator leads
+    // a rocket (a fast climb then doesn't step out of the frame).
+    if (!chase.boardWorld || !C.Cartesian3.equals(chase.boardWorld, target)) {
+      const now = performance.now();
+      const gap = now - chase.fixAt;
+      if (chase.boardWorld && gap > 0 && gap < 5000) chase.fixGap += (gap - chase.fixGap) * 0.3;
+      // (Not across a seek, a long silence or a step no rocket makes in
+      // one fix.)
+      const before = chase.crumbs === parts.crumbs ? chase.board : null;
+      const board = toLocal(target);
+      const step = before ? Math.hypot(board.x - before.x, board.y - before.y, board.z - before.z) : Infinity;
+      chase.lead = gap < 3 * chase.fixGap && step < FOLLOW_LEAD_MAX_M ? vec(2 * board.x - before.x, 2 * board.y - before.y, 2 * board.z - before.z) : board;
+      chase.crumbs = parts.crumbs;
+      chase.fixAt = now;
+      chase.boardWorld = C.Cartesian3.clone(target);
+    }
+    chase.board = toLocal(target);
+    chase.lead ??= chase.board;
+    // Landed: settle on the board, a little steeper.
+    const recovery = flightState(store, focused).state === STATE.RECOVERY;
+    if (recovery && !chase.recovery) {
+      const steep = C.Math.toRadians(RECOVERY_PITCH_DEG);
+      if (look.pitch > steep) chase.tiltTo = steep;
+      // A long way in from the flight's framing: a glide, not a rush,
+      // that still keeps the board clear of the HUD on the way.
+      chase.needsGlide = 'keep';
+    }
+    chase.recovery = recovery;
+    // The points to keep in view: the launch point, Manta when it is
+    // close, the event markers and the path (sampled, ends included).
+    const key = `${parts.verts.length}|${parts.padAt ? 'pad' : ''}|${station.position ? 'gs' : ''}|${marks.length}`;
+    if (key === chase.key) return;
+    chase.key = key;
+    const want = [];
+    if (parts.padAt) want.push(toLocal(parts.padAt));
+    if (station.position && C.Cartesian3.distance(station.position, origin) < FOLLOW_STATION_M) want.push(toLocal(station.position));
+    for (const m of marks) want.push(toLocal(m.position));
+    const verts = parts.verts;
+    const step = Math.max(1, Math.ceil(verts.length / FOLLOW_SAMPLE));
+    for (let i = 0; i < verts.length; i += step) want.push(toLocal(verts[i].position));
+    if (verts.length) want.push(toLocal(verts[verts.length - 1].position));
+    chase.want = want;
+    chase.tail = verts.slice(-FOLLOW_TAIL_POINTS).map((v) => toLocal(v.position));
+  }
+
+  // The view's size and the camera's focal length (px), or null.
+  function viewSize() {
+    const w = scene.canvas.clientWidth;
+    const hgt = scene.canvas.clientHeight;
+    const fovy = camera.frustum.fovy;
+    if (!(w > 40 && hgt > 40 && fovy > 0)) return null;
+    return { w, h: hgt, f: (hgt / 2) / Math.tan(fovy / 2) };
+  }
+
+  // The free part of the view, in canvas px.
+  function freeRect(size) {
+    const ins = freeInsets?.() ?? { top: 24, right: 24, bottom: 24, left: 24 };
+    const rect = { x0: ins.left, x1: size.w - ins.right, y0: ins.top, y1: size.h - ins.bottom };
+    if (rect.x1 - rect.x0 < 40 || rect.y1 - rect.y0 < 40) return { x0: 0, x1: size.w, y0: 0, y1: size.h };
+    return rect;
+  }
+
+  // A rectangle made smaller by px on each side, but never below 40 px.
+  function shrink(rect, px) {
+    const sx = Math.max(0, Math.min(px, (rect.x1 - rect.x0 - 40) / 2));
+    const sy = Math.max(0, Math.min(px, (rect.y1 - rect.y0 - 40) / 2));
+    return { x0: rect.x0 + sx, x1: rect.x1 - sx, y0: rect.y0 + sy, y1: rect.y1 - sy };
+  }
+
+  // The camera's three directions in the local frame for a heading and a
+  // pitch: where it looks (d), its right (r) and its up (u). Heading 0
+  // looks north, and a negative pitch looks down, as in cameraSpot().
+  function axesFor(heading, pitch) {
+    const d = vec(Math.sin(heading) * Math.cos(pitch), Math.cos(heading) * Math.cos(pitch), Math.sin(pitch));
+    const r = vec(Math.cos(heading), -Math.sin(heading), 0);
+    const u = vec(r.y * d.z - r.z * d.y, r.z * d.x - r.x * d.z, r.x * d.y - r.y * d.x);
+    return { d, r, u };
+  }
+
+  // Where a local point lands on screen (canvas px) with the camera looking
+  // at pivot from range away, or null when it is behind the camera.
+  function projectLocal(q, pivot, range, ax, size) {
+    const v = vec(q.x - pivot.x + ax.d.x * range, q.y - pivot.y + ax.d.y * range, q.z - pivot.z + ax.d.z * range);
+    const z = dot3(v, ax.d);
+    if (z < 1) return null;
+    return { x: size.w / 2 + (size.f * dot3(v, ax.r)) / z, y: size.h / 2 - (size.f * dot3(v, ax.u)) / z, z };
+  }
+
+  function boxOf(points, pivot, range, ax, size) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const q of points) {
+      const s = projectLocal(q, pivot, range, ax, size);
+      if (!s) return null;
+      x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x);
+      y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y);
+    }
+    return { x0, x1, y0, y1 };
+  }
+
+  // Slides the pivot across the screen by (dx, dy) px, measured at depth.
+  const slidePivot = (pivot, ax, dx, dy, mpp) => addScaled(addScaled(pivot, ax.r, dx * mpp), ax.u, -dy * mpp);
+
+  // The pivot and range that fit the points' box into rect, by trying:
+  // project, slide the box's middle onto the rect's middle, move closer
+  // or farther to fit, and again. With fit off it only slides.
+  function fitBox(points, rect, ax, size, pivot, range, { fit = true, minRange = 1 } = {}) {
+    const rw = rect.x1 - rect.x0;
+    const rh = rect.y1 - rect.y0;
+    for (let i = 0; i < 12; i++) {
+      const box = boxOf(points, pivot, range, ax, size);
+      if (!box) {
+        range *= 1.6;
+        continue;
+      }
+      const dx = (box.x0 + box.x1) / 2 - (rect.x0 + rect.x1) / 2;
+      const dy = (box.y0 + box.y1) / 2 - (rect.y0 + rect.y1) / 2;
+      const scale = fit ? Math.max((box.x1 - box.x0) / rw, (box.y1 - box.y0) / rh, 0.02) : 1;
+      if (Math.abs(scale - 1) < 0.01 && Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) break;
+      pivot = slidePivot(pivot, ax, dx, dy, range / size.f);
+      if (fit) range = Math.max(minRange, range * clamp(scale, 0.4, 2.5));
+    }
+    return { pivot, range };
+  }
+
+  // Slides the pivot so the board lands inside rect (it may already be).
+  function keepInside(board, rect, ax, size, pivot, range) {
+    for (let i = 0; i < 3; i++) {
+      const s = projectLocal(board, pivot, range, ax, size);
+      if (!s) return pivot;
+      const dx = s.x < rect.x0 ? s.x - rect.x0 : s.x > rect.x1 ? s.x - rect.x1 : 0;
+      const dy = s.y < rect.y0 ? s.y - rect.y0 : s.y > rect.y1 ? s.y - rect.y1 : 0;
+      if (!dx && !dy) return pivot;
+      pivot = slidePivot(pivot, ax, dx, dy, s.z / size.f);
+    }
+    return pivot;
+  }
+
+  // The framing the camera heads for right now: { pivot (local), range }.
+  function chaseGoal(size) {
+    const ax = axesFor(look.heading, look.pitch);
+    const room = shrink(chase.free, FOLLOW_ROOM_PX);
+    const board = chase.board;
+    const centroid = (points) => {
+      const sum = points.reduce((a, q) => vec(a.x + q.x, a.y + q.y, a.z + q.z), vec(0, 0, 0));
+      return vec(sum.x / points.length, sum.y / points.length, sum.z / points.length);
+    };
+    let points;
+    let minRange;
+    if (chase.recovery) {
+      points = [board];
+      minRange = RECOVERY_RANGE_M;
+    } else {
+      points = [board, chase.lead, ...chase.want];
+      minRange = FOLLOW_RANGE_MIN_M;
+    }
+    let fit = fitBox(points, room, ax, size, centroid(points), minRange, { minRange });
+    if (!chase.recovery && fit.range > FOLLOW_RANGE_MAX_M) {
+      // Too far to keep everything: the board and its newest path only.
+      points = [board, chase.lead, ...chase.tail];
+      fit = fitBox(points, room, ax, size, centroid(points), minRange, { minRange });
+    }
+    const range = clamp(Math.max(minRange, fit.range) * chase.zoom, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+    let pivot = fit.pivot;
+    // A different range (the visitor zoomed): centered again at it.
+    if (Math.abs(range / fit.range - 1) > 0.001) pivot = fitBox(points, room, ax, size, pivot, range, { fit: false }).pivot;
+    // Whatever else fits, the board must, and where it is headed if it can.
+    if (!chase.recovery) pivot = keepInside(chase.lead, room, ax, size, pivot, range);
+    pivot = keepInside(board, room, ax, size, pivot, range);
+    return { pivot, range };
+  }
+
+  // Asks for the next step of the follow camera.
+  function chaseKick() {
+    if (chase.frame || destroyed || !active || cameraMode !== 'follow') return;
+    chase.frame = window.requestAnimationFrame(chaseStep);
+  }
+
+  // One step of the follow camera, once per screen refresh while it moves.
+  function chaseStep(now) {
+    chase.frame = 0;
+    if (destroyed || !active || cameraMode !== 'follow' || flying || !chase.board || !chase.toLocal) return;
+    const size = viewSize();
+    if (!size) return;
+    stopGlide();
+    if (!chase.free || now - chase.freeAt > FOLLOW_FREE_MS) {
+      chase.free = freeRect(size);
+      chase.freeAt = now;
+    }
+    const reduce = prefersReducedMotion();
+    // (A long frame, while Cesium loads ground tiles, counts as two frames
+    // at most, so the camera lags a little then instead of jumping.)
+    const dt = chase.last ? clamp(now - chase.last, 0, 34) / 1000 : 1 / 60;
+    chase.last = now;
+    const tau = clamp((chase.fixGap / 1000) * FOLLOW_SMOOTH_SHARE, FOLLOW_SMOOTH_MIN_S, FOLLOW_SMOOTH_MAX_S);
+    const k = reduce ? 1 : 1 - Math.exp(-dt / tau);
+    // A heading or tilt asked for (RESET VIEW, landing) is eased in too,
+    // at the pace of a glide.
+    const kTurn = reduce ? 1 : 1 - Math.exp(-dt / (FOLLOW_GLIDE_MS / 3000));
+    let turning = false;
+    if (chase.headTo !== null) {
+      const turn = C.Math.negativePiToPi(chase.headTo - look.heading);
+      look.heading += turn * kTurn;
+      if (Math.abs(turn) < 0.002 || reduce) { look.heading = chase.headTo; chase.headTo = null; } else turning = true;
+    }
+    if (chase.tiltTo !== null) {
+      const tilt = chase.tiltTo - look.pitch;
+      look.pitch += tilt * kTurn;
+      if (Math.abs(tilt) < 0.002 || reduce) { look.pitch = chase.tiltTo; chase.tiltTo = null; } else turning = true;
+    }
+    const goal = chaseGoal(size);
+    // Ignore small changes (a board wandering on the pad), unless the
+    // board is about to leave the framing.
+    const still = (a, b) => Math.hypot(a.pivot.x - b.pivot.x, a.pivot.y - b.pivot.y, a.pivot.z - b.pivot.z) / (b.range / size.f) < FOLLOW_STILL_PX && Math.abs(Math.log(a.range / b.range)) < 0.05;
+    const ax = axesFor(look.heading, look.pitch);
+    const boardIn = (t) => {
+      const s = projectLocal(chase.board, t.pivot, t.range, ax, size);
+      const room = shrink(chase.free, FOLLOW_ROOM_PX / 2);
+      return s && s.x >= room.x0 && s.x <= room.x1 && s.y >= room.y0 && s.y <= room.y1;
+    };
+    if (!chase.target || chase.glide || chase.needsGlide || turning || !still(goal, chase.target) || !boardIn(chase.target)) chase.target = goal;
+    const target = chase.target;
+    const here = { pivot: toLocal(look.pivot), range: look.range };
+    if (chase.needsGlide) {
+      chase.glide = reduce ? null : { from: here, start: now, keep: chase.needsGlide === 'keep', nudge: vec(0, 0, 0) };
+      chase.needsGlide = false;
+    }
+    let next;
+    if (chase.glide) {
+      // A glide of FOLLOW_GLIDE_MS onto the framing, which keeps moving
+      // with the board on the way. (nudge: what keepBoardOnScreen added
+      // on the way, fading out as the glide reaches its framing, which
+      // keeps the board clear by itself.)
+      const u = clamp((now - chase.glide.start) / FOLLOW_GLIDE_MS, 0, 1);
+      const e = u * u * (3 - 2 * u);
+      const { from, nudge } = chase.glide;
+      next = {
+        pivot: vec(
+          from.pivot.x + (target.pivot.x - from.pivot.x) * e + nudge.x * (1 - e),
+          from.pivot.y + (target.pivot.y - from.pivot.y) * e + nudge.y * (1 - e),
+          from.pivot.z + (target.pivot.z - from.pivot.z) * e + nudge.z * (1 - e)),
+        range: Math.exp(Math.log(from.range) + (Math.log(target.range) - Math.log(from.range)) * e),
+      };
+      chase.glide.e = e;
+      if (u >= 1) chase.glide = null;
+    } else {
+      next = {
+        pivot: vec(here.pivot.x + (target.pivot.x - here.pivot.x) * k, here.pivot.y + (target.pivot.y - here.pivot.y) * k, here.pivot.z + (target.pivot.z - here.pivot.z) * k),
+        range: Math.exp(Math.log(here.range) + (Math.log(target.range) - Math.log(here.range)) * k),
+      };
+    }
+    look.pivot = toWorld(next.pivot);
+    look.range = next.range;
+    aim();
+    if (!chase.glide) keepBoardOnScreen(size);
+    else if (chase.glide.keep) {
+      // Carry a nudge into the glide, so its next step doesn't undo it.
+      const before = toLocal(look.pivot);
+      keepBoardOnScreen(size);
+      const after = toLocal(look.pivot);
+      const fade = Math.max(0.05, 1 - chase.glide.e);
+      const n = chase.glide.nudge;
+      chase.glide.nudge = vec(n.x + (after.x - before.x) / fade, n.y + (after.y - before.y) / fade, n.z + (after.z - before.z) / fade);
+    }
+    // Caught up: stop until the next fix, or the visitor moves the view.
+    const left = Math.hypot(next.pivot.x - target.pivot.x, next.pivot.y - target.pivot.y, next.pivot.z - target.pivot.z) / (target.range / size.f);
+    const settled = !chase.glide && !turning && left < 0.3 && Math.abs(Math.log(next.range / target.range)) < 0.0005;
+    if (!settled) chase.frame = window.requestAnimationFrame(chaseStep);
+    else chase.last = 0;
+  }
+
+  // The rule that always holds: with the real camera, the board is inside
+  // the free part of the view. If the easing ever lags behind that far,
+  // the view is nudged at once.
+  function keepBoardOnScreen(size) {
+    const rect = chase.free;
+    for (let i = 0; i < 2; i++) {
+      const s = scene.cartesianToCanvasCoordinates(chase.boardWorld, scratch2);
+      if (!s || !Number.isFinite(s.x)) return;
+      const dx = s.x < rect.x0 ? s.x - rect.x0 - 2 : s.x > rect.x1 ? s.x - rect.x1 + 2 : 0;
+      const dy = s.y < rect.y0 ? s.y - rect.y0 - 2 : s.y > rect.y1 ? s.y - rect.y1 + 2 : 0;
+      if (!dx && !dy) return;
+      const mpp = C.Cartesian3.distance(camera.positionWC, chase.boardWorld) / size.f;
+      const right = C.Cartesian3.multiplyByScalar(camera.rightWC, dx * mpp, new C.Cartesian3());
+      const up = C.Cartesian3.multiplyByScalar(camera.upWC, -dy * mpp, new C.Cartesian3());
+      look.pivot = C.Cartesian3.add(C.Cartesian3.add(look.pivot, right, new C.Cartesian3()), up, new C.Cartesian3());
+      aimNow();
+    }
+  }
+
   // Runs after every draw: keeps the camera on what its mode says.
   function updateCamera() {
     const target = focusedTarget();
@@ -1784,31 +2267,32 @@ export function createGlobeView(container, ctx, options) {
       fresh = false;
       return;
     }
-    // A flight ends on the newest point.
-    if (flying) {
-      if (cameraMode === 'follow' && target) look.pivot = target;
-      return;
-    }
+    // A flight to the site ends where it was headed. The follow camera
+    // glides on from there once it has landed.
+    if (flying) return;
     if (cameraMode === 'follow' && target) {
-      // The camera steps with the board, one fix at a time, and keeps the
-      // viewer's angle and distance. A glide on its way to the board ends
-      // on the new point.
-      if (glide) glide.to.pivot = target;
-      else if (!C.Cartesian3.equals(target, look.pivot)) {
-        look.pivot = target;
-        aim();
-      }
+      chaseData(target);
+      // A new fix the easing hasn't reached yet: if it landed outside the
+      // free part, the view is nudged now, in the same frame.
+      const size = viewSize();
+      if (size && chase.free && !chase.glide && !chase.needsGlide) keepBoardOnScreen(size);
+      chaseKick();
     } else if (cameraMode === 'whole') {
       if (!framed) {
         frameEverything({ animate: true });
         return;
       }
-      // Frame again once something drawn pokes out of what was framed.
+      // Frame again once something drawn pokes out of what was framed, or
+      // the board itself leaves the free part of the view.
       const points = everything();
       if (!points.length) return;
       const sphere = C.BoundingSphere.fromPoints(points);
       const reach = C.Cartesian3.distance(sphere.center, framed.center) + sphere.radius;
-      if (reach > framed.radius * 1.1) frameEverything({ animate: true });
+      const size = viewSize();
+      const s = target && size && !glide ? screenOf(target) : null;
+      const free = s ? freeRect(size) : null;
+      const out = s && (s.x < free.x0 || s.x > free.x1 || s.y < free.y0 || s.y > free.y1);
+      if (reach > framed.radius * 1.1 || out) frameEverything({ animate: true });
     }
   }
   // True until the first view is set on the view's first store. That one
@@ -1847,6 +2331,7 @@ export function createGlobeView(container, ctx, options) {
     started = false;
     framed = null;
     fresh = false;
+    chaseReset();
     cameraMode = followOn ? 'follow' : 'free';
     const gs = store.getGroundStation();
     const s = session();
@@ -1880,7 +2365,8 @@ export function createGlobeView(container, ctx, options) {
   // fingers dragging slide the view over the ground. Sliding stops
   // following the board. With the mouse it does so at once. With two
   // fingers it only slides once FOLLOW BOARD is off, so a pinch can't
-  // switch following off by accident. The arrow keys move the camera
+  // switch following off by accident. Turning, tilting and zooming keep
+  // following, from the new angle and distance. The arrow keys move the camera
   // around the pivot, and + and - zoom. Nothing keeps moving after the
   // hand lets go. In the idle view (the whole Earth, nothing to look at)
   // the camera stays put.
@@ -1899,14 +2385,33 @@ export function createGlobeView(container, ctx, options) {
     look.heading += dx * DRAG_RATE;
     look.pitch -= dy * DRAG_RATE;
     aim();
+    handTurned();
   }
 
   function zoomBy(factor) {
     if (idle()) return;
     stopGlide();
     look.range *= factor;
+    handZoomed(factor);
     leaveWhole();
     aim();
+  }
+
+  // While following, a hand on the camera changes the angle or distance
+  // the follow camera works with, and it carries on from there.
+  function handTurned() {
+    if (cameraMode !== 'follow') return;
+    chase.headTo = null;
+    chase.tiltTo = null;
+    chase.target = null;
+    chaseKick();
+  }
+
+  function handZoomed(factor) {
+    if (cameraMode !== 'follow') return;
+    chase.zoom = clamp(chase.zoom * factor, 0.01, 100);
+    chase.target = null;
+    chaseKick();
   }
 
   // Slides the pivot over the ground, so the ground under the pointer
@@ -1980,11 +2485,14 @@ export function createGlobeView(container, ctx, options) {
     stopGlide();
     if (last.gap > 0 && now.gap > 0 && last.gap !== now.gap) {
       look.range *= last.gap / now.gap;
+      handZoomed(last.gap / now.gap);
       leaveWhole();
     }
     look.heading -= C.Math.negativePiToPi(now.angle - last.angle);
-    if (cameraMode === 'follow') aim();
-    else slideBy(now.x - last.x, now.y - last.y);
+    if (cameraMode === 'follow') {
+      aim();
+      handTurned();
+    } else slideBy(now.x - last.x, now.y - last.y);
   }
 
   function onPointerEnd(e) {
@@ -2016,7 +2524,10 @@ export function createGlobeView(container, ctx, options) {
     else return;
     e.preventDefault();
     stopGlide();
-    if (e.key.length === 1) leaveWhole();
+    if (e.key.length === 1) {
+      leaveWhole();
+      handZoomed(e.key === '+' || e.key === '=' ? 1 / config.GLOBE_KEY_ZOOM : config.GLOBE_KEY_ZOOM);
+    } else handTurned();
     aim();
   }
 
@@ -2030,10 +2541,16 @@ export function createGlobeView(container, ctx, options) {
   aim();
 
   // A new view size (a turned phone, a resized window) fits the idle
-  // Earth again.
+  // Earth again, and the board while following it.
   const resizeObserver = 'ResizeObserver' in window
     ? new ResizeObserver(() => {
       if (destroyed || !active) return;
+      // The follow camera fits the board into the new size.
+      if (cameraMode === 'follow') {
+        chase.free = null;
+        chase.target = null;
+        chaseKick();
+      }
       if (idle() && !flying) {
         // Cesium updates the field of view on its next frame. The fit is
         // worked out after that.
@@ -2143,14 +2660,20 @@ export function createGlobeView(container, ctx, options) {
       if (on && cameraMode === 'follow') {
         // Already following: nothing to move.
       } else if (on) {
+        // Glide over to the board's framing, from the visitor's angle,
+        // at the camera's own distance.
         cameraMode = 'follow';
         framed = null;
-        // Glide over to the board, keeping the viewer's angle and distance.
-        const target = focusedTarget();
-        if (target && started && !flying) moveTo({ pivot: target, heading: look.heading, pitch: look.pitch, range: look.range }, { animate: true });
+        chase.zoom = 1;
+        chase.target = null;
+        chase.needsGlide = true;
+        scheduler.schedule();
       } else if (cameraMode === 'follow') {
-        // The camera stays where it is, around the board's last point.
+        // The camera stays where it is.
         cameraMode = 'free';
+        window.cancelAnimationFrame(chase.frame);
+        chase.frame = 0;
+        chase.glide = null;
       }
       scene.requestRender();
     },
@@ -2169,8 +2692,16 @@ export function createGlobeView(container, ctx, options) {
       if (destroyed) return;
       framed = null;
       const target = focusedTarget();
-      if (cameraMode === 'follow' && target) moveTo({ pivot: target, ...startOrbit() }, { animate: true });
-      else {
+      if (cameraMode === 'follow' && target) {
+        // The follow camera eases back to the starting angle, at its own
+        // distance.
+        const start = startOrbit();
+        chase.zoom = 1;
+        chase.target = null;
+        chase.headTo = start.heading;
+        chase.tiltTo = start.pitch;
+        chaseKick();
+      } else {
         if (cameraMode === 'whole') cameraMode = 'free';
         const pad = firstPad();
         const spot = pad ? abovePad(pad) : target ?? station.position;
@@ -2179,6 +2710,19 @@ export function createGlobeView(container, ctx, options) {
       scene.requestRender();
     },
     cameraMode: () => cameraMode,
+    // The HUD around the view changed size: while following, the board is
+    // kept clear of it at once (map-view.js calls this before the frame is
+    // painted), and the follow camera frames it again.
+    coversChanged() {
+      if (destroyed || !active || cameraMode !== 'follow' || !chase.boardWorld) return;
+      const size = viewSize();
+      if (!size) return;
+      chase.free = freeRect(size);
+      chase.freeAt = performance.now();
+      chase.target = null;
+      if (!chase.glide || chase.glide.keep) keepBoardOnScreen(size);
+      chaseKick();
+    },
     notes,
     // The HUD around the view changed size: the idle Earth fits itself to
     // the free part again.
@@ -2199,6 +2743,32 @@ export function createGlobeView(container, ctx, options) {
         width: scene.canvas.clientWidth,
         height: scene.canvas.clientHeight,
         moving: Boolean(glide || flying),
+      };
+    },
+    // For the tests: where the camera is and where the focused board shows
+    // on screen (canvas px), with the free part of the view FOLLOW BOARD
+    // keeps it in.
+    debugCamera() {
+      const target = focusedTarget();
+      const size = viewSize();
+      const s = target ? screenOf(target) : null;
+      const p = camera.positionWC;
+      const d = camera.directionWC;
+      return {
+        mode: cameraMode,
+        board: s ? { x: s.x, y: s.y } : null,
+        free: size ? freeRect(size) : null,
+        width: scene.canvas.clientWidth,
+        height: scene.canvas.clientHeight,
+        camera: [p.x, p.y, p.z],
+        dir: [d.x, d.y, d.z],
+        up: [camera.upWC.x, camera.upWC.y, camera.upWC.z],
+        idleBottom: options.idleBottom?.() ?? null,
+        range: look.range,
+        heading: look.heading,
+        pitch: look.pitch,
+        f: size?.f ?? null,
+        moving: Boolean(glide || flying || chase.frame),
       };
     },
     // For the tests: how many things are drawn, so a test can check that a
@@ -2232,6 +2802,9 @@ export function createGlobeView(container, ctx, options) {
       if (!on) {
         finishGlide();
         stopAnimations();
+        window.cancelAnimationFrame(chase.frame);
+        chase.frame = 0;
+        chase.last = 0;
       }
       viewer.useDefaultRenderLoop = on;
       if (on) scheduler.flush();
@@ -2251,6 +2824,7 @@ export function createGlobeView(container, ctx, options) {
       stopGlide();
       stopAnimations();
       window.cancelAnimationFrame(pairFrame);
+      window.cancelAnimationFrame(chase.frame);
       scene.canvas.removeEventListener('webglcontextlost', onContextLost);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
