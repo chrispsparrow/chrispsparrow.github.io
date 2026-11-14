@@ -622,6 +622,19 @@ export function createDetector(overrides = {}) {
     return { lat: mean(fixes.map((f) => f.lat)), lon: mean(fixes.map((f) => f.lon)) };
   }
 
+  // The altitude range of { t, alt } readings, with the single highest and
+  // single lowest set aside when there are 10 or more. One pass, no
+  // sorting, since it runs on every reading after apogee.
+  function trimmedRange(readings) {
+    let lo1 = Infinity; let lo2 = Infinity;     // lowest, second lowest
+    let hi1 = -Infinity; let hi2 = -Infinity;   // highest, second highest
+    for (const { alt } of readings) {
+      if (alt < lo1) { lo2 = lo1; lo1 = alt; } else if (alt < lo2) lo2 = alt;
+      if (alt > hi1) { hi2 = hi1; hi1 = alt; } else if (alt > hi2) hi2 = alt;
+    }
+    return readings.length >= 10 ? hi2 - lo2 : hi1 - lo1;
+  }
+
   // { t, alt } readings without the single highest and single lowest, when
   // there are 10 or more.
   function withoutEnds(readings) {
@@ -668,9 +681,7 @@ export function createDetector(overrides = {}) {
 
     // Altitude steady: within the range, with one stray reading at each
     // end set aside when there are enough readings...
-    const alts = buf.map((r) => r.alt).sort((a, b) => a - b);
-    const kept = alts.length >= 10 ? alts.slice(1, -1) : alts;
-    if (kept[kept.length - 1] - kept[0] > cfg.LANDED_ALT_RANGE_M) return;
+    if (trimmedRange(buf) > cfg.LANDED_ALT_RANGE_M) return;
     // ...and not sinking (the same stray readings left out).
     if (slopeOf(withoutEnds(buf)) < -cfg.LANDED_MAX_SINK_MPS) return;
 
@@ -690,7 +701,7 @@ export function createDetector(overrides = {}) {
     if (speeds.some((p) => p.v >= cfg.LANDED_MAX_SPEED_MPS)) return;
 
     // Touchdown: the first reading close to where the altitude settled.
-    const settled = median(alts);
+    const settled = median(buf.map((r) => r.alt));
     const touch = buf.find((r) => r.alt <= settled + cfg.LANDED_TOUCHDOWN_M) ?? first;
     // Where it is: the average of the fixes from touchdown on, never just
     // the last one.

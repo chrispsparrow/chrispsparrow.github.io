@@ -1,8 +1,9 @@
 // config.js
 // Every adjustable number and setting for the Flight Console lives here, so
 // tuning never means hunting through the code.
-// Used by: detector.js, store.js, player.js, fleet.js, library.js, the views,
-// main.js, and both Node tools in tools/.
+// Used by: detector.js, store.js, track.js, flight-state.js, player.js,
+// fleet.js, library.js, the views, main.js, both Node tools in tools/ and
+// the tests in test/.
 // No DOM (page elements) in this file, so Node can import it too.
 
 // ------------------------------------------------------------------
@@ -383,7 +384,7 @@ export const MAP_DEFAULT_ZOOM = 15;
 export const FIT_PADDING_PX = 60;
 // ...without zooming in closer than this.
 export const FIT_MAX_ZOOM = 17;
-// "Follow rocket" pans once the focused rocket gets this close (px) to the
+// FOLLOW BOARD pans once the focused rocket gets this close (px) to the
 // map's edge or a floating panel. Kept smaller than FIT_PADDING_PX so the
 // first view stays put.
 export const FOLLOW_EDGE_PX = 40;
@@ -465,8 +466,8 @@ export const GLOBE_PITCH_MIN_DEG = -88;
 export const GLOBE_PITCH_MAX_DEG = 30;
 // The camera stays at least this far (m) above the ground.
 export const GLOBE_GROUND_CLEARANCE_M = 15;
-// How long (ms) the camera takes to glide to a new view ("Follow rocket",
-// "Whole flight", "Reset view"). With less motion asked for, it jumps.
+// How long (ms) the camera takes to glide to a new view (FOLLOW BOARD,
+// WHOLE FLIGHT, RESET VIEW). With less motion asked for, it jumps.
 export const GLOBE_MOVE_MS = 600;
 // "Whole flight" leaves this much room around everything it frames (1 is
 // a tight fit).
