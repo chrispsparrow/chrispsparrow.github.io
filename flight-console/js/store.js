@@ -3,11 +3,18 @@
 // samples, detector, events, sensor groups, last packet and last good fix,
 // plus the ground station, the focused rocket and the current time.
 //
-// The ground station starts at the demo position in config.js. A store made
+// The ground station starts at the demo position in config.js (source
+// 'config', which the views call the demo position). A store made with
+// groundStation: { lat, lon, altMsl } starts there instead (a flight's own
+// Manta position from index.json, source 'flight library'). A store made
 // with groundStation: null has none (a board on the bench, with no ground
 // station anywhere), so getGroundStation() returns null and the views leave
-// the station, its line and its distances out. Either way a "gs" packet
-// with a fix sets the real position.
+// the station, its line and its distances out. Any way, a "gs" packet with
+// a fix sets the real position.
+//
+// The launch pad (rocket.padPosition) is the average of the good fixes from
+// the last PAD_AVG_S on the pad, so a board whose GPS wanders on the pad
+// gets one steady launch point.
 //
 // Views subscribe to the store and redraw from it. They never talk to each
 // other directly. The store does not know where samples come from: today
@@ -16,7 +23,7 @@
 //
 // Used by: main.js, player.js and every view. No DOM.
 
-import { GROUND_STATION, DETECTOR_DEFAULTS, LINK_STALE_S, ALTITUDE_STALE_S } from './config.js';
+import { GROUND_STATION, DETECTOR_DEFAULTS, LINK_STALE_S, ALTITUDE_STALE_S, PAD_AVG_S } from './config.js';
 import { GROUPS, hasGoodPosition } from './schema.js';
 import { createDetector, FLIGHT_EVENT_TYPES } from './detector.js';
 import { createFleet } from './fleet.js';
@@ -35,7 +42,20 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
   // null when the store was made with no ground station.
   function makeConfigGroundStation() {
     if (!groundStation) return null;
-    return { lat: groundStation.lat, lon: groundStation.lon, altMsl: groundStation.altMsl ?? null, source: 'config', t: null };
+    const source = groundStation.source ?? (groundStation === GROUND_STATION ? 'config' : 'flight library');
+    return { lat: groundStation.lat, lon: groundStation.lon, altMsl: groundStation.altMsl ?? null, source, t: null };
+  }
+
+  // The average of some { t, lat, lon, altMsl } fixes, at the newest one's time.
+  function averageFix(fixes) {
+    const avg = (key) => fixes.reduce((sum, f) => sum + f[key], 0) / fixes.length;
+    const alts = fixes.filter((f) => Number.isFinite(f.altMsl));
+    return {
+      lat: avg('lat'),
+      lon: avg('lon'),
+      altMsl: alts.length ? alts.reduce((sum, f) => sum + f.altMsl, 0) / alts.length : null,
+      t: fixes[fixes.length - 1].t,
+    };
   }
 
   // One rocket's state. Everything here except the profile and pre-scan is
@@ -57,7 +77,8 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
       extraKeys: new Set(),      // names of unknown fields ever seen
       extraLatest: {},           // unknown fields in the latest sample
       lastGoodFix: null,         // { t, lat, lon, altMsl, speed, course, sats, hdop }
-      padPosition: null,         // last good position before liftoff
+      padPosition: null,         // the launch pad: average of the good fixes in the last PAD_AVG_S on the pad
+      padFixes: [],              // those fixes { t, lat, lon, altMsl }
       padLookedUp: false,        // pad position searched for once after a short-log liftoff
       track: [],                 // good positions: { t, lat, lon, altMsl, gapBefore }
       trail,                     // the breadcrumb trail (track.js): every fix, graded for the map
@@ -142,7 +163,11 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
       rocket.gapPending = false;
       // The launch pad is where the rocket sat still before liftoff. Data
       // that starts in flight never shows a pad, so none is drawn.
-      if (derived.phase === 'pad') rocket.padPosition = { lat: g.lat, lon: g.lon, altMsl: g.altMsl, t: sample.t };
+      if (derived.phase === 'pad') {
+        rocket.padFixes.push({ t: sample.t, lat: g.lat, lon: g.lon, altMsl: g.altMsl });
+        while (rocket.padFixes.length > 1 && rocket.padFixes[0].t < sample.t - PAD_AVG_S) rocket.padFixes.shift();
+        rocket.padPosition = averageFix(rocket.padFixes);
+      }
     } else if (sample.gps) {
       rocket.gapPending = true;
     }
@@ -156,11 +181,15 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
       const before = [...rocket.track].reverse().find((p) => p.t < derived.liftoffT);
       if (before) rocket.padPosition = { lat: before.lat, lon: before.lon, altMsl: before.altMsl, t: before.t };
     }
-    // If liftoff was placed earlier than this sample (fix lost on the pad),
-    // the pad position is the last good one from before that moment.
+    // Liftoff is confirmed a few readings after it began (or placed at the
+    // moment the fix dropped on the pad), and the readings in between were
+    // still taken as pad fixes. The pad is the average of the pad fixes
+    // from before liftoff, or the last good fix before it.
     if (derived.liftoffT !== null && rocket.padPosition && rocket.padPosition.t > derived.liftoffT) {
+      const pad = rocket.padFixes.filter((p) => p.t <= derived.liftoffT);
       const before = [...rocket.track].reverse().find((p) => p.t <= derived.liftoffT);
-      if (before) rocket.padPosition = { lat: before.lat, lon: before.lon, altMsl: before.altMsl, t: before.t };
+      if (pad.length) rocket.padPosition = averageFix(pad);
+      else if (before) rocket.padPosition = { lat: before.lat, lon: before.lon, altMsl: before.altMsl, t: before.t };
     }
 
     // Altitude series for the chart. A sample that should have carried an

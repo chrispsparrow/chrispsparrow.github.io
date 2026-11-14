@@ -9,16 +9,29 @@
 //   flight    liftoff detected: the full HUD, the camera follows the board
 //   recovery  landed: where it is and how to get there
 //
+// The states follow the detector (detector.js), so they are as hard to
+// fool as it is: a board on a desk that wanders tens of meters never
+// leaves 'pad'. Going quiet doesn't change the state either. A board
+// that stops sending in flight stays in 'flight' (the HUD marks the
+// packets as old), and one that landed stays in 'recovery', so the
+// recovery position is still there after the ground station is
+// unplugged. A replay that seeks backward resets the store and feeds it
+// again, so the state simply follows the data to the new time. So does a
+// board restart (the live feed resets the store).
+//
 // Everything here reads the store and returns plain values. Nothing is
 // drawn here, and nothing here changes the store.
 //
 //   flightState(store, rocket, { connected })
-//     -> { state, phase, sinceT }
+//     -> { state, phase, sinceT, silent, startedInFlight }
 //        state    'idle' | 'pad' | 'flight' | 'recovery'
 //        phase    the detector's phase ('waiting', 'pad', 'ascent', 'descent',
 //                 'drogue', 'main', 'landed'), or null with no data
-//        sinceT   data time the state began (liftoff for 'flight', the
-//                 landing for 'recovery'), or null
+//        sinceT   data time the state began (the first sample for 'pad',
+//                 liftoff for 'flight', the touchdown for 'recovery'), or null
+//        silent   true when the rocket has sent nothing for LINK_STALE_S
+//        startedInFlight  true when the data began with the rocket already
+//                 flying (liftoff wasn't seen, T+0 is the first reading)
 //     connected: true while a live link is open, so a board that is plugged
 //     in but hasn't sent anything yet already counts as 'pad'.
 //
@@ -47,15 +60,21 @@
 //          coordsText    '-8.537473, 119.572459' for COPY COORDINATES
 //          mapsUrl       Google Maps at the recovery position, for OPEN IN MAPS
 //        }
+//        position is null (and the texts '--') when no GPS fix came in the
+//        landing window, for example a barometer rocket whose GPS was out.
 //
 //   groundSpeed(store, rocket)
 //     -> { mps, source }: source is 'board' (the receiver's own ground speed,
-//        from the packet), 'fixes' (worked out from the last two good fixes)
+//        from the packet), 'fixes' (worked out from the last few good fixes)
 //        or null (mps is null too)
 //
 //   eventCrumb(rocket, event)
 //     -> the good crumb (see track.js) where a flight event happened, or
 //        null when the event fell in a GPS gap
+//
+//   packetRate(store, rocket)  packets a second over the last PAD_LINK_WINDOW_S
+//   formatBearing3(deg)        '062° (ENE)'
+//   formatDistanceCaps(m)      '840 M' or '1.24 KM'
 //
 // Used by: the HUD, the map and 3D view, main.js and the tests. No DOM.
 
@@ -66,21 +85,28 @@ export const STATE = Object.freeze({ IDLE: 'idle', PAD: 'pad', FLIGHT: 'flight',
 
 export function flightState(store, rocket = store?.getFocused?.() ?? null, { connected = false } = {}) {
   const d = rocket?.derived ?? null;
-  if (!rocket || !d || !rocket.samples.length) {
-    return { state: connected ? STATE.PAD : STATE.IDLE, phase: null, sinceT: null };
+  if (!store || !rocket || !d || !rocket.samples?.length) {
+    return { state: connected ? STATE.PAD : STATE.IDLE, phase: null, sinceT: null, silent: false, startedInFlight: false };
   }
-  if (d.events?.landed) return { state: STATE.RECOVERY, phase: d.phase, sinceT: d.events.landed.t };
-  if (d.liftoffT !== null) return { state: STATE.FLIGHT, phase: d.phase, sinceT: d.liftoffT };
-  return { state: STATE.PAD, phase: d.phase, sinceT: rocket.samples[0].t };
+  const silent = store.isSilent(rocket);
+  const startedInFlight = d.startedInFlight === true;
+  if (d.events?.landed) return { state: STATE.RECOVERY, phase: d.phase, sinceT: d.events.landed.t, silent, startedInFlight };
+  if (d.liftoffT !== null) return { state: STATE.FLIGHT, phase: d.phase, sinceT: d.liftoffT, silent, startedInFlight };
+  return { state: STATE.PAD, phase: d.phase, sinceT: rocket.samples[0].t, silent, startedInFlight };
 }
 
 // Packets a second over the last PAD_LINK_WINDOW_S of the store's clock.
+// Near the start it divides by the time since the first packet (at least
+// 1 s) instead, so a board that just started doesn't look slow. null with
+// no clock or no rocket.
 export function packetRate(store, rocket, windowS = config.PAD_LINK_WINDOW_S) {
-  const now = store.getNow();
+  const now = store?.getNow?.();
   if (!rocket || !Number.isFinite(now)) return null;
   const from = now - windowS;
   let n = 0;
-  for (let i = rocket.samples.length - 1; i >= 0 && rocket.samples[i].t > from; i--) n += 1;
+  for (let i = rocket.samples.length - 1; i >= 0 && rocket.samples[i].t > from; i--) {
+    if (rocket.samples[i].t <= now) n += 1;
+  }
   const first = rocket.samples[0]?.t;
   const span = Number.isFinite(first) ? Math.min(windowS, Math.max(1, now - first)) : windowS;
   return n / span;
@@ -106,7 +132,7 @@ export function padChecklist(store, rocket = store?.getFocused?.() ?? null) {
   };
   let linkText = MISSING;
   if (rocket && Number.isFinite(rocket.lastPacketT)) {
-    linkText = silent
+    linkText = silent || rate === null
       ? `NO PACKETS, ${formatNumber(store.ageOf(rocket.lastPacketT), 0)} S`
       : `${formatNumber(rate, rate >= 0.95 || rate === 0 ? 0 : 1)} PKT/S`;
   }
@@ -119,20 +145,45 @@ export function groundSpeed(store, rocket = store?.getFocused?.() ?? null) {
   if (!rocket || !store.hasFixNow(rocket)) return { mps: null, source: null };
   const fix = rocket.lastGoodFix;
   if (fix && Number.isFinite(fix.speed)) return { mps: fix.speed, source: 'board' };
-  const good = (rocket.crumbs ?? []).filter((c) => c.quality === 'good');
-  const b = good[good.length - 1];
-  const a = good[good.length - 2];
-  if (!a || !b || b.gapBefore || !(b.t > a.t)) return { mps: null, source: null };
+  // No speed from the receiver (a USB status block has none): the
+  // horizontal distance over the last few good fixes in one unbroken run,
+  // so the jitter of a single fix doesn't swing it as much.
+  const crumbs = rocket.crumbs ?? [];
+  const run = [];
+  for (let i = crumbs.length - 1; i >= 0 && run.length <= config.LINE_SMOOTH_FIXES; i--) {
+    const c = crumbs[i];
+    if (c.quality !== 'good') continue;
+    run.push(c);
+    if (c.gapBefore) break;
+  }
+  const b = run[0];
+  const a = run[run.length - 1];
+  if (!a || !b || a === b || !(b.t > a.t)) return { mps: null, source: null };
   const rb = rangeAndBearing(a, b);
   return rb ? { mps: rb.distanceM / (b.t - a.t), source: 'fixes' } : { mps: null, source: null };
 }
 
+// The good crumb nearest in time to an event, if one is within maxGapS.
+// Crumbs are in time order, so this is a binary search.
 export function eventCrumb(rocket, event, maxGapS = config.TRACK_GAP_S) {
   if (!rocket || !event || !Number.isFinite(event.t)) return null;
+  const crumbs = rocket.crumbs ?? [];
+  let lo = 0;
+  let hi = crumbs.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (crumbs[mid].t < event.t) lo = mid + 1; else hi = mid;
+  }
+  // The nearest good crumb on each side of that spot.
   let best = null;
-  for (const c of rocket.crumbs ?? []) {
-    if (c.quality !== 'good') continue;
-    if (!best || Math.abs(c.t - event.t) < Math.abs(best.t - event.t)) best = c;
+  for (let i = lo; i < crumbs.length; i++) {
+    if (crumbs[i].quality === 'good') { best = crumbs[i]; break; }
+  }
+  for (let i = lo - 1; i >= 0; i--) {
+    if (crumbs[i].quality === 'good') {
+      if (!best || Math.abs(crumbs[i].t - event.t) < Math.abs(best.t - event.t)) best = crumbs[i];
+      break;
+    }
   }
   return best && Math.abs(best.t - event.t) <= maxGapS ? best : null;
 }
@@ -153,7 +204,7 @@ export function formatDistanceCaps(m) {
 export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
   const d = rocket?.derived ?? null;
   const landed = d?.events?.landed ?? null;
-  if (!rocket || !landed) return null;
+  if (!store || !rocket || !landed) return null;
 
   // The detector's own landing position (the average over its landing
   // window) when it has one. Otherwise the average of the good fixes from
@@ -176,6 +227,9 @@ export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
 
   const lastFixT = rocket.lastGoodFix?.t ?? null;
   const lastFixAgeS = store.ageOf(lastFixT);
+  // Distance and bearing from Manta when the store has a ground station,
+  // from the launch point when it doesn't (data that started in flight
+  // has neither).
   const gs = store.getGroundStation();
   const origin = gs ?? rocket.padPosition ?? null;
   const from = !position || !origin ? null : gs ? 'manta' : 'launch';

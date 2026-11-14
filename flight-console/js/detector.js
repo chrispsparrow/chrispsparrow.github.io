@@ -2,7 +2,9 @@
 // Works out what one rocket is doing from its own readings, one sample at a
 // time: ground level, altitude above ground (AGL), smoothed vertical speed,
 // and the flight events (liftoff, apogee, drogue, main, landed, GPS fix lost
-// and regained, and anything the board reports itself).
+// and regained, and anything the board reports itself). Once the landing is
+// detected it also works out where the rocket is: the average of the GPS
+// fixes in the landing window (state.landing).
 //
 // It only ever sees normalized samples. It never sees the simulator's ground
 // truth, so a simulated flight is judged exactly like a real one.
@@ -12,12 +14,29 @@
 // minus its first reading time is at least X. That works the same at 1 or
 // 20 readings per second.
 //
+// The rules (every number is in config.js, with the reasons):
+//   Pad        still (vertical speed under PAD_STILL_MAX_MPS) for
+//              PAD_CONFIRM_S. Ground level is the average of the last
+//              PAD_AVG_S of pad readings, frozen at liftoff.
+//   Liftoff    a fast climb of several readings in a row well above the
+//              pad, or the GPS fix coming back far above the pad after a
+//              break. A board on a desk that wanders tens of meters, with
+//              single jumps, can't do either. A wandering board stays on
+//              its pad, so the live store keeps liftoff switched on too.
+//   Apogee     falling for APOGEE_CONFIRM_S after climbing APOGEE_ARM_AGL_M.
+//   Drogue     falling faster than DROGUE_MIN_DESCENT_MPS after apogee.
+//   Main       a slower descent, started high enough above the ground.
+//   Landed     after apogee (or well below the highest point): altitude
+//              steady with no downward trend over LANDED_WINDOW_S, every
+//              fix inside a LANDED_RADIUS_M circle, and the receiver's own
+//              ground speed slow when it sends one.
+//
 // Used by: store.js (one detector per rocket), main.js (a separate detector
 // pre-scans each flight for the jump buttons), and both Node tools. No DOM.
 
 import { DETECTOR_DEFAULTS } from './config.js';
 import { hasGoodPosition } from './schema.js';
-import { formatRounded10, formatFlightSeconds, formatDuration, formatNumber } from './geo.js';
+import { distanceM, formatRounded10, formatFlightSeconds, formatDuration, formatNumber } from './geo.js';
 
 // Flight events in the order they happen.
 export const FLIGHT_EVENT_TYPES = Object.freeze(['liftoff', 'apogee', 'drogue', 'main', 'landed']);
@@ -50,6 +69,29 @@ const EPS = 1e-6;
 
 const mean = (values) => values.reduce((sum, v) => sum + v, 0) / values.length;
 
+// The middle value of a list of numbers.
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// The slope (m/s) of the best straight line through { t, alt } readings
+// (least squares). 0 when there are fewer than two times.
+function slopeOf(readings) {
+  const n = readings.length;
+  if (n < 2) return 0;
+  const tm = mean(readings.map((r) => r.t));
+  const am = mean(readings.map((r) => r.alt));
+  let num = 0;
+  let den = 0;
+  for (const r of readings) {
+    num += (r.t - tm) * (r.alt - am);
+    den += (r.t - tm) ** 2;
+  }
+  return den > 0 ? num / den : 0;
+}
+
 export function createDetector(overrides = {}) {
   const cfg = { ...DETECTOR_DEFAULTS, ...overrides };
   let s = freshState();
@@ -67,11 +109,19 @@ export function createDetector(overrides = {}) {
       padConfirmed: false,
       startedInFlight: false,
       stillSinceT: null,   // start of the current still streak (before a pad is confirmed)
-      moveStreak: null,    // { t, alt, sign } while moving one way before anything is decided
-      belowSince: null,    // { t, alt } where a streak far below a confirmed pad began
       preMax: null,        // { t, alt } highest reading before liftoff, kept in full
-      preMaxSmooth: null,  // highest smoothed altitude before liftoff
       altSmooth: null,     // average altitude over the vertical speed window
+      prevReading: null,   // { t, alt } the altitude reading before this one
+      // Liftoff evidence being collected (see config.js):
+      //   climb  { fromT, fromAlt, readings: [{ t, alt }] } readings in a row
+      //          that each climbed at least LIFTOFF_MIN_STEP_MPS. fromT and
+      //          fromAlt are the reading just before the run.
+      //   jump   { t, alt, fromT } the first reading after a break, far
+      //          above the pad, waiting for the next reading to agree
+      //   fall   { t, alt } start of a steady fall (data that starts in flight)
+      climb: null,
+      jump: null,
+      fall: null,
       // Altitude readings on the pad, for the ground reference.
       padReadings: [],
       groundRef: null,
@@ -96,19 +146,20 @@ export function createDetector(overrides = {}) {
       drogue: null,
       main: null,
       landed: null,
+      // Where the rocket came down: { lat, lon, fixCount, fromT, toT }.
+      landing: null,
       // Streaks in progress: { startT, startAgl }.
       apogeeStreak: null,
       drogueStreak: null,
       mainStreak: null,
-      landedBuf: [],   // altitude readings, for the landed window
-      speedBuf: [],    // GPS horizontal speeds from good fixes, for the landed window
+      landedBuf: [],   // altitude readings after liftoff, for the landed window
+      fixBuf: [],      // good GPS fixes after liftoff { t, lat, lon }, for the landed window
+      speedBuf: [],    // GPS ground speeds from good fixes, for the landed window
       // GPS fix tracking.
       fixGood: null,
       lastGoodFixT: null,
       fixLostT: null,
-      padFixLostT: null,           // fix dropped while still on the pad
-      padFixBackT: null,           // ...and came back (still before liftoff)
-      readingsSincePadFixLoss: 0,  // altitude readings since that drop
+      padFixLostT: null,   // the latest time the fix dropped while still on the pad
     };
   }
 
@@ -147,18 +198,17 @@ export function createDetector(overrides = {}) {
           message: `GPS fix back after ${formatDuration(gap)} without a good position (reported by the board)`,
         }));
       }
-      if (s.liftoffT === null && s.padFixLostT !== null && s.padFixBackT === null) s.padFixBackT = t;
       s.fixGood = true;
       s.lastGoodFixT = t;
-      if (Number.isFinite(sample.gps.speed)) s.speedBuf.push({ t, v: sample.gps.speed });
+      const g = sample.gps;
+      if (s.liftoffT !== null) s.fixBuf.push({ t, lat: g.lat, lon: g.lon });
+      // The receiver's own ground speed (u-blox works it out from the
+      // Doppler shift of the satellite signals, not from position changes).
+      if (Number.isFinite(g.speed)) s.speedBuf.push({ t, v: g.speed });
     } else {
       if (s.fixGood === true) {
         s.fixLostT = t;
-        if (s.liftoffT === null) {
-          s.padFixLostT = t;
-          s.padFixBackT = null;
-          s.readingsSincePadFixLoss = 0;
-        }
+        if (s.liftoffT === null) s.padFixLostT = t;
         events.push(makeEvent('gps_fix_lost', {
           t, basis: 'reported',
           message: 'GPS fix lost, showing the last good position (reported by the board)',
@@ -189,10 +239,11 @@ export function createDetector(overrides = {}) {
       s.firstAltT = null;
       s.padConfirmed = false;
       s.stillSinceT = null;
-      s.moveStreak = null;
-      s.belowSince = null;
       s.preMax = null;
-      s.preMaxSmooth = null;
+      s.prevReading = null;
+      s.climb = null;
+      s.jump = null;
+      s.fall = null;
     }
     if (s.altSource === 'barometer') return baroAlt;
     if (s.altSource === 'GPS' && good) return sample.gps.altMsl;
@@ -218,6 +269,76 @@ export function createDetector(overrides = {}) {
     // The same window's average altitude, for decisions that compare
     // altitudes before liftoff, so one noisy reading can't swing them.
     s.altSmooth = s.vSpeed === null ? null : mean(h.map((r) => r.alt));
+  }
+
+  // ---------------------------------------------------------------
+  // Liftoff evidence, collected on every reading before liftoff
+  // ---------------------------------------------------------------
+
+  // The climb run: readings in a row that each climbed at least
+  // LIFTOFF_MIN_STEP_MPS from the one before. Jitter and slow wander break
+  // it at once.
+  function updateClimb(t, alt) {
+    const prev = s.prevReading;
+    if (!prev || t <= prev.t + EPS) return;
+    const stepRate = (alt - prev.alt) / (t - prev.t);
+    if (stepRate >= cfg.LIFTOFF_MIN_STEP_MPS) {
+      if (!s.climb) s.climb = { fromT: prev.t, fromAlt: prev.alt, readings: [] };
+      s.climb.readings.push({ t, alt });
+    } else {
+      s.climb = null;
+    }
+  }
+
+  // Is the climb run a liftoff? ground is the pad's altitude, or null when
+  // there is no pad (then the run just has to rise more than LIFTOFF_AGL_M).
+  // Returns { startT, fromT, rate } or null.
+  function climbLiftoff(ground) {
+    const c = s.climb;
+    if (!c) return null;
+    // The run only rises, so the readings above the pad are its last ones.
+    const above = ground === null ? c.readings : c.readings.filter((r) => r.alt - ground > cfg.LIFTOFF_AGL_M);
+    if (above.length < cfg.LIFTOFF_CONFIRM_READINGS) return null;
+    const last = above[above.length - 1];
+    if (last.t - above[0].t < cfg.LIFTOFF_CONFIRM_S - EPS) return null;
+    const rate = (last.alt - c.fromAlt) / (last.t - c.fromT);
+    if (!(rate > cfg.LIFTOFF_VSPEED_MPS)) return null;
+    if (ground === null && last.alt - c.fromAlt <= cfg.LIFTOFF_AGL_M) return null;
+    return { startT: c.readings[0].t, fromT: c.fromT, rate, rise: last.alt - c.fromAlt };
+  }
+
+  // The comeback: the first reading after a break (the fix dropped, or no
+  // reading for LIFTOFF_BREAK_S) far above the pad, climbing fast since the
+  // last pad reading. It only counts once the next reading agrees.
+  // Returns { startT, fromT, aglM } when confirmed, or null.
+  function jumpLiftoff(t, alt, ground) {
+    const high = alt - ground > cfg.LIFTOFF_FIX_BACK_AGL_M;
+    if (s.jump) {
+      const j = s.jump;
+      s.jump = null;
+      if (high) return { startT: j.t, fromT: j.fromT, aglM: j.alt - ground };
+      return null;
+    }
+    const prev = s.prevReading;
+    if (!prev || !high || t <= prev.t + EPS) return null;
+    const fixDropped = s.padFixLostT !== null && s.padFixLostT > prev.t + EPS;
+    const broke = fixDropped || t - prev.t > cfg.LIFTOFF_BREAK_S + EPS;
+    if (broke && (alt - prev.alt) / (t - prev.t) > cfg.LIFTOFF_VSPEED_MPS) s.jump = { t, alt, fromT: prev.t };
+    return null;
+  }
+
+  // The steady fall that means data started in flight, coming down.
+  function updateFall(t) {
+    if (s.vSpeed !== null && s.vSpeed < -cfg.START_FALL_MIN_MPS) {
+      if (!s.fall) s.fall = { t, alt: s.altSmooth };
+    } else {
+      s.fall = null;
+    }
+  }
+
+  function fallConfirmed(t) {
+    return Boolean(s.fall) && t - s.fall.t >= cfg.START_FALL_CONFIRM_S - EPS &&
+      s.fall.alt - s.altSmooth > cfg.LIFTOFF_AGL_M;
   }
 
   // ---------------------------------------------------------------
@@ -254,31 +375,44 @@ export function createDetector(overrides = {}) {
   function decideStart(t, alt, events) {
     addPadReading(t, alt);
     s.agl = null;
-    const v = s.vSpeed;
-    if (v === null) return;
 
     // A short log that starts just before launch: the first readings sat
-    // still for at least PAD_RUN_MIN_S, and the rocket is now climbing like
-    // a liftoff, well above them. That's a real pad and a real liftoff, not
-    // data starting in flight. (A settling GPS climbs only a few m/s, and two
-    // readings 50 ms apart can look still even in fast flight, hence both
-    // checks.)
-    const run = leadingStillRun();
+    // still for at least PAD_RUN_MIN_S, then a liftoff climb well above
+    // them. That's a real pad and a real liftoff, not data starting in
+    // flight.
+    // (Only the still readings up to the start of the climb count. At
+    // 20 Hz the first climbing readings can still sit within PAD_SPREAD_M.)
+    const run = s.climb ? leadingStillRun().filter((r) => r.t <= s.climb.fromT + EPS) : [];
     const runSpan = run.length ? run[run.length - 1].t - run[0].t : 0;
-    if (v > cfg.LIFTOFF_VSPEED_MPS && run.length >= 2 && runSpan >= cfg.PAD_RUN_MIN_S - EPS) {
+    if (s.climb && run.length >= 2 && runSpan >= cfg.PAD_RUN_MIN_S - EPS) {
       const ground = mean(run.map((r) => r.alt));
-      if (alt - ground > cfg.LIFTOFF_AGL_M) {
-        const firstAbove = s.padReadings.find((r) => r.t > run[run.length - 1].t && r.alt - ground > cfg.LIFTOFF_AGL_M);
+      const climb = climbLiftoff(ground);
+      if (climb) {
         s.padConfirmed = true;
         s.padReadings = run;
-        liftoffFromPad(t, alt, events, { triggerT: firstAbove ? firstAbove.t : t, byHeight: true });
+        liftoffFromPad(t, alt, events, climb, 'climb');
         return;
       }
     }
+    // A liftoff climb with no pad under it: the data began in flight,
+    // going up. With no pad to measure from, the climb has to rise more
+    // than LIFTOFF_FIX_BACK_AGL_M, so a GPS settling after power-up (its
+    // first fixes can sit far too low) can't pass for it.
+    const noPadClimb = climbLiftoff(null);
+    if (noPadClimb && noPadClimb.rise > cfg.LIFTOFF_FIX_BACK_AGL_M) {
+      startInFlight(t, alt, events, true);
+      return;
+    }
+    // A steady fall: the data began in flight, coming down.
+    if (fallConfirmed(t)) {
+      startInFlight(t, alt, events, false);
+      return;
+    }
 
     // Still for PAD_CONFIRM_S: the rocket is on a pad.
+    const v = s.vSpeed;
+    if (v === null) return;
     if (Math.abs(v) <= cfg.PAD_STILL_MAX_MPS) {
-      s.moveStreak = null;
       if (s.stillSinceT === null) s.stillSinceT = t;
       if (t - s.stillSinceT >= cfg.PAD_CONFIRM_S - EPS) {
         s.padConfirmed = true;
@@ -287,76 +421,71 @@ export function createDetector(overrides = {}) {
       return;
     }
     s.stillSinceT = null;
-
-    // Still falling (faster than PAD_STILL_MAX_MPS over the last
-    // VSPEED_AVG_S) and already well below the highest reading: the data
-    // began in flight, coming down. This catches a slow main, where noise
-    // keeps breaking the streak below.
-    if (v < -cfg.PAD_STILL_MAX_MPS && s.preMaxSmooth !== null && s.preMaxSmooth - s.altSmooth > cfg.LIFTOFF_AGL_M) {
-      startInFlight(t, alt, events, false);
-      return;
-    }
-
-    // Moving one way, far enough, for long enough: the data began in flight.
-    // (Altitude change measured on the smoothed altitude.) Climbing also has
-    // to be as fast as a liftoff: a slow rise is a GPS fix settling, or a
-    // rocket right at apogee, which the falling rule above catches next.
-    const sign = Math.sign(v);
-    if (!s.moveStreak || s.moveStreak.sign !== sign) s.moveStreak = { t, alt: s.altSmooth, sign };
-    const fastEnough = sign < 0 || v > cfg.LIFTOFF_VSPEED_MPS;
-    if (fastEnough && t - s.moveStreak.t >= cfg.DESCENT_CONFIRM_S - EPS && Math.abs(s.altSmooth - s.moveStreak.alt) > cfg.LIFTOFF_AGL_M) {
-      startInFlight(t, alt, events, sign > 0);
-    }
   }
 
-  // On a confirmed pad: watch for liftoff, and for the rocket sinking well
-  // below the pad, which means it was never on one (data that starts under
-  // a slow main parachute can look still at first).
+  // On a confirmed pad: watch for liftoff, and for the rocket falling
+  // steadily far below the pad, which means it was never on one (data that
+  // starts under a slow main parachute can look still at first).
   function checkPad(t, alt, events) {
     const ground = padGround();
     const agl = ground === null ? null : alt - ground;
     s.agl = agl;
-    if (agl !== null && agl < -cfg.LIFTOFF_AGL_M) {
-      if (s.belowSince === null) s.belowSince = { t, alt };
-      // Only a real, continuing descent counts. A GPS glitch that reads low
-      // for a few seconds doesn't keep dropping.
-      const dropped = s.belowSince.alt - alt;
-      if (t - s.belowSince.t >= cfg.DESCENT_CONFIRM_S - EPS &&
-          dropped > cfg.PAD_STILL_MAX_MPS * cfg.DESCENT_CONFIRM_S && s.vSpeed !== null && s.vSpeed < -cfg.PAD_STILL_MAX_MPS) {
-        s.padConfirmed = false;
-        startInFlight(t, alt, events, false);
-      }
-      return; // readings far below the pad don't join the pad average
-    }
-    s.belowSince = null;
-    const byHeight = agl !== null && agl > cfg.LIFTOFF_AGL_M;
-    const bySpeed = s.vSpeed !== null && s.vSpeed > cfg.LIFTOFF_VSPEED_MPS;
-    if (!byHeight && !bySpeed) {
+    if (agl === null) {
       addPadReading(t, alt);
       return;
     }
-    liftoffFromPad(t, alt, events, { triggerT: t, byHeight });
+    if (agl < -cfg.LIFTOFF_AGL_M) {
+      s.jump = null;
+      if (fallConfirmed(t)) {
+        s.padConfirmed = false;
+        startInFlight(t, alt, events, false);
+        return;
+      }
+      // Far below the pad while still falling stays out of the pad average.
+      // Once it stops, it joins, so a GPS that settled lower moves the pad.
+      if (!s.fall) addPadReading(t, alt);
+      return;
+    }
+    const climb = climbLiftoff(ground);
+    if (climb) {
+      liftoffFromPad(t, alt, events, climb, 'climb');
+      return;
+    }
+    const jump = jumpLiftoff(t, alt, ground);
+    if (jump) {
+      liftoffFromPad(t, alt, events, jump, 'jump');
+      return;
+    }
+    // A reading far above the pad that might be the start of a liftoff
+    // stays out of the pad average. A lone jump joins it.
+    if (agl > cfg.LIFTOFF_AGL_M && (s.climb || s.jump)) return;
+    addPadReading(t, alt);
   }
 
-  // Liftoff from a pad. triggerT is the first reading that met the liftoff
-  // condition, t the reading where we knew.
-  function liftoffFromPad(t, alt, events, { triggerT, byHeight }) {
-    // If the GPS fix dropped on the pad and the altitude source saw nothing
-    // between that drop and now (a GPS-only board losing its fix in boost),
-    // the drop is the best guess for liftoff. If altitude readings did
-    // arrive after the drop, they time the liftoff themselves.
-    let liftoffT = triggerT;
+  // Liftoff from a pad, confirmed at reading t. found is what climbLiftoff
+  // or jumpLiftoff returned, how is 'climb' or 'jump'.
+  function liftoffFromPad(t, alt, events, found, how) {
+    // T+0 is the first reading of the climb. If the GPS fix dropped after
+    // the last pad reading (a GPS-only board losing its fix in boost), the
+    // drop is the best guess. After a plain break in the data, the last
+    // pad reading is.
+    let liftoffT = found.startT;
     let estimated = false;
-    const fixStillOut = s.padFixBackT === null || s.padFixBackT >= t - EPS;
-    if (s.padFixLostT !== null && fixStillOut && s.readingsSincePadFixLoss === 0 && s.padFixLostT < triggerT) {
+    let estimateWords = '';
+    if (s.padFixLostT !== null && s.padFixLostT > found.fromT + EPS && s.padFixLostT <= found.startT + EPS) {
       liftoffT = s.padFixLostT;
       estimated = true;
+      estimateWords = 'T+0 is estimated from when the GPS fix dropped on the pad';
+    } else if (how === 'jump') {
+      liftoffT = found.fromT;
+      estimated = true;
+      estimateWords = 'T+0 is estimated as the last reading on the pad, since nothing came during the climb';
     }
 
     // Freeze the ground reference: pad readings in the PAD_AVG_S before
     // liftoff, or the latest pad readings if a gap left none in that window.
     let pad = s.padReadings.filter((r) => r.t < liftoffT - EPS && r.t >= liftoffT - cfg.PAD_AVG_S - EPS);
-    if (!pad.length) pad = s.padReadings.filter((r) => r.t < liftoffT - EPS);
+    if (!pad.length) pad = s.padReadings.filter((r) => r.t < liftoffT + EPS);
     if (!pad.length) pad = s.padReadings;
     if (pad.length) {
       s.groundRef = mean(pad.map((r) => r.alt));
@@ -366,20 +495,24 @@ export function createDetector(overrides = {}) {
       s.groundEstimated = true;
     }
     s.padReadings = [];
+    s.climb = null;
+    s.jump = null;
+    s.fall = null;
     s.liftoffT = liftoffT;
     s.liftoffDetectedT = t;
     s.liftoffEstimated = estimated;
     s.agl = alt - s.groundRef;
 
-    const reason = byHeight
-      ? `more than ${cfg.LIFTOFF_AGL_M} m above the pad`
-      : `climbing faster than ${cfg.LIFTOFF_VSPEED_MPS} m/s`;
+    const reason = how === 'climb'
+      ? `climbing at about ${formatNumber(found.rate, 0)} m/s, more than ${cfg.LIFTOFF_AGL_M} m above the pad`
+      : `the GPS fix came back about ${formatRounded10(found.aglM)} m above the pad`;
     let message = `Liftoff detected, ${reason}`;
-    if (estimated) message = `Liftoff detected, ${reason} (confirmed ${at(t)}). T+0 is estimated from when the GPS fix dropped on the pad`;
+    if (estimated) message = `Liftoff detected, ${reason} (confirmed ${at(t)}). ${estimateWords}`;
     else if (t > liftoffT + EPS) message = `Liftoff detected, ${reason} (confirmed ${at(t)})`;
+    const startReading = s.altHistory.find((r) => Math.abs(r.t - liftoffT) < EPS);
     s.liftoff = makeEvent('liftoff', {
       t: liftoffT, confirmedT: t, basis: 'detected', message,
-      aglM: estimated ? null : s.agl,
+      aglM: estimated || !startReading ? null : startReading.alt - s.groundRef,
     });
     events.push(s.liftoff);
   }
@@ -394,6 +527,9 @@ export function createDetector(overrides = {}) {
     s.liftoffT = s.firstAltT;
     s.liftoffDetectedT = t;
     s.liftoffEstimated = true;
+    s.climb = null;
+    s.jump = null;
+    s.fall = null;
     // The readings so far were taken in flight, not on a pad. The highest
     // one is tracked in full (padReadings only keeps the last PAD_AVG_S).
     s.padReadings = [];
@@ -401,10 +537,11 @@ export function createDetector(overrides = {}) {
     s.maxAgl = top.alt - s.groundRef;
     s.maxAglT = top.t;
     s.agl = alt - s.groundRef;
+    const speed = Number.isFinite(s.vSpeed) ? Math.abs(s.vSpeed) : null;
     s.liftoff = makeEvent('liftoff', {
       t: s.liftoffT, confirmedT: t, basis: 'detected',
-      message: `Liftoff detected from data that starts in flight, already ${climbing ? 'climbing' : 'falling'} at ` +
-        `${formatNumber(Math.abs(s.vSpeed), 0)} m/s. The liftoff itself wasn't seen, so T+0 is the first reading ` +
+      message: `Liftoff detected from data that starts in flight, already ${climbing ? 'climbing' : 'falling'}` +
+        `${speed === null ? '' : ` at ${formatNumber(speed, 0)} m/s`}. The liftoff itself wasn't seen, so T+0 is the first reading ` +
         `and ground level is estimated at ${formatNumber(cfg.GROUND_ELEV_FALLBACK_M, 0)} m above sea level`,
     });
     events.push(s.liftoff);
@@ -480,25 +617,110 @@ export function createDetector(overrides = {}) {
     }
   }
 
+  // The average position of some { lat, lon } fixes.
+  function centerOf(fixes) {
+    return { lat: mean(fixes.map((f) => f.lat)), lon: mean(fixes.map((f) => f.lon)) };
+  }
+
+  // The altitude range of { t, alt } readings, with the single highest and
+  // single lowest set aside when there are 10 or more. One pass, no
+  // sorting, since it runs on every reading after apogee.
+  function trimmedRange(readings) {
+    let lo1 = Infinity; let lo2 = Infinity;     // lowest, second lowest
+    let hi1 = -Infinity; let hi2 = -Infinity;   // highest, second highest
+    for (const { alt } of readings) {
+      if (alt < lo1) { lo2 = lo1; lo1 = alt; } else if (alt < lo2) lo2 = alt;
+      if (alt > hi1) { hi2 = hi1; hi1 = alt; } else if (alt > hi2) hi2 = alt;
+    }
+    return readings.length >= 10 ? hi2 - lo2 : hi1 - lo1;
+  }
+
+  // { t, alt } readings without the single highest and single lowest, when
+  // there are 10 or more.
+  function withoutEnds(readings) {
+    if (readings.length < 10) return readings;
+    let lo = 0;
+    let hi = 0;
+    readings.forEach((r, i) => {
+      if (r.alt < readings[lo].alt) lo = i;
+      if (r.alt > readings[hi].alt) hi = i;
+    });
+    return readings.filter((_, i) => i !== lo && i !== hi);
+  }
+
+  // The fixes the landing uses: all of them, or with 10 or more, all but
+  // the one farthest from their average.
+  function keptFixes(fixes) {
+    if (fixes.length < 10) return fixes;
+    const c = centerOf(fixes);
+    let worst = 0;
+    fixes.forEach((f, i) => {
+      if (distanceM(c.lat, c.lon, f.lat, f.lon) > distanceM(c.lat, c.lon, fixes[worst].lat, fixes[worst].lon)) worst = i;
+    });
+    return fixes.filter((_, i) => i !== worst);
+  }
+
+  // Landing is only possible after apogee, or once the rocket is well below
+  // its highest point. A board on a desk never lifts off, so it never gets
+  // here, however much it wanders.
+  function landingArmed() {
+    if (s.apogee) return true;
+    return Number.isFinite(s.maxAgl) && Number.isFinite(s.agl) && s.maxAgl - s.agl >= cfg.LANDED_ARM_DROP_M;
+  }
+
   function checkLanded(t, alt, events) {
-    if (!s.apogee || s.landed) return;
-    s.landedBuf.push({ t, alt });
+    if (s.landed) return;
+    const buf = s.landedBuf;
+    buf.push({ t, alt });
     // Keep exactly one reading at or before the start of the window.
-    while (s.landedBuf.length > 1 && s.landedBuf[1].t <= t - cfg.LANDED_WINDOW_S + EPS) s.landedBuf.shift();
-    const first = s.landedBuf[0];
-    if (t - first.t < cfg.LANDED_WINDOW_S - EPS) return;
-    const alts = s.landedBuf.map((r) => r.alt);
-    if (Math.max(...alts) - Math.min(...alts) >= cfg.LANDED_ALT_RANGE_M) return;
-    // If GPS speeds arrived during the window, every one must be slow. A
-    // rocket whose GPS sent no speed in the window (fix lost in the grass,
-    // or GPS in separate rows) is judged on altitude alone.
+    while (buf.length > 1 && buf[1].t <= t - cfg.LANDED_WINDOW_S + EPS) buf.shift();
+    const first = buf[0];
+    while (s.fixBuf.length && s.fixBuf[0].t < first.t - EPS) s.fixBuf.shift();
+    if (!landingArmed()) return;
+    if (t - first.t < cfg.LANDED_WINDOW_S - EPS || buf.length < cfg.LANDED_MIN_READINGS) return;
+
+    // Altitude steady: within the range, with one stray reading at each
+    // end set aside when there are enough readings...
+    if (trimmedRange(buf) > cfg.LANDED_ALT_RANGE_M) return;
+    // ...and not sinking (the same stray readings left out).
+    if (slopeOf(withoutEnds(buf)) < -cfg.LANDED_MAX_SINK_MPS) return;
+
+    // Every fix in the window fits in the circle around their average. With
+    // 10 or more fixes, the one farthest from the average is set aside
+    // first (like the altitude above), so one wild fix can't hold the
+    // landing off. It stays out of the recovery position too.
+    const fixes = keptFixes(s.fixBuf.filter((f) => f.t >= first.t - EPS && f.t <= t + EPS));
+    if (fixes.length) {
+      const c = centerOf(fixes);
+      if (fixes.some((f) => distanceM(c.lat, c.lon, f.lat, f.lon) > cfg.LANDED_RADIUS_M)) return;
+    }
+    // If the receiver sent its ground speed in the window, every one must be
+    // slow. A rocket whose GPS sent no speed (a bench block, a barometer
+    // rocket with the fix lost in the grass) is judged on the rest alone.
     const speeds = s.speedBuf.filter((p) => p.t >= first.t - EPS && p.t <= t + EPS);
     if (speeds.some((p) => p.v >= cfg.LANDED_MAX_SPEED_MPS)) return;
-    const firstAgl = first.alt - s.groundRef;
+
+    // Touchdown: the first reading close to where the altitude settled.
+    const settled = median(buf.map((r) => r.alt));
+    const touch = buf.find((r) => r.alt <= settled + cfg.LANDED_TOUCHDOWN_M) ?? first;
+    // Where it is: the average of the fixes from touchdown on, never just
+    // the last one.
+    let pos = fixes.filter((f) => f.t >= touch.t - EPS);
+    if (!pos.length) pos = fixes;
+    s.landing = Object.freeze({
+      lat: pos.length ? mean(pos.map((f) => f.lat)) : null,
+      lon: pos.length ? mean(pos.map((f) => f.lon)) : null,
+      fixCount: pos.length,
+      fromT: touch.t,
+      toT: t,
+    });
+
+    const touchAgl = touch.alt - s.groundRef;
     s.landed = makeEvent('landed', {
-      t: first.t, confirmedT: t, basis: 'detected', aglM: firstAgl,
-      message: `Landing detected: altitude steady at about ${formatRounded10(firstAgl)} m AGL from ` +
-        `${at(first.t)} (confirmed ${at(t)})`,
+      t: touch.t, confirmedT: t, basis: 'detected', aglM: touchAgl,
+      message: `Landing detected: altitude steady at about ${formatRounded10(touchAgl)} m AGL from ` +
+        `${at(touch.t)} (confirmed ${at(t)})` +
+        (pos.length ? `. The position is the average of ${pos.length} GPS fix${pos.length === 1 ? '' : 'es'}` : ''),
     });
     events.push(s.landed);
   }
@@ -533,24 +755,23 @@ export function createDetector(overrides = {}) {
 
     const alt = chooseAltitude(sample, good);
     if (alt === null) return events;
+    // The same moment twice (a duplicate packet) tells us nothing new.
+    if (s.prevReading && t <= s.prevReading.t + EPS) return events;
 
     s.altitude = alt;
     s.altitudeT = t;
     if (s.firstAltT === null) s.firstAltT = t;
     if (s.liftoffT === null && (!s.preMax || alt > s.preMax.alt)) s.preMax = { t, alt };
     updateVerticalSpeed(t, alt);
-    if (s.liftoffT === null && s.altSmooth !== null && (s.preMaxSmooth === null || s.altSmooth > s.preMaxSmooth)) s.preMaxSmooth = s.altSmooth;
 
     if (s.liftoffT === null) {
+      updateClimb(t, alt);
+      updateFall(t);
       checkLiftoff(t, alt, events);
-      if (s.liftoffT === null) {
-        // Still on the pad. A fix that came back on the pad no longer
-        // explains a liftoff.
-        if (s.padFixBackT !== null) { s.padFixLostT = null; s.padFixBackT = null; }
-        if (s.padFixLostT !== null) s.readingsSincePadFixLoss += 1;
-        return events;
-      }
+      s.prevReading = { t, alt };
+      if (s.liftoffT === null) return events;
     } else {
+      s.prevReading = { t, alt };
       s.agl = alt - s.groundRef;
     }
 
@@ -606,6 +827,9 @@ export function createDetector(overrides = {}) {
       phaseLabel: PHASE_LABELS[p],
       fixGood: s.fixGood,
       lastGoodFixT: s.lastGoodFixT,
+      // { lat, lon, fixCount, fromT, toT } once landed, else null. lat and
+      // lon are null when no GPS fix came in the landing window.
+      landing: s.landing,
       events: { liftoff: s.liftoff, apogee: s.apogee, drogue: s.drogue, main: s.main, landed: s.landed },
     };
   }

@@ -356,20 +356,32 @@ test('a board on a desk shows a pad and fires no flight events', () => {
   assert.equal(store.getGroundStation(), null, 'no ground station on the bench');
 });
 
+// This used to say the bench store (liftoff switched off) ignores these
+// while a flight store fires liftoff on them. Since the detector needs a
+// fast climb of several readings in a row, both stores ignore them, and
+// the bench store has liftoff switched back on.
 test('on the bench, a 35 m GPS jump or a steady 40 m climb isn\'t liftoff', () => {
   // One block 35 m high at 60 s, then a climb of 4 m/s from 100 s to 110 s
   // that stays up there, like carrying the board upstairs.
   const climb = (i) => (i === 60 ? 35 : i >= 100 ? Math.min(40, (i - 100) * 4) : 0);
-  const bench = deskRun(180, { climb });
-  const rocket = bench.store.getRocket('1');
-  assert.deepEqual(bench.store.getEvents(), []);
-  assert.ok(rocket.padPosition, 'the pad is still found');
-  assert.equal(bench.padFromBlock, 16);
+  for (const storeOptions of [LIVE_STORE_OPTIONS.bench, {}]) {
+    const bench = deskRun(180, { climb, storeOptions });
+    const rocket = bench.store.getRocket('1');
+    assert.deepEqual(bench.store.getEvents(), []);
+    assert.ok(rocket.padPosition, 'the pad is still found');
+    assert.equal(bench.padFromBlock, 16);
+  }
+});
 
-  // The same data on a flight store does read as liftoff, so the check
-  // above means something.
-  const flight = deskRun(180, { climb, storeOptions: {} });
-  assert.ok(flight.store.getEvents().some((e) => e.type === 'liftoff'), 'the flight detector fires liftoff');
+test('the live bench store does see a real liftoff climb', () => {
+  // The same desk, then a climb like my rockets: 100 m/s from block 120.
+  const climb = (i) => (i >= 120 ? (i - 119) * 100 : 0);
+  const run = deskRun(126, { climb });
+  const liftoff = run.store.getEvents().find((e) => e.type === 'liftoff');
+  assert.ok(liftoff, 'liftoff fires on the live bench store');
+  // Block i has TIME RUNNING 0.3 + i, so the climb starts at 120.3 s.
+  assert.ok(Math.abs(liftoff.t - 120.3) < 1e-6, `liftoff at ${liftoff.t}`);
+  assert.ok(liftoff.confirmedT <= 122.3 + 1e-6, 'confirmed within two readings');
 });
 
 test('a store with no ground station keeps none until a "gs" packet sets one', () => {

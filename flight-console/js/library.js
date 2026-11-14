@@ -8,6 +8,11 @@
 // back as a "problem" so the launcher can mention it. One bad entry never
 // stops the others from loading.
 //
+// An entry may carry groundStation: { lat, lon, altMsl }, where Manta stood
+// for that flight (a beach in Indonesia, say). It is checked here and kept
+// on the entry. main.js hands it to createStore(), so the replay measures
+// recovery distances from Manta instead of the demo position.
+//
 // Used by: main.js and views/launcher.js in the page, and by
 // tools/add_flight.mjs and tools/check_detection.mjs in Node (they pass
 // their own file reader instead of fetch). No DOM.
@@ -124,6 +129,21 @@ export function validateEntry(raw) {
     });
   }
 
+  // Optional: where Manta (the ground station) stood for this flight,
+  // { lat, lon, altMsl }. A replay then measures from there instead of
+  // the demo position in config.js. A broken one stops the entry, since a
+  // ground station in the wrong place would give wrong recovery distances.
+  let groundStation = null;
+  if (raw.groundStation !== undefined && raw.groundStation !== null) {
+    const g = raw.groundStation;
+    const altOk = g?.altMsl === undefined || g?.altMsl === null || isNumber(g?.altMsl);
+    if (!g || typeof g !== 'object' || !isNumber(g.lat) || !isNumber(g.lon) ||
+        Math.abs(g.lat) > 90 || Math.abs(g.lon) > 180 || !altOk) {
+      return { ok: false, reason: 'groundStation must be { lat, lon, altMsl } with lat from -90 to 90, lon from -180 to 180 and altMsl a number (or left out)' };
+    }
+    groundStation = Object.freeze({ lat: g.lat, lon: g.lon, altMsl: numberOrNull(g.altMsl) });
+  }
+
   const summary = raw.summary && typeof raw.summary === 'object' ? raw.summary : {};
   const stringList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : null);
   return {
@@ -140,6 +160,11 @@ export function validateEntry(raw) {
       // old launcher's featured card is gone). The home page's Flight
       // Console slide shows the simulated flight's, typed in by hand.
       cover: coverOrNull(raw.cover),
+      // Only there when index.json gives one, so
+      // createStore({ groundStation: entry.groundStation }) falls back to the
+      // demo position when it doesn't (undefined), and never to "no ground
+      // station at all" (null).
+      ...(groundStation ? { groundStation } : {}),
       rockets,
       summary: {
         rocketCount: numberOrNull(summary.rocketCount),
