@@ -281,8 +281,6 @@ export const STATS_MAX_FPS = 10;
 export const MAP_MAX_FPS = 12;
 // Mission timeline (the event list).
 export const LOG_MAX_FPS = 8;
-// Debug panel (only while it is open).
-export const DEBUG_MAX_FPS = 4;
 // Altitude timeline: the playhead, the played part of the curve, the play
 // button and the time.
 export const CONTROLS_MAX_FPS = 20;
@@ -501,12 +499,6 @@ export const ROCKET_PALETTE = Object.freeze([
   '#7C7F86', // mid grey
   '#D9DDE2', // pale grey
 ]);
-// The focused rocket's played curve on the altitude timeline, and the
-// plain color of its track where speed colors aren't used.
-export const TRACK_COLOR = '#FFFFFF';
-// The radio link line from the board to the ground station (the theme's
-// dim off-white).
-export const GROUND_STATION_COLOR = '#A0A3A9';
 // The start point's dot, the ground station's dish and the board marker's
 // outline (the theme's off-white).
 export const PAD_COLOR = '#E8EDF2';

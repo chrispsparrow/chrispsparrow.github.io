@@ -3,8 +3,8 @@
 // which turns markup from here or from markers.js into an element. The
 // map's and the 3D view's markers (the board, the start point and the
 // ground station's dish) are in markers.js.
-// Used by: map-view.js, flight-info.js and debug-panel.js. (The HUD and
-// the timeline use bracket buttons with words instead of icons.)
+// Used by: map-view.js. (The HUD, the timeline and panel 2 use bracket
+// buttons with words instead of icons.)
 
 // ------------------------------------------------------------------
 // Button icons, 24 by 24, drawn in the text color (currentColor).

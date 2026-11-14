@@ -285,10 +285,13 @@ export function createCrumbTrail(overrides = {}) {
 
 // ------------------------------------------------------------------
 // Speed colors: the thermal ramp from slow purple to fast pale yellow.
-// The ramp's two darkest stops are left out, since they wouldn't show on
-// a dark map.
+// The ramp's two darkest stops (near-black and deep indigo) are left out,
+// and its purple and magenta are lifted here: at their theme values
+// (#5A0F6B and #A3215A) a slow fix is close to black over dark ground,
+// water and the dark map, and most of a descent under parachute is slow.
+// The three fast stops are the theme's own.
 // ------------------------------------------------------------------
-export const TRACK_RAMP = Object.freeze(config.THERMAL_RAMP.slice(2));
+export const TRACK_RAMP = Object.freeze(['#8B3DD1', '#CC3D8A', ...config.THERMAL_RAMP.slice(4)]);
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);

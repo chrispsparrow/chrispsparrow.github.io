@@ -2,9 +2,9 @@
 // The channel registry: one entry for every value a board can send, with the
 // sensor group it belongs to, a label and unit for display, and the column or
 // field names ("aliases") that different files use for it.
-// Used by: parser.js (to turn raw fields into samples), stats-panel.js (to
-// build one section per sensor group), and anything that needs
-// hasGoodPosition(). No DOM, so Node can import it too.
+// Used by: parser.js (to turn raw fields into samples), views/hud.js and
+// views/data-readings.js (to build one section per sensor group), and
+// anything that needs hasGoodPosition(). No DOM, so Node can import it too.
 //
 // An alias is either a name, or { name, scale } when the file stores the
 // value in another unit. For example { name: 'uptime_ms', scale: 0.001 }

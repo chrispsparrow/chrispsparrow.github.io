@@ -190,12 +190,15 @@ test('speed colors run along the thermal ramp, slow purple to fast pale yellow',
   assert.equal(speedColor(config.TRACK_SPEED_MAX_MPS).toLowerCase(), TRACK_RAMP[TRACK_RAMP.length - 1].toLowerCase());
   assert.equal(speedColor(10 * config.TRACK_SPEED_MAX_MPS), speedColor(config.TRACK_SPEED_MAX_MPS), 'faster stays at the top');
   assert.match(speedColor(42), /^#[0-9a-f]{6}$/);
-  // Faster is always brighter.
-  const brightness = (hex) => [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+  // Faster is always brighter (as the eye weighs red, green and blue).
+  const brightness = (hex) => [[1, 0.299], [3, 0.587], [5, 0.114]].reduce((sum, [i, w]) => sum + w * parseInt(hex.slice(i, i + 2), 16), 0);
+  // Even the slowest color stands out from the page's near-black.
+  assert.ok(brightness(speedColor(0)) > 90, 'the slow end is bright enough to see on a dark map');
   let prev = -1;
   for (let v = 0; v <= config.TRACK_SPEED_MAX_MPS; v += 5) {
     const b = brightness(speedColor(v));
-    assert.ok(b >= prev, `brighter at ${v} m/s`);
+    // (Each mixed color is rounded to whole steps, so allow one step.)
+    assert.ok(b >= prev - 1, `brighter at ${v} m/s`);
     prev = b;
   }
   assert.equal(rampColor(0.5, ['#000000', '#ffffff']), '#808080');

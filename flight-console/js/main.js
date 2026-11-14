@@ -311,6 +311,8 @@ $('fc-notice-raw').addEventListener('click', () => {
   const raw = $('bc-raw');
   if (raw && !raw.open) raw.open = true;
   raw?.querySelector('summary')?.focus({ preventScroll: true });
+  // On a phone the raw output sits below the graphs, so bring it into view.
+  raw?.scrollIntoView({ block: 'nearest' });
 });
 
 // The map's scale bar and credits sit just above the altitude timeline,

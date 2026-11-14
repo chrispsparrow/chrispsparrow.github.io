@@ -1,8 +1,9 @@
 // truth-check.js
 // Compares detected events with the simulator's ground truth (the "phase"
-// values in a simulated log). This is the only code besides the debug panel
-// that reads truth. detector.js never imports it, so detection can't cheat.
-// Used by: views/debug-panel.js and tools/check_detection.mjs. No DOM.
+// values in a simulated log). This is the only code that reads truth.
+// detector.js never imports it, so detection can't cheat. The page itself
+// doesn't load this file.
+// Used by: tools/check_detection.mjs and the tests. No DOM.
 
 import { FLIGHT_EVENT_TYPES } from './detector.js';
 
