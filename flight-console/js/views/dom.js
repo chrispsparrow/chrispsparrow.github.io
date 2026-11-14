@@ -1,7 +1,7 @@
 // dom.js
 // Tiny helpers the views share for building page elements (HTML and SVG),
-// for limiting how often a view redraws while a flight plays, and for
-// drawing events the same way everywhere.
+// for limiting how often a view redraws while a flight plays, for drawing
+// events the same way everywhere, and for copying text.
 // Used by: every file in js/views/ and main.js.
 
 // Creates an element. attrs sets properties and attributes:
@@ -70,7 +70,7 @@ export function prefersReducedMotion() {
 }
 
 // How an event was found, as the timeline markers and the mission timeline
-// draw it: 'reported' (a filled dot), 'detected' (an orange ring) or 'inferred'
+// draw it: 'reported' (a filled dot), 'detected' (a ring) or 'inferred'
 // (a dashed ring, also used for anything estimated). A liftoff whose time is
 // estimated counts as estimated. state is that rocket's detector state.
 export function eventMarkerKind(event, state) {
@@ -126,6 +126,22 @@ export function createScheduler(fn, { maxFps = 30 } = {}) {
     },
     cancel() { if (frame !== null) caf(frame); frame = null; },
   };
+}
+
+// The older way to copy text, for browsers without the clipboard API (or
+// when it is blocked). Returns true when the browser says it copied.
+export function copyText(text) {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.append(area);
+  area.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  area.remove();
+  return ok;
 }
 
 // "September 30, 2026" from "2026-09-30", read as a calendar date (no time zone shift).

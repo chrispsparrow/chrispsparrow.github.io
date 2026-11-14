@@ -2,41 +2,59 @@
 // The page's starting point. It reads the address and shows one of three
 // screens:
 //   /flight-console/              the landing: one full-screen hero
-//   /flight-console/?track        the console, live. Connect a board (or,
+//   /flight-console/?track        Track a Rocket, live. Connect a board (or,
 //                                 later, the ground station) and watch it.
-//   /flight-console/?flight=<id>  the console, playing a saved flight
+//   /flight-console/?flight=<id>  Track a Rocket, playing a saved flight
 // plus a friendly message if a flight is unknown or its data didn't load.
 //
-// The console (#fc-console) fills the window under the nav with no page
-// scroll: a slim bar (CONNECT and the SAVED FLIGHTS dropdown), then two
-// panels, one on screen at a time (js/views/panels.js): the 3D view, and
-// the graphs and readings. Its data-mode says what it is showing, and
-// flight-console.css shows what that mode needs:
-//   idle    no source found yet. The 3D view waits, looking at the whole
-//           Earth.
-//   bench   a Dogtooth board's status block came in over USB: the 3D view
-//           at its position with the readings panel over it, and the
-//           board's own readings and graphs in panel 2
-//   flight  a flight source (the Manta ground station, not built yet): the
-//           3D view with the readings panel over it
-//   replay  a saved flight: the 3D view with the clock, phase strip,
-//           readings and altitude timeline over it, and the mission
-//           timeline, flight details and detection check in panel 2
+// Track a Rocket (#fc-console) fills the window under the nav with no page
+// scroll: a slim bar (← FLIGHT CONSOLE, CONNECT, the replay's name and
+// SAVED FLIGHTS), then two panels, one on screen at a time
+// (js/views/panels.js): the 3D view with the HUD over it, and the graphs
+// and readings. Two attributes on the console tell the CSS what to show:
+//   data-mode   which source is on screen:
+//     idle      nothing found on the serial link yet
+//     bench     a Dogtooth board's status block came in over USB
+//     flight    a flight source (the Manta ground station, not built yet)
+//     replay    a saved flight
+//   data-state  where the flight is, worked out from the data alone
+//               (flightState() in js/flight-state.js, through the HUD):
+//     idle      nothing connected or loaded: only the globe and the map's
+//               controls
+//     pad       connected, or data in, with no liftoff yet: the checklist
+//     flight    liftoff detected: the full HUD
+//     recovery  landed: the HUD with where to find the board
+//   A replay goes through pad, flight and recovery as it plays, and back
+//   again when the viewer seeks.
+//
+// THE STAGE. The 3D view, the HUD, the phase bar and the rocket chips are
+// made once, the first time the console opens, and kept until the visitor
+// goes back to the landing. So the globe never goes blank, even while a
+// saved flight downloads. Their store is a store switch (store-switch.js):
+// main.js points it at the live store or at a replay's store with use(),
+// and the views start over from the new store. ctx.session says what is on
+// screen ({ kind: 'live' | 'replay', prescan, player, entry, loading }).
+// main.js changes its fields first, then calls use(), and the views read it
+// fresh on every draw.
+//
+// Opening a saved flight: its store is made as soon as its library entry is
+// known, the session says { kind: 'replay', loading: true }, and the stage
+// switches to it. The map flies toward the flight's launch point while the
+// data downloads, and the bar says LOADING. When the data is in, the
+// session gets the pre-scan and the player, and the samples arrive through
+// the store. The altitude timeline and panel 2 are made per flight, and
+// thrown away with it, so nothing from one flight can linger in the next.
 //
 // Live data (the files in js/live/): the serial link reads lines from the
 // port. sources.js works out what is talking from those lines. Every line
 // goes to the bench panel (readings, graphs, raw output and the CSV), and
 // its finished blocks go to the bench feed, which turns them into samples
-// for the live store. The live 3D view reads that store. The live session
-// (link, panel, stores) is made the first time the console opens and is
-// never thrown away, so the connection and every block for the CSV survive
-// a trip to a replay and back. The live 3D view only exists while the
-// console shows live data, since one 3D view runs at a time.
+// for the live store. The live session (link, panel, stores) is made the
+// first time the console opens and is never thrown away, so the connection
+// and every block for the CSV survive a trip to a replay and back.
 //
 // Links change the address with history.pushState, and the browser's back
-// and forward buttons fire "popstate", which runs route() again. Opening a
-// replay builds a brand new store, player and set of views. Leaving it
-// destroys all of them, so nothing from one flight can linger in the next.
+// and forward buttons fire "popstate", which runs route() again.
 //
 // Used by: index.html (<script type="module" src="js/main.js">).
 
@@ -48,20 +66,20 @@
 import * as config from './config.js';
 import { loadManifest, loadFlight } from './library.js?v=2';
 import { createStore } from './store.js?v=2';
+import { createStoreSwitch } from './store-switch.js';
 import { createPlayer } from './player.js';
 import { createFleet } from './fleet.js';
+import { STATE } from './flight-state.js';
 import { h, setChildren } from './views/dom.js';
 import { createLanding } from './views/launcher.js?v=5';
 import { createSavedMenu } from './views/saved-menu.js';
 import { createPanels } from './views/panels.js';
-import { createMissionHeader } from './views/mission-header.js?v=3';
+import { createHud } from './views/hud.js';
 import { createRocketBar } from './views/rocket-bar.js';
 import { createPhaseStrip } from './views/phase-strip.js';
 import { createMapView } from './views/map-view.js?v=6';
-import { createStatsPanel } from './views/stats-panel.js?v=5';
 import { createTimeline } from './views/timeline.js?v=3';
 import { createDataPanel } from './views/data-panel.js';
-import { BENCH_WORDS } from './views/hud-text.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
 import { createSourceDetector } from './live/sources.js';
 import { createBenchPanel } from './live/bench-panel.js?v=3';
@@ -71,13 +89,16 @@ const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
 const TITLE_CONSOLE = 'Track a Rocket | Dogtooth Systems';
 const $ = (id) => document.getElementById(id);
 const sections = { landing: $('fc-landing'), console: $('fc-console'), message: $('fc-message') };
-// The spots the 3D view and the readings panel go in. The replay and the
-// live console take turns with them.
-const STAGE_MOUNTS = ['fc-map', 'fc-stats'];
-const REPLAY_MOUNTS = ['fc-mission', 'fc-rocketbar', 'fc-phases', ...STAGE_MOUNTS, 'fc-timeline', 'fc-data-replay'];
+// The spots the stage's views go in (made once), and the ones a replay's
+// own views go in (made per flight).
+const STAGE_MOUNTS = ['fc-map', 'fc-hud', 'fc-phases', 'fc-rocketbar'];
+const REPLAY_MOUNTS = ['fc-timeline', 'fc-data-replay'];
+// The room (px) kept between the timeline or the map's controls and what
+// sits above them, in --fc-tl-space and --fc-ctl-space.
+const SPACE_GAP_PX = 8;
 
-// The live stores' options (no ground station, and no liftoff for a board
-// on a desk) are LIVE_STORE_OPTIONS in js/live/bench-feed.js, where the
+// The live stores' options (no ground station, and the detector settings
+// for a board) are LIVE_STORE_OPTIONS in js/live/bench-feed.js, where the
 // tests can use them too.
 
 // Tells the load-failure check in index.html that this module started.
@@ -240,7 +261,7 @@ function show(name) {
   document.body.dataset.fcScreen = name;
 }
 
-// The console's mode: 'idle', 'bench', 'flight' or 'replay'.
+// The console's source: 'idle', 'bench', 'flight' or 'replay'.
 function setMode(mode) {
   if (sections.console.dataset.mode !== mode) sections.console.dataset.mode = mode;
 }
@@ -267,11 +288,13 @@ const savedMenu = createSavedMenu($('fc-saved'), {
   onLive: () => navigate({ track: true }),
 });
 
-// The open replay's name in the bar, or null for live.
-function setReplayChip(text) {
-  const chip = $('fc-replay-chip');
-  chip.hidden = !text;
-  $('fc-replay-name').textContent = text ?? '';
+// The replay's name in the bar. null hides it (live). loading adds a
+// blinking LOADING after the name while the flight's data downloads.
+function setReplayChip(chip) {
+  $('fc-replay-chip').hidden = !chip;
+  $('fc-replay-name').textContent = chip?.name ?? '';
+  $('fc-replay-name').hidden = !chip?.name;
+  $('fc-replay-wait').hidden = !chip?.loading;
 }
 
 // The close buttons on the status lines.
@@ -290,19 +313,31 @@ $('fc-notice-raw').addEventListener('click', () => {
   raw?.querySelector('summary')?.focus({ preventScroll: true });
 });
 
-// The altitude timeline floats at the bottom of the 3D view. The 3D view's
-// own controls and credits sit just above it, so the room it takes from
-// the bottom edge (its height, the space under it and an 8 px gap) is kept
-// in --fc-tl-space on the panel (0 when there is no timeline).
+// The map's scale bar and credits sit just above the altitude timeline,
+// and on narrow screens just above the map's controls. So the panel keeps
+// two numbers for map-view.js's CSS, in px from its bottom edge:
+//   --fc-tl-space   up to the top of the timeline, plus a gap (0px when
+//                   there is no timeline)
+//   --fc-ctl-space  up to the top of the map's controls, plus a gap (the
+//                   same as --fc-tl-space when the controls are empty)
 (() => {
   const stage = $('fc-panel-globe');
   const timeline = $('fc-timeline');
-  if (!stage || !timeline || !('ResizeObserver' in window)) return;
-  new ResizeObserver(() => {
-    const height = timeline.offsetHeight;
-    const under = parseFloat(getComputedStyle(timeline.parentElement).paddingBottom) || 0;
-    stage.style.setProperty('--fc-tl-space', height ? `${Math.round(height + under + 8)}px` : '0px');
-  }).observe(timeline);
+  const controls = $('fc-map-controls');
+  if (!stage || !timeline || !controls || !('ResizeObserver' in window)) return;
+  const above = (el) => {
+    const box = el.getBoundingClientRect();
+    if (!(box.height > 0)) return null;
+    return Math.round(stage.getBoundingClientRect().bottom - box.top + SPACE_GAP_PX);
+  };
+  const update = () => {
+    const tl = above(timeline) ?? 0;
+    const ctl = above(controls) ?? tl;
+    stage.style.setProperty('--fc-tl-space', `${tl}px`);
+    stage.style.setProperty('--fc-ctl-space', `${ctl}px`);
+  };
+  const observer = new ResizeObserver(update);
+  for (const el of [stage, timeline, controls]) observer.observe(el);
 })();
 
 // ------------------------------------------------------------------
@@ -310,20 +345,20 @@ $('fc-notice-raw').addEventListener('click', () => {
 // ------------------------------------------------------------------
 let routeToken = 0;      // bumps on every route, so late async results are ignored
 let screen = null;       // 'landing', 'track', 'replay', 'loading' or 'message'
-let session = null;      // the open replay: { id, store, player, views }
 let landing = null;
 
 async function route() {
   const where = readAddress();
   // Only the #part of the address changed (popstate fires for that too):
   // the same screen is already up, so leave it alone.
-  if (where.flight && session && where.flight === session.id) return;
+  // (A replay that hit a loading error has no player, so TRY AGAIN loads it again.)
+  if (where.flight && replay?.player && where.flight === replay.id) return;
   if (where.track && screen === 'track') return;
   if (where.landing && screen === 'landing') return;
   const token = ++routeToken;
   savedMenu.close({ focus: false });
-  closeConsole();
-  if (!where.track) closeLiveViews();
+  closeReplay();
+  if (where.landing) closeStage();
   // A new screen starts at the top at once, never with a smooth scroll.
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   if (where.flight) await openFlight(where.flight, token);
@@ -348,7 +383,7 @@ async function showTrack(token) {
   panels.show('globe');
   show('console');
   document.title = TITLE_CONSOLE;
-  openLiveViews();
+  showLive();
   // The graphs were hidden, so they draw again at their new size.
   live?.panel?.render();
   // An address ending in #fc-saved opens the SAVED FLIGHTS dropdown.
@@ -371,30 +406,141 @@ function showMessage(title, paragraphs, { retry = false } = {}) {
   screen = 'message';
   show('message');
   const actions = h('p', { class: 'fc-message-actions' },
-    internalLink('BACK TO THE CONSOLE', { track: true }, 'fc-btn fc-btn--accent'),
-    retry ? ' ' : null,
-    retry ? h('button', { type: 'button', class: 'fc-btn', onclick: () => route() }, 'TRY AGAIN') : null);
+    internalLink('BACK TO THE CONSOLE', { track: true }, 'fc-bkt'),
+    retry ? h('button', { type: 'button', class: 'fc-bkt', onclick: () => route() }, 'TRY AGAIN') : null);
   const heading = h('h1', {}, title);
-  setChildren(sections.message, h('div', { class: 'fc-card' },
+  setChildren(sections.message, h('div', { class: 'fc-message-body' },
     heading,
     paragraphs.map((p) => h('p', {}, p)),
     actions));
   focusHeading(heading);
 }
 
+// ------------------------------------------------------------------
+// Views: starting and stopping a set of them
+// ------------------------------------------------------------------
+
+// makers is a list of [mount id, make function]. One broken view must not
+// take the rest of the console down.
+function startViews(makers, ctx) {
+  const views = [];
+  for (const [mountId, make] of makers) {
+    const mount = $(mountId);
+    try {
+      views.push(make(mount, ctx));
+    } catch (err) {
+      console.error(`Flight Console: the ${mountId} view failed to start`, err);
+      setChildren(mount, h('p', { class: 'fc-view-error' }, 'This part of the console hit an error. The rest still works.'));
+    }
+  }
+  return views;
+}
+
+function stopViews(views, mounts) {
+  for (const view of views) {
+    try { view?.destroy?.(); } catch (err) { console.error('Flight Console: error closing a view', err); }
+  }
+  for (const id of mounts) $(id).replaceChildren();
+}
+
+// ------------------------------------------------------------------
+// The stage: the 3D view, the HUD, the phase bar and the rocket chips,
+// made once and kept while the console is up.
+//   store     the store switch the views read
+//   session   what is on screen (see the top of this file)
+//   views     the views, for closing them
+//   hud       the HUD, to redraw when the serial link opens or closes
+// ------------------------------------------------------------------
+let stage = null;
+// A replay's store that the stage may still be showing. It is cleared once
+// the stage shows something else, so nothing from it can linger.
+let retired = null;
+
+function ensureStage() {
+  if (stage) return stage;
+  const session = { kind: 'live', prescan: new Map(), player: null, entry: null, loading: false };
+  const store = createStoreSwitch(liveStore(liveMode()));
+  const ctx = {
+    store,
+    config,
+    libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet') },
+    tileKey,
+    navigate,
+    session,
+    // The open replay's parts, read fresh, for views written before the
+    // session existed.
+    get prescan() { return session.prescan; },
+    get player() { return session.player; },
+    get flight() { return replay?.flight ?? null; },
+    get link() { return replay ? flightUrl(replay.id).href : null; },
+    // For the HUD: whether the live link is open, and the state it found.
+    isConnected: () => session.kind === 'live' && live?.linkState === 'open',
+    onState: setFlightState,
+  };
+  const views = startViews([
+    ['fc-map', createMapView],
+    ['fc-phases', createPhaseStrip],
+    ['fc-rocketbar', createRocketBar],
+  ], ctx);
+  const [hud] = startViews([['fc-hud', createHud]], ctx);
+  stage = { store, session, ctx, views: [...views, hud], hud };
+  return stage;
+}
+
+// Leaving for the landing: the stage goes, and so does any replay store.
+function closeStage() {
+  if (!stage) return;
+  stopViews(stage.views, STAGE_MOUNTS);
+  stage = null;
+  retired?.clearAll();
+  retired = null;
+  setFlightState({ state: STATE.IDLE }, { quiet: true });
+}
+
+// Points the stage at another store, after the session says what it is.
+function showOnStage(store, session) {
+  const s = ensureStage();
+  Object.assign(s.session, session);
+  s.store.use(store);
+  if (retired && retired !== store) {
+    retired.clearAll();
+    retired = null;
+  }
+  s.hud?.refresh();
+}
+
+// The console's data-state, from the HUD's flightState(). Liftoff and the
+// landing are read out, unless they came from a seek.
+function setFlightState(st, { quiet = false } = {}) {
+  const el = sections.console;
+  const state = st?.state ?? STATE.IDLE;
+  if (el.dataset.state === state) return;
+  const before = el.dataset.state;
+  el.dataset.state = state;
+  if (quiet || screen === 'loading') return;
+  if (state === STATE.FLIGHT && before === STATE.PAD) announce('Liftoff detected. The flight readout is showing.');
+  else if (state === STATE.RECOVERY) announce('Landing detected. Where to find the board is at the top left.');
+}
+
+// ------------------------------------------------------------------
+// Saved flights
+// ------------------------------------------------------------------
+// The open replay: { id, entry, store, player, flight, views }.
+let replay = null;
+
 async function openFlight(id, token) {
   // The live session is made here too, so CONNECT in the bar works from a
   // replay (it goes back to live first).
   ensureLive();
-  // The console stays up while the flight loads, with an empty 3D panel
-  // that says so.
+  // The console stays up while the flight loads. The stage keeps showing
+  // what it had, and the bar says LOADING.
   screen = 'loading';
   setMode('replay');
-  setReplayChip('Loading the flight...');
+  setReplayChip({ name: '', loading: true });
   panels.show('globe');
   show('console');
   document.title = TITLE_CONSOLE;
-  setChildren($('fc-map'), h('p', { class: 'fc-stage-wait' }, 'Loading the flight...'));
+  ensureStage();
 
   const manifest = await getManifest();
   if (token !== routeToken) return;
@@ -422,8 +568,17 @@ async function openFlight(id, token) {
     }
     return;
   }
-  setReplayChip(entry.title);
+  setReplayChip({ name: entry.title, loading: true });
   savedMenu.setCurrent(entry.id);
+
+  // The flight's store, made now so the map can fly to the site while the
+  // data downloads. Its ground station is Manta's position for this flight
+  // when the library has one, otherwise the demo position in config.js.
+  const store = createStore({ fleet: createFleet(), ...(entry.groundStation ? { groundStation: entry.groundStation } : {}) });
+  for (const r of entry.rockets) store.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
+  const rp = { id: entry.id, entry, store, player: null, flight: null, views: [] };
+  replay = rp;
+  showOnStage(store, { kind: 'replay', loading: true, entry, prescan: new Map(), player: null });
 
   let flight;
   try {
@@ -448,50 +603,16 @@ async function openFlight(id, token) {
     ]);
     return;
   }
-  startConsole(entry, flight);
+  startReplay(rp, flight);
 }
 
-// ------------------------------------------------------------------
-// Views: starting and stopping a set of them
-// ------------------------------------------------------------------
-
-// makers is a list of [mount id, make function]. One broken view must not
-// take the rest of the console down.
-function startViews(makers, ctx) {
-  const views = [];
-  for (const [mountId, make] of makers) {
-    const mount = $(mountId);
-    try {
-      views.push(make(mount, ctx));
-    } catch (err) {
-      console.error(`Flight Console: the ${mountId} view failed to start`, err);
-      setChildren(mount, h('div', { class: 'fc-panel' }, h('p', { class: 'fc-wait' }, 'This part of the console hit an error. The rest still works.')));
-    }
-  }
-  return views;
-}
-
-function stopViews(views, mounts) {
-  for (const view of views) {
-    try { view?.destroy?.(); } catch (err) { console.error('Flight Console: error closing a view', err); }
-  }
-  for (const id of mounts) $(id).replaceChildren();
-}
-
-// ------------------------------------------------------------------
-// The replay console
-// ------------------------------------------------------------------
-function startConsole(entry, flight) {
+// The flight's data is in: the pre-scan, the player, the timeline and
+// panel 2, then playback.
+function startReplay(rp, flight) {
+  const { entry, store } = rp;
   screen = 'replay';
   setMode('replay');
-  show('console');
-  document.title = TITLE_CONSOLE;
-  setReplayChip(entry.title);
-  savedMenu.setCurrent(entry.id);
-  $('fc-map').replaceChildren();
-
-  const store = createStore({ fleet: createFleet() });
-  for (const r of entry.rockets) store.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
+  setReplayChip({ name: entry.title, loading: false });
 
   // A rocket in the data that the manifest doesn't list is added now, in the
   // order it first appears, so every view knows it before playback reaches
@@ -501,43 +622,40 @@ function startConsole(entry, flight) {
   }
 
   const player = createPlayer({ store });
+  // Each rocket's whole-flight altitude curve and events, for the timeline
+  // and the 3D view's first framing. See prescanFlight() below.
+  const prescan = prescanFlight(entry, flight.samples);
+  rp.player = player;
+  rp.flight = {
+    entry,
+    truth: flight.truth,
+    badRows: flight.badRows,
+    badRowDetails: flight.badRowDetails,
+    files: flight.files,
+    notes: flight.files.flatMap((f) => f.notes ?? []),
+    sampleCount: flight.samples.length,
+  };
+  Object.assign(stage.session, { prescan, player, loading: false });
+
+  // The views made for this flight alone, on its own store.
   const ctx = {
     store,
     player,
     config,
-    libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet') },
+    libs: stage.ctx.libs,
     tileKey,
-    // Each rocket's whole-flight altitude curve and events, for the
-    // timeline and the 3D view's first framing. See prescanFlight() below.
-    prescan: prescanFlight(entry, flight.samples),
-    flight: {
-      entry,
-      truth: flight.truth,
-      badRows: flight.badRows,
-      badRowDetails: flight.badRowDetails,
-      files: flight.files,
-      notes: flight.files.flatMap((f) => f.notes ?? []),
-      sampleCount: flight.samples.length,
-    },
+    prescan,
+    flight: rp.flight,
     link: flightUrl(entry.id).href,
     navigate,
-    // What is on screen, for the views that outlive one flight (the map).
-    session: { kind: 'replay', prescan: null, player, entry, loading: false },
+    session: stage.session,
   };
-  ctx.session.prescan = ctx.prescan;
-
-  const views = startViews([
-    ['fc-mission', createMissionHeader],
-    ['fc-rocketbar', createRocketBar],
-    ['fc-phases', createPhaseStrip],
-    ['fc-map', createMapView],
-    ['fc-stats', createStatsPanel],
+  rp.views = startViews([
     ['fc-timeline', createTimeline],
     ['fc-data-replay', createDataPanel],
   ], ctx);
 
-  session = { id: entry.id, store, player, views };
-  focusHeading($('fc-mission').querySelector('h2'));
+  focusHeading($('fc-replay-name'));
   player.load(flight.samples);
   player.setSpeed(config.DEFAULT_SPEED);
   player.play();
@@ -548,7 +666,7 @@ function startConsole(entry, flight) {
 // takes the whole flight at once (in the same order the player uses), so
 // every rocket's full altitude curve and events are known before playback
 // gets there. It is a separate copy with its own detectors: nothing it
-// works out reaches the live store, and the live views never read it as
+// works out reaches the store on screen, and the views never read it as
 // "now". Returns rocketId -> {
 //   profile    [{ t, agl }] one point per altitude reading, in data time.
 //              agl is null where a reading should have had an altitude and
@@ -580,30 +698,33 @@ function prescanFlight(entry, samples) {
   return out;
 }
 
-function closeConsole() {
-  if (!session) return;
-  session.player.destroy();
-  stopViews(session.views, REPLAY_MOUNTS);
-  session.store.clearAll();
-  session = null;
+// Closes the open replay: its player and its own views. Its store stays on
+// the stage until the stage shows something else (see showOnStage), so the
+// globe never goes blank in between.
+function closeReplay() {
+  if (!replay) return;
+  replay.player?.destroy();
+  stopViews(replay.views, REPLAY_MOUNTS);
+  retired = replay.store;
+  replay = null;
 }
 
 // ------------------------------------------------------------------
 // The live console
 // ------------------------------------------------------------------
 let live = null;        // the live session, see ensureLive()
-let liveViews = null;   // the live 3D view, and its readings panel once a source is found, while they're on screen
 
 // Made the first time the console opens, then kept for the whole visit.
-//   detector  which source is talking on this connection (sources.js)
-//   source    the source found on this connection, or null
-//   mode      'bench' or 'flight': the newest source's mode, kept after a
-//             disconnect so its data stays on screen. null before any.
-//   unknown   lines arrive but none match a source
-//   stores    { bench, flight }: the live stores, made on first use
-//   feed      the bench feed into stores.bench (bench-feed.js)
-//   panel     the bench panel: CONNECT, readings, graphs, raw output, CSV
-//   link      the serial port (serial-link.js)
+//   detector   which source is talking on this connection (sources.js)
+//   source     the source found on this connection, or null
+//   mode       'bench' or 'flight': the newest source's mode, kept after a
+//              disconnect so its data stays on screen. null before any.
+//   unknown    lines arrive but none match a source
+//   stores     { bench, flight }: the live stores, made on first use
+//   feed       the bench feed into stores.bench (bench-feed.js)
+//   panel      the bench panel: CONNECT, readings, graphs, raw output, CSV
+//   link       the serial port (serial-link.js)
+//   linkState  the link's state ('idle', 'picking', 'opening', 'open', ...)
 function ensureLive() {
   if (live) return live;
   const next = {
@@ -615,6 +736,7 @@ function ensureLive() {
     feed: null,
     panel: null,
     link: null,
+    linkState: 'idle',
   };
   try {
     next.panel = createBenchPanel({
@@ -640,7 +762,12 @@ function ensureLive() {
         if (source?.mode === 'flight') feedFlightLine(source, line);
         next.panel.handleLine(line, t);
       },
-      onLink: (state, text) => next.panel.setLink(state, text),
+      onLink: (state, text) => {
+        next.linkState = state;
+        next.panel.setLink(state, text);
+        // Connected with no data yet already counts as the pad.
+        stage?.hud?.refresh();
+      },
       onNote: (text, kind) => next.panel.note(text, kind),
       onOpen: () => {
         // A new connection can be a different board, so it is worked out
@@ -680,6 +807,18 @@ function ensureLive() {
   return live;
 }
 
+// The live store's mode: the newest source's, or the bench store before
+// any source (it has no ground station and nothing in it yet, so the 3D
+// view waits looking at the whole Earth).
+function liveMode() {
+  return live?.mode === 'flight' ? 'flight' : 'bench';
+}
+
+// Puts the live store on the stage.
+function showLive() {
+  showOnStage(liveStore(liveMode()), { kind: 'live', loading: false, entry: null, prescan: new Map(), player: null });
+}
+
 // A source was found on this connection.
 function useSource(source) {
   live.source = source;
@@ -688,9 +827,8 @@ function useSource(source) {
   liveStore(mode);
   live.mode = mode;
   if (screen === 'track') {
-    if (liveViews && liveViews.mode !== mode) closeLiveViews();
     setMode(mode);
-    openLiveViews();
+    showLive();
   }
   announce(mode === 'bench'
     ? `${source.name} found. Its position is in the 3D view, and its readings and graphs are in the second panel.`
@@ -700,6 +838,7 @@ function useSource(source) {
 // The live store for a mode, made the first time it is needed. The bench
 // store gets the bench feed, which registers the board as its one rocket.
 function liveStore(mode) {
+  if (!live) ensureLive();
   if (!live.stores[mode]) {
     const store = createStore({ fleet: createFleet(), ...LIVE_STORE_OPTIONS[mode] });
     live.stores[mode] = store;
@@ -713,7 +852,7 @@ function liveStore(mode) {
 // commented-out entry in js/live/sources.js), has mode 'flight' and a
 // parse(line) that gives back { kind: 'sample', sample } for a line with a
 // reading, the way parseSerialLine() in js/parser.js does. Each sample goes
-// into the flight store, and the 3D view and readings panel show it.
+// into the flight store, and the 3D view and the HUD show it.
 // Nothing calls this yet. Before something does, the flight store's clock
 // also has to keep moving between packets (store.setTime), the way
 // createLiveFeed() in js/live/bench-feed.js does it for the board, or the
@@ -744,42 +883,6 @@ function setUnknown(unknown) {
     if (raw && !raw.open) raw.open = true;
     announce('The console doesn\'t recognize this data yet. The raw serial output is open in the second panel.');
   }
-}
-
-// The live 3D view, on the live store of the current mode. Before any
-// source (idle) it runs on the bench store, which has no ground station
-// and nothing in it yet, so the view waits looking at the whole Earth.
-// Once a source is found (bench or flight), the readings panel floats over
-// it too. It is added on its own, so the 3D view keeps running.
-function openLiveViews() {
-  if (screen !== 'track' || !live || live.failed) return;
-  if (!liveViews) {
-    const mode = live.mode === 'flight' ? 'flight' : 'bench';
-    const ctx = {
-      store: liveStore(mode),
-      config,
-      libs: { leaflet: watchLibrary('L', 'fc-lib-leaflet') },
-      tileKey,
-      // Live data has no whole flight to scan ahead of time.
-      prescan: new Map(),
-      navigate,
-      // What is on screen, for the views that outlive one flight (the map).
-      session: { kind: 'live', prescan: new Map(), player: null, entry: null, loading: false },
-      // A board on a desk isn't a rocket, and its "pad" is only where it
-      // first sat still with a GPS fix (hud-text.js).
-      ...(mode === 'bench' ? { words: BENCH_WORDS } : {}),
-    };
-    liveViews = { mode, ctx, views: startViews([['fc-map', createMapView]], ctx), readings: null };
-  }
-  if (live.mode && !liveViews.readings) {
-    liveViews.readings = startViews([['fc-stats', createStatsPanel]], liveViews.ctx);
-  }
-}
-
-function closeLiveViews() {
-  if (!liveViews) return;
-  stopViews([...liveViews.views, ...(liveViews.readings ?? [])], STAGE_MOUNTS);
-  liveViews = null;
 }
 
 // ------------------------------------------------------------------

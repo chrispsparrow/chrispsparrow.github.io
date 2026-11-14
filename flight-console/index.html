@@ -121,54 +121,56 @@
 
     <!-- ── CONSOLE: /flight-console/?track (live) and ?flight=<id> (replay) ──
          One screen that fits the window under the nav, with no page scroll:
-           the bar      CONNECT on the left, SAVED FLIGHTS on the right, and
-                        the replay's name with a close button in between
+           the bar      ← FLIGHT CONSOLE, [ CONNECT ], the replay's name
+                        while one is open, and [ SAVED FLIGHTS ] on the right
            status       short status lines that show only when there is
                         something to say (a link note, the Chrome or Edge
                         warning, data the console doesn't recognize)
            two panels   side by side in a sliding track, one on screen at a
                         time, switched with the arrow buttons at the edges or
                         the left and right arrow keys (js/views/panels.js):
-             globe      the 3D view filling the panel, with the replay's
-                        clock, phase strip, readings and altitude timeline
-                        floating over it
-             data       live: the readings, graphs, raw output and Save as
-                        CSV. Replay: the mission timeline, the flight details
-                        and the detection check.
-         data-mode on the console (idle, bench, flight or replay) says what
-         it shows, and data-panel (globe or data) which panel is on screen.
+             globe      the 3D view filling the panel, with the HUD, the
+                        phase bar, the map's controls and (in a replay) the
+                        altitude timeline over it
+             data       the graphs and readings (live: the board's readings,
+                        graphs, raw output and SAVE AS CSV. Replay: what
+                        js/views/data-panel.js puts in #fc-data-replay.)
+         data-mode on the console (idle, bench, flight or replay) says which
+         source is on screen. data-state (idle, pad, flight or recovery)
+         says where the flight is, worked out from the data alone
+         (js/flight-state.js), and decides which HUD parts show. data-panel
+         (globe or data) says which panel is on screen.
          The bc-* ids are the ones js/live/bench-panel.js looks up. -->
-    <section id="fc-console" class="fc-console" data-mode="idle" data-panel="globe" aria-labelledby="fc-console-title" hidden>
+    <section id="fc-console" class="fc-console" data-mode="idle" data-state="idle" data-panel="globe" aria-labelledby="fc-console-title" hidden>
       <h1 id="fc-console-title" class="sr-only">Track a Rocket</h1>
 
       <!-- The bar. CONNECT shows the link state on itself (CONNECTING,
-           DISCONNECT while connected), and the status line under it (for
-           screen readers only) says the same in words. -->
+           DISCONNECT while connected, and a small square inside the
+           brackets while the board's status blocks arrive). The status
+           line next to it (for screen readers only) says the same in
+           words. -->
       <div class="fc-bar">
         <!-- Back to the hero. A plain click switches screens in place (js/main.js). -->
         <a class="fc-back" href="./" data-fc-nav="landing" aria-label="Back to the Flight Console"><span aria-hidden="true">←</span> FLIGHT CONSOLE</a>
-        <button id="bc-connect" class="fc-connect" type="button" data-state="idle">
+        <button id="bc-connect" class="fc-bkt fc-connect" type="button" data-state="idle">
           <span class="fc-connect-mark" aria-hidden="true"></span>
           <span id="bc-connect-text" class="fc-connect-text">CONNECT</span>
         </button>
         <span id="bc-link-text" class="sr-only" role="status">Not connected</span>
 
-        <!-- The open replay, with a slim way back to live. -->
+        <!-- The open replay's name, LOADING while its data downloads, and a
+             way back to live. -->
         <div id="fc-replay-chip" class="fc-replay-chip" hidden>
           <span class="fc-replay-kind">REPLAY</span>
-          <span id="fc-replay-name" class="fc-replay-name"></span>
-          <a class="fc-replay-close" href="./?track" data-fc-nav="track" aria-label="Close the replay and go back to live">
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          </a>
+          <h2 id="fc-replay-name" class="fc-replay-name"></h2>
+          <span id="fc-replay-wait" class="fc-replay-wait" hidden>LOADING<span class="fc-cursor" aria-hidden="true">_</span></span>
+          <a class="fc-bkt fc-bkt--sm fc-replay-close" href="./?track" data-fc-nav="track" aria-label="Close the replay and go back to live">CLOSE</a>
         </div>
 
         <!-- SAVED FLIGHTS: a small dropdown log, one line per flight
              (js/views/saved-menu.js fills it from data/flights/index.json). -->
         <div id="fc-saved" class="fc-dd">
-          <button id="fc-saved-button" class="fc-dd-button" type="button" aria-expanded="false" aria-controls="fc-saved-menu">
-            <span>SAVED FLIGHTS</span>
-            <svg class="fc-dd-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 9L12 15L18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          </button>
+          <button id="fc-saved-button" class="fc-bkt fc-dd-button" type="button" aria-expanded="false" aria-controls="fc-saved-menu">SAVED FLIGHTS</button>
           <div id="fc-saved-menu" class="fc-dd-menu" hidden></div>
         </div>
       </div>
@@ -177,20 +179,16 @@
       <div class="fc-status">
         <div id="fc-link-note-box" class="fc-status-line" hidden>
           <p id="bc-link-note" class="fc-status-text" aria-live="polite"></p>
-          <button class="fc-status-close" type="button" data-close="fc-link-note-box" aria-label="Hide this note">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          </button>
+          <button class="fc-bkt fc-bkt--sm fc-status-close" type="button" data-close="fc-link-note-box" aria-label="Hide this note">HIDE</button>
         </div>
         <div id="bc-unsupported" class="fc-status-line fc-status-line--warn" role="alert" hidden>
-          <p class="fc-status-text">This browser can't open serial ports, so it can't connect to a board. Chrome and Edge on a desktop or laptop can.</p>
-          <button class="fc-status-close" type="button" data-close="bc-unsupported" aria-label="Hide this warning">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-          </button>
+          <p class="fc-status-text"><span class="fc-status-tag">NO SERIAL PORTS</span> This browser can't open serial ports, so it can't connect to a board. Chrome and Edge on a desktop or laptop can.</p>
+          <button class="fc-bkt fc-bkt--sm fc-status-close" type="button" data-close="bc-unsupported" aria-label="Hide this warning">HIDE</button>
         </div>
         <!-- Lines arrive but none match a source (js/live/sources.js). -->
         <div id="fc-notice" class="fc-status-line fc-status-line--warn" hidden>
           <p class="fc-status-text"><span class="fc-status-tag">NOT RECOGNIZED</span> Lines are coming in, but not in a format the console knows.</p>
-          <button id="fc-notice-raw" class="fc-status-action" type="button">RAW OUTPUT</button>
+          <button id="fc-notice-raw" class="fc-bkt fc-bkt--sm fc-status-close" type="button">RAW OUTPUT</button>
         </div>
       </div>
 
@@ -198,21 +196,32 @@
       <div id="fc-screens" class="fc-screens">
         <div class="fc-screens-track">
 
-          <!-- Panel 1: the 3D view, in every mode. The overlays are marked
+          <!-- Panel 1: the 3D view, in every mode. #fc-map is the map's
+               frame (js/views/map-view.js draws everything that is on the
+               map). The overlay on top is one grid (see flight-console.css),
+               so nothing in it overlaps:
+                 #fc-hud          the HUD's blocks (js/views/hud.js): flight
+                                  time and phase with the pad checklist or
+                                  the recovery block (top left), ALT, VS,
+                                  GS and MORE (top right), the MORE column,
+                                  and GPS, HDOP and PKT (bottom left)
+                 the top middle   the phase bar and, for flights with two
+                                  or more rockets, their chips
+                 #fc-map-controls the map's controls, built by map-view.js,
+                                  bottom left just above the timeline
+                 #fc-timeline     the altitude timeline and playback (replays)
+               The bottom right corner above the timeline is left free for
+               the map's scale bar and credits. Every block is marked
                data-fc-cover, so WHOLE FLIGHT frames the flight in the part
                of the view they leave free. -->
           <section id="fc-panel-globe" class="fc-screen fc-stage" data-screen="globe" aria-label="3D view">
             <div id="fc-map" class="fc-stage-map"></div>
             <div class="fc-overlay">
+              <div id="fc-hud" class="fc-hud"></div>
               <div class="fc-ov-top" data-fc-cover>
-                <div id="fc-mission" class="fc-ov-mission"></div>
                 <div id="fc-phases" class="fc-ov-phases"></div>
+                <div id="fc-rocketbar" class="fc-ov-rockets"></div>
               </div>
-              <div id="fc-rocketbar" class="fc-ov-rockets" data-fc-cover></div>
-              <div id="fc-stats" class="fc-ov-readings" data-fc-cover></div>
-              <!-- The map's own controls (the view buttons, FOLLOW BOARD, KEY and the
-                   camera buttons). js/views/map-view.js fills this in, and the
-                   overlay's layout decides where it sits. -->
               <div id="fc-map-controls" class="fc-ov-controls" data-fc-cover></div>
               <div id="fc-timeline" class="fc-ov-timeline" data-fc-cover></div>
             </div>
