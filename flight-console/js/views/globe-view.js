@@ -2144,9 +2144,9 @@ export function createGlobeView(container, ctx, options) {
       chase.freeAt = now;
     }
     const reduce = prefersReducedMotion();
-    // (A long frame, while Cesium loads ground tiles, counts as at most
-    // 50 ms, so the camera lags a little then instead of jumping.)
-    const dt = chase.last ? clamp(now - chase.last, 0, 50) / 1000 : 1 / 60;
+    // (A long frame, while Cesium loads ground tiles, counts as two frames
+    // at most, so the camera lags a little then instead of jumping.)
+    const dt = chase.last ? clamp(now - chase.last, 0, 34) / 1000 : 1 / 60;
     chase.last = now;
     const tau = clamp((chase.fixGap / 1000) * FOLLOW_SMOOTH_SHARE, FOLLOW_SMOOTH_MIN_S, FOLLOW_SMOOTH_MAX_S);
     const k = reduce ? 1 : 1 - Math.exp(-dt / tau);
