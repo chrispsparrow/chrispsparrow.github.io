@@ -60,9 +60,7 @@ import { createPhaseStrip } from './views/phase-strip.js';
 import { createMapView } from './views/map-view.js?v=6';
 import { createStatsPanel } from './views/stats-panel.js?v=5';
 import { createTimeline } from './views/timeline.js?v=3';
-import { createEventLog } from './views/event-log.js?v=2';
-import { createFlightInfo } from './views/flight-info.js?v=3';
-import { createDebugPanel } from './views/debug-panel.js?v=2';
+import { createDataPanel } from './views/data-panel.js';
 import { BENCH_WORDS } from './views/hud-text.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
 import { createSourceDetector } from './live/sources.js';
@@ -76,7 +74,7 @@ const sections = { landing: $('fc-landing'), console: $('fc-console'), message: 
 // The spots the 3D view and the readings panel go in. The replay and the
 // live console take turns with them.
 const STAGE_MOUNTS = ['fc-map', 'fc-stats'];
-const REPLAY_MOUNTS = ['fc-mission', 'fc-rocketbar', 'fc-phases', ...STAGE_MOUNTS, 'fc-timeline', 'fc-log', 'fc-info', 'fc-debug'];
+const REPLAY_MOUNTS = ['fc-mission', 'fc-rocketbar', 'fc-phases', ...STAGE_MOUNTS, 'fc-timeline', 'fc-data-replay'];
 
 // The live stores' options (no ground station, and no liftoff for a board
 // on a desk) are LIVE_STORE_OPTIONS in js/live/bench-feed.js, where the
@@ -523,7 +521,10 @@ function startConsole(entry, flight) {
     },
     link: flightUrl(entry.id).href,
     navigate,
+    // What is on screen, for the views that outlive one flight (the map).
+    session: { kind: 'replay', prescan: null, player, entry, loading: false },
   };
+  ctx.session.prescan = ctx.prescan;
 
   const views = startViews([
     ['fc-mission', createMissionHeader],
@@ -532,9 +533,7 @@ function startConsole(entry, flight) {
     ['fc-map', createMapView],
     ['fc-stats', createStatsPanel],
     ['fc-timeline', createTimeline],
-    ['fc-log', createEventLog],
-    ['fc-info', createFlightInfo],
-    ['fc-debug', createDebugPanel],
+    ['fc-data-replay', createDataPanel],
   ], ctx);
 
   session = { id: entry.id, store, player, views };
@@ -764,6 +763,8 @@ function openLiveViews() {
       // Live data has no whole flight to scan ahead of time.
       prescan: new Map(),
       navigate,
+      // What is on screen, for the views that outlive one flight (the map).
+      session: { kind: 'live', prescan: new Map(), player: null, entry: null, loading: false },
       // A board on a desk isn't a rocket, and its "pad" is only where it
       // first sat still with a GPS fix (hud-text.js).
       ...(mode === 'bench' ? { words: BENCH_WORDS } : {}),

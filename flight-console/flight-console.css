@@ -615,6 +615,16 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   flex-direction: column;
 }
 .fc-page .fc-ov-timeline { grid-area: timeline; }
+/* The map's controls (map-view.js fills #fc-map-controls): bottom left,
+   just above the timeline. */
+.fc-page .fc-ov-controls {
+  position: absolute;
+  left: 12px;
+  bottom: calc(max(12px, var(--fc-tl-space, 0px)) + 4px);
+  max-width: calc(100% - var(--fc-tab-w) - 24px);
+  pointer-events: auto;
+}
+.fc-page .fc-ov-controls:empty { display: none; }
 .fc-page .fc-ov-mission:empty,
 .fc-page .fc-ov-phases:empty,
 .fc-page .fc-ov-rockets:empty,

@@ -210,6 +210,10 @@
               </div>
               <div id="fc-rocketbar" class="fc-ov-rockets" data-fc-cover></div>
               <div id="fc-stats" class="fc-ov-readings" data-fc-cover></div>
+              <!-- The map's own controls (the view buttons, FOLLOW BOARD, KEY and the
+                   camera buttons). js/views/map-view.js fills this in, and the
+                   overlay's layout decides where it sits. -->
+              <div id="fc-map-controls" class="fc-ov-controls" data-fc-cover></div>
               <div id="fc-timeline" class="fc-ov-timeline" data-fc-cover></div>
             </div>
           </section>
@@ -292,15 +296,8 @@
               </section>
             </div>
 
-            <!-- Replay: the mission timeline, then the flight details and
-                 the detection check. A saved flight has no bench graphs. -->
-            <div class="fc-data-replay">
-              <div id="fc-log" class="fc-data-log"></div>
-              <div class="fc-data-about">
-                <div id="fc-info"></div>
-                <div id="fc-debug"></div>
-              </div>
-            </div>
+            <!-- Replay: js/views/data-panel.js fills this in from the flight's data. -->
+            <div id="fc-data-replay" class="fc-data-replay"></div>
           </section>
         </div>
 
