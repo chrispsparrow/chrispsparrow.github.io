@@ -233,38 +233,84 @@
   z-index: 6;
   max-width: calc(100% - 24px - var(--fc-tab-w, 0px));
 }
-/* KEY: the legend behind a bracket toggle. It opens upward from the row,
-   lined up with its left end. */
+/* KEY: the legend behind a bracket toggle. It opens upward from the row.
+   map-view.js (placeLegend) moves it into the free part of the view, sets
+   its height limit when that part is short, and only then shows it
+   (.is-placed). No box: white mono text with the thin dark outline, over a
+   soft dark fade that thins out on every side. The fade stays put while
+   the list scrolls under it. */
 .fc-page .fc-map-key { position: static; }
 .fc-page .fc-map-key-toggle { list-style: none; }
 .fc-page .fc-map-key-toggle::-webkit-details-marker { display: none; }
 .fc-page .fc-map-key[open] > .fc-map-key-toggle { color: var(--fc-amber); }
 .fc-page .fc-map-legend {
   position: absolute;
-  left: -10px;
+  left: -8px;
   bottom: calc(100% + 8px);
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
   width: max-content;
   max-width: min(24rem, calc(100vw - 32px));
-  padding: 0.7rem 1.4rem 0.7rem 0.6rem;
   font-family: var(--fc-font-mono);
   font-size: 0.72rem;
   line-height: 1.25;
   letter-spacing: 0.04em;
   color: var(--fc-white);
-  text-shadow: none;
-  background: linear-gradient(to right, color-mix(in srgb, var(--fc-black) 92%, transparent) 70%, color-mix(in srgb, var(--fc-black) 0%, transparent));
+  text-shadow: var(--fc-text-outline);
+  visibility: hidden;
+}
+.fc-page .fc-map-legend.is-placed { visibility: visible; }
+.fc-page .fc-map-legend::before {
+  content: '';
+  position: absolute;
+  inset: -8px -12px -8px -12px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--fc-black) 0%, transparent),
+    color-mix(in srgb, var(--fc-black) 78%, transparent) 20px,
+    color-mix(in srgb, var(--fc-black) 78%, transparent) 60%,
+    color-mix(in srgb, var(--fc-black) 0%, transparent));
+  -webkit-mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+/* The sheet, only on the smallest screens where the legend has to open
+   over the HUD: a darker fade that runs further right, so the HUD under it
+   doesn't show through the words. */
+.fc-page .fc-map-legend.is-sheet::before {
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--fc-black) 0%, transparent),
+    color-mix(in srgb, var(--fc-black) 93%, transparent) 16px,
+    color-mix(in srgb, var(--fc-black) 93%, transparent) 78%,
+    color-mix(in srgb, var(--fc-black) 0%, transparent));
+}
+.fc-page .fc-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 0;
+  padding: 0.55rem 1.6rem 0.55rem 0.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-offwhite) transparent;
+}
+/* When the legend is cut short, its last line fades out, a hint that it
+   scrolls. */
+.fc-page .fc-legend-list.is-cut {
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 22px), transparent);
 }
 .fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.65rem; white-space: nowrap; }
+.fc-page .fc-legend-row[hidden] { display: none; }
 .fc-page .fc-legend-text { white-space: normal; }
-.fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 20px; }
+.fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 18px; }
 .fc-page .fc-legend-key svg { display: block; max-width: none; }
 .fc-page .fc-legend-key .fc-ico-board { width: 12px; height: 16px; }
 .fc-page .fc-legend-key .fc-ico-start { width: 12px; height: 12px; }
-.fc-page .fc-legend-key .fc-ico-dish { width: 16px; height: 18px; }
-.fc-page .fc-legend-key .fc-ico-cross { width: 20px; height: 20px; }
+.fc-page .fc-legend-key .fc-ico-dish { width: 15px; height: 17px; }
+.fc-page .fc-legend-key .fc-ico-cross { width: 18px; height: 18px; }
 
 /* ============================================================
    Labels (map-labels.js): small mono text with a thin dark outline and
