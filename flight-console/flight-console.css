@@ -633,7 +633,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   inset: -1.1rem -1.4rem;
   z-index: -1;
   pointer-events: none;
-  background: color-mix(in srgb, var(--fc-black) 58%, transparent);
+  background: color-mix(in srgb, var(--fc-black) 64%, transparent);
   filter: blur(20px);
 }
 
