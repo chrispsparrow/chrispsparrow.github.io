@@ -1,53 +1,14 @@
 // hud-text.js
-// The words the map and the 3D view use for what they're tracking,
-// rocketHudLine(), the short status line the map and the 3D view used to
-// draw next to a rocket, and hudAge(), the HUD's short ages ("4 S",
-// "2 MIN"). Neither view draws that line any more (the HUD says the same
-// things), but the bench feed tests still check the age rules through
-// rocketHudLine().
+// Two small text helpers for the HUD.
+//   hudAge()         the HUD's short ages ("4 S", "2 MIN"). hud.js uses it.
+//   rocketHudLine()  the short status line the map and the 3D view used to
+//                    draw next to a rocket. No view draws it now (the HUD
+//                    says the same things), but the bench feed tests still
+//                    check the age rules through it.
 //
-// Used by: map-view.js, globe-view.js, hud.js and
-// test/bench-feed.test.mjs.
+// Used by: hud.js and test/bench-feed.test.mjs.
 
 import { formatNumber, MISSING } from '../geo.js';
-
-// What the map and the 3D view call the thing they track, its launch pad
-// and its track. The camera checkbox is FOLLOW BOARD everywhere, since a
-// Dogtooth board is what sends the positions. FLIGHT_WORDS is the default.
-// BENCH_WORDS is for a Dogtooth board on a desk, which isn't flying and
-// has no launch pad. There the "pad" is the
-// spot where the board first sat still with a GPS fix. whole: null leaves
-// the "Whole flight" camera button out. marker names the board marker in
-// the KEY, and event names the 3D view's event markers there (a board on
-// a desk has no flight events, so its KEY has no row for them).
-export const FLIGHT_WORDS = Object.freeze({
-  follow: 'Follow board',
-  whole: 'Whole flight',
-  track: 'Rocket track',
-  marker: 'Dogtooth board',
-  event: 'Flight event, like apogee or landing',
-  pad: 'Launch point',
-  mapLabel: 'Map of rocket positions',
-  globeLabel: '3D view of the flight',
-  noFix: 'No GPS fix yet, so there is no rocket to draw.',
-  waiting: 'A rocket shows in 3D once its launch pad and the ground height there are known.',
-  noGpsData: 'No GPS data from this rocket',
-  noData: 'No data from this rocket yet',
-});
-export const BENCH_WORDS = Object.freeze({
-  follow: 'Follow board',
-  whole: null,
-  track: 'Board track',
-  marker: 'Dogtooth board',
-  event: null,
-  pad: 'Start point',
-  mapLabel: 'Map of the board\'s position',
-  globeLabel: '3D view of the board\'s position',
-  noFix: 'No GPS fix yet, so the board\'s position isn\'t shown.',
-  waiting: 'The board shows in 3D a few seconds after its first GPS fix, once the ground height there is known.',
-  noGpsData: 'No GPS data from this board',
-  noData: 'No data from this board yet',
-});
 
 // The old second line of a rocket's label: height above ground and vertical
 // speed, each after its field code, or why its position is old and for

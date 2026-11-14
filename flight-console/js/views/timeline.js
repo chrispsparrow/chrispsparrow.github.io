@@ -37,6 +37,14 @@ const PAD_TOP = 16;
 const PAD_BOTTOM = 26;
 const PAD_X = 18;
 const PAD_X_NARROW = 12;
+// The curve's own height (px) never gets smaller than this. In a short
+// strip the room above it shrinks first, down to PAD_TOP_MIN.
+const MIN_PLOT_PX = 14;
+const PAD_TOP_MIN = 4;
+// How far (px) the peak label stays from a marker's middle, and the step
+// (px) it moves along its line while looking for a free spot.
+const MARK_CLEAR_PX = 9;
+const PEAK_STEP_PX = 6;
 // Strips narrower than this (px) use the smaller side room and marker gap.
 const NARROW_PX = 520;
 // The height scale goes this much above the highest curve.
@@ -170,8 +178,8 @@ export function createTimeline(root, ctx) {
     const padX = narrow ? PAD_X_NARROW : PAD_X;
     const left = padX;
     const right = W - padX;
-    const top = PAD_TOP;
     const bottom = H - PAD_BOTTOM;
+    const top = Math.max(PAD_TOP_MIN, Math.min(PAD_TOP, bottom - MIN_PLOT_PX));
     const span = Math.max(s.tEnd - s.t0, 1e-6);
 
     // Height scale: 0 up to the highest point of any rocket, with headroom.
@@ -282,10 +290,10 @@ export function createTimeline(root, ctx) {
       : null;
     setChildren(marks, peakLabel, markers.map((m) => [m.button, m.label]));
     for (const m of markers) placeLabel(m, markers, W, bottom);
-    if (peakLabel) placePeakLabel(peakLabel, markers, right);
+    if (peakLabel) placePeakLabel(peakLabel, markers, left, right);
     // Where the peak label ended up, so the playhead can fade it while it
     // passes behind it (measured once here, not every frame).
-    const peakBox = peakLabel ? { el: peakLabel, left: peakLabel.offsetLeft, right: peakLabel.offsetLeft + peakLabel.offsetWidth, under: false } : null;
+    const peakBox = peakLabel && !peakLabel.hidden ? { el: peakLabel, left: peakLabel.offsetLeft, right: peakLabel.offsetLeft + peakLabel.offsetWidth, under: false } : null;
 
     geo = { t0: s.t0, tEnd: s.tEnd, W, H, left, right, x, y, yMin, profile, scan, clipRect, head, nowDot, hoverLine, markers, peakBox, timeAt: null };
     geo.timeAt = (clientX) => {
@@ -376,21 +384,29 @@ export function createTimeline(root, ctx) {
     m.label.style.top = `${r1(top)}px`;
   }
 
-  // The highest point's label starts at the left end of its dashed line,
-  // and moves to the right end if a marker or label is in the way there
-  // (on narrow strips apogee is close to the left edge).
-  function placePeakLabel(label, markers, right) {
+  // The highest point's label sits on its dashed line, at the left end
+  // when nothing is in the way there. If a marker, a marker's label or the
+  // shapes key is in the way, it tries the right end, then every spot in
+  // between from left to right (on narrow strips apogee sits close to the
+  // left edge and the last marker close to the right). It hides when the
+  // whole line is taken, so it never covers a marker.
+  function placePeakLabel(label, markers, left, right) {
+    const w = label.offsetWidth;
+    const lh = label.offsetHeight;
     // The label is centered on its line with a CSS transform.
-    const box = rectOf(label);
-    const half = label.offsetHeight / 2;
-    box.top -= half;
-    box.bottom -= half;
-    const blocked = markers.some((m) => overlaps(box, { left: m.x - 9, right: m.x + 9, top: m.y - 9, bottom: m.y + 9 }) ||
-      (m.label && overlaps(box, rectOf(m.label))));
-    if (!blocked) return;
-    label.style.left = 'auto';
-    label.style.right = `${r1(track.clientWidth - right)}px`;
-    label.classList.add('is-right');
+    const top = label.offsetTop - lh / 2;
+    const blocks = [];
+    for (const m of markers) {
+      blocks.push({ left: m.x - MARK_CLEAR_PX, right: m.x + MARK_CLEAR_PX, top: m.y - MARK_CLEAR_PX, bottom: m.y + MARK_CLEAR_PX });
+      if (m.label) blocks.push(rectOf(m.label));
+    }
+    if (legend.offsetWidth > 0) blocks.push(rectOf(legend));
+    const free = (x) => !blocks.some((b) => overlaps({ left: x, right: x + w, top, bottom: top + lh }, b));
+    const spots = [left, right - w];
+    for (let x = left + PEAK_STEP_PX; x < right - w; x += PEAK_STEP_PX) spots.push(x);
+    const x = spots.find((spot) => spot >= 0 && spot + w <= track.clientWidth && free(spot));
+    if (x === undefined) { label.hidden = true; return; }
+    label.style.left = `${r1(x)}px`;
   }
 
   function renderKey(rocket) {

@@ -13,7 +13,8 @@
 //   - The panel off screen is inert, so the keyboard and screen readers
 //     skip it.
 //   - The slide itself is CSS (a transform on the track). With reduced
-//     motion there is no slide (flight-console.css).
+//     motion there is no slide (flight-console.css). Nothing else may
+//     move the track sideways, so a sideways scroll is undone at once.
 //
 // The panel on screen is data-panel on the console, which the CSS reads.
 //
@@ -102,10 +103,18 @@ export function createPanels(root, { onChange } = {}) {
     show(ORDER[i]);
   }
 
+  // The track only ever moves by its CSS transform. Its box hides what
+  // overflows, but a script or the browser (scrollIntoView, focus, find in
+  // page) can still scroll it sideways, which would leave the panels out of
+  // line with the window. So any sideways scroll is put straight back.
+  const screens = root.querySelector('.fc-screens');
+  const onScroll = () => { if (screens.scrollLeft !== 0) screens.scrollLeft = 0; };
+
   const onPrev = () => step(-1);
   const onNext = () => step(1);
   prev?.addEventListener('click', onPrev);
   next?.addEventListener('click', onNext);
+  screens?.addEventListener('scroll', onScroll);
   document.addEventListener('keydown', onKeyDown);
   apply();
 
@@ -115,6 +124,7 @@ export function createPanels(root, { onChange } = {}) {
     destroy() {
       prev?.removeEventListener('click', onPrev);
       next?.removeEventListener('click', onNext);
+      screens?.removeEventListener('scroll', onScroll);
       document.removeEventListener('keydown', onKeyDown);
     },
   };
