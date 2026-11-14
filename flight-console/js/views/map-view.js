@@ -1481,38 +1481,56 @@ export function createMapView(root, ctx) {
       if (all.length && !all.every((ll) => whole2d.bounds.contains(ll))) fitWhole2d({ animate: true });
     }
 
-    // FOLLOW BOARD: when the focused board gets within FOLLOW_EDGE_PX of
-    // the edge of the free part of the map (the same part WHOLE FLIGHT
-    // frames in, clear of the HUD's blocks), pan so it sits well inside
-    // it again. Where it moves them depends on what else stays in sight
-    // (see followShift). The zoom stays the visitor's. If the board is
-    // ever right outside the free part (a HUD block grew over it), the
-    // map moves at once instead of gliding, so it is never hidden.
-    if (follow && target && usable && !justFitted) {
-      const p = map.latLngToContainerPoint(target);
-      const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
-      const { ins, free } = followInsets(size, covers);
-      const outside = (r) => p.x < r.left || p.x > size.x - r.right || p.y < r.top || p.y > size.y - r.bottom;
-      const urgent = outside(free);
-      if (urgent || (outside(ins) && performance.now() > followPanUntil)) {
-        const shift = followShift(point, ins, size, covers);
-        // Already as centered as it gets (a free part too small for the
-        // board): no pan, so it doesn't pan on the spot.
-        if (Math.abs(shift.x) >= 2 || Math.abs(shift.y) >= 2) {
-          const newCenter = map.containerPointToLatLng(size.divideBy(2).add(shift));
-          const animate = !urgent && !prefersReducedMotion();
-          ownMove = true;
-          map.panTo(newCenter, { animate, duration: 0.5 });
-          ownMove = false;
-          ownMoveUntil = performance.now() + OWN_MOVE_MS;
-          followPanUntil = animate ? performance.now() + FOLLOW_PAN_MS : 0;
-        }
-      }
-    }
+    if (follow && target && usable && !justFitted) followBoard2d(target, size, covers);
 
     placeLabels2d();
     updateScale2d();
     setText(status, statusText());
+  }
+
+  // FOLLOW BOARD on the map: when the focused board (target, a lat/lon)
+  // gets within FOLLOW_EDGE_PX of the edge of the free part of the map
+  // (the same part WHOLE FLIGHT frames in, clear of the HUD's blocks), pan
+  // so it sits well inside it again. Where it moves them depends on what
+  // else stays in sight (see followShift). The zoom stays the visitor's.
+  // If the board is ever right outside the free part (a HUD block grew
+  // over it), the map moves at once instead of gliding, so it is never
+  // hidden. With urgentOnly set, only that last check runs.
+  function followBoard2d(target, size, covers, { urgentOnly = false } = {}) {
+    const p = map.latLngToContainerPoint(target);
+    const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
+    const { ins, free } = followInsets(size, covers);
+    const outside = (r) => p.x < r.left || p.x > size.x - r.right || p.y < r.top || p.y > size.y - r.bottom;
+    const urgent = outside(free);
+    if (!urgent && (urgentOnly || !outside(ins) || performance.now() <= followPanUntil)) return;
+    const shift = followShift(point, ins, size, covers);
+    // Already as centered as it gets (a free part too small for the
+    // board): no pan, so it doesn't pan on the spot.
+    if (Math.abs(shift.x) < 2 && Math.abs(shift.y) < 2) return;
+    const newCenter = map.containerPointToLatLng(size.divideBy(2).add(shift));
+    const animate = !urgent && !prefersReducedMotion();
+    ownMove = true;
+    map.panTo(newCenter, { animate, duration: 0.5 });
+    ownMove = false;
+    ownMoveUntil = performance.now() + OWN_MOVE_MS;
+    followPanUntil = animate ? performance.now() + FOLLOW_PAN_MS : 0;
+  }
+
+  // A HUD block changed size: if it now covers the board, move the view
+  // at once, before the frame is painted (this runs from a
+  // ResizeObserver, after layout and before paint).
+  function coversChanged() {
+    if (!follow) return;
+    if (view === '3d') {
+      globe?.coversChanged();
+      return;
+    }
+    if (mode !== 'leaflet' || !map) return;
+    const focused = store.getFocused();
+    const spot = focused ? boardCrumb(focused) : null;
+    const size = map.getSize();
+    if (!spot || size.x < 120 || size.y < 120) return;
+    followBoard2d(L.latLng(spot.crumb.lat, spot.crumb.lon), size, coveredRects(), { urgentOnly: true });
   }
 
   // The focused rocket's event diamonds and its recovery crosshair.
@@ -1692,8 +1710,11 @@ export function createMapView(root, ctx) {
 
   // How far (map px) FOLLOW BOARD moves the view for the board (box), with
   // ins the free part. The box always ends up inside the free part. Along
-  // the direction it was leaving, it goes about to the middle, and along
-  // the other direction it stays where it is. But when another shift keeps
+  // the direction it was leaving, it goes about to the middle. Along the
+  // other direction it stays where it is, unless it is within a quarter of
+  // the room from an edge there too (then it goes toward the middle as
+  // well, so a fast board doesn't need a second pan right after the
+  // first). But when another shift keeps
   // more of Manta and the launch pads on the map and clear of covered
   // areas, that one wins (never closer than a sixth of the way from an
   // edge in the leaving direction, so it doesn't nudge the map on every
@@ -1706,7 +1727,7 @@ export function createMapView(root, ctx) {
       const middle = (lo + hi) / 2;
       if (lo > hi) return { list: [middle], aim: middle };
       const steps = Array.from({ length: 7 }, (_, i) => lo + ((hi - lo) * i) / 6);
-      if (lo <= 0 && hi >= 0) return { list: [0, ...steps], aim: 0 };
+      if (lo <= 0 && hi >= 0) return { list: [0, ...steps], aim: Math.min(-lo, hi) < (hi - lo) / 4 ? middle : 0 };
       // Leaving: not the end that only just brings the box back inside.
       const nearEnd = Math.abs(lo) < Math.abs(hi) ? 0 : 6;
       return { list: steps.filter((_, i) => i !== nearEnd), aim: middle };
@@ -1942,7 +1963,10 @@ export function createMapView(root, ctx) {
   // The HUD's blocks change size (MORE opens, the timeline appears), so the
   // corner and FOLLOW BOARD look again when they do.
   if ('ResizeObserver' in window) {
-    coverObserver = new ResizeObserver(() => scheduler.schedule());
+    coverObserver = new ResizeObserver(() => {
+      coversChanged();
+      scheduler.schedule();
+    });
     for (const el of coverElements()) coverObserver.observe(el);
     coverObserver.observe(frame);
     coverObserver.observe(corner);

@@ -167,6 +167,10 @@ const FOLLOW_RANGE_MIN_M = 1500;
 // FOLLOW_TAIL_POINTS path points instead.
 const FOLLOW_RANGE_MAX_M = 15000;
 const FOLLOW_TAIL_POINTS = 20;
+// The camera leads the board by one fix (where it will be if it keeps
+// going), unless that step is longer than this (m), which no flight does
+// between two fixes.
+const FOLLOW_LEAD_MAX_M = 800;
 // Manta is kept in view while it is this close (m) to the launch point.
 const FOLLOW_STATION_M = 3000;
 // At most this many path points are used to work out the framing.
@@ -1550,7 +1554,14 @@ export function createGlobeView(container, ctx, options) {
     const v = idleCamera();
     Object.assign(look, v.look);
     camera.lookAtTransform(C.Matrix4.IDENTITY);
-    camera.setView({ destination: v.destination, orientation: { direction: v.direction, up: v.up } });
+    // The camera's directions are set as they are. (camera.setView would
+    // turn a view this close to straight down into a heading taken from
+    // `up`, which points north, and so tilt the camera north instead of
+    // south, pushing the Earth down into the controls.)
+    C.Cartesian3.clone(v.destination, camera.position);
+    C.Cartesian3.clone(v.direction, camera.direction);
+    C.Cartesian3.clone(v.up, camera.up);
+    C.Cartesian3.normalize(C.Cartesian3.cross(v.direction, v.up, camera.right), camera.right);
     scene.requestRender();
   }
 
@@ -1888,6 +1899,8 @@ export function createGlobeView(container, ctx, options) {
     toLocal: null,
     board: null,       // the board, in the local frame
     boardWorld: null,  // the board, in world coordinates
+    lead: null,        // where the board will be at the next fix if it keeps going (local)
+    crumbs: null,      // the crumbs list the board was last seen in (a new one means a seek)
     want: [],          // local points to keep in view if possible
     tail: [],          // the newest path points (local), for a long flight
     key: '',           // what `want` was worked out from
@@ -1896,8 +1909,9 @@ export function createGlobeView(container, ctx, options) {
     zoom: 1,           // the visitor's zoom on top of the camera's own range
     tiltTo: null,      // a pitch the camera eases to (radians), or null
     headTo: null,      // a heading it eases to (radians), or null
-    glide: null,       // a glide in progress: { from: { pivot, range }, start }
-    needsGlide: true,  // the next step starts with a glide (a fresh start)
+    glide: null,       // a glide in progress: { from: { pivot, range }, start, keep, nudge }
+    needsGlide: true,  // the next step starts with a glide: true (a fresh start) or
+                       // 'keep' (one that keeps the board in the free part all the way)
     fixAt: 0,          // when the board last moved (ms)
     fixGap: 1000,      // the usual time between board moves (ms)
     free: null,        // the free part of the view: { x0, x1, y0, y1 } in canvas px
@@ -1917,7 +1931,7 @@ export function createGlobeView(container, ctx, options) {
   function chaseReset() {
     window.cancelAnimationFrame(chase.frame);
     Object.assign(chase, {
-      frame: 0, anchor: null, toWorld: null, toLocal: null, board: null, boardWorld: null,
+      frame: 0, anchor: null, toWorld: null, toLocal: null, board: null, boardWorld: null, lead: null, crumbs: null,
       want: [], tail: [], key: '', recovery: false, target: null, zoom: 1,
       tiltTo: null, headTo: null, glide: null, needsGlide: true, free: null, freeAt: 0,
     });
@@ -1938,22 +1952,33 @@ export function createGlobeView(container, ctx, options) {
       chase.target = null;
     }
     // How often the board moves, so the camera eases at a pace that suits
-    // the playback speed.
+    // the playback speed. And where it will be at the next fix if it keeps
+    // going the same way, so the camera can lead it like an operator leads
+    // a rocket (a fast climb then doesn't step out of the frame).
     if (!chase.boardWorld || !C.Cartesian3.equals(chase.boardWorld, target)) {
       const now = performance.now();
       const gap = now - chase.fixAt;
       if (chase.boardWorld && gap > 0 && gap < 5000) chase.fixGap += (gap - chase.fixGap) * 0.3;
+      // (Not across a seek, a long silence or a step no rocket makes in
+      // one fix.)
+      const before = chase.crumbs === parts.crumbs ? chase.board : null;
+      const board = toLocal(target);
+      const step = before ? Math.hypot(board.x - before.x, board.y - before.y, board.z - before.z) : Infinity;
+      chase.lead = gap < 3 * chase.fixGap && step < FOLLOW_LEAD_MAX_M ? vec(2 * board.x - before.x, 2 * board.y - before.y, 2 * board.z - before.z) : board;
+      chase.crumbs = parts.crumbs;
       chase.fixAt = now;
       chase.boardWorld = C.Cartesian3.clone(target);
     }
     chase.board = toLocal(target);
+    chase.lead ??= chase.board;
     // Landed: settle on the board, a little steeper.
     const recovery = flightState(store, focused).state === STATE.RECOVERY;
     if (recovery && !chase.recovery) {
       const steep = C.Math.toRadians(RECOVERY_PITCH_DEG);
       if (look.pitch > steep) chase.tiltTo = steep;
-      // A long way in from the flight's framing: a glide, not a rush.
-      chase.needsGlide = true;
+      // A long way in from the flight's framing: a glide, not a rush,
+      // that still keeps the board clear of the HUD on the way.
+      chase.needsGlide = 'keep';
     }
     chase.recovery = recovery;
     // The points to keep in view: the launch point, Manta when it is
@@ -2080,20 +2105,21 @@ export function createGlobeView(container, ctx, options) {
       points = [board];
       minRange = RECOVERY_RANGE_M;
     } else {
-      points = [board, ...chase.want];
+      points = [board, chase.lead, ...chase.want];
       minRange = FOLLOW_RANGE_MIN_M;
     }
     let fit = fitBox(points, room, ax, size, centroid(points), minRange, { minRange });
     if (!chase.recovery && fit.range > FOLLOW_RANGE_MAX_M) {
       // Too far to keep everything: the board and its newest path only.
-      points = [board, ...chase.tail];
+      points = [board, chase.lead, ...chase.tail];
       fit = fitBox(points, room, ax, size, centroid(points), minRange, { minRange });
     }
     const range = clamp(Math.max(minRange, fit.range) * chase.zoom, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
     let pivot = fit.pivot;
     // A different range (the visitor zoomed): centered again at it.
     if (Math.abs(range / fit.range - 1) > 0.001) pivot = fitBox(points, room, ax, size, pivot, range, { fit: false }).pivot;
-    // Whatever else fits, the board must.
+    // Whatever else fits, the board must, and where it is headed if it can.
+    if (!chase.recovery) pivot = keepInside(chase.lead, room, ax, size, pivot, range);
     pivot = keepInside(board, room, ax, size, pivot, range);
     return { pivot, range };
   }
@@ -2116,7 +2142,9 @@ export function createGlobeView(container, ctx, options) {
       chase.freeAt = now;
     }
     const reduce = prefersReducedMotion();
-    const dt = chase.last ? clamp(now - chase.last, 0, 100) / 1000 : 1 / 60;
+    // (A long frame, while Cesium loads ground tiles, counts as at most
+    // 50 ms, so the camera lags a little then instead of jumping.)
+    const dt = chase.last ? clamp(now - chase.last, 0, 50) / 1000 : 1 / 60;
     chase.last = now;
     const tau = clamp((chase.fixGap / 1000) * FOLLOW_SMOOTH_SHARE, FOLLOW_SMOOTH_MIN_S, FOLLOW_SMOOTH_MAX_S);
     const k = reduce ? 1 : 1 - Math.exp(-dt / tau);
@@ -2148,20 +2176,26 @@ export function createGlobeView(container, ctx, options) {
     const target = chase.target;
     const here = { pivot: toLocal(look.pivot), range: look.range };
     if (chase.needsGlide) {
+      chase.glide = reduce ? null : { from: here, start: now, keep: chase.needsGlide === 'keep', nudge: vec(0, 0, 0) };
       chase.needsGlide = false;
-      chase.glide = reduce ? null : { from: here, start: now };
     }
     let next;
     if (chase.glide) {
-      // A fresh start: a glide of FOLLOW_GLIDE_MS onto the framing,
-      // which keeps moving with the board on the way.
+      // A glide of FOLLOW_GLIDE_MS onto the framing, which keeps moving
+      // with the board on the way. (nudge: what keepBoardOnScreen added
+      // on the way, fading out as the glide reaches its framing, which
+      // keeps the board clear by itself.)
       const u = clamp((now - chase.glide.start) / FOLLOW_GLIDE_MS, 0, 1);
       const e = u * u * (3 - 2 * u);
-      const from = chase.glide.from;
+      const { from, nudge } = chase.glide;
       next = {
-        pivot: vec(from.pivot.x + (target.pivot.x - from.pivot.x) * e, from.pivot.y + (target.pivot.y - from.pivot.y) * e, from.pivot.z + (target.pivot.z - from.pivot.z) * e),
+        pivot: vec(
+          from.pivot.x + (target.pivot.x - from.pivot.x) * e + nudge.x * (1 - e),
+          from.pivot.y + (target.pivot.y - from.pivot.y) * e + nudge.y * (1 - e),
+          from.pivot.z + (target.pivot.z - from.pivot.z) * e + nudge.z * (1 - e)),
         range: Math.exp(Math.log(from.range) + (Math.log(target.range) - Math.log(from.range)) * e),
       };
+      chase.glide.e = e;
       if (u >= 1) chase.glide = null;
     } else {
       next = {
@@ -2173,6 +2207,15 @@ export function createGlobeView(container, ctx, options) {
     look.range = next.range;
     aim();
     if (!chase.glide) keepBoardOnScreen(size);
+    else if (chase.glide.keep) {
+      // Carry a nudge into the glide, so its next step doesn't undo it.
+      const before = toLocal(look.pivot);
+      keepBoardOnScreen(size);
+      const after = toLocal(look.pivot);
+      const fade = Math.max(0.05, 1 - chase.glide.e);
+      const n = chase.glide.nudge;
+      chase.glide.nudge = vec(n.x + (after.x - before.x) / fade, n.y + (after.y - before.y) / fade, n.z + (after.z - before.z) / fade);
+    }
     // Caught up: stop until the next fix, or the visitor moves the view.
     const left = Math.hypot(next.pivot.x - target.pivot.x, next.pivot.y - target.pivot.y, next.pivot.z - target.pivot.z) / (target.range / size.f);
     const settled = !chase.glide && !turning && left < 0.3 && Math.abs(Math.log(next.range / target.range)) < 0.0005;
@@ -2227,18 +2270,27 @@ export function createGlobeView(container, ctx, options) {
     if (flying) return;
     if (cameraMode === 'follow' && target) {
       chaseData(target);
+      // A new fix the easing hasn't reached yet: if it landed outside the
+      // free part, the view is nudged now, in the same frame.
+      const size = viewSize();
+      if (size && chase.free && !chase.glide && !chase.needsGlide) keepBoardOnScreen(size);
       chaseKick();
     } else if (cameraMode === 'whole') {
       if (!framed) {
         frameEverything({ animate: true });
         return;
       }
-      // Frame again once something drawn pokes out of what was framed.
+      // Frame again once something drawn pokes out of what was framed, or
+      // the board itself leaves the free part of the view.
       const points = everything();
       if (!points.length) return;
       const sphere = C.BoundingSphere.fromPoints(points);
       const reach = C.Cartesian3.distance(sphere.center, framed.center) + sphere.radius;
-      if (reach > framed.radius * 1.1) frameEverything({ animate: true });
+      const size = viewSize();
+      const s = target && size && !glide ? screenOf(target) : null;
+      const free = s ? freeRect(size) : null;
+      const out = s && (s.x < free.x0 || s.x > free.x1 || s.y < free.y0 || s.y > free.y1);
+      if (reach > framed.radius * 1.1 || out) frameEverything({ animate: true });
     }
   }
   // True until the first view is set on the view's first store. That one
@@ -2656,6 +2708,19 @@ export function createGlobeView(container, ctx, options) {
       scene.requestRender();
     },
     cameraMode: () => cameraMode,
+    // The HUD around the view changed size: while following, the board is
+    // kept clear of it at once (map-view.js calls this before the frame is
+    // painted), and the follow camera frames it again.
+    coversChanged() {
+      if (destroyed || !active || cameraMode !== 'follow' || !chase.boardWorld) return;
+      const size = viewSize();
+      if (!size) return;
+      chase.free = freeRect(size);
+      chase.freeAt = performance.now();
+      chase.target = null;
+      if (!chase.glide || chase.glide.keep) keepBoardOnScreen(size);
+      chaseKick();
+    },
     notes,
     // The HUD around the view changed size: the idle Earth fits itself to
     // the free part again.
@@ -2695,6 +2760,8 @@ export function createGlobeView(container, ctx, options) {
         height: scene.canvas.clientHeight,
         camera: [p.x, p.y, p.z],
         dir: [d.x, d.y, d.z],
+        up: [camera.upWC.x, camera.upWC.y, camera.upWC.z],
+        idleBottom: options.idleBottom?.() ?? null,
         range: look.range,
         heading: look.heading,
         pitch: look.pitch,
