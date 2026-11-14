@@ -1,4 +1,5 @@
-/* Project Overview page (projects/flight-console.html): the scroll tour.
+/* Project Overview page (projects/flight-console.html): the scroll tour, and at the
+   end of this file the tab stop for the serial output under "What I built".
 
    Four steps, driven by how far the page has scrolled through the tall .fco-tour
    wrapper while .fco-stage sticks to the window (the same idea as the Toothpaste
@@ -379,4 +380,23 @@
   if (reducedMQ.addEventListener) reducedMQ.addEventListener('change', setMode);
   /* The labels' widths depend on the fonts, so measure again once they arrive */
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+})();
+
+/* The serial output under "What I built" (.fco-term) scrolls sideways inside
+   itself when the window is too narrow for its 87-character lines. Only then
+   is it a tab stop, so a keyboard can scroll it, and a wide screen doesn't get
+   a tab stop that does nothing. */
+(() => {
+  'use strict';
+
+  const term = document.querySelector('.fco-term');
+  if (!term) return;
+  function update() {
+    if (term.scrollWidth > term.clientWidth + 1) term.tabIndex = 0;
+    else term.removeAttribute('tabindex');
+  }
+  update();
+  if ('ResizeObserver' in window) new ResizeObserver(update).observe(term);
+  else window.addEventListener('resize', update);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(update);
 })();

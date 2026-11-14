@@ -20,8 +20,8 @@
   <link rel="stylesheet" href="../css/style.css?v=31">
   <!-- The colors and fonts shared by every Flight Console page -->
   <link rel="stylesheet" href="../css/flight-console-theme.css?v=1">
-  <!-- What only this page needs: the scroll tour, the screenshots and the links -->
-  <link rel="stylesheet" href="../css/flight-console-overview.css?v=5">
+  <!-- What only this page needs: the scroll tour, the serial output and 3D view side by side, and the links -->
+  <link rel="stylesheet" href="../css/flight-console-overview.css?v=8">
   <!-- Picks the scroll tour or, with reduced motion, the still pictures before the
        first paint, so the page never shows one layout and then jumps to the other.
        js/flight-console-overview.js does the rest. -->
@@ -102,7 +102,8 @@
                        <img src="../assets/flight-console/console-screen.webp" width="1600" height="1000" alt="" decoding="async">
                      Keep alt="" here, since this whole scene is hidden from screen readers.
                      The image fills the screen (object-fit: cover). The reduced motion
-                     version copies this scene, so it picks the image up too. -->
+                     version copies this scene, so it picks the image up too. If the
+                     screenshot shows the 3D view, keep its Cesium ion logo and credit link. -->
                 <div class="fco-placeholder"><span>Flight Console screenshot goes here</span></div>
               </div>
               <div class="fco-laptop-base"></div>
@@ -152,38 +153,91 @@
       <h2 id="fco-built-title">What I built</h2>
       <p>Check out <a href="../flight-console/?track">Track a Rocket</a> to see everything it tracks.</p>
 
+      <!-- The same reading on both sides. Left: the board's real serial output from a
+           bench test on the Northeastern campus, two status blocks in a row (heartbeats
+           3533 and 3534). It is real text, typed in character for character from the
+           TERMINAL constant in flight-console/test/bench-terminal.test.mjs, with the
+           values at column 40 as the board prints them. The runs of = and - are hidden
+           from screen readers, so they read each label and its value. The first block's
+           latitude, longitude and altitude are marked orange. On a wide screen the text
+           scales to fit the panel. On a narrow one it keeps a readable size and the panel
+           scrolls sideways inside itself (js/flight-console-overview.js makes it a tab
+           stop then). If the board's output changes, update the test and this together.
+           Right: that first block in the 3D view of Track a Rocket, a screenshot taken
+           with a fake serial board, More readings open. The console only places a
+           board after 3 s of still readings, so the fake board first sent ten copies
+           of block 3533 with earlier heartbeat numbers and times (the same position
+           and altitude). The AGL, speeds and ground level rows come from those copies,
+           as they would from the hour of real blocks before it. Its credits are the ones the
+           view's "Data attribution" listed for that camera spot. A new screenshot needs
+           its credits read again. On a wide screen the two panels are the same height
+           and the picture fills its frame (object-fit: cover), so it is cropped to
+           about the frame's shape (1100 by 1430). -->
       <figure class="fco-shots">
-        <div class="fco-shots-row">
-          <div class="fco-shot">
-            <p class="fco-shot-label">Raw serial output</p>
-            <div class="fco-shot-frame">
-              <!-- PLACEHOLDER for the raw serial terminal output from Dogtooth.
-                   To swap it in, save the screenshot as
-                   assets/flight-console/serial-output.webp and replace the whole
-                   <div class="fco-placeholder">...</div> below with:
-                     <img src="../assets/flight-console/serial-output.webp" width="1600" height="1000" loading="lazy" decoding="async"
-                          alt="(say what the terminal shows, for example the status block lines the board prints)">
-                   Put the image's real width and height in the tag. The frame is 16:10
-                   and the image fills it (object-fit: cover). To use another shape,
-                   change aspect-ratio on .fco-shot-frame in css/flight-console-overview.css. -->
-              <div class="fco-placeholder"><span>Serial terminal output from Dogtooth goes here</span></div>
-            </div>
-          </div>
-          <div class="fco-shot">
-            <p class="fco-shot-label">Three-dimensional (3D) view</p>
-            <div class="fco-shot-frame">
-              <!-- PLACEHOLDER for the same flight in the Flight Console's 3D view.
-                   To swap it in, save the screenshot as
-                   assets/flight-console/flight-3d.webp and replace the whole
-                   <div class="fco-placeholder">...</div> below with:
-                     <img src="../assets/flight-console/flight-3d.webp" width="1600" height="1000" loading="lazy" decoding="async"
-                          alt="(say what the 3D view shows, for example the flight's track over the terrain)">
-                   If the view shows Cesium ion imagery or terrain, add its credit line
-                   under the caption. -->
-              <div class="fco-placeholder"><span>The same flight in the 3D view goes here</span></div>
-            </div>
+        <div class="fco-shot fco-shot-term">
+          <p class="fco-shot-label" id="fco-term-label">Raw serial output</p>
+          <div class="fco-term" role="region" aria-labelledby="fco-term-label">
+<pre class="fco-term-text"><span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3533 | TIME RUNNING: 58 min 53.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
+
+GPS
+  TARGET LOCK [GPS]: <span class="fco-term-dim" aria-hidden="true">------------------</span> LOCKED
+  CONNECTED SATELLITES: <span class="fco-term-dim" aria-hidden="true">---------------</span> 12
+  LOCK QUALITY: <span class="fco-term-dim" aria-hidden="true">-----------------------</span> 89 % (HDOP 1.45)
+  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">42.3368853</span>
+  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> <span class="fco-term-mark">-71.0857403</span>
+  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> <span class="fco-term-mark">49.4 m</span>
+  GPS DATA RATE: <span class="fco-term-dim" aria-hidden="true">----------------------</span> GOOD 772 char/s
+  CORRUPTED DATA OCCURRENCES (GPS): <span class="fco-term-dim" aria-hidden="true">---</span> 0
+
+GPS MOTION MODEL
+  PORTABLE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> OFF
+  AUTOMOTIVE: <span class="fco-term-dim" aria-hidden="true">-------------------------</span> OFF
+  AIRBORNE 4G: <span class="fco-term-dim" aria-hidden="true">------------------------</span> ON
+  OTHER: <span class="fco-term-dim" aria-hidden="true">------------------------------</span> OFF
+
+RADIO
+  RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> 3532
+  RADIO PACKETS SKIPPED: <span class="fco-term-dim" aria-hidden="true">--------------</span> 0
+  RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0
+
+<span class="fco-term-dim" aria-hidden="true">====================</span> HEARTBEAT #3534 | TIME RUNNING: 58 min 54.0 s <span class="fco-term-dim" aria-hidden="true">====================</span>
+
+GPS
+  TARGET LOCK [GPS]: <span class="fco-term-dim" aria-hidden="true">------------------</span> LOCKED
+  CONNECTED SATELLITES: <span class="fco-term-dim" aria-hidden="true">---------------</span> 12
+  LOCK QUALITY: <span class="fco-term-dim" aria-hidden="true">-----------------------</span> 89 % (HDOP 1.45)
+  LATITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 42.3368821
+  LONGITUDE: <span class="fco-term-dim" aria-hidden="true">--------------------------</span> -71.0857330
+  ALTITUDE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> 48.3 m
+  GPS DATA RATE: <span class="fco-term-dim" aria-hidden="true">----------------------</span> GOOD 763 char/s
+  CORRUPTED DATA OCCURRENCES (GPS): <span class="fco-term-dim" aria-hidden="true">---</span> 0
+
+GPS MOTION MODEL
+  PORTABLE: <span class="fco-term-dim" aria-hidden="true">---------------------------</span> OFF
+  AUTOMOTIVE: <span class="fco-term-dim" aria-hidden="true">-------------------------</span> OFF
+  AIRBORNE 4G: <span class="fco-term-dim" aria-hidden="true">------------------------</span> ON
+  OTHER: <span class="fco-term-dim" aria-hidden="true">------------------------------</span> OFF
+
+RADIO
+  RADIO PACKETS SENT: <span class="fco-term-dim" aria-hidden="true">-----------------</span> 3533
+  RADIO PACKETS SKIPPED: <span class="fco-term-dim" aria-hidden="true">--------------</span> 0
+  RADIO PACKET ERROR OCCURRENCES: <span class="fco-term-dim" aria-hidden="true">-----</span> 0</pre>
           </div>
         </div>
+        <div class="fco-shot fco-shot-3d">
+          <p class="fco-shot-label">Three-dimensional (3D) view</p>
+          <div class="fco-shot-frame">
+            <img src="../assets/flight-console/bench-test-3d.webp" width="1100" height="1430" loading="lazy" decoding="async"
+                 alt="The Flight Console's 3D view over the Northeastern campus in Boston. The blue board marker with orange rings sits at latitude 42.3368853, longitude -71.0857403. The readings panel beside it shows the same latitude and longitude and an altitude of 49.4 m above sea level.">
+          </div>
+        </div>
+        <details class="fco-credit">
+          <summary>Imagery and terrain from Cesium ion</summary>
+          <div class="fco-credit-body">
+            <p>Imagery: Bing Maps, © 2026 Microsoft Corporation, © Mapbox, © Maxar, ©CNES (2026) Distribution Airbus DS, Earthstar Geographics SIO.</p>
+            <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
+          </div>
+        </details>
         <figcaption>Parsed data from the Dogtooth PCB (printed circuit board) turned into real 3D data.</figcaption>
       </figure>
     </section>
@@ -216,7 +270,7 @@
   <script src="../js/main.js?v=17"></script>
   <script src="../js/fish-logo.js?v=1"></script>
   <!-- If the tour's script can't load, fall back to the plain list of sentences -->
-  <script src="../js/flight-console-overview.js?v=2"
+  <script src="../js/flight-console-overview.js?v=3"
           onerror="document.documentElement.classList.remove('fco-anim', 'fco-static')"></script>
 </body>
 </html>

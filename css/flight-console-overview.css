@@ -5,7 +5,8 @@
      1. the scroll tour (a tall wrapper with a sticky stage, run by
         js/flight-console-overview.js)
      2. the same four steps as still pictures, for reduced motion
-     3. What I built, the two screenshots and the related links
+     3. What I built (the serial output and the 3D view side by
+        side) and the related links
    Everything is under body.fco, so none of it reaches other pages.
    The script adds fco-anim (scroll tour) or fco-static (still
    pictures) to <html>. With neither (no JavaScript), the four
@@ -199,7 +200,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   width: 100%;
   aspect-ratio: 16 / 10;
 }
-.fco-laptop-screen > img { display: block; object-fit: cover; }
+.fco-laptop-screen > img { display: block; height: auto; object-fit: cover; }
 .fco-laptop-base {
   height: 0.8em;
   border: calc(var(--px) * 1.5) solid var(--fc-offwhite);
@@ -207,7 +208,7 @@ html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
   clip-path: polygon(0 100%, 2% 0, 98% 0, 100% 100%);
 }
 
-/* A placeholder frame, in the scene and in the screenshots below */
+/* The placeholder on the laptop's screen, until the user's screenshot is in */
 .fco-placeholder {
   display: grid;
   place-items: center;
@@ -309,7 +310,7 @@ html.fco-anim .fco-step:first-child { opacity: 1; }
 html:not(.fco-anim) .fco-steps {
   display: grid;
   gap: clamp(2.5rem, 6vw, 4.5rem);
-  max-width: 1160px;
+  max-width: 1320px;   /* the same as .fco-after, so What I built lines up under the pictures */
   margin: 0 auto;
   padding: calc(var(--fc-nav-h) + clamp(1.5rem, 5vw, 3.5rem)) var(--fco-gut) 0;
 }
@@ -333,9 +334,11 @@ html.fco-static .fco-step > .fco-view.fco-still {
   html.fco-static .fco-step > .fco-view.fco-still { aspect-ratio: 4 / 3; }
 }
 
-/* ── 3. What I built, the screenshots and the related links ─ */
+/* ── 3. What I built, the side by side and the related links ─ */
+/* A little wider than the tour's sentences, so the serial output beside the
+   3D view can use a readable size */
 .fco-after {
-  max-width: 1160px;
+  max-width: 1320px;
   margin: 0 auto;
   padding-inline: var(--fco-gut);
 }
@@ -366,13 +369,24 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-built > p a:hover { color: var(--fc-orange); }
 .fco-built > p a:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
 
-.fco-shots { margin: clamp(2rem, 5vw, 3rem) 0 0; }
-.fco-shots-row {
+/* The figure: the serial output and the 3D view, then the picture's credits
+   under the picture, then the caption under both. Narrow windows stack them
+   in that order. Wide ones put the two panels side by side at the same
+   height, with the serial output a little wider. */
+.fco-shots {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1rem, 2.5vw, 1.75rem);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "term" "pic" "credit" "cap";
+  max-width: 680px;
+  margin: clamp(2rem, 5vw, 3rem) 0 0;
 }
-.fco-shot { min-width: 0; }
+.fco-shot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fco-shot-term { grid-area: term; }
+.fco-shot-3d { grid-area: pic; margin-top: clamp(1.75rem, 5vw, 2.5rem); }
 .fco-shot-label {
   margin: 0 0 0.55rem;
   font-family: var(--fc-font-readout);
@@ -380,25 +394,113 @@ html.fco-static .fco-step > .fco-view.fco-still {
   line-height: 1.3;
   color: var(--fc-text-dim);
 }
+
+/* The serial output, as real text in a terminal-like panel. The banner lines
+   are 87 characters, and Share Tech Mono is 0.54 em wide per character, so
+   the text needs 47 em. The panel is a size container and the font size is
+   its width over 47.2 (a little room for rounding), kept between a readable
+   floor and 13 px. Below the floor the text keeps that size and the panel
+   scrolls sideways inside itself, never the page. */
+.fco-term {
+  container-type: inline-size;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 14px;
+  border: 1px solid var(--fc-line);
+  background: var(--fc-navy-deep);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-line-strong) transparent;
+}
+.fco-term:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+.fco-term-text {
+  width: max-content;
+  margin: 0;
+  font-family: var(--fc-font-readout);
+  font-size: max(11.5px, min(13px, 100cqi / 47.2));
+  font-variant-ligatures: none;
+  line-height: 1.25;
+  white-space: pre;
+  color: var(--fc-offwhite);
+}
+/* The runs of = and - (hidden from screen readers) */
+.fco-term-dim { color: var(--fc-text-dim); }
+/* The first block's position, the reading the 3D view shows */
+.fco-term-mark { color: var(--fc-orange); }
+
+/* The 3D view's screenshot. The image is placed absolutely, so on a wide
+   screen it takes the height the serial output sets instead of adding its
+   own. When stacked, the frame has the picture's shape. */
 .fco-shot-frame {
-  aspect-ratio: 16 / 10;
+  position: relative;
+  aspect-ratio: 1100 / 1430;
   overflow: hidden;
   border: 1px solid var(--fc-line);
   background: var(--fc-navy-deep);
 }
-.fco-shot-frame > .fco-placeholder,
 .fco-shot-frame > img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
 }
-.fco-shot-frame > img { display: block; object-fit: cover; }
-.fco-shot-frame > .fco-placeholder { border: 0; font-size: 0.9rem; }
+
+/* The Cesium ion credits for the picture's imagery and terrain */
+.fco-credit {
+  grid-area: credit;
+  margin-top: 0.6rem;
+}
+.fco-credit summary {
+  width: fit-content;
+  cursor: pointer;
+  font-family: var(--fc-font-body);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--fc-text-dim);
+  transition: color 0.2s;
+}
+.fco-credit summary:hover,
+.fco-credit[open] summary { color: var(--fc-offwhite); }
+.fco-credit summary:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 2px; }
+.fco-credit-body { margin-top: 0.5rem; }
+.fco-credit-body p {
+  margin: 0;
+  font-family: var(--fc-font-body);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--fc-text-dim);
+}
+.fco-credit-body p + p { margin-top: 0.35rem; }
+
 .fco-shots figcaption {
+  grid-area: cap;
   margin-top: 1rem;
   font-family: var(--fc-font-body);
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--fc-text-dim);
+}
+
+/* Wide windows: side by side. At 1180 px the serial output's panel is about
+   540 px, which fits the text at about 10.6 px, so the floor drops to 10.5 px
+   here. The 3D view's frame stretches to the serial output's height. */
+@media (min-width: 1180px) {
+  .fco-shots {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-areas: "term pic" ". credit" "cap cap";
+    column-gap: 1.75rem;
+    max-width: none;
+  }
+  .fco-shot-3d { margin-top: 0; }
+  .fco-term { padding: 20px; }
+  .fco-term-text { font-size: max(10.5px, min(13px, 100cqi / 47.2)); }
+  .fco-shot-3d .fco-shot-frame {
+    flex: 1 1 0;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
 }
 
 .fco-related {
@@ -431,12 +533,12 @@ html.fco-static .fco-step > .fco-view.fco-still {
 .fco-related a:focus-visible { outline: 2px solid var(--fc-offwhite); outline-offset: 3px; }
 
 @media (max-width: 640px) {
-  .fco-shots-row { grid-template-columns: minmax(0, 1fr); }
   .fco-related { flex-direction: column; }
   .fco-related a { justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fco-built > p a,
+  .fco-credit summary,
   .fco-related a { transition: none; }
 }
