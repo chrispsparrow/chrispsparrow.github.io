@@ -94,9 +94,6 @@ const FIT_MIN_ZOOM = 3;
 // WHOLE FLIGHT keeps this much room (px) between the path and the edge of
 // the part of the view nothing covers, in both views, so the markers fit.
 const WHOLE_ROOM_PX = 28;
-// When no part of the map leaves FOLLOW_EDGE_PX around the board, FOLLOW
-// BOARD settles for this much room (px).
-const FOLLOW_TIGHT_PX = 8;
 // Leaflet stacks markers by screen height plus this offset. These keep the
 // focused board on top, then the other boards, the event markers, Manta
 // and the launch points.
@@ -1001,6 +998,19 @@ export function createMapView(root, ctx) {
     return clearInsets(covers, size, WHOLE_ROOM_PX, freeArea(size), { roomiest: true });
   }
 
+  // The part of the map FOLLOW BOARD keeps the board in, as insets: the
+  // free part WHOLE FLIGHT uses, made a little smaller where there is
+  // room, so the board stays FOLLOW_EDGE_PX clear of the map's edge and
+  // the HUD's blocks.
+  // Returns { ins, free }: those insets, and the free part's own.
+  function followInsets(size, covers) {
+    const free = clearInsets(covers, size, WHOLE_ROOM_PX, freeArea(size), { roomiest: true });
+    const extra = Math.max(0, config.FOLLOW_EDGE_PX - WHOLE_ROOM_PX);
+    const sx = Math.max(0, Math.min(extra, (size.x - free.left - free.right - 40) / 2));
+    const sy = Math.max(0, Math.min(extra, (size.y - free.top - free.bottom - 40) / 2));
+    return { ins: { left: free.left + sx, right: free.right + sx, top: free.top + sy, bottom: free.bottom + sy }, free };
+  }
+
   // The height (px) of the band the controls row and the corner take
   // along the bottom of a view, so the idle Earth can sit above it.
   // (The arrow tabs halfway up the sides don't count.)
@@ -1451,26 +1461,26 @@ export function createMapView(root, ctx) {
       if (all.length && !all.every((ll) => whole2d.bounds.contains(ll))) fitWhole2d({ animate: true });
     }
 
-    // FOLLOW BOARD: when the focused board gets near the edge of the map
-    // or a covered area, pan so it sits well inside the free part. Like
-    // the first view, it moves sideways away from the HUD's blocks, so a
-    // block that is taller a moment later still doesn't cover the board.
-    // Where it moves them depends on what else stays in sight (see
-    // followShift).
-    if (follow && target && usable && !justFitted && performance.now() > followPanUntil) {
+    // FOLLOW BOARD: when the focused board gets within FOLLOW_EDGE_PX of
+    // the edge of the free part of the map (the same part WHOLE FLIGHT
+    // frames in, clear of the HUD's blocks), pan so it sits well inside
+    // it again. Where it moves them depends on what else stays in sight
+    // (see followShift). The zoom stays the visitor's. If the board is
+    // ever right outside the free part (a HUD block grew over it), the
+    // map moves at once instead of gliding, so it is never hidden.
+    if (follow && target && usable && !justFitted) {
       const p = map.latLngToContainerPoint(target);
-      const m = config.FOLLOW_EDGE_PX;
       const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
-      if (tooClose(point, m, size, covers)) {
-        const area = freeArea(size);
-        const ins = clearInsets(covers, size, m, area, { sideways: true }) ??
-          clearInsets(covers, size, FOLLOW_TIGHT_PX, area, { sideways: true, roomiest: true });
+      const { ins, free } = followInsets(size, covers);
+      const outside = (r) => p.x < r.left || p.x > size.x - r.right || p.y < r.top || p.y > size.y - r.bottom;
+      const urgent = outside(free);
+      if (urgent || (outside(ins) && performance.now() > followPanUntil)) {
         const shift = followShift(point, ins, size, covers);
         // Already as centered as it gets (a free part too small for the
         // board): no pan, so it doesn't pan on the spot.
         if (Math.abs(shift.x) >= 2 || Math.abs(shift.y) >= 2) {
           const newCenter = map.containerPointToLatLng(size.divideBy(2).add(shift));
-          const animate = !prefersReducedMotion();
+          const animate = !urgent && !prefersReducedMotion();
           ownMove = true;
           map.panTo(newCenter, { animate, duration: 0.5 });
           ownMove = false;
@@ -1932,6 +1942,31 @@ export function createMapView(root, ctx) {
         insets: freeInsets(canvas),
         width: size.x,
         height: size.y,
+        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress),
+      };
+    },
+    // Where the focused board shows on screen (px in the view) and the
+    // free part of the view FOLLOW BOARD keeps it in, with where the camera
+    // (or the map's middle) is.
+    camera() {
+      if (view === '3d') return globe ? { view, ...globe.debugCamera() } : null;
+      if (!map) return null;
+      const size = map.getSize();
+      const focused = store.getFocused();
+      const spot = focused ? boardCrumb(focused) : null;
+      const p = spot ? map.latLngToContainerPoint([spot.crumb.lat, spot.crumb.lon]) : null;
+      const ins = freeInsets(canvas);
+      const c = map.getCenter();
+      return {
+        view,
+        mode: follow ? 'follow' : 'free',
+        board: p ? { x: p.x, y: p.y } : null,
+        free: { x0: ins.left, x1: size.x - ins.right, y0: ins.top, y1: size.y - ins.bottom },
+        width: size.x,
+        height: size.y,
+        center: [c.lat, c.lng],
+        centerPx: (({ x, y }) => [x, y])(map.project(c, map.getZoom())),
+        zoom: map.getZoom(),
         moving: Boolean(map._animatingZoom || map._panAnim?._inProgress),
       };
     },
