@@ -119,8 +119,8 @@
 //   (it follows that setting live). The fish field is made once, in short
 //   slices of work spread over several tasks, so the page keeps answering
 //   clicks and keys while it is built. The fish's lines are traced when the
-//   window changes size (a few ms), and moving the fish's streaks costs
-//   about as much as a few hundred more ocean streaks.
+//   window changes size (10 to 15 ms a fish), and moving the fish's
+//   streaks costs about as much as a few hundred more ocean streaks.
 //
 // Used by: the landing's hero (js/views/launcher.js starts it). No imports.
 
