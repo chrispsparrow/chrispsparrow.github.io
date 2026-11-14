@@ -1,0 +1,92 @@
+/* ============================================================
+   FLIGHT CONSOLE THEME  (css/flight-console-theme.css)
+   The colors and fonts shared by the three Flight Console pages:
+   the hero (flight-console/), Track a Rocket (flight-console/?track)
+   and the Project Overview (projects/flight-console.html). Each of
+   those pages gives its <body> the class fc-theme.
+
+   This is the one place the palette lives. Change a color here and
+   every page in the section follows. The site's black and gold theme
+   doesn't apply in this section.
+
+   Fonts come from Google Fonts, loaded in each page's <head>:
+   Saira Stencil One for the big title and button labels, Barlow
+   Condensed for headings and Share Tech Mono for small labels and
+   readouts. Paragraphs keep the site's Funnel Sans.
+   ============================================================ */
+
+:root {
+  /* The three base colors */
+  --fc-navy: #0B1A2E;       /* page background */
+  --fc-orange: #FF7A1A;     /* accent, used sparingly */
+  --fc-offwhite: #E8EDF2;   /* text */
+
+  /* Shades mixed from the three */
+  --fc-navy-deep: color-mix(in srgb, var(--fc-navy) 72%, #000);          /* wells inside panels */
+  --fc-navy-raised: color-mix(in srgb, var(--fc-navy) 92%, var(--fc-offwhite)); /* panels */
+  --fc-text-dim: color-mix(in srgb, var(--fc-offwhite) 68%, var(--fc-navy));    /* secondary text, about 7:1 on navy */
+  --fc-line: color-mix(in srgb, var(--fc-offwhite) 16%, transparent);           /* thin outlines */
+  --fc-line-strong: color-mix(in srgb, var(--fc-offwhite) 34%, transparent);    /* outlines that need to read */
+  --fc-orange-soft: color-mix(in srgb, var(--fc-orange) 16%, transparent);      /* orange tints */
+
+  /* Fonts */
+  --fc-font-stencil: 'Saira Stencil One', 'Barlow Condensed', 'Arial Narrow', sans-serif; /* the big title and button labels */
+  --fc-font-head: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;             /* headings */
+  --fc-font-readout: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace; /* small labels and readouts */
+  --fc-font-body: var(--font-text);                                                      /* paragraphs */
+
+  /* The nav's height on these pages, so a page can fit itself under it */
+  --fc-nav-h: 64px;
+}
+
+html:has(body.fc-theme) { background: var(--fc-navy); }
+body.fc-theme {
+  background: var(--fc-navy);
+  color: var(--fc-offwhite);
+}
+.fc-theme ::selection { background: var(--fc-orange); color: var(--fc-navy); }
+
+/* ── The site nav ──────────────────────────────────────────── */
+/* It blends into the navy page the way it blends into the black on the
+   avionics page: no bar at the top, and once the page scrolls, a see-through
+   navy with a blur and no line under it. */
+.fc-theme #nav {
+  height: var(--fc-nav-h);
+  padding-block: 0;
+  background: transparent;
+  border-bottom-color: transparent;
+}
+.fc-theme #nav.scrolled {
+  background: color-mix(in srgb, var(--fc-navy) 82%, transparent);
+  border-color: transparent;
+}
+.fc-theme #nav .nav-name { color: var(--fc-offwhite); }
+.fc-theme #nav .nav-name:hover { color: var(--fc-orange); }
+.fc-theme #nav .nav-links a { color: var(--fc-text-dim); }
+.fc-theme #nav .nav-links a:hover { color: var(--fc-offwhite); }
+.fc-theme #nav .nav-links a.nav-resume {
+  color: var(--fc-offwhite);
+  border-color: var(--fc-line-strong);
+  border-radius: 0;
+}
+.fc-theme #nav .nav-links a.nav-resume:hover {
+  color: var(--fc-orange);
+  background: transparent;
+  border-color: var(--fc-orange);
+}
+.fc-theme #nav .nav-hamburger span { background: var(--fc-offwhite); }
+.fc-theme #nav a:focus-visible,
+.fc-theme #nav button:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .fc-theme #nav { padding-inline: 1rem; }
+  .fc-theme #nav .nav-links { inset: var(--fc-nav-h) 0 0; background: var(--fc-navy); }
+}
+
+/* ── The site footer ───────────────────────────────────────── */
+.fc-theme footer { background: var(--fc-navy); }
+.fc-theme .footer-lockup { color: var(--fc-text-dim); }
+.fc-theme .footer-links a { color: var(--fc-offwhite); }
+.fc-theme .footer-links a:hover,
+.fc-theme .footer-social a:hover { color: var(--fc-orange); }
+.fc-theme .footer-social a { color: var(--fc-text-dim); }
+.fc-theme footer a:focus-visible { outline-color: var(--fc-orange); }

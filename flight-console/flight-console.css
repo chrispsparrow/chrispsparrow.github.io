@@ -22,7 +22,7 @@
    Design tokens
    ------------------------------------------------------------ */
 .fc-page {
-  --fc-bg: #132a1d;            /* page background, the same deep green as the home page slide */
+  --fc-bg: var(--fc-navy);     /* page background (css/flight-console-theme.css) */
   --fc-panel: #0b1912;         /* cards and panels */
   --fc-border: #2c4a38;        /* panel borders */
   --fc-divider: #1d3527;       /* lines inside panels */
@@ -65,27 +65,22 @@
   background: var(--fc-bg);
 }
 
-/* Site nav: in normal flow and opaque on this page (like the PCB page), so
-   it always reads above the dark page. */
-.fc-page #nav {
-  position: static;
-  background: rgba(243, 241, 236, 0.97);
-  border-bottom: 1px solid var(--border);
-  padding: 1rem 2rem;
-}
-@media (max-width: 640px) {
-  .fc-page #nav { padding: 0.9rem 1rem; }
-}
-/* The nav sits in normal flow here, so in-page scrolling needs no room
-   for it. */
-html:has(body.fc-page) { scroll-padding-top: 1rem; }
+/* Site nav: fixed and see-through over the navy, like the avionics page
+   (its colors are in ../css/flight-console-theme.css). Each screen leaves
+   room for it at its own top (--fc-nav-h). */
+html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 
 .fc-page .fc-main {
   background: var(--fc-bg);
   color: var(--fc-text);
   font-family: var(--fc-font-text);
-  padding: clamp(1rem, 2.5vw, 2rem) clamp(1rem, 2.5vw, 2rem) clamp(2.5rem, 5vw, 4rem);
+  padding: 0;
   min-height: 70vh;
+}
+/* Each screen pads itself, starting under the fixed nav. */
+.fc-page .fc-console,
+.fc-page .fc-message {
+  padding: calc(var(--fc-nav-h) + 1rem) clamp(1rem, 2.5vw, 2rem) clamp(2.5rem, 5vw, 4rem);
 }
 /* The hidden attribute must win over the display rules below. */
 .fc-page [hidden] { display: none !important; }
