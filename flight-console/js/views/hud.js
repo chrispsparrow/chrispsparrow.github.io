@@ -68,6 +68,23 @@ const PHASE_WORDS = Object.freeze({
 // space take this many characters.
 const LEADER_COLUMNS = 16;
 
+// Every value sits in a field of a fixed width, in characters, so no label
+// and no value column moves when a value changes, goes missing ("--") or
+// turns into a warning. The font is monospace, so a width in ch fits that
+// many characters exactly. Each field is as wide as the longest text it
+// can show:
+//   the clock  "T+59:59", so the phase word after it stays put
+//   ALT        "12,345" (m AGL), right aligned
+//   VS and GS  "1,234.5" (m/s), right aligned, with a fixed slot for the
+//              arrow before it and one for the unit after it
+//   GPS, HDOP and PKT  "12 SAT NO FIX", left aligned
+//   the checklist and recovery values  "NO PACKETS, 12 S", left aligned.
+//              A longer value (the recovery distance) reaches further
+//              right, but its start never moves.
+const FIELD_CH = Object.freeze({ clock: 7, alt: 6, speed: 7, link: 13, lead: 16 });
+// The units' own fields, in characters (the unit text has a space in front).
+const UNIT_CH = Object.freeze({ alt: 6, speed: 4 });
+
 // How long (ms) a warning's one blink lasts. It matches the CSS animation,
 // and clears the mark when there is no animation to end it (less motion).
 const BLINK_MS = 700;
@@ -81,7 +98,7 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
   // Top left: the clock and phase, the labels, the checklist, recovery
   // ------------------------------------------------------------------
-  const clockTime = h('span', { class: 'fc-hud-time' });
+  const clockTime = h('span', { class: 'fc-hud-time', style: { minWidth: `${FIELD_CH.clock}ch` } });
   const clockPhase = h('span', { class: 'fc-hud-phase' });
   const flags = h('p', { class: 'fc-hud-flags' });
 
@@ -130,13 +147,13 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
   // ALT's label sits above it, and the number grows to the left from the
   // right edge, so nothing else moves when it gains a digit.
-  const alt = valueCell('fc-hud-big', 0);
+  const alt = valueCell('fc-hud-big', FIELD_CH.alt, UNIT_CH.alt);
   const altNote = h('p', { class: 'fc-hud-note' });
   const altRow = h('div', { class: 'fc-hud-alt' },
     h('span', { class: 'fc-hud-label' }, 'ALT'), alt.value);
   const altLine = { row: altRow, warn: false, blinkTimer: null };
-  const vs = row('VS', 5);
-  const gs = row('GS', 5);
+  const vs = row('VS', FIELD_CH.speed, UNIT_CH.speed);
+  const gs = row('GS', FIELD_CH.speed, UNIT_CH.speed);
   const moreId = `fc-hud-more-${n}`;
   const moreButton = h('button', {
     type: 'button',
@@ -153,8 +170,14 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
   // The MORE column
   // ------------------------------------------------------------------
-  const moreBody = h('div', { class: 'fc-hud-more-body' });
-  const more = h('section', { class: 'fc-hud-more', id: moreId, 'data-fc-cover': '', 'aria-label': 'All readings', tabindex: '-1', hidden: true },
+  // The column is plain HUD text over a soft dark fade (the CSS draws the
+  // fade around the section). The list inside scrolls when it is taller
+  // than its room. While more of it is hidden below, it gets is-clipped
+  // and its bottom lines fade out, so the cut never shows half a line.
+  // Opening the column moves keyboard focus into the list, so the arrow
+  // keys scroll it.
+  const moreBody = h('div', { class: 'fc-hud-more-body', tabindex: '-1' });
+  const more = h('section', { class: 'fc-hud-more', id: moreId, 'data-fc-cover': '', 'aria-label': 'All readings', hidden: true },
     moreBody);
   // Escape inside the column closes it and puts focus back on MORE.
   more.addEventListener('keydown', (e) => {
@@ -162,13 +185,16 @@ export function createHud(root, ctx) {
     e.preventDefault();
     setMore(false);
   });
+  moreBody.addEventListener('scroll', markMoreClip, { passive: true });
+  const moreResize = typeof ResizeObserver === 'function' ? new ResizeObserver(markMoreClip) : null;
+  moreResize?.observe(moreBody);
 
   // ------------------------------------------------------------------
   // Bottom left: GPS, HDOP and PKT
   // ------------------------------------------------------------------
-  const gps = row('GPS', 12);
-  const hdop = row('HDOP', 12);
-  const pkt = row('PKT', 12);
+  const gps = row('GPS', FIELD_CH.link, 0);
+  const hdop = row('HDOP', FIELD_CH.link, 0);
+  const pkt = row('PKT', FIELD_CH.link, 0);
   const bl = h('section', { class: 'fc-hud-bl', 'data-fc-cover': '', 'aria-label': 'GPS and radio link' },
     h('dl', { class: 'fc-hud-list' }, gps.row, hdop.row, pkt.row));
 
@@ -179,19 +205,21 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------------
 
   // A value with an optional arrow (read out as "rising" or "falling") and
-  // a unit, in a field `width` characters wide.
-  function valueCell(className, width) {
+  // a unit. The number sits in a field `width` characters wide and the
+  // unit in one `unitWidth` characters wide (0: no unit field), so the
+  // line keeps its width whatever they say (see FIELD_CH).
+  function valueCell(className, width, unitWidth) {
     const arrow = h('span', { class: 'fc-hud-arrow', 'aria-hidden': 'true' });
     const sr = h('span', { class: 'sr-only' });
-    const num = h('span', { class: 'fc-hud-num', style: width ? { minWidth: `${width}ch` } : null });
-    const unit = h('span', { class: 'fc-hud-unit' });
+    const num = h('span', { class: 'fc-hud-num', style: { width: `${width}ch` } });
+    const unit = unitWidth ? h('span', { class: 'fc-hud-unit', style: { width: `${unitWidth}ch` } }) : null;
     const value = h('span', { class: `fc-hud-value ${className}` }, arrow, sr, num, unit);
     return { value, arrow, sr, num, unit };
   }
 
   // One "LABEL  value" line of the readout.
-  function row(label, width) {
-    const cell = valueCell('', width);
+  function row(label, width, unitWidth) {
+    const cell = valueCell('', width, unitWidth);
     const el = h('div', { class: 'fc-hud-row' },
       h('dt', { class: 'fc-hud-label' }, label),
       h('dd', {}, cell.value));
@@ -202,7 +230,7 @@ export function createHud(root, ctx) {
   // The dots are only for the eye, so screen readers skip them.
   function leaderRow(label) {
     const dots = '.'.repeat(Math.max(2, LEADER_COLUMNS - label.length - 2));
-    const value = h('dd', { class: 'fc-hud-lead-value' });
+    const value = h('dd', { class: 'fc-hud-lead-value', style: { minWidth: `${FIELD_CH.lead}ch` } });
     const el = h('div', { class: 'fc-hud-row fc-hud-row--lead' },
       h('dt', {}, label, h('span', { class: 'fc-hud-leader', 'aria-hidden': 'true' }, ` ${dots} `)),
       value);
@@ -230,11 +258,13 @@ export function createHud(root, ctx) {
     }
   }
 
-  // A number, its arrow and its unit. A missing value gets no unit.
+  // A number, its arrow and its unit. A missing value gets no unit. An
+  // empty arrow or unit keeps a blank (a no-break space) in its slot, so
+  // the slot's box never changes.
   function setValue(cell, text, { unit = '', arrow = '', sr = '' } = {}) {
     setText(cell.num, text);
-    setText(cell.unit, unit && text !== MISSING ? ` ${unit}` : '');
-    setText(cell.arrow, arrow);
+    if (cell.unit) setText(cell.unit, unit && text !== MISSING ? ` ${unit}` : '\u00a0');
+    setText(cell.arrow, arrow || '\u00a0');
     setText(cell.sr, sr);
   }
 
@@ -338,10 +368,14 @@ export function createHud(root, ctx) {
     setText(altNote, note);
     altNote.classList.toggle('is-warn', altWarn);
 
-    // VS only while the altitude is current. Nearly level gets no arrow.
+    // VS only while the altitude is current. Nearly level gets no arrow:
+    // the arrow shows only when the speed on screen (rounded to 0.1 m/s)
+    // is more than LEVEL_VSPEED_MPS, so a board lying still never shows
+    // "▼ 0.5" one moment and "0.5" the next.
     const v = old ? null : d.vSpeed;
     if (Number.isFinite(v)) {
-      const level = Math.abs(v) < config.LEVEL_VSPEED_MPS;
+      const shown = Math.round(Math.abs(v) * 10) / 10;
+      const level = shown <= config.LEVEL_VSPEED_MPS;
       setValue(vs.cell, formatNumber(Math.abs(v), 1), {
         unit: 'M/S',
         arrow: level ? '' : v > 0 ? '▲' : '▼',
@@ -390,7 +424,8 @@ export function createHud(root, ctx) {
       moreKey = null;
       const rocket = store.getFocused();
       if (rocket?.derived) renderMore(rocket);
-      if (focus) more.focus({ preventScroll: true });
+      markMoreClip();
+      if (focus) moreBody.focus({ preventScroll: true });
     } else if (focus && more.contains(document.activeElement)) {
       moreButton.focus({ preventScroll: true });
     }
@@ -431,6 +466,14 @@ export function createHud(root, ctx) {
       setText(noteCell.note, s.note ?? '');
       noteCell.note.hidden = !s.note;
     }
+    markMoreClip();
+  }
+
+  // Marks the list while some of it is hidden below its bottom edge.
+  function markMoreClip() {
+    if (more.hidden) return;
+    const clipped = moreBody.scrollTop + moreBody.clientHeight < moreBody.scrollHeight - 1;
+    if (clipped !== moreBody.classList.contains('is-clipped')) moreBody.classList.toggle('is-clipped', clipped);
   }
 
   // The sections of the MORE column. Each is { title, note, rows }, and a
@@ -578,6 +621,7 @@ export function createHud(root, ctx) {
     refresh() { scheduler.flush(); },
     destroy() {
       unsubscribe();
+      moreResize?.disconnect();
       scheduler.cancel();
       clearTimeout(copyTimer);
       for (const line of [altLine, gps, hdop, pkt, vs, gs, ...Object.values(pad), ...Object.values(rec)]) clearTimeout(line.blinkTimer);

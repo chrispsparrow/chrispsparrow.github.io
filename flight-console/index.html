@@ -126,8 +126,9 @@
                         something to say (a link note, the Chrome or Edge
                         warning, data the console doesn't recognize)
            two panels   side by side in a sliding track, one on screen at a
-                        time, switched with the arrow buttons at the edges or
-                        the left and right arrow keys (js/views/panels.js):
+                        time, switched with [ GRAPHS ] and [ MAP ] at the
+                        edges or the left and right arrow keys
+                        (js/views/panels.js):
              globe      the 3D view filling the panel, with the HUD, the
                         phase bar, the map's controls and (in a replay) the
                         altitude timeline over it
@@ -158,9 +159,10 @@
         <span id="bc-link-text" class="sr-only" role="status">Not connected</span>
 
         <!-- The open replay's name, LOADING while its data downloads, and a
-             way back to live. -->
+             way back to live. The word "Replay" is for screen readers only:
+             the bar shows just the name. -->
         <div id="fc-replay-chip" class="fc-replay-chip" hidden>
-          <span class="fc-replay-kind">REPLAY</span>
+          <span class="sr-only">Replay</span>
           <h2 id="fc-replay-name" class="fc-replay-name"></h2>
           <span id="fc-replay-wait" class="fc-replay-wait" hidden>LOADING<span class="fc-cursor" aria-hidden="true">_</span></span>
           <a class="fc-bkt fc-bkt--sm fc-replay-close" href="./?track" data-fc-nav="track" aria-label="Close the replay and go back to live">CLOSE</a>
@@ -323,14 +325,12 @@
           </section>
         </div>
 
-        <!-- Monitor-style arrows at the edges. Only the one toward the other
-             panel shows. -->
-        <button id="fc-flip-prev" class="fc-flip fc-flip--prev" type="button" aria-controls="fc-panel-globe" aria-label="Show the 3D view">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M15 5L8 12L15 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-        </button>
-        <button id="fc-flip-next" class="fc-flip fc-flip--next" type="button" aria-controls="fc-panel-data" aria-label="Show the graphs and readings">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M9 5L16 12L9 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
-        </button>
+        <!-- The panel switches at the edges, bracket buttons written along
+             the edge like the tabs of a monitor: [ GRAPHS ] on the right
+             of the 3D view, [ MAP ] on the left of the graphs. Only the one
+             toward the other panel shows. -->
+        <button id="fc-flip-prev" class="fc-bkt fc-bkt--sm fc-flip fc-flip--prev" type="button" aria-controls="fc-panel-globe" aria-label="Show the map and 3D view">MAP</button>
+        <button id="fc-flip-next" class="fc-bkt fc-bkt--sm fc-flip fc-flip--next" type="button" aria-controls="fc-panel-data" aria-label="Show the graphs and readings">GRAPHS</button>
       </div>
     </section>
 
