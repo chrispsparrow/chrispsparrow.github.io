@@ -81,7 +81,7 @@ import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE,
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX,
-  OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, NEAR_BLACK, WHITE,
+  OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, SHADOW_EDGE_PX, SHADOW_EDGE_ALPHA, OFF_WHITE, NEAR_BLACK, WHITE,
   RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
   LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js';
@@ -788,6 +788,7 @@ export function createGlobeView(container, ctx, options) {
   const drawn = new Map(); // rocketId -> everything drawn for that rocket
   const haloColor = rgba(NEAR_BLACK);
   const shadowColor = rgba(NEAR_BLACK, SHADOW_ALPHA);
+  const shadowEdgeColor = rgba(OFF_WHITE, SHADOW_EDGE_ALPHA);
   const clearColor = new C.Color(0, 0, 0, 0);
   const colorCache = new Map(); // css -> C.Color
   const cesiumColor = (css) => {
@@ -972,7 +973,7 @@ export function createGlobeView(container, ctx, options) {
           dirty.add(chunk);
         }
         const start = !chunk || v.breakBefore ? i : i - 1;
-        chunk = { start, end: i + 1, final: false, halo: null, line: null, shadow: null, shadowAt: 0 };
+        chunk = { start, end: i + 1, final: false, halo: null, line: null, shadow: null, shadowEdge: null, shadowAt: 0 };
         parts.chunks.push(chunk);
       } else {
         chunk.end = i + 1;
@@ -1023,14 +1024,19 @@ export function createGlobeView(container, ctx, options) {
     if (chunk.line) lineLayer.remove(chunk.line);
     chunk.halo = null;
     chunk.line = null;
-    if (!keepShadow && chunk.shadow) {
-      scene.groundPrimitives.remove(chunk.shadow);
-      chunk.shadow = null;
-    }
+    if (!keepShadow) removeShadow(chunk);
   }
 
-  // The ground shadow: each chunk's line laid flat on the terrain. A
-  // finished chunk is laid once. The newest one is laid again at most
+  function removeShadow(chunk) {
+    if (chunk.shadow) scene.groundPrimitives.remove(chunk.shadow);
+    if (chunk.shadowEdge) scene.groundPrimitives.remove(chunk.shadowEdge);
+    chunk.shadow = null;
+    chunk.shadowEdge = null;
+  }
+
+  // The ground shadow: each chunk's line laid flat on the terrain, as a
+  // faint light band with the dark shadow on top. A finished chunk is
+  // laid once. The newest one is laid again at most
   // every SHADOW_TAIL_MS, and none is laid while a seek is still settling.
   function syncShadows(parts) {
     if (!shadowsReady) return;
@@ -1047,19 +1053,21 @@ export function createGlobeView(container, ctx, options) {
       }
       chunk.shadowDirty = false;
       chunk.shadowAt = now;
-      if (chunk.shadow) scene.groundPrimitives.remove(chunk.shadow);
-      chunk.shadow = null;
+      removeShadow(chunk);
       const { positions } = chunkPoints(parts, chunk);
       if (positions.length < 2) continue;
+      const lay = (width, colorOf) => scene.groundPrimitives.add(new C.GroundPolylinePrimitive({
+        geometryInstances: new C.GeometryInstance({
+          geometry: new C.GroundPolylineGeometry({ positions, width }),
+          attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(colorOf) },
+        }),
+        appearance: new C.PolylineColorAppearance(),
+        asynchronous: false,
+      }));
       try {
-        chunk.shadow = scene.groundPrimitives.add(new C.GroundPolylinePrimitive({
-          geometryInstances: new C.GeometryInstance({
-            geometry: new C.GroundPolylineGeometry({ positions, width: SHADOW_PX }),
-            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(shadowColor) },
-          }),
-          appearance: new C.PolylineColorAppearance(),
-          asynchronous: false,
-        }));
+        chunk.shadowEdge = lay(SHADOW_EDGE_PX, shadowEdgeColor);
+        chunk.shadow = lay(SHADOW_PX, shadowColor);
+        chunk.shadowEdge.show = chunk.shadow.show = !siteHidden;
       } catch (err) {
         // A shadow that can't be laid is left out. The path itself is fine.
         console.warn('Flight Console: a ground shadow could not be drawn', err);
@@ -1423,7 +1431,10 @@ export function createGlobeView(container, ctx, options) {
     siteHidden = hidden;
     for (const layer of siteLayers) layer.show = !hidden;
     for (const parts2 of drawn.values()) {
-      for (const chunk of parts2.chunks) if (chunk.shadow) chunk.shadow.show = !hidden;
+      for (const chunk of parts2.chunks) {
+        if (chunk.shadow) chunk.shadow.show = !hidden;
+        if (chunk.shadowEdge) chunk.shadowEdge.show = !hidden;
+      }
     }
   }
 
