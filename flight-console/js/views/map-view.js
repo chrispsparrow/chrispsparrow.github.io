@@ -1144,13 +1144,14 @@ export function createMapView(root, ctx) {
 
   // The open KEY's legend goes in the free part of the view, never over
   // the HUD's text, the scale bar or the credits. It looks for a column
-  // to open in: first lined up with the controls row's left end, then
-  // with the KEY button, then every LEGEND_STEP_PX across the view. In a
-  // column it takes the lowest gap that holds the whole legend (on a
-  // desktop, just above GPS, HDOP and PKT), or else one at least
-  // LEGEND_MIN_PX tall. The first column that holds the whole legend wins.
-  // If none does, the tallest gap wins, and the legend scrolls inside
-  // itself.
+  // to open in next to the controls: lined up with the row's left end,
+  // or if that has no room, with the KEY button. In a column it takes the
+  // lowest gap that holds the whole legend (on a desktop, just above GPS,
+  // HDOP and PKT), or else one at least LEGEND_MIN_PX tall, and scrolls
+  // inside itself. Only when neither column has that does it look every
+  // LEGEND_STEP_PX across the view, for the whole legend or else the
+  // tallest gap. (So it stays by the controls, and away from the middle
+  // of the view, where FOLLOW BOARD keeps the board.)
   // When there is no such room and an open HUD panel is in the way (the
   // MORE column across the middle of a phone), the one opened last wins:
   // opening the KEY closes that panel, and a panel opened while the KEY is
@@ -1184,22 +1185,32 @@ export function createMapView(root, ctx) {
     legend.style.maxHeight = 'none';
     const w = legend.offsetWidth;
     const h0 = legend.offsetHeight;
-    const lefts = [first, keyToggle.getBoundingClientRect().left - 8];
-    for (let x = first + LEGEND_STEP_PX; x + w <= rightEdge; x += LEGEND_STEP_PX) lefts.push(x);
-    let best = null;
-    for (const left of lefts) {
-      if (left + w > rightEdge + 1) continue;
+    // How well the legend fits in the column starting at left: 2 for the
+    // whole legend, 1 for at least LEGEND_MIN_PX of it, 0 for less.
+    const tryColumn = (left) => {
+      if (left + w > rightEdge + 1) return null;
       const gaps = freeGaps(left, left + w, top, bottom, rects, LEGEND_GAP_PX);
       const whole = gaps.find((g) => g.height >= h0);
-      if (whole) {
-        best = { left, gap: whole, fits: 2 };
-        break;
-      }
+      if (whole) return { left, gap: whole, fits: 2 };
       const enough = gaps.find((g) => g.height >= LEGEND_MIN_PX);
       const gap = enough ?? gaps.reduce((a, g) => (!a || g.height > a.height ? g : a), null);
-      if (!gap) continue;
-      const fits = enough ? 1 : 0;
-      if (!best || fits > best.fits || (fits === best.fits && gap.height > best.gap.height)) best = { left, gap, fits };
+      return gap ? { left, gap, fits: enough ? 1 : 0 } : null;
+    };
+    const better = (a, b) => (!b || a.fits > b.fits || (a.fits === b.fits && a.fits < 2 && a.gap.height > b.gap.height) ? a : b);
+    // Next to the controls first: lined up with the row, then with the KEY
+    // button. Only if neither has a useful gap, anywhere across the view.
+    let best = null;
+    for (const left of [first, keyToggle.getBoundingClientRect().left - 8]) {
+      const c = tryColumn(left);
+      if (c) best = better(c, best);
+      if (best?.fits >= 1) break;
+    }
+    if (!best || best.fits === 0) {
+      for (let x = first + LEGEND_STEP_PX; x + w <= rightEdge; x += LEGEND_STEP_PX) {
+        const c = tryColumn(x);
+        if (c && c.fits === 2) { best = c; break; }
+        if (c) best = better(c, best);
+      }
     }
     if (!best || best.fits === 0) {
       // No room for a useful legend. Is an open panel in the way?
