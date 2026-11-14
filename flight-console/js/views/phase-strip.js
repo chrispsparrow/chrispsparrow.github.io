@@ -1,17 +1,20 @@
 // phase-strip.js
-// Six segments across the top of the console: Pad, Ascent, Apogee, Drogue,
-// Main, Landed. They follow only the live detector's current phase for the
+// The phase bar: six names over a thin line across the top of the HUD,
+// PAD, ASCENT, APOGEE, DROGUE, MAIN and LANDED (the CSS sets them in
+// capitals). They follow only the live detector's current phase for the
 // focused rocket (never the simulator's truth):
-//   passed        a solid muted bar, with the T+ time the phase began
-//   current       an orange bar and off-white text (aria-current="step")
-//   not yet       a dim bar
-//   not detected  an empty bar, for a phase before the current one that the
-//                 detector never found (drogue and main when a rocket lands
-//                 without them being inferred, or the pad when the data
-//                 starts in flight), so it never looks passed
-// Drogue and main are inferred from the descent rate, so their bars are
-// dashed in every state. On phones the strip scrolls sideways and keeps the
-// current phase in view.
+//   passed        white
+//   current       amber (aria-current="step")
+//   not yet       dim
+//   not detected  a dim dotted line, for a phase before the current one
+//                 that the detector never found (drogue and main when a
+//                 rocket lands without them being inferred, or the pad when
+//                 the data starts in flight), so it never looks passed
+// Drogue and main are inferred from the descent rate, so their lines are
+// dashed in every state. When each phase began (T+0:30) is read out to
+// screen readers and kept in the markup, but the bar stays minimal and
+// doesn't show it. If the bar ever gets too narrow it scrolls sideways and
+// keeps the current phase in view.
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';

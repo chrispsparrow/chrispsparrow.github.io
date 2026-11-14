@@ -3,8 +3,8 @@
    Styles for the Flight Console page (flight-console/index.html): the
    tokens and shared pieces every part uses, then Track a Rocket's frame
    (the top bar, the status lines, the two panels and the arrows between
-   them) and everything that floats over the map in panel 1 (the HUD, the
-   phase bar and the altitude timeline).
+   them) and everything over the map in panel 1: the overlay grid, the HUD
+   (hud.js), the phase bar, the rocket chips and the altitude timeline.
 
    The page's other parts have their own files, loaded after this one:
      flight-console-hero.css   the landing's hero
@@ -43,7 +43,7 @@
   --fc-ink: var(--fc-black);               /* text on amber */
   --fc-float: color-mix(in srgb, var(--fc-black) 78%, transparent); /* the soft dark fade behind text over the map */
   /* A thin black outline for white text over bright terrain. */
-  --fc-text-outline: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.75);
+  --fc-text-outline: -1px 0 0 var(--fc-black-deep), 1px 0 0 var(--fc-black-deep), 0 -1px 0 var(--fc-black-deep), 0 1px 0 var(--fc-black-deep), 0 0 6px color-mix(in srgb, var(--fc-black-deep) 75%, transparent);
   --fc-radius: 0;
   --fc-radius-sm: 0;
   --fc-gap: clamp(0.6rem, 1.2vw, 0.85rem);
@@ -238,30 +238,48 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 }
 
 /* ------------------------------------------------------------
-   Messages (loading, unknown flight, library failed)
+   Messages (unknown flight, library failed): plain text on the page with
+   bracket buttons, no card.
    ------------------------------------------------------------ */
 .fc-page .fc-message { max-width: 720px; margin: 2rem auto; }
-.fc-page .fc-message h1 { font-size: 1.8rem; color: var(--fc-text); margin-bottom: 0.8rem; }
-.fc-page .fc-message p { color: var(--fc-text); line-height: 1.6; margin-bottom: 0.9rem; }
-.fc-page .fc-message-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.fc-page .fc-message h1 {
+  font-family: var(--fc-font-mono);
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-text);
+  margin-bottom: 0.9rem;
+}
+.fc-page .fc-message p { color: var(--fc-text); font-size: 1.1rem; line-height: 1.55; margin-bottom: 0.8rem; }
+.fc-page .fc-message-actions { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; margin-top: 1.4rem; }
 .fc-page .fc-noscript { max-width: 720px; margin: 2rem auto; color: var(--fc-text); }
+/* A view that failed to start says so in its own spot. */
+.fc-page .fc-main .fc-view-error {
+  margin: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.75rem;
+  color: var(--fc-warn);
+  text-shadow: var(--fc-text-outline);
+}
 
 /* ============================================================
-   The console (#fc-console): the live console at ?track and the
+   Track a Rocket (#fc-console): the live console at ?track and the
    replay at ?flight=<id>.
 
    #fc-console fills the window under the nav and the page never scrolls
    (the site footer hides while it is up). Top to bottom:
-     .fc-bar        CONNECT on the left, SAVED FLIGHTS on the right, and the
-                    replay's name with a close button in between
+     .fc-bar        ← FLIGHT CONSOLE, [ CONNECT ], the replay's name and
+                    [ SAVED FLIGHTS ], all bracket style with no boxes
      .fc-status     short status lines, only while one has something to say
      .fc-screens    the two panels side by side in a sliding track, one on
                     screen at a time, with an arrow tab at the edge toward
                     the other one (js/views/panels.js)
-   data-panel on the console ('globe' or 'data') says which panel is on
-   screen, and data-mode ('idle', 'bench', 'flight' or 'replay') what the
-   panels hold. On phones each panel still fills the screen under the bar,
-   and the second one scrolls inside itself.
+   The console's attributes:
+     data-panel     'globe' or 'data', the panel on screen
+     data-mode      'idle', 'bench', 'flight' or 'replay', the source
+     data-state     'idle', 'pad', 'flight' or 'recovery', where the
+                    flight is. It decides which HUD parts show.
    ============================================================ */
 html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page[data-fc-screen="console"] footer { display: none; }
@@ -290,113 +308,81 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   flex: none;
   display: flex;
   align-items: center;
-  gap: 0.5rem 0.9rem;
-  min-height: 52px;
-  padding: 6px var(--fc-edge);
+  gap: 0.25rem 1.6rem;
+  min-height: 46px;
+  padding: 2px var(--fc-edge);
 }
+.fc-page .fc-bar .fc-bkt { font-size: 0.9rem; }
 
 /* CONNECT. Its words follow the link (bench-panel.js): CONNECT, then
-   CONNECTING, then DISCONNECT while connected. The small square fills
-   amber while the board is connected and its status blocks arrive on
-   time. */
-.fc-page .fc-connect {
+   CONNECTING, then DISCONNECT while connected. A small square sits inside
+   the brackets while connected: filled amber while the board's status
+   blocks arrive on time, an empty amber outline while the next one is
+   late. While the link is busy the square is an empty outline. The button
+   keeps one width, so the bar doesn't shift as the words change. */
+.fc-page .fc-bkt.fc-connect {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-width: 10.25rem;
-  min-height: 2.35rem;
-  padding: 0.55rem 0.95rem;
-  font-family: var(--fc-font-mono);
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  color: var(--fc-accent);
-  background: transparent;
-  border: 1px solid var(--fc-accent);
-  border-radius: 0;
-  cursor: pointer;
+  justify-content: flex-start;
+  min-width: 17ch;
 }
-.fc-page .fc-connect:hover:not([aria-disabled="true"]) { background: var(--fc-accent); color: var(--fc-ink); }
 .fc-page .fc-connect-mark {
+  display: none;
   flex: none;
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid currentColor;
+  align-self: center;
+  width: 0.55em;
+  height: 0.55em;
+  border: 1px solid currentColor;
 }
-.fc-page .fc-connect[aria-disabled="true"] { cursor: progress; color: var(--fc-text-2); border-color: var(--fc-border); }
-.fc-page .fc-connect[data-state="open"] { color: var(--fc-text); border-color: var(--fc-border); }
-.fc-page .fc-connect[data-state="open"]:hover { background: color-mix(in srgb, var(--fc-offwhite) 8%, transparent); color: var(--fc-text); border-color: var(--fc-text); }
+.fc-page .fc-connect[data-state="open"] .fc-connect-mark,
+.fc-page .fc-connect[aria-disabled="true"] .fc-connect-mark { display: inline-block; }
 .fc-page .fc-connect[data-state="open"] .fc-connect-mark { border-color: var(--fc-accent); }
 .fc-page .fc-connect[data-state="open"][data-beat="ok"] .fc-connect-mark { background: var(--fc-accent); }
-/* Connected but no block yet, or the last one is late: the square stays
-   an empty amber outline. */
+.fc-page .fc-connect[aria-disabled="true"] { cursor: progress; }
 .fc-page .fc-connect[disabled] { opacity: 0.45; cursor: not-allowed; }
 
-/* The open replay's name, with the way back to live. */
+/* The open replay's name, LOADING while its data downloads, and CLOSE. */
 .fc-page .fc-replay-chip {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.2rem 1.1rem;
 }
-.fc-page .fc-replay-kind {
+.fc-page .fc-replay-kind,
+.fc-page .fc-replay-wait {
   flex: none;
   font-family: var(--fc-font-mono);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   color: var(--fc-text-2);
 }
 .fc-page .fc-replay-name {
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--fc-font-mono);
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 400;
   line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--fc-text);
 }
-.fc-page .fc-main a.fc-replay-close {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  color: var(--fc-text-2);
-  border: 1px solid var(--fc-divider);
-  text-decoration: none;
-}
-.fc-page .fc-main a.fc-replay-close:hover { color: var(--fc-accent); border-color: var(--fc-accent); }
+.fc-page .fc-replay-name:focus { outline: none; }
+.fc-page .fc-replay-name:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: 3px; }
+.fc-page .fc-replay-close { flex: none; }
 
-/* SAVED FLIGHTS: a small dropdown log, one line per flight. */
+/* SAVED FLIGHTS: a small dropdown log under its button, one line per
+   flight. The open one's line is amber. */
 .fc-page .fc-dd {
   position: relative;
   flex: none;
   margin-left: auto;
 }
-.fc-page .fc-dd-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-height: 2.35rem;
-  padding: 0.55rem 0.8rem;
-  font-family: var(--fc-font-mono);
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  color: var(--fc-text);
-  background: transparent;
-  border: 1px solid var(--fc-border);
-  border-radius: 0;
-  cursor: pointer;
-}
-.fc-page .fc-dd-button:hover,
-.fc-page .fc-dd.is-open .fc-dd-button { border-color: var(--fc-text); }
-.fc-page .fc-dd-chevron { flex: none; }
-.fc-page .fc-dd.is-open .fc-dd-chevron { transform: rotate(180deg); }
+.fc-page .fc-dd.is-open .fc-dd-button { color: var(--fc-accent); }
 .fc-page .fc-dd-menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -405,49 +391,50 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   max-height: min(60vh, 26rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.35rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--fc-black-deep) 70%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-border) transparent;
+  padding: 0.3rem 0;
+  background: var(--fc-black);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--fc-black-deep) 75%, transparent);
 }
 .fc-page .fc-dd-list { list-style: none; margin: 0; padding: 0; }
 .fc-page .fc-main a.fc-dd-item {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
   align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.9rem;
+  padding: 0.5rem 0.8rem;
+  font-family: var(--fc-font-mono);
   color: var(--fc-text);
   text-decoration: none;
-  border: 1px solid transparent;
 }
 .fc-page .fc-main a.fc-dd-item:hover,
-.fc-page .fc-main a.fc-dd-item:focus-visible { background: color-mix(in srgb, var(--fc-offwhite) 7%, transparent); }
+.fc-page .fc-main a.fc-dd-item:focus-visible { color: var(--fc-accent); }
 .fc-page .fc-main a.fc-dd-item:focus-visible { outline-offset: -2px; }
-.fc-page .fc-dd-mark { width: 7px; height: 7px; align-self: center; border: 1px solid var(--fc-muted); }
+.fc-page .fc-dd-mark { width: 6px; height: 6px; align-self: center; border: 1px solid var(--fc-muted); }
+.fc-page .fc-main a.fc-dd-item[aria-current="page"] { color: var(--fc-accent); }
 .fc-page .fc-dd-item[aria-current="page"] .fc-dd-mark { background: var(--fc-accent); border-color: var(--fc-accent); }
-.fc-page .fc-dd-name { min-width: 0; font-size: 0.92rem; line-height: 1.3; overflow-wrap: anywhere; }
-.fc-page .fc-dd-item--live .fc-dd-name { font-family: var(--fc-font-mono); font-size: 0.85rem; }
+.fc-page .fc-dd-name { min-width: 0; font-size: 0.86rem; line-height: 1.3; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
 .fc-page .fc-dd-date,
 .fc-page .fc-dd-time {
-  font-family: var(--fc-font-mono);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--fc-text-2);
   white-space: nowrap;
 }
 .fc-page .fc-dd-time { min-width: 6.5rem; text-align: right; }
-.fc-page .fc-dd-list li + li { border-top: 1px solid var(--fc-divider); }
 .fc-page .fc-dd-note {
-  margin: 0.35rem 0.65rem 0.4rem;
-  font-size: 0.85rem;
+  margin: 0.35rem 0.8rem 0.4rem;
+  font-size: 0.95rem;
   line-height: 1.45;
   color: var(--fc-text-2);
 }
 
 /* ------------------------------------------------------------
    Status lines under the bar: a note about the link, the Chrome or Edge
-   warning, and data the console doesn't recognize. They take room only
-   while one shows.
+   warning, and data the console doesn't recognize. Plain lines, no box.
+   They take room only while one shows.
    ------------------------------------------------------------ */
 .fc-page .fc-status {
   position: relative;
@@ -455,48 +442,35 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 0 var(--fc-edge);
 }
-.fc-page .fc-status:has(> :not([hidden])) { padding-bottom: 8px; }
+.fc-page .fc-status:has(> :not([hidden])) { padding-bottom: 6px; }
 .fc-page .fc-status-line {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  max-width: 64rem;
-  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-divider);
-  border-left: 2px solid var(--fc-text-2);
+  align-items: baseline;
+  gap: 0.2rem 1.2rem;
+  max-width: 68rem;
 }
-.fc-page .fc-status-line--warn,
-.fc-page .fc-status-line[data-kind="warn"] { border-left-color: var(--fc-warn); }
-.fc-page .fc-status-text { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 0.86rem; line-height: 1.4; color: var(--fc-text); }
-.fc-page .fc-status-tag { margin-right: 0.45rem; font-family: var(--fc-font-mono); font-size: 0.75rem; color: var(--fc-warn); }
-.fc-page .fc-status-close {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  color: var(--fc-text-2);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+.fc-page .fc-status-text { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 1rem; line-height: 1.35; color: var(--fc-text); }
+.fc-page .fc-status-tag {
+  margin-right: 0.8ch;
+  font-family: var(--fc-font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-warn);
 }
-.fc-page .fc-status-close:hover { color: var(--fc-text); }
-.fc-page .fc-status-action {
+/* The link note gets its own tag, amber when it is a warning. */
+.fc-page #fc-link-note-box::before {
+  content: "LINK";
   flex: none;
   font-family: var(--fc-font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
-  padding: 0.35rem 0.6rem;
-  color: var(--fc-text);
-  background: transparent;
-  border: 1px solid var(--fc-border);
-  cursor: pointer;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-text-2);
 }
-.fc-page .fc-status-action:hover { border-color: var(--fc-accent); color: var(--fc-accent); }
+.fc-page #fc-link-note-box[data-kind="warn"]::before { color: var(--fc-warn); }
+.fc-page .fc-status-close { flex: none; }
 
 /* ------------------------------------------------------------
    The two panels and the arrow tabs between them
@@ -523,7 +497,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 }
 
 /* Monitor-style tabs at the panel edges: only the one toward the other
-   panel shows. */
+   panel shows. A thin dark tab with a white arrow, amber on hover. */
 .fc-page .fc-flip {
   position: absolute;
   top: 50%;
@@ -535,22 +509,32 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   margin-top: -38px;
   padding: 0;
   color: var(--fc-text);
-  background: color-mix(in srgb, var(--fc-black) 80%, transparent);
-  border: 1px solid var(--fc-border);
+  background: color-mix(in srgb, var(--fc-black) 72%, transparent);
+  border: 0;
   border-radius: 0;
   cursor: pointer;
 }
-.fc-page .fc-flip--prev { left: 0; border-left: 0; }
-.fc-page .fc-flip--next { right: 0; border-right: 0; }
-.fc-page .fc-flip:hover { color: var(--fc-accent); border-color: var(--fc-accent); }
-.fc-page .fc-flip svg { display: block; }
+.fc-page .fc-flip--prev { left: 0; }
+.fc-page .fc-flip--next { right: 0; }
+.fc-page .fc-flip:hover,
+.fc-page .fc-flip:focus-visible { color: var(--fc-accent); }
+.fc-page .fc-flip svg { display: block; filter: drop-shadow(0 0 2px var(--fc-black-deep)); }
 
 /* ============================================================
-   Panel 1: the 3D view, filling the panel in every mode, with the
-   replay's clock and phase strip, the readings panel and the altitude
-   timeline floating over it. map-view.js puts its own small controls in
-   the bottom left corner and Cesium's credits in the bottom right, both
-   just above the timeline (--fc-tl-space, set by main.js).
+   Panel 1: the 3D view, filling the panel in every mode, with one overlay
+   grid over it. Nothing in the grid overlaps (desktop):
+
+     top left (tl)    | phase bar (top)  | top right (tr)
+     tl, continued    |                  | MORE column (more)
+     bottom left (bl) |                  | (free)
+     map controls (ctl)                  | (free: scale bar, credits)
+     altitude timeline (tm), the whole width
+
+   The bottom right corner above the timeline stays free for the map's
+   scale bar and credits (flight-console-map.css puts them there with
+   --fc-tl-space, set by main.js). The overlay itself lets clicks and drags
+   through to the 3D view. Only its buttons, links, the MORE column and
+   the timeline take them.
    ============================================================ */
 .fc-page .fc-stage { background: var(--fc-bg); }
 .fc-page .fc-stage-map { position: absolute; inset: 0; }
@@ -564,175 +548,307 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   background: linear-gradient(var(--fc-bg), color-mix(in srgb, var(--fc-bg) 0%, transparent));
   pointer-events: none;
 }
-.fc-page .fc-stage-wait {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  margin: 0;
-  font-family: var(--fc-font-mono);
-  font-size: 0.85rem;
-  color: var(--fc-text-2);
-}
 
-/* The overlay layer. Clicks and drags pass through it to the 3D view,
-   except on the boxes themselves. */
 .fc-page .fc-overlay {
   position: absolute;
   inset: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 296px);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* The side columns never get narrower than their longest line, so the
+     HUD never runs into the phase bar. The middle gives way instead. */
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, 1.5fr) minmax(min-content, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   grid-template-areas:
-    "top      readings"
-    "rockets  readings"
-    ".        readings"
-    "timeline timeline";
-  gap: 10px;
-  padding: 12px calc(var(--fc-tab-w) + 12px) 12px 12px;
+    "tl  top tr"
+    "tl  .   more"
+    "bl  .   ."
+    "ctl ctl ."
+    "tm  tm  tm";
+  column-gap: 16px;
+  row-gap: 8px;
+  padding: 10px calc(var(--fc-tab-w) + 12px) 10px 12px;
   pointer-events: none;
 }
-.fc-page .fc-ov-top {
-  grid-area: top;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-}
-.fc-page .fc-ov-top > *,
-.fc-page .fc-ov-rockets,
-.fc-page .fc-ov-readings,
-.fc-page .fc-ov-timeline { pointer-events: auto; min-width: 0; }
-.fc-page .fc-ov-rockets { grid-area: rockets; align-self: start; }
-.fc-page .fc-ov-readings {
-  grid-area: readings;
-  align-self: start;
-  /* Stops short of Cesium's credits, just above the timeline. */
-  max-height: calc(100% - 30px);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.fc-page .fc-ov-timeline { grid-area: timeline; }
-/* The map's controls (map-view.js fills #fc-map-controls): bottom left,
-   just above the timeline. */
-.fc-page .fc-ov-controls {
+
+/* The soft dark fades behind the busiest parts, for reading over bright
+   terrain: the two top corners, and a band along the bottom. They show
+   only once there is something to read (not in idle, where the globe
+   sits on the dark page). */
+.fc-page .fc-overlay::before,
+.fc-page .fc-overlay::after {
+  content: '';
   position: absolute;
-  left: 12px;
-  bottom: calc(max(12px, var(--fc-tl-space, 0px)) + 4px);
-  max-width: calc(100% - var(--fc-tab-w) - 24px);
-  pointer-events: auto;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
 }
-.fc-page .fc-ov-controls:empty { display: none; }
-.fc-page .fc-ov-mission:empty,
+.fc-page .fc-overlay::before {
+  top: 0;
+  height: 260px;
+  background:
+    radial-gradient(ellipse 36rem 16rem at 0 0, color-mix(in srgb, var(--fc-black) 74%, transparent), transparent 72%),
+    radial-gradient(ellipse 32rem 20rem at 100% 0, color-mix(in srgb, var(--fc-black) 74%, transparent), transparent 72%);
+}
+.fc-page .fc-overlay::after {
+  bottom: 0;
+  height: 250px;
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--fc-black) 80%, transparent),
+    color-mix(in srgb, var(--fc-black) 45%, transparent) 50%,
+    transparent);
+}
+.fc-page .fc-console:not([data-state="idle"]) .fc-overlay::before,
+.fc-page .fc-console:not([data-state="idle"]) .fc-overlay::after,
+.fc-page .fc-console[data-mode="replay"] .fc-overlay::after { opacity: 1; }
+
+/* Where each part goes. */
+.fc-page .fc-hud { display: contents; }
+.fc-page .fc-hud-tl { grid-area: tl; align-self: start; justify-self: start; min-width: 0; }
+.fc-page .fc-hud-tr { grid-area: tr; align-self: start; justify-self: end; min-width: 0; }
+.fc-page .fc-hud-more { grid-area: more; align-self: start; justify-self: end; }
+.fc-page .fc-hud-bl { grid-area: bl; align-self: end; justify-self: start; min-width: 0; }
+.fc-page .fc-ov-top { grid-area: top; align-self: start; justify-self: center; width: min(100%, 34rem); min-width: 0; }
+.fc-page .fc-ov-controls { grid-area: ctl; align-self: end; justify-self: start; max-width: 100%; min-width: 0; pointer-events: auto; }
+.fc-page .fc-ov-timeline { grid-area: tm; min-width: 0; pointer-events: auto; }
+.fc-page .fc-ov-controls:empty,
+.fc-page .fc-ov-timeline:empty,
 .fc-page .fc-ov-phases:empty,
-.fc-page .fc-ov-rockets:empty,
-.fc-page .fc-ov-readings:empty,
-.fc-page .fc-ov-timeline:empty { display: none; }
-/* The clock and phase strip belong to a replay. */
-.fc-page .fc-console:not([data-mode="replay"]) .fc-ov-top { display: none; }
+.fc-page .fc-ov-rockets:empty { display: none; }
+
+/* Which parts show in each state:
+     idle      nothing over the globe but the map's controls (and, in a
+               replay that is still loading, nothing else either)
+     pad       the phase, the checklist and the phase bar
+     flight    the full HUD
+     recovery  the full HUD with the recovery block */
+.fc-page .fc-console[data-state="idle"] :is(.fc-hud-tl, .fc-hud-tr, .fc-hud-more, .fc-hud-bl, .fc-ov-top) { display: none; }
+.fc-page .fc-console[data-state="pad"] :is(.fc-hud-tr, .fc-hud-more, .fc-hud-bl) { display: none; }
+.fc-page .fc-hud-pad,
+.fc-page .fc-hud-recovery { display: none; }
+.fc-page .fc-console[data-state="pad"] .fc-hud-pad { display: grid; }
+.fc-page .fc-console[data-state="recovery"] .fc-hud-recovery { display: block; }
 
 /* ------------------------------------------------------------
-   The replay's clock (mission-header.js): the big flight time, then the
-   rocket's name and the labels.
+   The HUD (hud.js): white mono text with a thin black outline, straight
+   on the picture. Every value sits in a fixed-width field (the widths are
+   set in hud.js), so nothing moves when a value changes.
    ------------------------------------------------------------ */
-.fc-page .fc-mission {
-  padding: 0.55rem 0.8rem 0.6rem;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-divider);
+.fc-page :is(.fc-hud-tl, .fc-hud-tr, .fc-hud-bl, .fc-hud-more, .fc-ov-top) {
+  color: var(--fc-text);
+  font-family: var(--fc-font-mono);
+  text-shadow: var(--fc-text-outline);
+  pointer-events: none;
 }
-.fc-page .fc-mission-clock {
+.fc-page :is(.fc-hud-tl, .fc-hud-tr, .fc-hud-bl) :is(button, a, input) { pointer-events: auto; }
+.fc-page .fc-hud-tl .fc-bkt.fc-bkt,
+.fc-page .fc-hud-tr .fc-bkt.fc-bkt { text-shadow: var(--fc-text-outline); }
+.fc-page .fc-hud-list,
+.fc-page .fc-hud-list dd { margin: 0; }
+
+/* Top left: "T+0:56  DROGUE", the honest labels, then the checklist or
+   the recovery block. */
+.fc-page .fc-hud-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 1.4ch;
   margin: 0;
   font-family: var(--fc-font-mono);
-  font-size: 2.15rem;
-  line-height: 1;
-  color: var(--fc-text);
+  font-size: 1.7rem;
+  line-height: 1.1;
   white-space: nowrap;
 }
-/* "--" before any data: dimmed, it isn't a reading. */
-.fc-page .fc-mission-clock[data-state="idle"] { color: var(--fc-muted); }
-.fc-page .fc-mission-caption {
+.fc-page .fc-hud-phase { font-size: 0.78em; letter-spacing: 0.06em; }
+.fc-page .fc-main .fc-hud-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 1.6ch;
+  max-width: 30rem;
   margin: 0.3rem 0 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--fc-text-2);
+}
+/* The checklist and the recovery lines: "GPS LOCK ...... 12 SAT". Each
+   line is white when good and amber when not. */
+.fc-page .fc-hud-recovery .fc-hud-list { display: grid; }
+.fc-page .fc-hud-pad,
+.fc-page .fc-hud-recovery .fc-hud-list { gap: 0.15rem; margin-top: 0.75rem; }
+.fc-page .fc-hud-row--lead {
+  display: flex;
+  align-items: baseline;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  white-space: pre;
+}
+.fc-page .fc-hud-row--lead dt { margin: 0; }
+.fc-page .fc-hud-leader { color: var(--fc-text-2); }
+.fc-page .fc-hud-row.is-warn,
+.fc-page .fc-hud-row.is-warn .fc-hud-leader,
+.fc-page .fc-hud-row.is-warn :is(.fc-hud-label, .fc-hud-unit) { color: var(--fc-warn); }
+.fc-page .fc-main .fc-hud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 1.2rem;
+  margin: 0.55rem 0 0 -0.2em;
+  font-family: var(--fc-font-mono);
+}
+.fc-page .fc-hud-actions .fc-bkt[aria-disabled="true"] { pointer-events: none; }
+.fc-page .fc-hud-copied { font-size: 0.72rem; letter-spacing: 0.05em; color: var(--fc-text-2); }
+.fc-page .fc-hud-copy-field {
+  display: block;
+  width: min(28ch, 100%);
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.85rem;
+  color: var(--fc-text);
+  background: var(--fc-black);
+  border: 1px solid var(--fc-border);
+  border-radius: 0;
+  pointer-events: auto;
+}
+
+/* Top right: ALT (the largest number on the screen), VS, GS and MORE. */
+.fc-page .fc-hud-tr { display: flex; flex-direction: column; align-items: flex-end; }
+.fc-page .fc-hud-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  color: var(--fc-text-2);
+}
+.fc-page .fc-hud-value { white-space: nowrap; }
+.fc-page .fc-hud-num { display: inline-block; text-align: right; }
+.fc-page .fc-hud-unit { font-size: 0.7em; letter-spacing: 0.04em; color: var(--fc-text-2); }
+.fc-page .fc-hud-arrow { display: inline-block; width: 1.3ch; text-align: left; font-size: 0.75em; }
+.fc-page .fc-hud-alt { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.fc-page .fc-hud-big { font-size: 2.9rem; line-height: 1; }
+.fc-page .fc-hud-big .fc-hud-unit { font-size: 0.3em; margin-left: 0.4ch; }
+.fc-page .fc-main .fc-hud-note {
+  min-height: 1.3em;
+  margin: 0.1rem 0 0;
   font-family: var(--fc-font-mono);
   font-size: 0.7rem;
   line-height: 1.3;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
   color: var(--fc-text-2);
 }
-.fc-page .fc-mission-id {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 0.6rem;
-  margin-top: 0.5rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid var(--fc-divider);
+.fc-page .fc-main .fc-hud-note.is-warn { color: var(--fc-warn); }
+.fc-page .fc-hud-alt.is-warn :is(.fc-hud-big, .fc-hud-label, .fc-hud-unit) { color: var(--fc-warn); }
+.fc-page .fc-hud-tr .fc-hud-list { margin-top: 0.2rem; }
+.fc-page .fc-hud-row:not(.fc-hud-row--lead) {
+  display: grid;
+  grid-template-columns: 5ch auto;
+  align-items: baseline;
+  column-gap: 0.8ch;
+  line-height: 1.3;
 }
-.fc-page .fc-mission-title {
-  margin: 0;
+.fc-page .fc-hud-row dt { margin: 0; }
+.fc-page .fc-hud-tr .fc-hud-row { font-size: 1.2rem; }
+.fc-page .fc-hud-tr .fc-hud-row dt { font-size: 0.64em; letter-spacing: 0.08em; color: var(--fc-text-2); text-align: right; }
+.fc-page .fc-hud-more-button { margin: 0.3rem -0.15em 0 0; }
+
+/* Bottom left: GPS, HDOP and PKT, left aligned. */
+.fc-page .fc-hud-bl .fc-hud-row { font-size: 0.95rem; }
+.fc-page .fc-hud-bl .fc-hud-row dt { font-size: 0.78em; letter-spacing: 0.08em; color: var(--fc-text-2); }
+.fc-page .fc-hud-bl .fc-hud-num { text-align: left; }
+
+/* The MORE column: every reading, under the top right readout. It scrolls
+   inside itself and never grows past its part of the grid. A soft dark
+   backing keeps the small text readable. */
+.fc-page .fc-hud-more {
+  width: min(100%, 22rem);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-border) transparent;
+  padding: 0.45rem 0.75rem 0.6rem;
+  background: linear-gradient(to left, color-mix(in srgb, var(--fc-black) 84%, transparent), color-mix(in srgb, var(--fc-black) 62%, transparent));
+  pointer-events: auto;
+}
+.fc-page .fc-main .fc-hud-more:focus { outline: none; }
+.fc-page .fc-main .fc-hud-more:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: -1px; }
+.fc-page .fc-hud-more dl { margin: 0; }
+.fc-page .fc-hud-more-sec + .fc-hud-more-sec { margin-top: 0.7rem; }
+.fc-page .fc-hud-more-title {
+  margin: 0 0 0.2rem;
   font-family: var(--fc-font-mono);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--fc-text);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--fc-text-2);
 }
-.fc-page .fc-mission-title:focus { outline: none; }
-.fc-page .fc-mission-flags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.fc-page .fc-hud-more-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  column-gap: 1rem;
+  padding: 0.1rem 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.fc-page .fc-hud-more-row dt { color: var(--fc-text-2); overflow-wrap: anywhere; }
+.fc-page .fc-hud-more-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.fc-page .fc-hud-more-row.is-warn dd { color: var(--fc-warn); }
+.fc-page .fc-hud-more-small { grid-column: 1 / -1; font-size: 0.66rem; text-align: right; color: var(--fc-warn); }
+.fc-page .fc-main .fc-hud-more-note {
+  margin: 0 0 0.25rem;
+  font-family: var(--fc-font-sentence);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: var(--fc-text-2);
+}
 
 /* ------------------------------------------------------------
-   Phase strip (phase-strip.js): six thin bars with their names
+   The phase bar (phase-strip.js): six names over a thin line. Current in
+   amber, passed in white, later ones dim, drogue and main dashed.
    ------------------------------------------------------------ */
-.fc-page .fc-ov-phases { flex: 1 1 auto; max-width: 640px; }
+.fc-page .fc-ov-top { display: flex; flex-direction: column; gap: 8px; }
 .fc-page .fc-phase-list {
-  position: relative;
   list-style: none;
   margin: 0;
-  padding: 0.55rem 0.7rem 0.5rem;
+  padding: 0;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 5px;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-divider);
+  gap: 6px;
 }
 .fc-page .fc-phase {
-  --bar: color-mix(in srgb, var(--fc-offwhite) 20%, transparent);
+  --bar: color-mix(in srgb, var(--fc-offwhite) 26%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 4px;
   min-width: 0;
 }
-.fc-page .fc-phase-bar { display: block; height: 3px; background: var(--bar); }
-.fc-page .fc-phase-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.45rem; min-width: 0; }
+.fc-page .fc-phase-text { order: -1; display: flex; min-width: 0; }
+.fc-page .fc-phase-bar { display: block; height: 2px; background: var(--bar); box-shadow: 0 0 2px var(--fc-black-deep); }
 .fc-page .fc-phase-name {
-  font-family: var(--fc-font-mono);
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.72rem;
   line-height: 1.2;
-  color: var(--fc-muted);
-}
-.fc-page .fc-phase-when {
-  font-family: var(--fc-font-mono);
-  font-size: 0.68rem;
-  line-height: 1.2;
-  color: var(--fc-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  color: var(--fc-muted);
 }
-/* Passed: a solid dim bar. */
-.fc-page .fc-phase[data-state="passed"] { --bar: var(--fc-text-2); }
-.fc-page .fc-phase[data-state="passed"] .fc-phase-name { color: var(--fc-text-2); }
-/* Now: an amber bar under an off-white name. */
+/* When each phase began is read out, not shown. */
+.fc-page .fc-phase-when { display: none; }
+.fc-page .fc-phase[data-state="passed"] { --bar: var(--fc-text); }
+.fc-page .fc-phase[data-state="passed"] .fc-phase-name { color: var(--fc-text); }
 .fc-page .fc-phase[data-state="current"] { --bar: var(--fc-accent); }
-.fc-page .fc-phase[data-state="current"] .fc-phase-name,
-.fc-page .fc-phase[data-state="current"] .fc-phase-when { color: var(--fc-text); }
-/* Never found by the detector: an empty outline, so it never looks passed. */
-.fc-page .fc-phase[data-state="missed"] .fc-phase-bar { background: none; border: 1px solid var(--fc-muted); height: 4px; }
-/* Inferred phases (drogue and main): the bar is dashed in every state. */
+.fc-page .fc-phase[data-state="current"] .fc-phase-name { color: var(--fc-accent); }
+/* Never found by the detector: a dotted line, so it never looks passed. */
+.fc-page .fc-phase[data-state="missed"] .fc-phase-bar { background: none; height: 0; border-top: 2px dotted var(--fc-muted); }
+/* Inferred phases (drogue and main): the line is dashed in every state. */
 .fc-page .fc-phase--inferred .fc-phase-bar {
-  background: repeating-linear-gradient(90deg, var(--bar) 0 8px, transparent 8px 12px);
+  background: repeating-linear-gradient(90deg, var(--bar) 0 6px, transparent 6px 10px);
 }
-.fc-page .fc-phase--inferred[data-state="missed"] .fc-phase-bar { background: none; border-style: dashed; }
+.fc-page .fc-phase--inferred[data-state="missed"] .fc-phase-bar { background: none; }
 /* Fades on the side that has more phases past the edge (set by the JS,
-   when the strip scrolls sideways on a phone). */
+   when the bar scrolls sideways). */
 .fc-page .fc-phase-list--more-right {
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent);
   mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent);
@@ -747,203 +863,48 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 }
 
 /* ------------------------------------------------------------
-   Rocket chips (rocket-bar.js), for flights with two or more rockets
+   Rocket chips (rocket-bar.js), only for flights with two or more
+   rockets: one plain bracket line each, under the phase bar. The focused
+   one is amber.
    ------------------------------------------------------------ */
-.fc-page .fc-rocketbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.fc-page .fc-ov-rockets { pointer-events: auto; }
+.fc-page .fc-rocketbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.1rem 1.4rem; }
 .fc-page .fc-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.8ch;
   min-width: 0;
-  width: 200px;
-  padding: 0.45rem 0.65rem;
-  text-align: left;
-  font-family: var(--fc-font-text);
+  padding: 0.2rem 0.1rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: var(--fc-text-outline);
   color: var(--fc-text);
-  background: var(--fc-float);
-  border: 1px solid var(--fc-divider);
+  background: none;
+  border: 0;
   border-radius: 0;
   cursor: pointer;
 }
-.fc-page .fc-chip:hover { border-color: var(--fc-text-2); }
-.fc-page .fc-chip[aria-pressed="true"] { border-color: var(--fc-accent); box-shadow: inset 0 0 0 1px var(--fc-accent); }
-.fc-page .fc-chip-head { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-.fc-page .fc-chip-name {
-  min-width: 0;
-  font-family: var(--fc-font-mono);
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.fc-page .fc-chip-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.1rem 0.7rem;
-  font-family: var(--fc-font-mono);
-  font-size: 0.7rem;
-  line-height: 1.35;
-  color: var(--fc-text-2);
-}
+.fc-page .fc-chip::before { content: "["; }
+.fc-page .fc-chip::after { content: "]"; }
+.fc-page .fc-chip:hover,
+.fc-page .fc-chip:focus-visible,
+.fc-page .fc-chip[aria-pressed="true"] { color: var(--fc-accent); }
+.fc-page .fc-chip-head { display: inline-flex; align-items: center; gap: 0.6ch; min-width: 0; }
+.fc-page .fc-chip .fc-dot { width: 0.55em; height: 0.55em; }
+.fc-page .fc-chip-name { min-width: 0; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-page .fc-chip-meta { display: inline-flex; gap: 0 1ch; font-size: 0.86em; color: var(--fc-text-2); }
 .fc-page .fc-chip-meta > span:empty { display: none; }
-.fc-page .fc-chip-fix--ok { color: var(--fc-text); }
 .fc-page .fc-chip-fix--no { color: var(--fc-warn); }
-/* A rocket that isn't focused logged an event: an outline for a moment. */
-.fc-page .fc-chip--flash { outline: 2px solid var(--fc-accent); outline-offset: 2px; }
+/* A rocket that isn't focused logged an event: a dashed outline for a moment. */
+.fc-page .fc-chip--flash { outline: 1px dashed var(--fc-accent); outline-offset: 2px; }
 
 /* ------------------------------------------------------------
-   The readings panel (stats-panel.js), at the top right
-   ------------------------------------------------------------ */
-.fc-page .fc-readings {
-  flex: 0 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0.6rem 0.8rem 0.25rem;
-  color: var(--fc-text);
-  line-height: 1.3;
-}
-.fc-page .fc-rd-head {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-.fc-page .fc-rd-who {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  color: var(--fc-text-2);
-  font-family: var(--fc-font-mono);
-  font-size: 0.72rem;
-}
-.fc-page .fc-rd-who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fc-page .fc-rd-main { flex: none; }
-.fc-page .fc-rd-label { color: var(--fc-text-2); font-family: var(--fc-font-mono); font-size: 0.7rem; line-height: 1.3; }
-.fc-page .fc-rd-hero { padding-bottom: 0.45rem; border-bottom: 1px solid var(--fc-divider); }
-.fc-page .fc-rd-big {
-  margin-top: 0.15rem;
-  font-family: var(--fc-font-mono);
-  font-size: 2.2rem;
-  line-height: 1;
-  color: var(--fc-text);
-  overflow-wrap: anywhere;
-}
-.fc-page .fc-rd-big .fc-rd-unit { font-size: 0.45em; }
-.fc-page .fc-rd-hero .fc-rd-small { margin-top: 0.25rem; }
-/* Live values are off-white and old ones are dimmed. Warnings are amber,
-   with words that say what is wrong. */
-.fc-page .fc-rd-big.is-live,
-.fc-page .fc-rd-value.is-live { color: var(--fc-text); }
-.fc-page .fc-rd-big.is-old,
-.fc-page .fc-rd-value.is-old { color: var(--fc-text-2); }
-.fc-page .fc-rd-value.is-warn { color: var(--fc-warn); }
-.fc-page .fc-rd-list,
-.fc-page .fc-rd-grid { margin: 0; }
-.fc-page .fc-rd-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.1rem 0.75rem;
-  padding: 0.36rem 0;
-  border-bottom: 1px solid var(--fc-divider);
-  min-width: 0;
-}
-.fc-page .fc-rd-row dt { flex: 0 1 auto; min-width: 0; }
-.fc-page .fc-rd-row dd { margin: 0 0 0 auto; text-align: right; min-width: 0; }
-.fc-page .fc-rd-value {
-  font-family: var(--fc-font-mono);
-  font-size: 0.98rem;
-  line-height: 1.25;
-  color: var(--fc-text);
-  overflow-wrap: anywhere;
-}
-.fc-page .fc-rd-unit { font-size: 0.8em; }
-.fc-page .fc-rd-arrow { font-size: 0.8em; }
-.fc-page .fc-rd-small {
-  margin-top: 0.1rem;
-  color: var(--fc-text-2);
-  font-family: var(--fc-font-mono);
-  font-size: 0.68rem;
-  line-height: 1.3;
-}
-.fc-page .fc-rd-small:empty { display: none; }
-/* Long values, and long labels like the GPS row's, sit under their label. */
-.fc-page .fc-rd-row--wide { flex-direction: column; align-items: flex-start; }
-.fc-page .fc-rd-row--wide dd { margin: 0; text-align: left; }
-/* The GPS note, in amber so it is noticed. */
-.fc-page .fc-rd-alert {
-  flex: none;
-  margin: 0.45rem 0 0.1rem;
-  padding: 0.4rem 0.55rem;
-  border-left: 2px solid var(--fc-warn);
-  background: var(--fc-accent-soft);
-  color: var(--fc-text);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-/* "More readings": closed by default. It is the part that scrolls, with
-   its toggle staying at the top while the rows move under it. */
-.fc-page .fc-rd-more {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--fc-border) transparent;
-  margin: 0 -0.8rem;
-  padding: 0 0.8rem;
-}
-.fc-page .fc-rd-more-toggle {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2.2rem;
-  padding: 0.3rem 0;
-  background: var(--fc-bg);
-  color: var(--fc-text);
-  font-family: var(--fc-font-mono);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-.fc-page .fc-rd-more-toggle::-webkit-details-marker { display: none; }
-.fc-page .fc-rd-more-toggle .fc-ui-ico { color: var(--fc-text-2); flex: none; }
-.fc-page .fc-rd-more[open] > .fc-rd-more-toggle { border-bottom: 1px solid var(--fc-divider); }
-.fc-page .fc-rd-more[open] > .fc-rd-more-toggle .fc-ui-ico { transform: rotate(90deg); }
-.fc-page .fc-rd-more-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
-.fc-page .fc-main .fc-rd-more-toggle:focus-visible { outline-offset: -2px; }
-.fc-page .fc-rd-more-body { padding-bottom: 0.5rem; }
-.fc-page .fc-rd-sec { padding-top: 0.55rem; }
-.fc-page .fc-rd-sec + .fc-rd-sec { border-top: 1px solid var(--fc-divider); margin-top: 0.3rem; }
-.fc-page .fc-rd-sec-title { font-family: var(--fc-font-mono); font-size: 0.9rem; font-weight: 600; line-height: 1.25; color: var(--fc-text); margin: 0 0 0.1rem; }
-.fc-page .fc-rd-note { color: var(--fc-text-2); font-size: 0.76rem; line-height: 1.4; margin: 0.2rem 0 0.25rem; }
-.fc-page .fc-rd-grid .fc-rd-row { padding: 0.28rem 0; border-bottom: 0; }
-.fc-page .fc-rd-grid .fc-rd-value { font-size: 0.9rem; }
-.fc-page .fc-rd-sensors {
-  margin: 0.5rem 0 0;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--fc-divider);
-  color: var(--fc-text-2);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-
-/* ------------------------------------------------------------
-   The altitude timeline (timeline.js) along the bottom: the play button,
-   the speeds and the time on the left, the curve on the right. It is the
-   console's one altitude display.
+   The altitude timeline (timeline.js) along the bottom: PLAY or PAUSE,
+   the speeds and the time on the left, the curve on the right. No box,
+   thin lines: the played part of the curve white, the playhead amber,
+   the event markers dim until reached and white after.
    ------------------------------------------------------------ */
 .fc-page .fc-tl {
   display: grid;
@@ -951,14 +912,11 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   grid-template-areas:
     "head     head"
     "controls strip";
-  column-gap: 0.85rem;
-  padding: 0.45rem 0.7rem 0.55rem;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-divider);
+  column-gap: 1.1rem;
+  font-family: var(--fc-font-mono);
 }
-.fc-page .fc-tl-head { grid-area: head; margin-bottom: 0.35rem; align-items: center; }
-.fc-page .fc-tl-head .fc-panel-title { font-size: 0.9rem; }
-.fc-page .fc-tl-titles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; min-width: 0; }
+.fc-page .fc-tl-head { grid-area: head; }
+.fc-page .fc-tl-head:not(:has(.fc-tl-key:not([hidden]))) { display: none; }
 .fc-page .fc-tl-key,
 .fc-page .fc-tl-legend {
   list-style: none;
@@ -967,25 +925,33 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0.9rem;
-  font-family: var(--fc-font-mono);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--fc-text-2);
+  text-shadow: var(--fc-text-outline);
 }
+.fc-page .fc-tl-key { gap: 0.25rem 1.2rem; margin-bottom: 0.3rem; }
 .fc-page .fc-tl-key li,
-.fc-page .fc-tl-legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.fc-page .fc-tl-legend li { display: inline-flex; align-items: center; gap: 0.5ch; }
 .fc-page .fc-tl-key li.is-focused { color: var(--fc-text); }
-.fc-page .fc-tl-legend .fc-basis { --basis-size: 10px; --basis-color: var(--fc-text-2); }
 .fc-page .fc-tl-swatch { width: 14px; height: 2px; background: var(--swatch); flex: none; }
-.fc-page .fc-tl-key li.is-focused .fc-tl-swatch { height: 3px; }
+/* The marker shapes' key, small in the strip's top right corner. */
+.fc-page .fc-tl-legend {
+  position: absolute;
+  top: 0;
+  right: 0;
+  gap: 0.1rem 1.1rem;
+  font-size: 0.6rem;
+  pointer-events: none;
+}
+.fc-page .fc-tl-legend .fc-basis { --basis-size: 8px; --basis-color: var(--fc-text-2); }
 
-.fc-page .fc-tl-strip { grid-area: strip; position: relative; height: 84px; }
+.fc-page .fc-tl-strip { grid-area: strip; position: relative; height: 66px; }
 .fc-page .fc-tl-track {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--fc-black-deep) 70%, transparent);
-  box-shadow: inset 0 0 0 1px var(--fc-divider);
   overflow: hidden;
   cursor: pointer;
   touch-action: pan-y;
@@ -994,42 +960,45 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   -webkit-tap-highlight-color: transparent;
 }
 .fc-page .fc-tl-track[aria-disabled="true"] { cursor: default; }
-.fc-page .fc-tl-svg { position: absolute; inset: 0; display: block; max-width: none; }
-/* Drawing: thin, quiet guides so the curve does the talking. */
-.fc-page .fc-tl-grid line { stroke: var(--fc-divider); stroke-width: 1; }
+.fc-page .fc-main .fc-tl-track:focus-visible { outline-offset: 2px; }
+.fc-page .fc-tl-svg { position: absolute; inset: 0; display: block; max-width: none; overflow: visible; }
+.fc-page .fc-tl-grid line { stroke: color-mix(in srgb, var(--fc-offwhite) 9%, transparent); stroke-width: 1; }
 .fc-page .fc-tl-base { stroke: var(--fc-border); stroke-width: 1; }
 .fc-page .fc-tl-ticks line { stroke: var(--fc-border); stroke-width: 1; }
-.fc-page .fc-tl-ticks text { fill: var(--fc-muted); font-family: var(--fc-font-mono); font-size: 10.5px; }
-.fc-page .fc-tl-gaps rect { fill: var(--fc-warn); opacity: 0.1; }
-.fc-page .fc-tl-peak { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.4; }
-.fc-page .fc-tl-others path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
-.fc-page .fc-tl-area-rest { fill: var(--fc-text); opacity: 0.04; }
-.fc-page .fc-tl-line-rest { fill: none; stroke: var(--fc-muted); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
-.fc-page .fc-tl-fill-top { stop-color: var(--fc-accent); stop-opacity: 0.24; }
-.fc-page .fc-tl-fill-bottom { stop-color: var(--fc-accent); stop-opacity: 0.02; }
-.fc-page .fc-tl-line-played { fill: none; stroke: var(--fc-accent); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
-.fc-page .fc-tl-stems line { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.28; }
+.fc-page .fc-tl-ticks text { fill: var(--fc-text-2); font-family: var(--fc-font-mono); font-size: 10px; letter-spacing: 0.04em; paint-order: stroke; stroke: var(--fc-black-deep); stroke-width: 2.5px; }
+.fc-page .fc-tl-gaps rect { fill: var(--fc-warn); opacity: 0.12; }
+.fc-page .fc-tl-peak { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.55; }
+.fc-page .fc-tl-others path { fill: none; stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
+.fc-page .fc-tl-area-rest { fill: var(--fc-text); opacity: 0.03; }
+.fc-page .fc-tl-line-rest { fill: none; stroke: var(--fc-muted); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
+.fc-page .fc-tl-fill-top { stop-color: var(--fc-text); stop-opacity: 0.16; }
+.fc-page .fc-tl-fill-bottom { stop-color: var(--fc-text); stop-opacity: 0.01; }
+.fc-page .fc-tl-line-played { fill: none; stroke: var(--fc-text); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.fc-page .fc-tl-stems line { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.3; }
 .fc-page .fc-tl-hover-line { stroke: var(--fc-text); stroke-width: 1; opacity: 0.35; }
-/* The playhead: an amber line with a small square grip on top. */
-.fc-page .fc-tl-playhead line { stroke: var(--fc-accent); stroke-width: 2; }
-.fc-page .fc-tl-playhead-grip { fill: var(--fc-accent); stroke: var(--fc-bg); stroke-width: 2; rx: 0; }
-.fc-page .fc-tl-now { fill: var(--fc-accent); stroke: var(--fc-bg); stroke-width: 2; }
+/* The playhead: a thin amber line with a small grip on top. */
+.fc-page .fc-tl-playhead line { stroke: var(--fc-accent); stroke-width: 1.5; }
+.fc-page .fc-tl-playhead-grip { fill: var(--fc-accent); stroke: var(--fc-black-deep); stroke-width: 1; rx: 0; }
+.fc-page .fc-tl-now { fill: var(--fc-accent); stroke: var(--fc-black-deep); stroke-width: 1.5; }
 /* Markers and labels sit in a layer over the strip. Only the marker
    buttons take clicks, so a click anywhere else seeks. */
 .fc-page .fc-tl-marks { position: absolute; inset: 0; pointer-events: none; }
-.fc-page .fc-tl-peak-label {
+.fc-page .fc-tl-peak-label,
+.fc-page .fc-tl-mark-label {
   position: absolute;
-  transform: translateY(-50%);
-  padding: 0 0.35rem 0 0.15rem;
-  background: var(--fc-well);
-  color: var(--fc-text-2);
-  font-family: var(--fc-font-mono);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
+  color: var(--fc-text-2);
+  text-shadow: var(--fc-text-outline);
 }
+.fc-page .fc-tl-peak-label { transform: translateY(-50%); padding: 0 0.35rem 0 0.15rem; }
 .fc-page .fc-tl-peak-label.is-right { padding: 0 0.15rem 0 0.35rem; }
 .fc-page .fc-tl-peak-label.is-under-head { opacity: 0.25; }
+.fc-page .fc-tl-mark-label { padding: 0 0.2rem; }
+.fc-page .fc-tl-mark-label.is-reached { color: var(--fc-text); }
 .fc-page .fc-tl-mark {
   position: absolute;
   width: 24px;
@@ -1045,33 +1014,26 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
-.fc-page .fc-tl-mark .fc-basis { --basis-size: 12px; --basis-color: var(--fc-muted); box-shadow: 0 0 0 2px var(--fc-well); }
-.fc-page .fc-tl-mark.is-reached .fc-basis { --basis-color: var(--fc-accent); }
-.fc-page .fc-tl-mark:hover .fc-basis,
-.fc-page .fc-tl-mark:focus-visible .fc-basis { transform: scale(1.18); }
-.fc-page .fc-tl-mark-label {
-  position: absolute;
-  padding: 0.05rem 0.3rem;
-  background: color-mix(in srgb, var(--fc-black-deep) 85%, transparent);
-  color: var(--fc-text-2);
-  font-family: var(--fc-font-mono);
-  font-size: 0.68rem;
-  line-height: 1.25;
-  white-space: nowrap;
+.fc-page .fc-tl-mark .fc-basis {
+  --basis-size: 10px;
+  --basis-color: color-mix(in srgb, var(--fc-offwhite) 50%, transparent);
+  box-shadow: 0 0 0 1.5px var(--fc-black-deep);
 }
-.fc-page .fc-tl-mark-label.is-reached { color: var(--fc-text); }
+.fc-page .fc-tl-mark.is-reached .fc-basis { --basis-color: var(--fc-text); }
+.fc-page .fc-tl-mark:hover .fc-basis,
+.fc-page .fc-tl-mark:focus-visible .fc-basis { --basis-color: var(--fc-accent); transform: scale(1.2); }
 .fc-page .fc-tl-hover {
   position: absolute;
-  top: 3px;
+  top: 2px;
   display: flex;
-  gap: 0.6rem;
-  padding: 0.1rem 0.45rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
+  gap: 1ch;
+  padding: 0.1rem 0.4rem;
+  background: var(--fc-black);
   color: var(--fc-text);
-  font-family: var(--fc-font-mono);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1081,12 +1043,13 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   z-index: 3;
   width: max-content;
   max-width: min(34rem, 100%);
-  padding: 0.4rem 0.6rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
+  padding: 0.3rem 0.6rem;
+  background: var(--fc-black);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--fc-black-deep) 70%, transparent);
   color: var(--fc-text-2);
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-family: var(--fc-font-sentence);
+  font-size: 0.92rem;
+  line-height: 1.35;
   cursor: pointer;
 }
 .fc-page .fc-tl-tip strong { color: var(--fc-text); font-weight: 600; }
@@ -1100,214 +1063,163 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   text-align: center;
   color: var(--fc-text-2);
   font-family: var(--fc-font-mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
   pointer-events: none;
 }
-/* Play, the speeds and the time, stacked left of the curve. */
+/* PLAY or PAUSE, the speeds and the time, stacked left of the curve. */
 .fc-page .fc-tl-controls {
   grid-area: controls;
   display: grid;
-  grid-template-columns: auto;
-  align-content: start;
-  gap: 0.35rem;
-  margin: 0;
+  align-content: center;
+  justify-items: start;
+  gap: 1px;
+  margin: 0 0 0 -0.2em;
+  text-shadow: var(--fc-text-outline);
 }
-.fc-page .fc-tl-play { min-width: 0; width: 100%; border-color: var(--fc-text); }
-.fc-page .fc-tl-controls .fc-seg { display: flex; }
-.fc-page .fc-tl-controls .fc-seg .fc-btn { flex: 1 1 0; min-width: 2.6rem; padding-inline: 0.4rem; }
+.fc-page .fc-tl-controls .fc-bkt.fc-bkt { text-shadow: var(--fc-text-outline); }
+.fc-page .fc-bkt.fc-tl-play { min-width: 10ch; justify-content: flex-start; }
+.fc-page .fc-tl-controls .fc-seg { display: flex; gap: 0.6ch; }
 .fc-page .fc-tl-time {
-  margin: 0;
+  margin: 0.1rem 0 0 0.2em;
   font-family: var(--fc-font-mono);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
   color: var(--fc-text);
   white-space: nowrap;
 }
-.fc-page .fc-tl-time-total { color: var(--fc-muted); }
-
-/* Message screen headings use the theme's heading font. */
-.fc-page .fc-message h1 { font-family: var(--fc-font-mono); font-weight: 600; }
+.fc-page .fc-tl-time-total { color: var(--fc-text-2); }
 
 /* ============================================================
-   Narrower windows and phones. Each panel still fills the screen under
-   the bar. Panel 2 scrolls inside itself, and so does a long readings
-   panel. The page never scrolls sideways.
+   Narrow windows (a tablet, a small browser window): the phase bar takes
+   its own row at the top, with the HUD's two columns under it.
    ============================================================ */
-@media (max-width: 1100px) {
-  .fc-page .fc-overlay { grid-template-columns: minmax(0, 1fr) minmax(0, 270px); }
-}
-
-/* Short windows (a laptop's browser, say): the readings and the timeline
-   get tighter, so the readings and their "More readings" toggle still fit
-   above the credits. */
-@media (min-width: 641px) and (max-height: 760px) {
-  .fc-page .fc-overlay { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
-  .fc-page .fc-mission { padding-block: 0.45rem 0.5rem; }
-  .fc-page .fc-mission-clock { font-size: 1.8rem; }
-  .fc-page .fc-readings { padding-top: 0.45rem; }
-  .fc-page .fc-rd-head { margin-bottom: 0.15rem; }
-  .fc-page .fc-rd-big { font-size: 1.75rem; }
-  .fc-page .fc-rd-hero { padding-bottom: 0.3rem; }
-  .fc-page .fc-rd-list .fc-rd-row { padding: 0.22rem 0; }
-  .fc-page .fc-rd-more-toggle { min-height: 1.9rem; }
-  .fc-page .fc-tl { padding-block: 0.35rem 0.45rem; }
-  .fc-page .fc-tl-head { margin-bottom: 0.2rem; }
-  .fc-page .fc-tl-strip { height: 76px; }
-  .fc-page .fc-tl-controls { gap: 0.25rem; }
-  .fc-page .fc-tl-controls .fc-btn { min-height: 1.9rem; padding-block: 0.35rem; }
-}
-
-/* Very short windows: the whole readings panel scrolls, and "More
-   readings" opens in place under the main rows. */
-@media (min-width: 641px) and (max-height: 620px) {
-  .fc-page .fc-readings {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: var(--fc-border) transparent;
+@media (min-width: 641px) and (max-width: 960px) {
+  .fc-page .fc-overlay {
+    grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "top top"
+      "tl  tr"
+      "tl  more"
+      "bl  ."
+      "ctl ctl"
+      "tm  tm";
   }
-  .fc-page .fc-rd-more { flex: none; overflow: visible; }
-  .fc-page .fc-rd-more-toggle { position: static; background: none; }
+  .fc-page .fc-ov-top { width: 100%; }
 }
 
-/* Phones: everything over the 3D view in one column, compact. */
+/* ============================================================
+   Shorter windows (a laptop's browser): everything a little tighter, so
+   the HUD, the controls and the timeline leave the view room. Track a
+   Rocket never scrolls.
+   ============================================================ */
+@media (min-width: 641px) and (max-height: 820px) {
+  .fc-page .fc-overlay { row-gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+  .fc-page .fc-hud-clock { font-size: 1.45rem; }
+  .fc-page .fc-hud-big { font-size: 2.4rem; }
+  .fc-page .fc-hud-tr .fc-hud-row { font-size: 1.05rem; }
+  .fc-page .fc-hud-bl .fc-hud-row { font-size: 0.88rem; }
+  .fc-page .fc-hud-row--lead { font-size: 0.9rem; }
+  .fc-page .fc-tl-strip { height: 58px; }
+}
+@media (min-width: 641px) and (max-height: 640px) {
+  .fc-page .fc-hud-clock { font-size: 1.25rem; }
+  .fc-page .fc-hud-big { font-size: 2rem; }
+  .fc-page .fc-hud-tr .fc-hud-row { font-size: 0.95rem; }
+  .fc-page .fc-tl-strip { height: 48px; }
+  .fc-page .fc-tl-legend { display: none; }
+}
+
+/* ============================================================
+   Phones. The panels still fill the screen under the bar. The HUD gets
+   compact: the flight time and phase with GPS, HDOP and PKT under them on
+   the left, ALT, VS and GS on the right, the phase bar across, the MORE
+   column across the middle, then the map's controls and the timeline.
+   The page never scrolls sideways.
+   ============================================================ */
 @media (max-width: 640px) {
-  .fc-page .fc-console { --fc-tab-w: 26px; --fc-edge: 10px; }
-  .fc-page .fc-bar { flex-wrap: wrap; min-height: 48px; padding-block: 6px; gap: 6px 8px; }
-  .fc-page .fc-connect { min-width: 0; padding: 0.5rem 0.65rem; font-size: 0.78rem; gap: 0.45rem; }
-  .fc-page .fc-dd-button { padding: 0.5rem 0.6rem; font-size: 0.78rem; gap: 0.4rem; }
-  /* The replay's name takes its own row under the two buttons. */
-  .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; }
-  .fc-page .fc-replay-name { font-size: 0.95rem; }
-  .fc-page .fc-main a.fc-dd-item { grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-areas: "mark name name" ". date time"; row-gap: 0.15rem; }
+  .fc-page .fc-console { --fc-tab-w: 24px; --fc-edge: 10px; }
+  .fc-page .fc-bar { flex-wrap: wrap; min-height: 42px; padding-block: 2px; gap: 0 1rem; }
+  .fc-page .fc-bar .fc-bkt,
+  .fc-page .fc-bar .fc-back.fc-back { font-size: 0.76rem; }
+  .fc-page .fc-bkt.fc-connect { min-width: 15ch; }
+  /* The replay's name takes its own row under the buttons. */
+  .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 0 0.8rem; }
+  .fc-page .fc-replay-name { font-size: 0.8rem; }
+  .fc-page .fc-replay-kind,
+  .fc-page .fc-replay-wait { font-size: 0.66rem; }
+  .fc-page .fc-status-text { font-size: 0.92rem; }
+  .fc-page .fc-main a.fc-dd-item { grid-template-columns: 8px minmax(0, 1fr) auto; grid-template-areas: "mark name name" ". date time"; row-gap: 0.15rem; }
   .fc-page .fc-dd-mark { grid-area: mark; }
   .fc-page .fc-dd-name { grid-area: name; }
   .fc-page .fc-dd-date { grid-area: date; }
   .fc-page .fc-dd-time { grid-area: time; min-width: 0; }
   .fc-page .fc-flip { height: 60px; margin-top: -30px; }
+
   .fc-page .fc-overlay {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "tl   tr"
+      "bl   tr"
+      "top  top"
+      "more more"
+      "ctl  ctl"
+      "tm   tm";
+    column-gap: 10px;
+    row-gap: 6px;
+    padding: 6px calc(var(--fc-tab-w) + 6px) 8px 8px;
+  }
+  .fc-page .fc-hud-bl { align-self: start; }
+  /* The checklist and the recovery block need the whole width. After the
+     landing, the left column has the recovery block and GPS, HDOP and PKT,
+     and ALT, VS and GS step aside. */
+  .fc-page .fc-console:is([data-state="pad"], [data-state="recovery"]) .fc-hud-tl { grid-column: 1 / -1; }
+  .fc-page .fc-console[data-state="recovery"] :is(.fc-hud-tr, .fc-hud-more) { display: none; }
+  .fc-page .fc-hud-more { justify-self: stretch; width: auto; }
+  .fc-page .fc-ov-top { width: 100%; }
+
+  .fc-page .fc-hud-clock { font-size: 1.15rem; gap: 1ch; }
+  .fc-page .fc-main .fc-hud-flags { font-size: 0.58rem; gap: 0 1.2ch; }
+  .fc-page .fc-hud-pad,
+  .fc-page .fc-hud-recovery .fc-hud-list { margin-top: 0.4rem; gap: 0.05rem; }
+  .fc-page .fc-hud-row--lead { font-size: 0.8rem; }
+  .fc-page .fc-main .fc-hud-actions { margin-top: 0.3rem; }
+  .fc-page .fc-hud-actions .fc-bkt.fc-bkt { font-size: 0.72rem; }
+  .fc-page .fc-hud-big { font-size: 1.75rem; }
+  .fc-page .fc-hud-alt { gap: 0; }
+  .fc-page .fc-hud-label { font-size: 0.62rem; }
+  .fc-page .fc-main .fc-hud-note { font-size: 0.6rem; }
+  .fc-page .fc-hud-tr .fc-hud-row { font-size: 0.85rem; }
+  .fc-page .fc-hud-bl .fc-hud-row { font-size: 0.74rem; grid-template-columns: 4.5ch auto; }
+  .fc-page .fc-hud-more-button.fc-bkt { font-size: 0.7rem; }
+  .fc-page .fc-phase-list { gap: 4px; }
+  .fc-page .fc-phase-name { font-size: 0.56rem; letter-spacing: 0.04em; }
+  .fc-page .fc-chip-meta { display: none; }
+
+  /* The timeline: the strip, then PLAY, the speeds and the time in one row. */
+  .fc-page .fc-tl {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-    grid-template-areas: "top" "rockets" "readings" "." "timeline";
-    gap: 6px;
-    padding: 8px 8px 8px 8px;
+    grid-template-areas: "head" "strip" "controls";
   }
-  .fc-page .fc-ov-top { flex-direction: column; align-items: stretch; gap: 6px; }
-  .fc-page .fc-ov-phases { max-width: none; }
-  /* The clock, its caption and the labels on one short line. The flight's
-       name is already in the bar, so the rocket's name here is only read
-       out by screen readers. */
-  .fc-page .fc-mission { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.7rem; padding: 0.35rem 0.6rem; }
-  .fc-page .fc-mission-time { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
-  .fc-page .fc-mission-clock { font-size: 1.3rem; }
-  .fc-page .fc-mission-caption { margin: 0; max-width: 9.5rem; font-size: 0.6rem; line-height: 1.25; }
-  .fc-page .fc-mission-id { margin: 0 0 0 auto; padding: 0; border: 0; justify-content: flex-end; }
-  .fc-page .fc-mission-title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .fc-page .fc-mission .fc-pill { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
-  /* The six phases in one short line. When each one started is in the
-       mission timeline in panel 2. */
-  .fc-page .fc-phase-list { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 0.4rem 0.5rem 0.35rem; }
-  .fc-page .fc-phase { gap: 0.25rem; }
-  .fc-page .fc-phase-name { font-size: 0.74rem; }
-  .fc-page .fc-phase-when { display: none; }
-  .fc-page .fc-main .fc-phase-list:focus-visible { outline-offset: -2px; }
-  .fc-page .fc-rocketbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
-  .fc-page .fc-chip { flex: none; width: min(200px, 64vw); }
-  /* The readings: one compact grid of three columns (the altitude first),
-       with "More readings" scrolling inside. */
-  .fc-page .fc-ov-readings { max-height: 40vh; }
-  .fc-page .fc-readings { padding: 0.35rem 0.6rem 0; }
-  .fc-page .fc-rd-head { display: none; }
-  .fc-page .fc-rd-main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem 0.6rem; }
-  .fc-page .fc-rd-list { display: contents; }
-  .fc-page .fc-rd-hero { border-bottom: 0; padding-bottom: 0; }
-  .fc-page .fc-rd-label { font-size: 0.6rem; line-height: 1.25; }
-  .fc-page .fc-rd-big { font-size: 1.3rem; }
-  .fc-page .fc-rd-hero .fc-rd-small { display: none; }
-  .fc-page .fc-rd-main .fc-rd-row { display: block; padding: 0; border-bottom: 0; }
-  .fc-page .fc-rd-main .fc-rd-row dd { margin: 0.1rem 0 0; text-align: left; }
-  .fc-page .fc-rd-main .fc-rd-row--wide { grid-column: span 2; }
-  .fc-page .fc-rd-main .fc-rd-value { font-size: 0.82rem; }
-  .fc-page .fc-rd-main .fc-rd-small { display: none; }
-  .fc-page .fc-rd-alert { margin-top: 0.3rem; padding: 0.3rem 0.45rem; font-size: 0.72rem; }
-  .fc-page .fc-rd-more-toggle { min-height: 1.6rem; padding: 0.15rem 0; font-size: 0.78rem; }
-  /* The timeline: play, the speeds and the time in one row under a short
-       strip. Its heading is only read out by screen readers here, since the
-       strip shows what it is. */
-  .fc-page .fc-tl { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "strip" "controls"; padding: 0.35rem 0.5rem 0.4rem; }
-  .fc-page .fc-tl-head { margin: 0; }
-  .fc-page .fc-tl-head .fc-panel-title {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .fc-page .fc-tl-key:not([hidden]) { margin-bottom: 0.3rem; }
+  .fc-page .fc-tl-strip { height: 48px; }
   .fc-page .fc-tl-legend { display: none; }
-  .fc-page .fc-tl-strip { height: 52px; }
-  .fc-page .fc-tl-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; margin-top: 0.35rem; }
-  .fc-page .fc-tl-controls .fc-btn { min-height: 1.95rem; padding-block: 0.35rem; font-size: 0.74rem; }
-  .fc-page .fc-tl-play { width: auto; min-width: 5.6rem; }
-  .fc-page .fc-tl-controls .fc-seg .fc-btn { flex: none; min-width: 2.4rem; }
-  .fc-page .fc-tl-time { margin-left: auto; }
+  .fc-page .fc-tl-controls { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.9rem; margin-top: 0.15rem; }
+  .fc-page .fc-tl-controls .fc-bkt.fc-bkt { font-size: 0.72rem; }
+  .fc-page .fc-bkt.fc-tl-play { min-width: 9ch; }
+  .fc-page .fc-tl-time { margin-left: auto; font-size: 0.68rem; }
 }
 
-/* Short phones (and phones turned sideways): the overlays would leave
-   almost nothing of the 3D view, so panel 1 stacks instead and scrolls
-   inside itself. The clock and phase strip on top, then the 3D view at a
-   fixed height, then the readings and the timeline. A drag on the 3D view
-   still turns its camera. Panel 2 scrolls too. */
-@media (max-width: 640px) and (max-height: 720px), (max-height: 520px) {
-  .fc-page .fc-stage {
-    --fc-tl-space: 0px !important;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px calc(var(--fc-tab-w) + 6px) 10px 8px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-  .fc-page .fc-stage::before { display: none; }
-  .fc-page .fc-overlay { display: contents; }
-  /* Each part keeps its full height. The stage scrolls instead of
-       squeezing them. */
-  .fc-page .fc-ov-top,
-  .fc-page .fc-ov-rockets,
-  .fc-page .fc-ov-readings,
-  .fc-page .fc-ov-timeline { flex: none; }
-  .fc-page .fc-ov-top { order: 1; flex-direction: column; align-items: stretch; gap: 6px; }
-  .fc-page .fc-ov-phases { max-width: none; }
-  .fc-page .fc-mission { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.2rem 0.8rem; padding: 0.45rem 0.65rem; }
-  .fc-page .fc-mission-clock { font-size: 1.7rem; }
-  .fc-page .fc-mission-id { margin: 0; padding: 0; border: 0; justify-content: flex-end; }
-  .fc-page .fc-ov-rockets { order: 2; }
-  .fc-page .fc-stage-map { order: 3; position: relative; inset: auto; flex: none; height: max(260px, 58vh); }
-  .fc-page .fc-ov-readings { order: 4; max-height: none; }
-  .fc-page .fc-ov-timeline { order: 5; }
-  .fc-page .fc-rd-more { overflow: visible; }
-  .fc-page .fc-rd-more-toggle { position: static; background: none; }
-  /* Idle, with no overlays, the 3D view takes the whole panel. */
-  .fc-page .fc-console[data-mode="idle"] .fc-stage { padding: 0; overflow: hidden; }
-  .fc-page .fc-console[data-mode="idle"] .fc-stage-map { height: 100%; }
-}
-
-/* Very narrow screens: the info list puts labels above their values. */
-@media (max-width: 420px) {
-  .fc-page .fc-dd-button > span { white-space: nowrap; }
+/* Phones turned sideways and other very short windows: the smallest HUD,
+   and the honest labels go to one short line. */
+@media (max-height: 520px) {
+  .fc-page .fc-overlay { row-gap: 4px; padding-top: 4px; padding-bottom: 4px; }
+  .fc-page .fc-hud-clock { font-size: 1rem; }
+  .fc-page .fc-hud-big { font-size: 1.5rem; }
+  .fc-page .fc-main .fc-hud-note { display: none; }
+  .fc-page .fc-tl-strip { height: 38px; }
+  .fc-page .fc-tl-legend { display: none; }
 }
 
 /* ============================================================
@@ -1316,20 +1228,28 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   /* The panels slide. */
   .fc-page .fc-screens-track { transition: transform 0.5s cubic-bezier(0.22, 0.7, 0.2, 1); }
-  .fc-page .fc-dd-chevron { transition: transform 0.15s ease; }
-  .fc-page .fc-connect,
+  .fc-page .fc-bkt,
   .fc-page .fc-btn,
-  .fc-page .fc-flip { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+  .fc-page .fc-chip,
+  .fc-page .fc-flip { transition: color 0.15s; }
   .fc-page .fc-phase-bar { transition: background-color 0.3s; }
-  .fc-page .fc-phase-name,
-  .fc-page .fc-phase-when { transition: color 0.3s; }
-  .fc-page .fc-rd-more-toggle .fc-ui-ico { transition: transform 0.15s ease; }
+  .fc-page .fc-phase-name { transition: color 0.3s; }
+  .fc-page .fc-overlay::before,
+  .fc-page .fc-overlay::after { transition: opacity 0.4s ease; }
   .fc-page .fc-tl-mark .fc-basis { transition: transform 0.15s ease; }
   /* The CONNECT square blinks slowly while the link is busy. */
   .fc-page .fc-connect[aria-disabled="true"] .fc-connect-mark { animation: fc-blink 1s steps(2, jump-none) infinite; }
   @keyframes fc-blink {
     from { background: transparent; }
     to { background: currentColor; }
+  }
+  /* A HUD line that just turned amber blinks once (hud.js adds is-blink). */
+  .fc-page .fc-hud-row.is-blink,
+  .fc-page .fc-hud-alt.is-blink { animation: fc-hud-blink 0.7s steps(1, end) 1; }
+  @keyframes fc-hud-blink {
+    0% { opacity: 1; }
+    35% { opacity: 0; }
+    70% { opacity: 1; }
   }
 }
 

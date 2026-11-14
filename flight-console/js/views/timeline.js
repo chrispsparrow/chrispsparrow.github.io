@@ -1,17 +1,21 @@
 // timeline.js
-// The altitude timeline, with the playback controls under it. It floats
-// along the bottom of the 3D view, and it is the console's one altitude
-// display.
+// The altitude timeline, with the playback controls beside it. It runs
+// along the bottom of the 3D view with no box around it, and it is the
+// console's one altitude curve.
 //
 // The strip shows the focused rocket's altitude above ground over the whole
-// recording: orange up to the playhead and muted after it, with the other
-// rockets as thin lines in their own colors. Readings with no altitude (a
+// recording: white up to the playhead (an amber line) and dim after it,
+// with the other rockets as thin grey lines. Readings with no altitude (a
 // GPS fix gap) and stretches with no readings at all for longer than
 // LINK_STALE_S (a radio silence) leave a break in the curve, never a
-// filled-in value. Event
-// markers sit on the curve, shaped by how each event was found (a filled
-// dot for reported, an orange ring for detected, a dashed ring for inferred or
-// estimated). Clicking a marker jumps playback to that event.
+// filled-in value. Event markers sit on the curve, shaped by how each
+// event was found (a filled dot for reported, a ring for detected, a dashed
+// ring for inferred or estimated), dim until the playhead reaches them and
+// white after. A small key in the strip's top right corner says which
+// shape is which. Clicking a marker jumps playback to that event.
+//
+// The controls are bracket buttons: [ PLAY ] or [ PAUSE ] (or [ REPLAY ]
+// at the end), then the speeds, with the one in use in amber.
 //
 // Click or drag anywhere on the strip to seek. With keyboard focus the
 // strip is a slider: the arrow keys move the playhead, Shift or Page Up and
@@ -24,7 +28,6 @@
 // Used by: main.js. Talks to the player and reads the store, never other views.
 
 import { h, svg, setText, setChildren, createScheduler, eventMarkerKind, markerClass, MARKER_KIND_TEXT } from './dom.js';
-import { uiIcon, iconNode } from './icons.js?v=2';
 import { formatClock, formatFlightSeconds, formatNumber, formatRounded10 } from '../geo.js';
 import { FLIGHT_EVENT_TYPES, EVENT_LABELS } from '../detector.js';
 
@@ -74,9 +77,9 @@ export function createTimeline(root, ctx) {
   // ------------------------------------------------------------------
   const key = h('ul', { class: 'fc-tl-key', 'aria-label': 'Rockets on the timeline', hidden: true });
   const legend = h('ul', { class: 'fc-tl-legend', 'aria-label': 'What the marker shapes mean' },
-    legendItem('reported', 'Reported'),
-    legendItem('detected', 'Detected'),
-    legendItem('inferred', 'Inferred or estimated'));
+    legendItem('reported', 'REPORTED'),
+    legendItem('detected', 'DETECTED'),
+    legendItem('inferred', 'INFERRED'));
 
   const plot = svg('svg', { class: 'fc-tl-svg', 'aria-hidden': 'true', focusable: 'false' });
   const track = h('div', {
@@ -94,8 +97,8 @@ export function createTimeline(root, ctx) {
   // The tooltip repeats what each marker's name and description already
   // say, so screen readers skip it.
   const tip = h('div', { class: 'fc-tl-tip', 'aria-hidden': 'true', hidden: true });
-  const empty = h('p', { class: 'fc-tl-empty', hidden: true }, 'No altitude data for this rocket yet.');
-  const strip = h('div', { class: 'fc-tl-strip' }, track, marks, hover, tip, empty);
+  const empty = h('p', { class: 'fc-tl-empty', hidden: true }, 'NO ALTITUDE DATA YET');
+  const strip = h('div', { class: 'fc-tl-strip' }, track, marks, legend, hover, tip, empty);
 
   const summary = h('p', { class: 'sr-only', id: ids.summary });
   const step = config.TIMELINE_KEY_STEP_S;
@@ -105,19 +108,18 @@ export function createTimeline(root, ctx) {
     `and Shift with an arrow key, or Page Up and Page Down, move ${seconds(bigStep)}. ` +
     'Home and End go to the start and end.');
 
-  const playButton = h('button', { type: 'button', class: 'fc-btn fc-tl-play', onclick: onPlay });
+  const playButton = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm fc-tl-play', onclick: onPlay });
   const speedButtons = player.getState().speeds.map((x) =>
-    h('button', { type: 'button', class: 'fc-btn', 'aria-pressed': 'false', onclick: () => player.setSpeed(x) }, `${x}x`));
+    h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', 'aria-label': `${x} times speed`, onclick: () => player.setSpeed(x) }, `${x}X`));
   const timeNow = h('span', { class: 'fc-tl-time-now' });
   const timeTotal = h('span', { class: 'fc-tl-time-total' });
   const time = h('p', { class: 'fc-tl-time', 'aria-live': 'off' }, timeNow, ' ', timeTotal);
 
-  setChildren(root, h('section', { class: 'fc-panel fc-tl', 'aria-labelledby': ids.title },
-    h('div', { class: 'fc-panel-head fc-tl-head' },
-      h('div', { class: 'fc-tl-titles' },
-        h('h2', { class: 'fc-panel-title', id: ids.title }, 'Altitude timeline'),
-        key),
-      legend),
+  // The heading is for screen readers. The strip shows what it is.
+  setChildren(root, h('section', { class: 'fc-tl', 'aria-labelledby': ids.title },
+    h('div', { class: 'fc-tl-head' },
+      h('h2', { class: 'sr-only', id: ids.title }, 'Altitude timeline'),
+      key),
     summary,
     strip,
     hint,
@@ -214,7 +216,7 @@ export function createTimeline(root, ctx) {
     const segs = segments(profile, x, (agl) => y(Math.max(agl, yMin)));
     const lineD = linePath(segs);
     const areaD = areaPath(segs, base);
-    // A faint orange band where the curve breaks, so the gap reads as missing
+    // A faint amber band where the curve breaks, so the gap reads as missing
     // data rather than a drawing glitch.
     const gaps = [];
     for (let i = 1; i < segs.length; i++) {
@@ -276,7 +278,7 @@ export function createTimeline(root, ctx) {
     // (never inside it), so each one is its own control.
     const markers = placed.map((m, i) => buildMarker(m, i, scan.state, profile));
     const peakLabel = peakY !== null
-      ? h('span', { class: 'fc-tl-peak-label', style: { left: `${left}px`, top: `${r1(peakY)}px` } }, `${formatNumber(peak, 0)} m`)
+      ? h('span', { class: 'fc-tl-peak-label', style: { left: `${left}px`, top: `${r1(peakY)}px` } }, `${formatNumber(peak, 0)} M`)
       : null;
     setChildren(marks, peakLabel, markers.map((m) => [m.button, m.label]));
     for (const m of markers) placeLabel(m, markers, W, bottom);
@@ -398,9 +400,9 @@ export function createTimeline(root, ctx) {
     setChildren(key, rockets.map((r) => {
       const focused = r.id === rocket?.id;
       return h('li', { class: focused ? 'is-focused' : null },
-        h('span', { class: 'fc-tl-swatch', style: { '--swatch': focused ? 'var(--fc-accent)' : r.profile.color }, 'aria-hidden': 'true' }),
+        h('span', { class: 'fc-tl-swatch', style: { '--swatch': focused ? 'var(--fc-text)' : r.profile.color }, 'aria-hidden': 'true' }),
         r.profile.name,
-        focused ? h('span', { class: 'sr-only' }, ', shown in orange') : null);
+        focused ? h('span', { class: 'sr-only' }, ', the bright curve') : null);
     }));
   }
 
@@ -429,9 +431,8 @@ export function createTimeline(root, ctx) {
     const mode = !hasData ? 'none' : s.ended ? 'replay' : s.playing ? 'pause' : 'play';
     if (mode !== playState) {
       playState = mode;
-      const icon = mode === 'pause' ? 'pause' : mode === 'replay' ? 'replay' : 'play';
       const text = mode === 'pause' ? 'PAUSE' : mode === 'replay' ? 'REPLAY' : 'PLAY';
-      setChildren(playButton, iconNode(uiIcon(icon, 18)), h('span', {}, text));
+      setText(playButton, text);
       playButton.disabled = !hasData;
     }
     speedButtons.forEach((b, i) => {
@@ -442,7 +443,7 @@ export function createTimeline(root, ctx) {
 
     // Time and the slider's values.
     if (!hasData) {
-      setText(timeNow, 'No data');
+      setText(timeNow, 'NO DATA');
       setText(timeTotal, '');
       track.setAttribute('aria-disabled', 'true');
       return;
@@ -451,7 +452,7 @@ export function createTimeline(root, ctx) {
     const elapsed = formatClock(s.time - s.t0);
     const total = formatClock(s.tEnd - s.t0);
     setText(timeNow, elapsed);
-    setText(timeTotal, `of ${total}`);
+    setText(timeTotal, `OF ${total}`);
     setAttr(track, 'aria-valuemax', String(Math.floor(s.tEnd - s.t0 + 1e-9)));
     setAttr(track, 'aria-valuenow', String(Math.floor(s.time - s.t0 + 1e-9)));
     setAttr(track, 'aria-valuetext', valueText(s, elapsed, total));
@@ -597,7 +598,7 @@ export function createTimeline(root, ctx) {
     setText(hoverTime, Number.isFinite(liftoffT) ? formatFlightSeconds(t - liftoffT) : formatClock(t - geo.t0));
     const i = lastAtOrBefore(geo.profile, t);
     const p = i >= 0 ? geo.profile[i] : null;
-    setText(hoverAlt, !p ? '' : Number.isFinite(p.agl) ? `${formatNumber(p.agl, 0)} m` : 'No altitude reading');
+    setText(hoverAlt, !p ? '' : Number.isFinite(p.agl) ? `${formatNumber(p.agl, 0)} M` : 'NO ALTITUDE');
     hoverAlt.hidden = !p;
     hover.hidden = false;
     const w = hover.offsetWidth;
