@@ -7,13 +7,14 @@
 // yellow in the fastest jets.
 //
 // Two Dogtooth tuna swim slowly through the water, both facing right. They
-// are camouflaged. Nothing is filled or outlined. Inside a fish the water
-// keeps the speed (so the color) of the water around it, but the streaks
-// turn to follow the fish's anatomy from the logo: nose to tail along the
-// body, along the gill arc, the stripe and the fins, and around in a tiny
-// whirlpool at the eye. Near the outline the fish's flow fades into the
-// ocean's. A fish only shows as a change in which way the streaks run, so
-// a keen eye spots it and a glance doesn't.
+// are camouflaged. Nothing is filled or outlined, and the speed colors
+// under a fish are the ocean's. Inside a fish the streaks run along the
+// fish's own lines from the logo instead: nose to tail along the body,
+// around the gill arc, along the stripe and through the fins, and round a
+// tiny whirlpool at the eye. Near the outline the fish's streaks fade into
+// the ocean's. A fish only shows as a change in which way the streaks run,
+// so a keen eye spots it and a glance doesn't. FISH_VISIBILITY sets how
+// easy it is, from hidden to obvious.
 //
 // The page only ever calls this:
 //   const stop = startCurrents(canvas, { textBox });
@@ -39,6 +40,10 @@
 //   fishVisibility  a number from 0 to 1 that takes the place of
 //                   FISH_VISIBILITY (for tests and side by side looks)
 //   seed            whole number that picks the currents (1)
+//   time            seconds of motion to start from (0), so a test can
+//                   look at the fish somewhere along their swim
+//   still           true draws one still frame at that time and stops,
+//                   like reduced motion does at time 0 (for tests)
 //   onFrame         called after every drawn frame with { frame, ms,
 //                   particles, width, height, dpr, still, cut, fish } (for
 //                   tests). ms is the time the frame's work took, cut is
@@ -46,7 +51,9 @@
 //                   fish lists each fish's box in CSS px.
 //
 // Also exported for tests: buildFishField(d), which turns the tuna's path
-// data into the fish's flow field at once (the page builds it in slices).
+// data into the fish's anatomy field at once (the page builds it in
+// slices), and traceFishLines(field, w, margin, gap), which traces one
+// fish's flow lines through it.
 //
 // How the water works
 //   The flow comes from a stream function psi on a grid. The water moves
@@ -62,9 +69,9 @@
 //   the streaks read a blend of the two grids around the current time.
 //
 // How the fish work
-//   Each fish is a patch of the flow that travels across the screen. Its
-//   "anatomy field" is worked out once from the logo's path, in the fish's
-//   own units, and mirrored so the fish faces right (see fishFieldSteps):
+//   Each fish is a patch that travels across the screen. Its "anatomy
+//   field" is worked out once from the logo's path, in the fish's own
+//   units, and mirrored so the fish faces right (see fishFieldSteps):
 //     1. The path is filled into a mask and the holes are closed, which
 //        gives the solid outline. Its distance to the edge gives a weight
 //        that is 0 just outside the fish and 1 a little way in, so the edge
@@ -75,18 +82,23 @@
 //     3. Those directions are spread over the whole fish by averaging each
 //        cell with its neighbors many times, with a gentle pull toward the
 //        plain nose to tail direction where no line is near.
-//   Both fish share that one field (it is the same at every size). Each
-//   fish also carries a small grid over its patch (see aimCopy). Every
-//   frame, at each node, the ocean's velocity is turned toward the fish's
-//   line by the weight times FISH_VISIBILITY. It goes along the line
-//   whichever way the ocean already pushes it, and keeps the ocean's speed.
-//   The streaks read that grid inside the patch, and the eye adds a tiny
-//   whirlpool where streaks circle.
-//   Because the speed never changes, the speed colors don't change at all,
-//   so the fish has no dark shape and no bright edge. Turning water without
-//   changing its speed does squeeze streaks together in places, which
-//   would draw bright seams, so each streak tracks how squeezed it is and
-//   is drawn that much fainter (see DENSITY_MIN).
+//   Both fish share that one field (it is the same at every size). For
+//   each fish size, flow lines are traced through it about a streak gap
+//   apart, all running nose to tail (or downward where they cross the
+//   fish, as on the gill arc), plus a few arms that wind in to the eye
+//   (see traceFishLines).
+//   The ocean is never changed. Instead each fish has its own streaks,
+//   which run along its lines and never leave it (see stepFish). Where a
+//   fish is, the ocean's streaks are drawn fainter by the fish's pull and
+//   the fish's streaks brighter by the same amount (see coverAt), so the
+//   light stays the same and the edge fades softly. The fish's streaks take
+//   their speed and opacity from the ocean right where they are, so they
+//   match the water around them. Since they never meet the ocean's water,
+//   nothing piles up into seams, and all the streaks inside a fish run the
+//   same way.
+//   FISH_VISIBILITY first swaps the ocean's streaks for the fish's, then,
+//   higher up, gathers them onto the lines and adds the other boosts (see
+//   FISH_SWAP_GAIN).
 //
 // Keeping the title readable
 //   A soft dark patch (CENTER_DIM) sits behind the title and buttons. The
@@ -106,7 +118,9 @@
 //   draws one still frame with the fish at their starting places and stops
 //   (it follows that setting live). The fish field is made once, in short
 //   slices of work spread over several tasks, so the page keeps answering
-//   clicks and keys while it is built.
+//   clicks and keys while it is built. The fish's lines are traced when the
+//   window changes size (10 to 15 ms a fish), and moving the fish's
+//   streaks costs about as much as a few hundred more ocean streaks.
 //
 // Used by: the landing's hero (js/views/launcher.js starts it). No imports.
 
@@ -130,9 +144,11 @@ const SPEED_RAMP = ['#07060D', '#1E0B3A', '#5A0F6B', '#A3215A', '#E0552B', '#F9A
 // How much darker the water gets right behind the title, from 0 (not at
 // all) to 1 (black). It fades out softly toward the edges.
 const CENTER_DIM = 0.35;
-// How much the fish show, from 0 (hidden, the water ignores them) to 1
-// (obvious, the streaks inside follow the fish's lines completely).
-const FISH_VISIBILITY = 0.7;
+// How much the fish show, from 0 (hidden, there are no fish at all) to 1
+// (obvious, two tuna drawn in flowing lines). At 0.6 someone who knows to
+// look finds both after a few seconds, and a glance doesn't. Phones add
+// PHONE_FISH_VISIBILITY. See FISH_SWAP_GAIN for what changes along the way.
+const FISH_VISIBILITY = 0.6;
 // How fast the big fish swims, in window widths a second. 1 / 48 crosses
 // the window in 48 seconds. The small one swims a little slower
 // (SMALL_FISH_DRIFT).
@@ -142,6 +158,10 @@ const DRIFT_SPEED = 1 / 48;
 // The fish
 // ------------------------------------------------------------------
 
+// Phones add this to FISH_VISIBILITY (up to 1, and not when it is 0). Their
+// fish are smaller and have fewer streaks, so they need a little more to
+// be found as easily.
+const PHONE_FISH_VISIBILITY = 0.1;
 // Sizes as shares of the window's width. Phones (windows narrower than
 // PHONE_WIDTH) get their own, bigger shares, since the window is narrow.
 const BIG_FISH_WIDTH = 0.34;
@@ -178,24 +198,57 @@ const TUNA_EYE = { x: 266, y: 247, r: 30 };
 const DEFAULT_FISH_SRC = new URL('../../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg', import.meta.url).href;
 const FISH_WAIT_MS = 1500;   // start without the fish if they take longer than this to load
 
-// The water each fish carries along, see aimCopy().
+// The fish's own streaks and flow lines, see traceFishLines() and stepFish().
 const FISH_MARGIN = 0.06;         // a fish's patch reaches this share of its width past the tuna on every side
-const FISH_GRID_COLS = 80;        // grid nodes across a fish's patch
+const FISH_GRID_COLS = 80;        // nodes across a fish's patch in its weight grid (how strongly it hides the ocean's streaks)
 const PHONE_FISH_GRID_COLS = 56;  // the same on phones
-const CROSS_EASE = 0.12;          // where the ocean runs nearly across a fish's line (the cosine of the angle between them is under this), the line lets go
-const EDGE_EASE = 0.12;           // the fish's water eases in over this share of the patch's height from its border
-const EYE_REACH = 1.6;            // the eye's whirlpool fades out by this many eye radii from its center
-const EYE_STRENGTH = 0.9;         // how much the whirlpool takes over inside the eye, at FISH_VISIBILITY 1
-// Turning the water without changing its speed squeezes streaks together
-// in some places and spreads them out in others, which would show the fish
-// as bright seams and thin patches. So every streak keeps a density, how
-// squeezed the water around it is (1 at birth), from the fish's divergence
-// along its way, and is drawn at its opacity divided by that density. Ten
-// streaks squeezed into one streak's room are each drawn a tenth as
-// bright, and the seam looks like the water around it. The density stays
-// between these limits.
-const DENSITY_MIN = 0.4;
-const DENSITY_MAX = 14;
+const FLOW_GAP = 0.8;             // the fish's flow lines sit this share of the ocean's typical streak spacing apart
+const FLOW_STEP = 1;              // CSS px between the points along a flow line
+const FLOW_SEED_WEIGHT = 0.3;     // a flow line only starts where the fish's weight is at least this
+const FLOW_END_WEIGHT = 0.02;     // and ends where the weight drops below this
+const FLOW_MIN_GAPS = 2;          // flow lines shorter than this many gaps are dropped
+const FLOW_MAX_WIDTHS = 2.5;      // and none is longer than this many fish widths
+const EYE_REACH = 1.6;            // the eye's whirlpool reaches this many eye radii from its center
+const EYE_TURNS = 1.25;           // how many times round each arm of the whirlpool winds on its way in
+const FISH_RESTART_FADE = 1.5;    // a fish streak that starts its line again fades in over this many gaps
+const FISH_SPEED_MEMORY = 0.5;    // seconds a fish streak's running average speed looks back, see stepFish
+const BUNCH_MIN = 0.35;           // and the most its opacity is turned down
+const BUNCH_MAX = 2.5;            // or up by it
+// How FISH_VISIBILITY works. Two things happen as it goes up.
+//   1. Inside a fish, more and more of the streaks are the fish's own,
+//      which run along its flow lines, and fewer are the ocean's. They
+//      swap evenly, so the amount of light stays the same. All of them are
+//      the fish's by FISH_VISIBILITY = 1 / FISH_SWAP_GAIN (0.4).
+//   2. From FISH_BOOST_FROM up to 1, the fish's streaks also get easier to
+//      see: they gather onto the flow lines, keep a little speed in calm
+//      water, and close to 1 the soft edge gets sharper and there are more
+//      of them. These are "boosts", 0 at FISH_BOOST_FROM and their full
+//      size at 1. The last two grow with the boost squared, so they stay
+//      tiny at the default and the fish never shows as a brighter patch
+//      there.
+const FISH_SWAP_GAIN = 2.5;
+const FISH_BOOST_FROM = 0.3;
+// Boost: how much the fish's streaks gather onto its flow lines (0 not at
+// all, 1 exactly onto them). On the lines they draw the fish like the
+// logo's own linework.
+const FISH_LINE_GATHER = 0.85;
+// Boost (squared): extra fish streaks, as a share of the ocean's count in
+// the same area. More streaks on the lines make them run unbroken.
+const FISH_EXTRA_STREAKS = 0.6;
+// Boost (squared): how much sharper the fish's soft edge gets. The weight is
+// multiplied by 1 + this and capped at 1, so the thin fins and the tail
+// reach full strength and the outline reads.
+const FISH_EDGE_SHARPEN = 1.5;
+// Boost: the fish's streaks never run slower than this (CSS px a second,
+// at 1920 by 1080). In calm water this gives them enough length to draw
+// the fish. They are drawn a little fainter when it speeds them up (see
+// fishShade), so they come out longer but not much brighter. Below
+// FISH_BOOST_FROM the streaks inside keep the ocean's own speed.
+const FISH_SPEED_FLOOR = 170;
+// Boost (squared): how much of that dimming is let go by FISH_VISIBILITY 1,
+// where the fish may be a little brighter than the water so they are plain
+// to see in calm water too.
+const FISH_SHADE_EASE = 0.7;
 
 // ------------------------------------------------------------------
 // The flow, sized for a 1920 by 1080 window. Sizes are CSS px and speeds
@@ -303,6 +356,31 @@ export function startCurrents(canvas, options = {}) {
   const fishVis = clamp(numberOr(options.fishVisibility, FISH_VISIBILITY), 0, 1);
   const seed = Math.floor(numberOr(options.seed, 1)) >>> 0;
   const onFrame = typeof options.onFrame === 'function' ? options.onFrame : null;
+  const startT = Math.max(0, numberOr(options.time, 0));
+  const forceStill = options.still === true;
+  // The two parts of FISH_VISIBILITY (see FISH_SWAP_GAIN): fishSwap is the
+  // share of the streaks deep inside a fish that are the fish's own, and
+  // fishBoost runs from 0 to 1 for the boosts. Phones add
+  // PHONE_FISH_VISIBILITY, so these are set again by setFishLook() when
+  // the window changes size.
+  let fishSwap = 0;
+  let fishBoost = 0;
+  let fishSpread = 1;   // how far to the side of its line a fish streak may sit, in gaps
+  let fishFloor = 0;    // the fish's floor speed, times unit when used
+  let edgeGain = 1;
+  let shadePow = 0.5;   // see fishShade
+  function setFishLook(onPhone) {
+    const v = fishVis > 0 ? Math.min(1, fishVis + (onPhone ? PHONE_FISH_VISIBILITY : 0)) : 0;
+    fishSwap = Math.min(1, v * FISH_SWAP_GAIN);
+    fishBoost = clamp((v - FISH_BOOST_FROM) / (1 - FISH_BOOST_FROM), 0, 1);
+    fishSpread = 1 - FISH_LINE_GATHER * fishBoost;
+    fishFloor = FISH_SPEED_FLOOR * fishBoost;
+    edgeGain = 1 + FISH_EDGE_SHARPEN * fishBoost * fishBoost;
+    shadePow = 0.5 * (1 - FISH_SHADE_EASE * fishBoost * fishBoost);
+  }
+  // The anatomy weight (0 outside a fish, 1 well inside) turned into the
+  // fish's pull: the share of the streaks there that are the fish's own.
+  const pullOf = (weight) => Math.min(1, weight * edgeGain) * fishSwap;
 
   const noise = makeSimplex3(seed);
   const random = mulberry32(seed ^ 0x9e3779b9);
@@ -366,7 +444,7 @@ export function startCurrents(canvas, options = {}) {
 
   // The fish
   let field = null;        // the anatomy field, see fishFieldSteps()
-  let fishState = 'loading';   // 'loading', 'ready' or 'failed'
+  let fishState = 'loading';   // 'loading', 'ready', 'failed' or 'off' (FISH_VISIBILITY 0)
   let fishes = [];         // the two fish on screen, see placeFish()
 
   // Streaks
@@ -376,7 +454,6 @@ export function startCurrents(canvas, options = {}) {
   let py = new Float32Array(0);
   let age = new Float32Array(0);
   let life = new Float32Array(0);
-  let dens = new Float32Array(0);   // each streak's density, see DENSITY_MIN
   const segs = [];
   const segCount = new Int32Array(ALPHA_LEVELS);
   const levelStyles = [];
@@ -391,12 +468,9 @@ export function startCurrents(canvas, options = {}) {
   let blurTmp = new Uint8ClampedArray(0);
   let overlayWait = 0;
 
-  // The velocity sample written by sampleOcean() and sampleFlow(), and
-  // from sampleFlow() the ocean's own speed there and the fish's squeeze.
+  // The velocity sample written by sampleOcean().
   let su = 0;
   let sv = 0;
-  let oceanSpeed = 0;
-  let squeeze = 0;
 
   // Loop
   let stopped = false;
@@ -406,7 +480,7 @@ export function startCurrents(canvas, options = {}) {
   let onScreen = true;     // until the first IntersectionObserver report says otherwise
   let raf = 0;
   let lastTick = 0;
-  let animT = 0;           // seconds of motion so far (still while paused)
+  let animT = startT;      // seconds of motion so far (still while paused)
   let frameNo = 0;
   let cleanWait = 0;
   let drewOnce = false;
@@ -475,6 +549,7 @@ export function startCurrents(canvas, options = {}) {
       dpr = newDpr;
       unit = unitFor(w, h);
       phone = isPhone(w);
+      setFishLook(phone);
       canvas.width = Math.max(1, Math.round(w * dpr));
       canvas.height = Math.max(1, Math.round(h * dpr));
       paintBlank();
@@ -487,7 +562,7 @@ export function startCurrents(canvas, options = {}) {
     }
     placeDim();
     placeFish();
-    moveFish(reduced ? 0 : animT);
+    moveFish(reduced ? startT : animT);
     blendFlow(animT);
     return true;
   }
@@ -733,7 +808,8 @@ export function startCurrents(canvas, options = {}) {
     }
   }
 
-  // Writes the ocean's velocity at (x, y) to su, sv (the fish left out).
+  // Writes the ocean's velocity at (x, y) to su, sv. The fish never change
+  // it: they only change which streaks are drawn there (see coverAt).
   function sampleOcean(x, y) {
     let gx = x * invCell + GRID_MARGIN;
     let gy = y * invCell + GRID_MARGIN;
@@ -752,81 +828,30 @@ export function startCurrents(canvas, options = {}) {
     sv = curV[k] * w00 + curV[k + 1] * w10 + curV[k + gw] * w01 + curV[k + gw + 1] * w11;
   }
 
-  // Writes the water's velocity at (x, y) to su, sv, fish included. Also
-  // writes the ocean's own speed there (the fish left out) to oceanSpeed,
-  // which streaks take their opacity from, and how fast the fish squeezes
-  // streaks together there to squeeze (see FISH_DENSITY). Returns true when
-  // the point is in a fish's patch (so the caller can take a more careful
-  // step there).
-  function sampleFlow(x, y) {
-    sampleOcean(x, y);
-    oceanSpeed = Math.sqrt(su * su + sv * sv);
-    squeeze = 0;
-    if (fishVis === 0) return false;
-    let near = false;
+  // How much the fish hide the ocean's streaks at (x, y): the biggest pull
+  // of any fish copy there (see pullOf), from 0 in open water up to 1 deep
+  // inside a fish once FISH_VISIBILITY reaches 0.4. The ocean's streaks are
+  // drawn that much fainter there, and the fish's own streaks that much
+  // brighter (see stepFish), so the two add up to the same amount of light.
+  function coverAt(x, y) {
+    let cover = 0;
     for (let q = 0; q < fishes.length; q++) {
-      const cs = fishes[q].copies;
+      const f = fishes[q];
+      const ly = y - f.top;
+      if (ly < 0 || ly >= f.spanH) continue;
+      const cs = f.copies;
       for (let c = 0; c < 3; c++) {
-        if (cs[c].active && fishFlowAt(fishes[q], cs[c], x, y)) near = true;
+        if (!cs[c].active) continue;
+        const lx = x - cs[c].left;
+        if (lx < 0 || lx >= f.spanW) continue;
+        const p = pullAt(f.grid, lx, ly);
+        if (p > cover) cover = p;
       }
     }
-    return near;
+    return cover;
   }
 
   // ---------- The fish ----------
-
-  // Where (x, y) is in this copy of fish f's patch: replaces su, sv with the
-  // copy's water (eased in from the patch's border), turns it around the
-  // eye, adds the copy's squeeze there, and returns true.
-  function fishFlowAt(f, copy, x, y) {
-    const lx = x - copy.left;
-    const ly = y - f.top;
-    if (lx < 0 || ly < 0 || lx >= f.spanW || ly >= f.spanH) return false;
-    const g = f.grid;
-    const gx = lx * g.inv;
-    const gy = ly * g.inv;
-    const i = Math.min(g.cols - 2, gx | 0);
-    const j = Math.min(g.rows - 2, gy | 0);
-    const fx = gx - i;
-    const fy = gy - j;
-    const k = j * g.cols + i;
-    const c = g.cols;
-    const w00 = (1 - fx) * (1 - fy);
-    const w10 = fx * (1 - fy);
-    const w01 = (1 - fx) * fy;
-    const w11 = fx * fy;
-    const u = copy.u;
-    const v = copy.v;
-    const dv = copy.div;
-    // The ease from the patch's border: 0 at the border, 1 by EDGE_EASE of
-    // the patch's height in from it.
-    const edge = Math.min(lx, f.spanW - lx, ly, f.spanH - ly) / (f.spanH * EDGE_EASE);
-    const e = edge >= 1 ? 1 : edge * edge * (3 - 2 * edge);
-    let nu = su + e * (u[k] * w00 + u[k + 1] * w10 + u[k + c] * w01 + u[k + c + 1] * w11 - su);
-    let nv = sv + e * (v[k] * w00 + v[k + 1] * w10 + v[k + c] * w01 + v[k + c + 1] * w11 - sv);
-    squeeze += e * (dv[k] * w00 + dv[k + 1] * w10 + dv[k + c] * w01 + dv[k + c + 1] * w11);
-    // The eye's whirlpool: inside the eye the water turns around its
-    // center (always the same way round), fading out by EYE_REACH radii.
-    const eye = g.eye;
-    const ex = lx - eye.x;
-    const ey = ly - eye.y;
-    const r2 = ex * ex + ey * ey;
-    if (r2 < eye.reach2 && r2 > 1e-6) {
-      const r = Math.sqrt(r2);
-      const s = Math.sqrt(nu * nu + nv * nv);
-      const t = (1 - smoothstep(eye.r, eye.reach, r)) * EYE_STRENGTH * fishVis;
-      const bx = (1 - t) * nu - (t * s * ey) / r;
-      const by = (1 - t) * nv + (t * s * ex) / r;
-      const n = Math.sqrt(bx * bx + by * by);
-      if (n > 1e-6) {
-        nu = (bx / n) * s;
-        nv = (by / n) * s;
-      }
-    }
-    su = nu;
-    sv = nv;
-    return true;
-  }
 
   // Sizes the two fish and picks their heights. The big one swims in the
   // space between the nav and the title, the small one in the space between
@@ -874,25 +899,32 @@ export function startCurrents(canvas, options = {}) {
       x: startX, y,      // the tuna's box now, CSS px
       top: 0,            // the patch's top now, CSS px
       grid: null,        // see buildFishGrid()
-      // The patch, drawn up to three times: one window width to the left,
-      // where it is, and one window width to the right. Only the copies that
-      // overlap the window are worked out (two at most, while the fish
-      // crosses an edge). Each has its own water, see aimCopy().
-      copies: [-1, 0, 1].map((place) => ({ side: place, active: false, left: 0, u: null, v: null, div: null })),
+      lines: null,       // see traceFishLines()
+      streaks: null,     // see sizeFishStreaks()
+      // The patch, up to three times: one window width to the left, where
+      // it is, and one window width to the right. Only the copies that
+      // overlap the window are marked active (two at most, while the fish
+      // crosses an edge), and only they hide the ocean's streaks.
+      copies: [-1, 0, 1].map((place) => ({ side: place, active: false, left: 0 })),
     };
     f.grid = buildFishGrid(f);
-    for (const copy of f.copies) {
-      copy.u = new Float32Array(f.grid.n);
-      copy.v = new Float32Array(f.grid.n);
-      copy.div = new Float32Array(f.grid.n);
-    }
+    // The gap between the fish's flow lines comes from how far apart the
+    // ocean's streaks are on average, so the fish's streaks are as dense
+    // as the water around them.
+    const gap = clamp(FLOW_GAP / Math.sqrt(count / (cssW * cssH)), 4, 16);
+    f.lines = traceFishLines(field, w, margin, gap, seed);
+    // The lines carry the anatomy weight at every point. The streaks want
+    // the pull, the same number coverAt() reads, so the two add up.
+    const pts = f.lines.pts;
+    for (let o = 4; o < pts.length; o += 5) pts[o] = pullOf(pts[o]);
+    sizeFishStreaks(f);
     return f;
   }
 
   // The grid a fish carries over its patch, about FISH_GRID_COLS nodes
-  // across, with the fish's line at every node (lineX, lineY) and how
-  // strongly the water follows it there (pull: the anatomy weight times
-  // FISH_VISIBILITY). Built once per fish size.
+  // across, with how strongly the fish hides the ocean's streaks at every
+  // node (the pull, see pullOf). Built once per
+  // fish size.
   function buildFishGrid(f) {
     const cols = phone ? PHONE_FISH_GRID_COLS : FISH_GRID_COLS;
     const h = f.spanW / (cols - 1);   // CSS px between nodes
@@ -902,30 +934,30 @@ export function startCurrents(canvas, options = {}) {
     const scale = f.w / TUNA_BOX.w;   // CSS px per logo unit
     const cellsPerPx = 1 / (FIELD_UNIT * scale);
     const fieldPad = FIELD_PAD * FIELD_UNIT * scale;   // the field's own border, CSS px
-    const lineX = new Float32Array(n);
-    const lineY = new Float32Array(n);
     const pull = new Float32Array(n);
     for (let j = 0; j < rows; j++) {
       for (let i = 0; i < cols; i++) {
         const gx = Math.round((i * h - f.margin + fieldPad) * cellsPerPx - 0.5);
         const gy = Math.round((j * h - f.margin + fieldPad) * cellsPerPx - 0.5);
         if (gx < 0 || gy < 0 || gx >= F.cols || gy >= F.rows) continue;
-        const a = gy * F.cols + gx;
-        const k = j * cols + i;
-        lineX[k] = F.dirX[a];
-        lineY[k] = F.dirY[a];
-        pull[k] = F.weight[a] * fishVis;
+        pull[j * cols + i] = pullOf(F.weight[gy * F.cols + gx]);
       }
     }
-    // The eye, in CSS px from the patch's corner.
-    const unitPx = FIELD_UNIT * scale;
-    const r = F.eye.r * unitPx;
-    const eye = {
-      x: (F.eye.x + 0.5) * unitPx - fieldPad + f.margin,
-      y: (F.eye.y + 0.5) * unitPx - fieldPad + f.margin,
-      r, reach: r * EYE_REACH, reach2: (r * EYE_REACH) ** 2,
-    };
-    return { cols, rows, n, h, inv: 1 / h, lineX, lineY, pull, eye };
+    return { cols, rows, h, inv: 1 / h, pull };
+  }
+
+  // The pull at (lx, ly) in CSS px from a fish patch's corner, read
+  // smoothly between the grid's nodes.
+  function pullAt(g, lx, ly) {
+    const gx = lx * g.inv;
+    const gy = ly * g.inv;
+    const i = Math.min(g.cols - 2, gx | 0);
+    const j = Math.min(g.rows - 2, gy | 0);
+    const fx = gx - i;
+    const fy = gy - j;
+    const k = j * g.cols + i;
+    const p = g.pull;
+    return (p[k] * (1 - fx) + p[k + 1] * fx) * (1 - fy) + (p[k + g.cols] * (1 - fx) + p[k + g.cols + 1] * fx) * fy;
   }
 
   // Moves the fish to where they are at time t: to the right at their
@@ -946,67 +978,222 @@ export function startCurrents(canvas, options = {}) {
     }
   }
 
-  // Works out the water in every active copy of every fish.
-  function aimFish() {
-    if (fishVis === 0) return;
-    for (let q = 0; q < fishes.length; q++) {
-      const f = fishes[q];
-      for (let c = 0; c < 3; c++) {
-        if (f.copies[c].active) aimCopy(f, f.copies[c]);
+  // ---------- The fish's streaks ----------
+  // Each fish has its own streaks, which never leave it. A fish streak sits
+  // on one of the fish's flow lines (or a little to one side of it, by up
+  // to half a gap, so the streaks fill the space between the lines) and
+  // runs along it from nose to tail. One that reaches the end of its line
+  // starts again at the line's beginning, so no part of the fish runs out
+  // of streaks. They are kept in the fish's own CSS px, from the corner of
+  // its patch, and drawn wherever the fish is on screen.
+
+  // Gives fish f as many streaks as the ocean has in the same area, so its
+  // streaks are as dense as the water around it. Called again when the
+  // slow start check cuts the ocean's streaks.
+  function sizeFishStreaks(f) {
+    const L = f.lines;
+    const extra = 1 + FISH_EXTRA_STREAKS * fishBoost * fishBoost;
+    const n = fishVis > 0 && L.count > 0 ? Math.round((count / (cssW * cssH)) * L.total * L.gap * extra) : 0;
+    const old = f.streaks;
+    if (old && old.n === n) return;
+    const S = {
+      n,
+      line: new Int32Array(n),     // which flow line
+      pos: new Float32Array(n),    // how far along it, in points
+      off: new Float32Array(n),    // how far to one side of it, CSS px
+      age: new Float32Array(n),
+      life: new Float32Array(n),
+      run: new Float32Array(n),    // CSS px since it last started again at its line's beginning
+      vavg: new Float32Array(n),   // its running average speed, see stepFish
+    };
+    f.streaks = S;
+    for (let i = 0; i < n; i++) {
+      if (old && i < old.n) {
+        S.line[i] = old.line[i];
+        S.pos[i] = old.pos[i];
+        S.off[i] = old.off[i];
+        S.age[i] = old.age[i];
+        S.life[i] = old.life[i];
+        S.run[i] = old.run[i];
+        S.vavg[i] = old.vavg[i];
+      } else {
+        respawnFishStreak(f, i, true);
       }
     }
   }
 
-  // The water in one copy of a fish, at every node of its grid: the ocean's
-  // velocity there turned toward the fish's line by the node's pull, at the
-  // ocean's speed. A line has no forward, so the water goes along it
-  // whichever way the ocean already pushes it. It keeps moving forward with
-  // the ocean and never meets other water head on. Where the ocean runs
-  // nearly across the line (CROSS_EASE), the line lets go. Then div, how
-  // fast that water spreads out (positive) or squeezes together (negative)
-  // at each node, for FISH_DENSITY.
-  function aimCopy(f, copy) {
-    const g = f.grid;
-    const { cols, rows, h, lineX, lineY, pull } = g;
-    const u = copy.u;
-    const v = copy.v;
-    for (let j = 0; j < rows; j++) {
-      const y = f.top + j * h;
-      for (let i = 0; i < cols; i++) {
-        const k = j * cols + i;
-        sampleOcean(copy.left + i * h, y);
-        const p = pull[k];
-        const s = Math.sqrt(su * su + sv * sv);
-        if (p <= 0.002 || s < 1e-6) {
-          u[k] = su;
-          v[k] = sv;
+  // A new streak somewhere in fish f: on a line picked by length (so long
+  // lines get more), anywhere along it. "anyAge" as in respawn().
+  function respawnFishStreak(f, i, anyAge) {
+    const L = f.lines;
+    const S = f.streaks;
+    const want = random() * L.total;
+    let lo = 0;
+    let hi = L.count - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (L.cum[mid] < want) lo = mid + 1;
+      else hi = mid;
+    }
+    S.line[i] = lo;
+    S.pos[i] = random() * (L.lens[lo] - 1);
+    S.off[i] = (random() - 0.5) * L.gap * (lo >= L.eyeFrom ? 0.25 : fishSpread);
+    S.life[i] = LIFE_MIN + random() * (LIFE_MAX - LIFE_MIN);
+    S.age[i] = anyAge ? random() * S.life[i] : 0;
+    S.run[i] = Infinity;
+    S.vavg[i] = 0;   // set by its first step
+  }
+
+  // Where a fish streak is: line, how far along it (pos, in points, at most
+  // the line's length less one) and its side offset (off, CSS px). Writes
+  // the point (CSS px from the patch's corner) to lpX, lpY and the fish's
+  // pull there (see pullOf) to lpW.
+  let lpX = 0;
+  let lpY = 0;
+  let lpW = 0;
+  function linePoint(L, line, pos, off) {
+    const q = pos | 0;
+    const t = pos - q;
+    const a = (L.starts[line] + q) * 5;
+    const b = a + 5;
+    const p = L.pts;
+    const nx = p[a + 2] + t * (p[b + 2] - p[a + 2]);
+    const ny = p[a + 3] + t * (p[b + 3] - p[a + 3]);
+    lpX = p[a] + t * (p[b] - p[a]) + off * nx;
+    lpY = p[a + 1] + t * (p[b + 1] - p[a + 1]) + off * ny;
+    lpW = p[a + 4] + t * (p[b + 4] - p[a + 4]);
+  }
+
+  // How far a fish streak at (x, y) on screen moves in a step of k seconds
+  // (times SPEED), in points along its line: the ocean's speed there, or
+  // the fish's floor speed if that is faster. Also leaves the ocean's own
+  // speed in fishOcean, which sets the streak's opacity like any other, the
+  // speed it really moves at in fishSpeed, and in fishShade how much
+  // fainter it is drawn when the floor speeds it up (a longer streak at
+  // the same opacity would be a brighter one).
+  let fishOcean = 0;
+  let fishSpeed = 0;
+  let fishShade = 1;
+  function fishStep(x, y, k, floor) {
+    sampleOcean(x, y);
+    fishOcean = Math.sqrt(su * su + sv * sv);
+    if (fishOcean >= floor) {
+      fishSpeed = fishOcean;
+      fishShade = 1;
+    } else {
+      fishSpeed = floor;
+      fishShade = Math.pow(Math.max(fishOcean, floor * 0.1) / floor, shadePow);
+    }
+    return (fishSpeed * k) / FLOW_STEP;
+  }
+
+  // The left edge on screen of the copy of fish f that shows the point lx
+  // (CSS px from the patch's corner). The fish's own place is in the window
+  // (its x wraps into it), so only a point past the right edge shows on the
+  // copy one window width to the left.
+  function screenLeft(f, lx) {
+    const left = f.x - f.margin;
+    return left + lx > cssW ? left - cssW : left;
+  }
+
+  // Moves every fish streak one step and queues the piece it just drew.
+  // It is drawn as bright as an ocean streak would be there (from the
+  // ocean's speed), times the fish's pull there, which is exactly what the
+  // ocean's streaks lost in coverAt().
+  // One more thing evens out the light. A fish's line doesn't follow the
+  // ocean, so a streak on it races through a jet and dawdles in calm water,
+  // and streaks thin out in the jet and bunch up after it (an ocean streak
+  // stays in its jet, so the jet stays full). Each streak keeps a running
+  // average of its own speed (vavg), and is drawn brighter when it moves
+  // faster than that and fainter when slower, by the ratio of the two.
+  function stepFish(dt) {
+    if (fishVis === 0) return;
+    const k = dt * SPEED;
+    const invHot = 1 / (HOT_SPEED * unit);
+    const floor = fishFloor * unit;
+    for (let q = 0; q < fishes.length; q++) {
+      const f = fishes[q];
+      const L = f.lines;
+      const S = f.streaks;
+      for (let i = 0; i < S.n; i++) {
+        const a = S.age[i] + dt;
+        if (a > S.life[i]) {
+          respawnFishStreak(f, i, false);
           continue;
         }
-        const ox = su / s;
-        const oy = sv / s;
-        let lx = lineX[k];
-        let ly = lineY[k];
-        let along = ox * lx + oy * ly;
-        if (along < 0) {
-          lx = -lx;
-          ly = -ly;
-          along = -along;
+        S.age[i] = a;
+        const line = S.line[i];
+        const last = L.lens[line] - 1;
+        linePoint(L, line, S.pos[i], S.off[i]);
+        const x0 = lpX;
+        const y0 = lpY;
+        const left = screenLeft(f, x0);
+        const step = fishStep(x0 + left, y0 + f.top, k, floor);
+        let pos = S.pos[i] + step;
+        if (pos >= last) {
+          // The end of the line: start again at its beginning. It fades in
+          // over the first FISH_RESTART_FADE gaps of the line (by distance,
+          // not time, so in a fast jet it isn't faint half its life).
+          pos -= last;
+          if (pos >= last) pos = 0;
+          S.pos[i] = pos;
+          S.run[i] = 0;
+          continue;
         }
-        const share = p * (along >= CROSS_EASE ? 1 : along / CROSS_EASE);
-        const bx = (1 - share) * ox + share * lx;
-        const by = (1 - share) * oy + share * ly;
-        const n = Math.sqrt(bx * bx + by * by) || 1;
-        u[k] = (bx / n) * s;
-        v[k] = (by / n) * s;
+        S.pos[i] = pos;
+        const run = S.run[i] + step * FLOW_STEP;
+        S.run[i] = run;
+        linePoint(L, line, pos, S.off[i]);
+        const sx = x0 + left;
+        const sy = y0 + f.top;
+        const restart = run / (FISH_RESTART_FADE * L.gap);
+        let vavg = S.vavg[i];
+        vavg = vavg > 0 ? vavg + (fishSpeed - vavg) * Math.min(1, dt / FISH_SPEED_MEMORY) : fishSpeed;
+        S.vavg[i] = vavg;
+        const bunch = clamp(fishSpeed / Math.max(vavg, 1e-3), BUNCH_MIN, BUNCH_MAX);
+        let factor = (a < BIRTH_S ? a / BIRTH_S : 1) * (restart < 1 ? restart : 1) * lpW * bunch * fishShade;
+        if (sy < topClear || sy > bottomClear) factor *= bandKeep(sy, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+        pushSegment(levelFor(fishOcean * invHot, factor), sx, sy, lpX + left, lpY + f.top);
       }
     }
-    const div = copy.div;
-    div.fill(0);
-    const inv2h = 1 / (2 * h);
-    for (let j = 1; j < rows - 1; j++) {
-      for (let i = 1; i < cols - 1; i++) {
-        const k = j * cols + i;
-        div[k] = (u[k + 1] - u[k - 1] + v[k + cols] - v[k - cols]) * inv2h;
+  }
+
+  // The fish streaks for the still frame: each traced forward STILL_STEPS
+  // steps, fading toward its tail, like drawStill() does for the ocean.
+  function stillFish(k, invHot, fadePerStep) {
+    if (fishVis === 0) return;
+    const floor = fishFloor * unit;
+    for (let q = 0; q < fishes.length; q++) {
+      const f = fishes[q];
+      const L = f.lines;
+      const S = f.streaks;
+      for (let i = 0; i < S.n; i++) {
+        const line = S.line[i];
+        const last = L.lens[line] - 1;
+        let pos = S.pos[i];
+        linePoint(L, line, pos, S.off[i]);
+        let x = lpX;
+        let y = lpY;
+        const left = screenLeft(f, x);
+        for (let s = 0; s < STILL_STEPS; s++) {
+          pos += fishStep(x + left, y + f.top, k, floor);
+          if (pos >= last) {
+            // Past the line's end: carry on from its beginning, as a live
+            // streak would, with no piece drawn across the jump.
+            pos = Math.min(pos - last, last - 1e-3);
+            linePoint(L, line, pos, S.off[i]);
+            x = lpX;
+            y = lpY;
+            continue;
+          }
+          linePoint(L, line, pos, S.off[i]);
+          const sy = y + f.top;
+          let fade = Math.pow(fadePerStep, STILL_STEPS - 1 - s) * lpW * fishShade;
+          if (sy < topClear || sy > bottomClear) fade *= bandKeep(sy, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+          pushSegment(levelFor(fishOcean * invHot, fade), x + left, sy, lpX + left, lpY + f.top);
+          x = lpX;
+          y = lpY;
+        }
       }
     }
   }
@@ -1019,7 +1206,6 @@ export function startCurrents(canvas, options = {}) {
     py = new Float32Array(count);
     age = new Float32Array(count);
     life = new Float32Array(count);
-    dens = new Float32Array(count);
     // Room for every streak's piece in every batch. pushSegment() makes
     // more room if the still frame needs it.
     for (let l = 0; l < ALPHA_LEVELS; l++) segs[l] = new Float32Array(count * 4);
@@ -1033,23 +1219,14 @@ export function startCurrents(canvas, options = {}) {
     py[i] = random() * cssH;
     life[i] = LIFE_MIN + random() * (LIFE_MAX - LIFE_MIN);
     age[i] = anyAge ? random() * life[i] : 0;
-    dens[i] = 1;
   }
 
   // Streak opacity from its speed (0 to 1 of HOT_SPEED) and a factor for
-  // its fade-in, the dimmed bands and its density, as one of ALPHA_LEVELS
+  // its fade-in, the dimmed bands and the fish, as one of ALPHA_LEVELS
   // batches (-1 for none).
   function levelFor(s, factor) {
     const a = (STREAK_ALPHA_MIN + (STREAK_ALPHA_MAX - STREAK_ALPHA_MIN) * Math.sqrt(s > 1 ? 1 : s)) * factor;
     return Math.min(ALPHA_LEVELS - 1, Math.round((a / STREAK_ALPHA_MAX) * ALPHA_LEVELS) - 1);
-  }
-
-  // A streak's density after a step of k seconds (times SPEED) through
-  // water with the squeeze sampleFlow() just found, see DENSITY_MIN.
-  function densityAfter(d, k) {
-    if (squeeze === 0) return d;
-    const next = d * Math.exp(-squeeze * k);
-    return next < DENSITY_MIN ? DENSITY_MIN : next > DENSITY_MAX ? DENSITY_MAX : next;
   }
 
   function pushSegment(level, x0, y0, x1, y1) {
@@ -1069,13 +1246,14 @@ export function startCurrents(canvas, options = {}) {
     segCount[level] = c + 4;
   }
 
-  // Moves every streak one step (a midpoint step inside a fish, where the
-  // flow turns fast, so the eye's whirlpool stays round) and queues the
-  // piece it just drew. Its opacity comes from the ocean's speed, so a fish
-  // never changes it, divided by its density.
+  // Moves every ocean streak one step and queues the piece it just drew.
+  // Its opacity comes from the ocean's speed. Inside a fish it is drawn
+  // fainter by the fish's cover there, and the fish's own streaks make up
+  // the rest (see stepFish).
   function stepParticles(dt) {
     const k = dt * SPEED;
     const invHot = 1 / (HOT_SPEED * unit);
+    const hiding = fishVis > 0 && fishes.length > 0;
     segCount.fill(0);
     for (let i = 0; i < count; i++) {
       const a = age[i] + dt;
@@ -1086,7 +1264,7 @@ export function startCurrents(canvas, options = {}) {
       age[i] = a;
       const x = px[i];
       const y = py[i];
-      if (sampleFlow(x, y)) sampleFlow(x + su * k * 0.5, y + sv * k * 0.5);
+      sampleOcean(x, y);
       const nx = x + su * k;
       const ny = y + sv * k;
       if (nx < -10 || ny < -10 || nx > cssW + 10 || ny > cssH + 10) {
@@ -1095,11 +1273,10 @@ export function startCurrents(canvas, options = {}) {
       }
       px[i] = nx;
       py[i] = ny;
-      const d = densityAfter(dens[i], k);
-      dens[i] = d;
-      const s = oceanSpeed * invHot;
-      let factor = (a < BIRTH_S ? a / BIRTH_S : 1) / d;
+      const s = Math.sqrt(su * su + sv * sv) * invHot;
+      let factor = a < BIRTH_S ? a / BIRTH_S : 1;
       if (y < topClear || y > bottomClear) factor *= bandKeep(y, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+      if (hiding) factor *= 1 - coverAt(x, y);
       pushSegment(levelFor(s, factor), x, y, nx, ny);
     }
   }
@@ -1179,19 +1356,19 @@ export function startCurrents(canvas, options = {}) {
     const k = STILL_STEP_S * SPEED;
     const invHot = 1 / (HOT_SPEED * unit);
     const fadePerStep = Math.pow(1 - TRAIL_FADE, STILL_STEP_S * 60);
+    const hiding = fishVis > 0 && fishes.length > 0;
     segCount.fill(0);
     for (let i = 0; i < count; i++) {
       let x = px[i];
       let y = py[i];
-      let d = 1;
       for (let q = 0; q < STILL_STEPS; q++) {
-        if (sampleFlow(x, y)) sampleFlow(x + su * k * 0.5, y + sv * k * 0.5);
+        sampleOcean(x, y);
         const nx = x + su * k;
         const ny = y + sv * k;
-        d = densityAfter(d, k);
-        const s = oceanSpeed * invHot;
-        let fade = Math.pow(fadePerStep, STILL_STEPS - 1 - q) / d;
+        const s = Math.sqrt(su * su + sv * sv) * invHot;
+        let fade = Math.pow(fadePerStep, STILL_STEPS - 1 - q);
         if (y < topClear || y > bottomClear) fade *= bandKeep(y, NAV_STREAK_KEEP, BOTTOM_STREAK_KEEP);
+        if (hiding) fade *= 1 - coverAt(x, y);
         pushSegment(levelFor(s, fade), x, y, nx, ny);
         x = nx;
         y = ny;
@@ -1202,6 +1379,7 @@ export function startCurrents(canvas, options = {}) {
         py[i] = y;
       }
     }
+    stillFish(k, invHot, fadePerStep);
     drawSegments();
   }
 
@@ -1292,9 +1470,9 @@ export function startCurrents(canvas, options = {}) {
     advanceFlow(animT);
     blendFlow(animT);
     moveFish(animT);
-    aimFish();
     fadeTrails(dt);
     stepParticles(dt);
+    stepFish(dt);
     drawSegments();
     overlayWait -= 1;
     if (overlayWait <= 0) {
@@ -1339,7 +1517,7 @@ export function startCurrents(canvas, options = {}) {
     py = py.slice(0, n);
     age = age.slice(0, n);
     life = life.slice(0, n);
-    dens = dens.slice(0, n);
+    for (const f of fishes) sizeFishStreaks(f);
   }
 
   // The first frame after a start or a size change, and the only frame with
@@ -1348,8 +1526,7 @@ export function startCurrents(canvas, options = {}) {
     if (!ready()) return;
     const started = performance.now();
     blendFlow(animT);
-    moveFish(reduced ? 0 : animT);
-    aimFish();
+    moveFish(reduced ? startT : animT);
     drawStill();
     drawOverlay();
     composite();
@@ -1437,10 +1614,10 @@ export function startCurrents(canvas, options = {}) {
   document.addEventListener('visibilitychange', onVisibility);
 
   const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-  reduced = motionQuery?.matches ?? false;
+  reduced = forceStill || (motionQuery?.matches ?? false);
   const onMotionChange = () => {
     const was = reduced;
-    reduced = motionQuery.matches;
+    reduced = forceStill || motionQuery.matches;
     sync();
     if (reduced && !was) drawFirst();   // settle on one calm still frame
   };
@@ -1449,40 +1626,46 @@ export function startCurrents(canvas, options = {}) {
 
   // The tuna's path and its anatomy field. Until the field is ready (or
   // FISH_WAIT_MS passes) no water is drawn, so the first frame already has
-  // the fish in it. The hero stays plain near-black meanwhile.
-  let fishTimer = setTimeout(() => {
-    if (fishState === 'loading') {
-      fishState = 'failed';
-      queueLayout();
-    }
-  }, FISH_WAIT_MS);
-  fetch(fishSrc)
-    .then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    })
-    .then((text) => {
-      const d = [...text.matchAll(/<path\b[^>]*?\sd="([^"]+)"/g)].map((m) => m[1]).join(' ');
-      if (!d) throw new Error('no path in the SVG');
-      return runInSlices(fishFieldSteps(d), () => stopped);
-    })
-    .then((built) => {
-      if (!built || stopped) return;   // stopped meanwhile
-      field = built;
-      fishState = 'ready';
-      // Fish that arrive after the water started redraw the first frame
-      // with them in it.
-      drewOnce = false;
-      textNow = null;   // so layout() places the fish
-    })
-    .catch((err) => {
-      console.warn('Flight Console: the fish did not load, so the currents run without them', err);
-      fishState = 'failed';
-    })
-    .finally(() => {
-      clearTimeout(fishTimer);
-      if (!stopped) queueLayout();
-    });
+  // the fish in it. The hero stays plain near-black meanwhile. With
+  // FISH_VISIBILITY at 0 there are no fish, so none of this happens.
+  let fishTimer = 0;
+  if (fishVis === 0) {
+    fishState = 'off';
+  } else {
+    fishTimer = setTimeout(() => {
+      if (fishState === 'loading') {
+        fishState = 'failed';
+        queueLayout();
+      }
+    }, FISH_WAIT_MS);
+    fetch(fishSrc)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      })
+      .then((text) => {
+        const d = [...text.matchAll(/<path\b[^>]*?\sd="([^"]+)"/g)].map((m) => m[1]).join(' ');
+        if (!d) throw new Error('no path in the SVG');
+        return runInSlices(fishFieldSteps(d), () => stopped);
+      })
+      .then((built) => {
+        if (!built || stopped) return;   // stopped meanwhile
+        field = built;
+        fishState = 'ready';
+        // Fish that arrive after the water started redraw the first frame
+        // with them in it.
+        drewOnce = false;
+        textNow = null;   // so layout() places the fish
+      })
+      .catch((err) => {
+        console.warn('Flight Console: the fish did not load, so the currents run without them', err);
+        fishState = 'failed';
+      })
+      .finally(() => {
+        clearTimeout(fishTimer);
+        if (!stopped) queueLayout();
+      });
+  }
 
   // The first layout waits for the next animation frame, so it isn't added
   // to the task that started the page. The canvas is near-black until then.
@@ -1518,11 +1701,308 @@ export function buildFishField(d) {
   return runNow(fishFieldSteps(d));
 }
 
+// ------------------------------------------------------------------
+// The fish's flow lines
+// ------------------------------------------------------------------
+
+// The lines the water follows inside one fish, traced through the anatomy
+// field F (from fishFieldSteps) for a tuna w CSS px wide, in CSS px from
+// the corner of its patch (which reaches margin px past the tuna's box).
+// Neighboring lines sit about gap px apart. The fish's streaks run along
+// them (see stepFish), so the whole fish is one flow that never meets
+// itself head on.
+//   1. Seeds are tried all over the fish in a shuffled order. A seed that
+//      is inside the fish and at least a gap from every line so far starts
+//      a new line.
+//   2. The line is traced both ways from its seed, one FLOW_STEP at a time
+//      (a midpoint step, so it bends smoothly). The field's lines have no
+//      forward, so each step keeps going the way the last one went. It
+//      stops where the fish fades out, at the eye, or when it comes within
+//      half a gap of another line (so lines that squeeze together, as they
+//      do toward the tail, end instead of piling up).
+//   3. The finished line is turned to run from nose to tail (or downward,
+//      where it runs straight across the fish, as on the gill arc).
+//   4. The eye gets its own lines: a few arms that wind inward like water
+//      going down a drain, so streaks circle there.
+// Returns { pts, starts, lens, cum, count, total, gap, eyeFrom }:
+//   pts     every point of every line, five numbers each: x, y, the side
+//           direction (nx, ny, 1 long) and the fish's weight there
+//   starts  where each line's first point is in pts (in points)
+//   lens    how many points each line has
+//   cum     the total length of the lines up to and including each one
+//   count, total   how many lines and how long they are in all (CSS px)
+//   eyeFrom the first of the eye's lines (they come last)
+// Exported for tests.
+export function traceFishLines(F, w, margin, gap, seed = 1) {
+  const random = mulberry32((seed * 7919) ^ 0x5bd1e995);
+  const scale = w / TUNA_BOX.w;          // CSS px per logo unit
+  const unitPx = FIELD_UNIT * scale;     // CSS px per field cell
+  const fieldPad = FIELD_PAD * unitPx;
+  const spanW = w + 2 * margin;
+  const spanH = (w * TUNA_BOX.h) / TUNA_BOX.w + 2 * margin;
+  const h = FLOW_STEP;
+  // Patch px to field cells (cell centers are at whole numbers).
+  const toCell = (v) => (v - margin + fieldPad) / unitPx - 0.5;
+
+  // The eye and the plain nose to tail direction, in patch px. The field is
+  // mirrored, so a logo x becomes (box right edge) - x.
+  const eyeX = (F.eye.x + 0.5) * unitPx - fieldPad + margin;
+  const eyeY = (F.eye.y + 0.5) * unitPx - fieldPad + margin;
+  const eyeR = F.eye.r * unitPx;
+  const eyeReach = eyeR * EYE_REACH;
+  const noseX = (TUNA_BOX.x + TUNA_BOX.w - TUNA_NOSE.x) * scale + margin;
+  const noseY = (TUNA_NOSE.y - TUNA_BOX.y) * scale + margin;
+  const tailX = (TUNA_BOX.x + TUNA_BOX.w - TUNA_TAIL.x) * scale + margin;
+  const tailY = (TUNA_TAIL.y - TUNA_BOX.y) * scale + margin;
+  const axisLen = Math.hypot(tailX - noseX, tailY - noseY);
+  const axisX = (tailX - noseX) / axisLen;
+  const axisY = (tailY - noseY) / axisLen;
+
+  // The fish's weight at a point, read smoothly between cells (0 outside
+  // the field).
+  function weightAt(x, y) {
+    const gx = toCell(x);
+    const gy = toCell(y);
+    if (gx < 0 || gy < 0 || gx >= F.cols - 1 || gy >= F.rows - 1) return 0;
+    const i = gx | 0;
+    const j = gy | 0;
+    const fx = gx - i;
+    const fy = gy - j;
+    const k = j * F.cols + i;
+    const W = F.weight;
+    return (W[k] * (1 - fx) + W[k + 1] * fx) * (1 - fy) + (W[k + F.cols] * (1 - fx) + W[k + F.cols + 1] * fx) * fy;
+  }
+
+  // The field's line at a point, as a direction 1 long that goes the same
+  // way as (rx, ry). Each of the four cells around the point is turned to
+  // agree with (rx, ry) before they are mixed, since a line has no
+  // forward. Writes dX, dY.
+  let dX = 0;
+  let dY = 0;
+  function dirAt(x, y, rx, ry) {
+    const gx = clamp(toCell(x), 0, F.cols - 1.001);
+    const gy = clamp(toCell(y), 0, F.rows - 1.001);
+    const i = gx | 0;
+    const j = gy | 0;
+    const fx = gx - i;
+    const fy = gy - j;
+    let sx = 0;
+    let sy = 0;
+    const add = (k, wt) => {
+      let a = F.dirX[k];
+      let b = F.dirY[k];
+      if (a * rx + b * ry < 0) {
+        a = -a;
+        b = -b;
+      }
+      sx += a * wt;
+      sy += b * wt;
+    };
+    const k = j * F.cols + i;
+    add(k, (1 - fx) * (1 - fy));
+    add(k + 1, fx * (1 - fy));
+    add(k + F.cols, (1 - fx) * fy);
+    add(k + F.cols + 1, fx * fy);
+    const len = Math.hypot(sx, sy);
+    if (len < 1e-6) {
+      dX = rx;
+      dY = ry;
+    } else {
+      dX = sx / len;
+      dY = sy / len;
+    }
+  }
+
+  // Every line's points so far, in buckets a gap wide, for "is any line
+  // near here?". Each point remembers its line and its step along it, so
+  // a line doesn't stop at its own last few points.
+  const bw = Math.ceil(spanW / gap) + 1;
+  const bh = Math.ceil(spanH / gap) + 1;
+  const buckets = Array.from({ length: bw * bh }, () => []);
+  function near(x, y, d, line, step) {
+    const d2 = d * d;
+    const bi = Math.floor(x / gap);
+    const bj = Math.floor(y / gap);
+    const lag = (2 * gap) / h;
+    for (let j = Math.max(0, bj - 1); j <= Math.min(bh - 1, bj + 1); j++) {
+      for (let i = Math.max(0, bi - 1); i <= Math.min(bw - 1, bi + 1); i++) {
+        const b = buckets[j * bw + i];
+        for (let q = 0; q < b.length; q += 4) {
+          if (b[q + 2] === line && Math.abs(b[q + 3] - step) < lag) continue;
+          const ex = b[q] - x;
+          const ey = b[q + 1] - y;
+          if (ex * ex + ey * ey < d2) return true;
+        }
+      }
+    }
+    return false;
+  }
+  let touched = [];   // the buckets the line being traced has marked
+  function mark(x, y, line, step) {
+    const i = clamp(Math.floor(x / gap), 0, bw - 1);
+    const j = clamp(Math.floor(y / gap), 0, bh - 1);
+    buckets[j * bw + i].push(x, y, line, step);
+    touched.push(j * bw + i);
+  }
+  // Takes a line that turned out too short back out of the buckets.
+  function unmark(line) {
+    for (const k of new Set(touched)) {
+      const b = buckets[k];
+      for (let q = b.length - 4; q >= 0; q -= 4) {
+        if (b[q + 2] === line) b.splice(q, 4);
+      }
+    }
+  }
+  const inEye = (x, y) => (x - eyeX) ** 2 + (y - eyeY) ** 2 < eyeReach * eyeReach;
+
+  // Traces one way from (x, y), first going (rx, ry), marking its points
+  // as it goes. Returns the points as a flat array.
+  const maxSteps = Math.ceil((FLOW_MAX_WIDTHS * w) / h);
+  function trace(x, y, rx, ry, line, dirSign) {
+    const out = [];
+    for (let n = 1; n <= maxSteps; n++) {
+      dirAt(x, y, rx, ry);
+      const ax = dX;
+      const ay = dY;
+      dirAt(x + (ax * h) / 2, y + (ay * h) / 2, ax, ay);
+      const nx = x + dX * h;
+      const ny = y + dY * h;
+      if (weightAt(nx, ny) < FLOW_END_WEIGHT || inEye(nx, ny) || near(nx, ny, gap * 0.5, line, n * dirSign)) break;
+      out.push(nx, ny);
+      mark(nx, ny, line, n * dirSign);
+      x = nx;
+      y = ny;
+      rx = dX;
+      ry = dY;
+    }
+    return out;
+  }
+
+  // 1. The seeds: a jittered grid half a gap apart, shuffled.
+  const seeds = [];
+  for (let y = gap / 4; y < spanH; y += gap / 2) {
+    for (let x = gap / 4; x < spanW; x += gap / 2) {
+      seeds.push(x + (random() - 0.5) * gap * 0.4, y + (random() - 0.5) * gap * 0.4);
+    }
+  }
+  for (let q = seeds.length / 2 - 1; q > 0; q--) {
+    const r = Math.floor(random() * (q + 1));
+    for (let c = 0; c < 2; c++) {
+      const tmp = seeds[q * 2 + c];
+      seeds[q * 2 + c] = seeds[r * 2 + c];
+      seeds[r * 2 + c] = tmp;
+    }
+  }
+
+  // 2 and 3. The lines.
+  const lines = [];
+  for (let q = 0; q < seeds.length; q += 2) {
+    const sx = seeds[q];
+    const sy = seeds[q + 1];
+    if (weightAt(sx, sy) < FLOW_SEED_WEIGHT || inEye(sx, sy)) continue;
+    const id = lines.length;
+    if (near(sx, sy, gap * 0.9, -1, 0)) continue;
+    dirAt(sx, sy, axisX, axisY);
+    const fx = dX;
+    const fy = dY;
+    touched = [];
+    mark(sx, sy, id, 0);
+    const ahead = trace(sx, sy, fx, fy, id, 1);
+    const behind = trace(sx, sy, -fx, -fy, id, -1);
+    const n = 1 + (ahead.length + behind.length) / 2;
+    if ((n - 1) * h < FLOW_MIN_GAPS * gap) {
+      unmark(id);
+      continue;
+    }
+    // Put it together from the far end behind the seed to the far end
+    // ahead of it.
+    const xy = new Float32Array(n * 2);
+    let o = 0;
+    for (let p = behind.length - 2; p >= 0; p -= 2) {
+      xy[o++] = behind[p];
+      xy[o++] = behind[p + 1];
+    }
+    xy[o++] = sx;
+    xy[o++] = sy;
+    for (let p = 0; p < ahead.length; p++) xy[o++] = ahead[p];
+    // Nose to tail, or downward where it runs across the fish.
+    const netX = xy[n * 2 - 2] - xy[0];
+    const netY = xy[n * 2 - 1] - xy[1];
+    let score = netX * axisX + netY * axisY;
+    if (Math.abs(score) < 0.2 * Math.hypot(netX, netY)) score = netY;
+    lines.push(score < 0 ? reversePoints(xy) : xy);
+  }
+
+  // 4. The eye's whirlpool: arms that wind in from the edge of its reach,
+  //    about a gap apart, turning the way that runs toward the tail along
+  //    the top of the eye.
+  const eyeFrom = lines.length;
+  const inner = Math.max(1, eyeReach * 0.12);
+  const pitch = (eyeReach - inner) / EYE_TURNS;
+  const arms = Math.max(1, Math.round(pitch / gap));
+  const turnSign = axisX < 0 ? -1 : 1;
+  const sweep = Math.PI * 2 * EYE_TURNS;
+  for (let a = 0; a < arms; a++) {
+    const xy = [];
+    let t = 0;
+    while (t <= sweep) {
+      const r = eyeReach - ((eyeReach - inner) * t) / sweep;
+      const ang = (Math.PI * 2 * a) / arms + turnSign * t;
+      xy.push(eyeX + r * Math.cos(ang), eyeY + r * Math.sin(ang));
+      t += h / Math.max(r, 1);
+    }
+    if (xy.length >= 6) lines.push(Float32Array.from(xy));
+  }
+
+  // The flat arrays the streaks read.
+  let points = 0;
+  for (const xy of lines) points += xy.length / 2;
+  const pts = new Float32Array(points * 5);
+  const starts = new Int32Array(lines.length);
+  const lens = new Int32Array(lines.length);
+  const cum = new Float32Array(lines.length);
+  let at = 0;
+  let total = 0;
+  lines.forEach((xy, l) => {
+    const m = xy.length / 2;
+    starts[l] = at;
+    lens[l] = m;
+    for (let q = 0; q < m; q++) {
+      const a = Math.max(0, q - 2);
+      const b = Math.min(m - 1, q + 2);
+      const tx = xy[b * 2] - xy[a * 2];
+      const ty = xy[b * 2 + 1] - xy[a * 2 + 1];
+      const len = Math.hypot(tx, ty) || 1;
+      const o = (at + q) * 5;
+      pts[o] = xy[q * 2];
+      pts[o + 1] = xy[q * 2 + 1];
+      pts[o + 2] = -ty / len;
+      pts[o + 3] = tx / len;
+      pts[o + 4] = weightAt(xy[q * 2], xy[q * 2 + 1]);
+    }
+    at += m;
+    total += (m - 1) * h;
+    cum[l] = total;
+  });
+  return { pts, starts, lens, cum, count: lines.length, total, gap, eyeFrom };
+}
+
+// The same points, last to first.
+function reversePoints(xy) {
+  const n = xy.length / 2;
+  const out = new Float32Array(xy.length);
+  for (let q = 0; q < n; q++) {
+    out[q * 2] = xy[(n - 1 - q) * 2];
+    out[q * 2 + 1] = xy[(n - 1 - q) * 2 + 1];
+  }
+  return out;
+}
+
 // Makes the anatomy field from the tuna's path data (the d of the logo's
 // path). It is a grid of cells FIELD_UNIT logo units wide over the tuna's
 // box plus FIELD_PAD cells on every side, mirrored so the fish faces right:
-//   dirX, dirY  the line the water inside the fish follows there (1 long).
-//               Which way along the line it goes is up to the ocean.
+//   dirX, dirY  the line the water inside the fish follows there (1 long),
+//               turned toward the tail where it can be
 //   weight      how much of that line to use, 0 outside the fish and 1 well
 //               inside it, with a soft edge between
 //   eye         the eye's center, radius and reach, in field cells
@@ -1691,8 +2171,8 @@ function* fishFieldSteps(d) {
   }
   // 5. Back from doubled angles to directions 1 long. A small share of the
   //    plain direction settles the cells where the lines cancelled out.
-  //    The sign is turned toward the tail only to keep neighbors alike:
-  //    the streaks don't use it (see aimCopy).
+  //    The sign is turned toward the tail, which is where the flow lines
+  //    start tracing from (see traceFishLines).
   const dirX = new Float32Array(n);
   const dirY = new Float32Array(n);
   for (let k = 0; k < n; k++) {
