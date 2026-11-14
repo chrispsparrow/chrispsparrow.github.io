@@ -7,8 +7,9 @@
    Panel 2 has one layout, live and in a replay, so it looks the same
    either way:
      .fc-dp-strips   one-line strips across the top that open when
-                     pressed: the mission timeline and "About this
-                     flight" in a replay, the board's errors live
+                     pressed: the mission timeline (live and in a
+                     replay), "About this flight" in a replay, and the
+                     board's errors live
      .fc-dp          the graphs, and on a wide screen the readings in a
                      column on their left (.fc-dp-side)
    Live, js/live/bench-panel.js fills the parts written in index.html.
@@ -97,7 +98,7 @@
    The strips across the top
    ------------------------------------------------------------ */
 .fc-page .fc-dp-strips { flex: none; display: flex; flex-direction: column; }
-/* Nothing to show (live, with no errors): no room taken. */
+/* Nothing to show (every strip hidden or empty): no room taken. */
 .fc-page .fc-dp-strips:not(:has(> :not([hidden]))) { display: none; }
 .fc-page .fc-dp-strip:empty { display: none; }
 
