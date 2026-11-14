@@ -1,11 +1,12 @@
 // stats-panel.js
-// The readings panel for the focused rocket. On a wide screen it floats over
-// the top right of the map. On a phone it sits under the map as a
-// two-column grid (CSS only, the elements are the same).
+// The readings panel for the focused rocket (or the board on the bench).
+// It floats over the 3D view: at the top right on a wide screen, and as a
+// compact strip across the top on a phone (CSS only, the elements are the
+// same).
 //
 // The part that is always open shows altitude above ground (large),
 // vertical speed, ground speed and course, the GPS fix and satellites, and
-// the last packet age, plus a coral note when the GPS has a problem.
+// the last packet age, plus an orange note when the GPS has a problem.
 // "More readings" opens the rest: position, distance from the ground
 // station, ground level, and one section for each sensor group the rocket
 // has actually sent, built from the channel registry in schema.js, so a
@@ -14,13 +15,19 @@
 // never grows past the map.
 //
 // Values a board never sent are never shown, and missing values show "--",
-// never 0. Old values never look live: an old altitude loses its gold and
+// never 0. Old values never look live: an old altitude is dimmed and
 // says how old it is, and an old vertical speed isn't shown at all.
+//
+// The labels spell out each acronym the first time the screen shows it:
+// above ground level (AGL) and vertical speed (VS), which the 3D view's
+// labels use, then the Global Positioning System (GPS) and the horizontal
+// dilution of precision (HDOP).
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, rocketDot } from './dom.js';
 import { uiIcon, iconNode } from './icons.js';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js';
+import { FLIGHT_WORDS } from './hud-text.js?v=2';
 import {
   formatNumber, formatAge, formatDuration, formatRangeBearing, rangeAndBearing,
   metersToFeet, compassName, MISSING,
@@ -28,6 +35,8 @@ import {
 
 export function createStatsPanel(root, ctx) {
   const { store, config } = ctx;
+  // A rocket, or a board on a desk (hud-text.js).
+  const words = ctx.words ?? FLIGHT_WORDS;
 
   // The frame stays put. Only the rows inside it are rebuilt when the set
   // of readings changes, so "More readings" stays open and keeps its scroll.
@@ -51,7 +60,7 @@ export function createStatsPanel(root, ctx) {
   function render() {
     renderWho();
     const rocket = store.getFocused();
-    const model = rocket ? describe(rocket) : { wait: 'No rocket to show yet.' };
+    const model = rocket ? describe(rocket) : { wait: `${words.noData}.` };
     const key = shapeOf(rocket, model);
     if (key !== shapeKey) {
       shapeKey = key;
@@ -80,16 +89,16 @@ export function createStatsPanel(root, ctx) {
   //   small     a second line under the value
   //   prefix    the up or down arrow (hidden from screen readers, which
   //             read srPrefix, "rising" or "falling", instead)
-  //   tone      'gold' (live rocket data), 'old' (last known) or 'warn'
+  //   tone      'live' (live rocket data, off-white), 'old' (last known, dimmed) or 'warn' (orange)
   //   wide      the label sits above the value (long values)
   // Each "More readings" section is { kind, title, note, rows }.
   // ------------------------------------------------------------------
   function describe(rocket) {
     const d = rocket.derived;
-    if (!d) return { wait: 'Waiting for the first reading from this rocket.' };
+    if (!d) return { wait: `${words.noData}.` };
 
     // When the altitude is old (no fix right now, or the rocket went quiet),
-    // the last value stays for recovery but loses its gold and says how old
+    // the last value stays for recovery but is dimmed and says how old
     // it is. An old vertical speed isn't shown.
     const old = store.altitudeIsOld(rocket);
     const altAge = store.ageOf(d.altitudeT);
@@ -103,20 +112,20 @@ export function createStatsPanel(root, ctx) {
     const altFrom = d.altSource === 'barometer' ? 'Barometer' : d.altSource === 'GPS' ? 'GPS' : 'No altitude yet';
 
     const hero = {
-      label: 'Altitude above ground',
+      label: 'Altitude above ground level (AGL)',
       value: num(d.agl, 0),
       unit: 'm',
       small: old && hasAgl ? `Last known, ${formatAge(altAge)}` : feet(d.agl),
-      tone: !hasAgl ? null : old ? 'old' : 'gold',
+      tone: !hasAgl ? null : old ? 'old' : 'live',
     };
     const rows = [{
-      label: 'Vertical speed',
+      label: 'Vertical speed (VS)',
       value: hasV ? formatNumber(Math.abs(v), 1) : MISSING,
       unit: 'm/s',
       small: !hasV && old && Number.isFinite(altAge) ? `No new altitude for ${formatDuration(altAge)}` : '',
       prefix: !hasV || level ? '' : v > 0 ? '▲ ' : '▼ ',
       srPrefix: !hasV || level ? '' : v > 0 ? 'rising ' : 'falling ',
-      tone: hasV ? 'gold' : null,
+      tone: hasV ? 'live' : null,
     }];
     const more = [];
     let alertText = '';
@@ -156,7 +165,7 @@ export function createStatsPanel(root, ctx) {
       const sats = Number.isFinite(gps.sats) ? `, ${formatNumber(gps.sats, 0)} ${gps.sats === 1 ? 'satellite' : 'satellites'}` : '';
       let fixText = fixNow ? `Fix${sats}` : `No fix${sats}`;
       if (silent || gpsQuiet) fixText = 'No recent data';
-      rows.push({ label: 'GPS', value: fixText, tone: fixNow ? null : 'warn' });
+      rows.push({ label: 'Global Positioning System (GPS)', value: fixText, tone: fixNow ? null : 'warn', wide: true });
 
       more.push({
         kind: 'gps',
@@ -164,7 +173,7 @@ export function createStatsPanel(root, ctx) {
         note: '',
         rows: [
           { label: 'Altitude above sea level', value: fix ? meters(fix.altMsl, 1) : MISSING },
-          { label: 'HDOP', value: num(gps.hdop, 2) },
+          { label: 'Horizontal dilution of precision (HDOP)', value: num(gps.hdop, 2) },
           { label: 'Latitude', value: fix ? `${formatNumber(fix.lat, 5)}°` : MISSING },
           { label: 'Longitude', value: fix ? `${formatNumber(fix.lon, 5)}°` : MISSING },
           { label: 'Last good fix', value: fix ? formatAge(fixAge) : MISSING },
@@ -360,7 +369,7 @@ export function createStatsPanel(root, ctx) {
 // Groups that aren't sensors on the board, and how the others read in a
 // sentence. A new group added to the schema counts as a sensor by default.
 const NOT_SENSORS = ['radio', 'status'];
-const SENSOR_NAMES = { gps: 'GPS', baro: 'barometer', imu: 'IMU', power: 'battery voltage' };
+const SENSOR_NAMES = { gps: 'GPS', baro: 'barometer', imu: 'inertial measurement unit (IMU)', power: 'battery voltage' };
 // GPS channels the panel already shows in its own rows.
 const GPS_SHOWN_ABOVE = ['fix', 'stale', 'sats', 'hdop', 'lat', 'lon', 'altMsl', 'speed', 'course'];
 

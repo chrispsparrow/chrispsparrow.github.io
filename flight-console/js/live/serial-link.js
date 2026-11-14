@@ -86,7 +86,7 @@ export function createSerialLink({ onLine, onLink, onNote, onOpen, onClose } = {
       await port.open({ baudRate: BAUD });
     } catch (err) {
       setLink(restingState());
-      note('The port didn\'t open. Another program is probably using it, so close any serial monitor and press Connect again.', 'warn');
+      note('The port didn\'t open. Another program is probably using it, so close any serial monitor and press CONNECT again.', 'warn');
       console.warn('Flight Console: port.open failed', err);
       return;
     }
@@ -142,7 +142,7 @@ export function createSerialLink({ onLine, onLink, onNote, onOpen, onClose } = {
     onClose?.({ lost });
     if (lost) {
       setLink('lost');
-      note('The board was unplugged or stopped answering. Plug it back in and press Connect.', 'warn');
+      note('The board was unplugged or stopped answering. Plug it back in and press CONNECT.', 'warn');
     } else {
       setLink('closed');
     }

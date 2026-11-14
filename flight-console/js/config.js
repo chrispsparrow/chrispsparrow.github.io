@@ -239,8 +239,9 @@ export const DEFAULT_MAP_LAYER = 'satellite';
 // Where the browser remembers the viewer's choice (localStorage).
 export const MAP_LAYER_STORAGE_KEY = 'fc-map-layer';
 // A dark outline under tracks, markers and the ground station line, so they
-// stay easy to see on bright photos.
-export const HALO_COLOR = '#04080F';
+// stay easy to see on bright photos. It is the theme's deep navy
+// (--fc-navy-deep in css/flight-console-theme.css: 72% navy, 28% black).
+export const HALO_COLOR = '#081221';
 export const HALO_OPACITY = 0.7;
 // Outline width (px) on each side of a line or ring.
 export const HALO_WIDTH_PX = 1.5;
@@ -258,7 +259,7 @@ export const MAP_DEFAULT_ZOOM = 15;
 export const ROCKET_ICON_PX = 22;
 export const ROCKET_ICON_FOCUSED_PX = 30;
 // Track line width (px), for other rockets and the focused one. The focused
-// rocket's track is gold (TRACK_COLOR), the others use their own colors.
+// rocket's track is orange (TRACK_COLOR), the others use their own colors.
 export const TRACK_WEIGHT_PX = 2;
 export const TRACK_WEIGHT_FOCUSED_PX = 3.5;
 // The first view fits the pad(s) and ground station with this much room (px)
@@ -359,35 +360,38 @@ export const GLOBE_FIT_MARGIN = 1.35;
 export const GLOBE_ICON_NEAR_M = 20000;
 export const GLOBE_ICON_FAR_M = 400000;
 export const GLOBE_ICON_FAR_SCALE = 0.7;
-// The drop line from the focused rocket down to the ground: its color and
-// its width (px), not counting the thin dark outline.
-export const DROP_LINE_COLOR = '#E8E6DF';
+// The drop line from the focused rocket down to the ground: its color (the
+// theme's off-white) and its width (px), not counting the thin dark outline.
+export const DROP_LINE_COLOR = '#E8EDF2';
 export const DROP_LINE_WIDTH_PX = 2;
 
 // ------------------------------------------------------------------
-// Colors
+// Colors. The Flight Console has one palette, in
+// css/flight-console-theme.css: navy #0B1A2E, orange #FF7A1A (the accent,
+// used sparingly) and off-white #E8EDF2. Every color here is one of those
+// three or a mix of them, written out as hex because the map and the 3D
+// view need plain colors (and Node reads this file too).
 // ------------------------------------------------------------------
 
-// Rocket colors, handed out in order. Chosen to stand apart on the map and
-// the altitude timeline. Some colors are left out on purpose, because they
-// already mean something on this page: gold (the focused rocket and the
-// most important numbers), green (only the labels on the map), teal (the
-// ground station) and coral or red (no GPS fix and other warnings).
+// Rocket colors, handed out in order, for the rockets that aren't focused
+// (flights with two or more rockets). Mixes of the three theme colors,
+// chosen to stand apart from each other on the 3D view and the altitude
+// timeline.
 export const ROCKET_PALETTE = Object.freeze([
-  '#C084FC', // violet
-  '#38BDF8', // sky blue
-  '#FF2BD6', // neon pink (the site's chart pink)
-  '#E5E7EB', // light grey
-  '#FB923C', // orange
-  '#818CF8', // indigo
+  '#E8EDF2', // off-white
+  '#F4B486', // half orange, half off-white
+  '#A1A9B3', // dim off-white (68% off-white, 32% navy)
+  '#B65D20', // dark orange (70% orange, 30% navy)
+  '#636E7C', // slate (40% off-white, 60% navy)
+  '#EED0BC', // pale orange (25% orange, 75% off-white)
 ]);
-// The focused rocket's track on the map and its played curve on the altitude
-// timeline (the page's gold).
-export const TRACK_COLOR = '#D4A843';
-// Ground station icon and line (the page's teal).
-export const GROUND_STATION_COLOR = '#3FB8A8';
-// Launch pad icon (the page's off-white).
-export const PAD_COLOR = '#E8E6DF';
+// The focused rocket's track and its played curve on the altitude timeline
+// (the theme's orange: the rocket is the one thing always in orange).
+export const TRACK_COLOR = '#FF7A1A';
+// Ground station icon and line (the theme's dim off-white).
+export const GROUND_STATION_COLOR = '#A1A9B3';
+// Launch pad icon and the rocket's body (the theme's off-white).
+export const PAD_COLOR = '#E8EDF2';
 
 // ------------------------------------------------------------------
 // Flight library (library.js)

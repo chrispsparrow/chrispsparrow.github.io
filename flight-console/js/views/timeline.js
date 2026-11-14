@@ -1,14 +1,16 @@
 // timeline.js
-// The altitude timeline under the map, with the playback controls under it.
+// The altitude timeline, with the playback controls under it. It floats
+// along the bottom of the 3D view, and it is the console's one altitude
+// display.
 //
 // The strip shows the focused rocket's altitude above ground over the whole
-// recording: gold up to the playhead and muted after it, with the other
+// recording: orange up to the playhead and muted after it, with the other
 // rockets as thin lines in their own colors. Readings with no altitude (a
 // GPS fix gap) and stretches with no readings at all for longer than
 // LINK_STALE_S (a radio silence) leave a break in the curve, never a
 // filled-in value. Event
 // markers sit on the curve, shaped by how each event was found (a filled
-// dot for reported, a gold ring for detected, a dashed ring for inferred or
+// dot for reported, an orange ring for detected, a dashed ring for inferred or
 // estimated). Clicking a marker jumps playback to that event.
 //
 // Click or drag anywhere on the strip to seek. With keyboard focus the
@@ -103,7 +105,7 @@ export function createTimeline(root, ctx) {
     `and Shift with an arrow key, or Page Up and Page Down, move ${seconds(bigStep)}. ` +
     'Home and End go to the start and end.');
 
-  const playButton = h('button', { type: 'button', class: 'fc-btn fc-btn--gold fc-tl-play', onclick: onPlay });
+  const playButton = h('button', { type: 'button', class: 'fc-btn fc-tl-play', onclick: onPlay });
   const speedButtons = player.getState().speeds.map((x) =>
     h('button', { type: 'button', class: 'fc-btn', 'aria-pressed': 'false', onclick: () => player.setSpeed(x) }, `${x}x`));
   const timeNow = h('span', { class: 'fc-tl-time-now' });
@@ -212,7 +214,7 @@ export function createTimeline(root, ctx) {
     const segs = segments(profile, x, (agl) => y(Math.max(agl, yMin)));
     const lineD = linePath(segs);
     const areaD = areaPath(segs, base);
-    // A faint coral band where the curve breaks, so the gap reads as missing
+    // A faint orange band where the curve breaks, so the gap reads as missing
     // data rather than a drawing glitch.
     const gaps = [];
     for (let i = 1; i < segs.length; i++) {
@@ -396,9 +398,9 @@ export function createTimeline(root, ctx) {
     setChildren(key, rockets.map((r) => {
       const focused = r.id === rocket?.id;
       return h('li', { class: focused ? 'is-focused' : null },
-        h('span', { class: 'fc-tl-swatch', style: { '--swatch': focused ? 'var(--fc-gold)' : r.profile.color }, 'aria-hidden': 'true' }),
+        h('span', { class: 'fc-tl-swatch', style: { '--swatch': focused ? 'var(--fc-accent)' : r.profile.color }, 'aria-hidden': 'true' }),
         r.profile.name,
-        focused ? h('span', { class: 'sr-only' }, ', shown in gold') : null);
+        focused ? h('span', { class: 'sr-only' }, ', shown in orange') : null);
     }));
   }
 
@@ -428,7 +430,7 @@ export function createTimeline(root, ctx) {
     if (mode !== playState) {
       playState = mode;
       const icon = mode === 'pause' ? 'pause' : mode === 'replay' ? 'replay' : 'play';
-      const text = mode === 'pause' ? 'Pause' : mode === 'replay' ? 'Replay' : 'Play';
+      const text = mode === 'pause' ? 'PAUSE' : mode === 'replay' ? 'REPLAY' : 'PLAY';
       setChildren(playButton, iconNode(uiIcon(icon, 18)), h('span', {}, text));
       playButton.disabled = !hasData;
     }

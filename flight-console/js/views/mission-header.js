@@ -1,16 +1,16 @@
 // mission-header.js
-// The top of a replay. On the left: a "Back to the console" link to the
-// live console (?track), the focused rocket's name and color, and small labels that say
-// whether the flight is simulated or real, plus the honesty flags ("Data
-// starts in flight", "Ground level estimated"). On the right: a "Copy link"
-// button and a big gold flight clock (T+m:ss, or "On pad") that stops at
-// the landing, with a caption that says when the liftoff time was only
+// The top left corner of a replay's 3D view: the focused rocket's name,
+// small labels that say whether the flight is simulated or real plus the
+// honesty flags ("Data starts in flight", "Ground level estimated"), and
+// the big off-white flight clock (T+m:ss, or "On pad") that stops at the
+// landing, with a caption that says when the liftoff time was only
 // estimated.
-// Where the data came from is shown in "About this flight" (flight-info.js).
+// The way back to live is the close button on the replay's name in the
+// console's bar, and the link to share is in "About this flight"
+// (flight-info.js), in the second panel.
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler } from './dom.js';
-import { uiIcon, iconNode } from './icons.js';
 import { formatFlightClock, MISSING } from '../geo.js';
 
 export function createMissionHeader(root, ctx) {
@@ -18,89 +18,20 @@ export function createMissionHeader(root, ctx) {
   const entry = flight.entry;
   const isReal = entry.kind === 'real';
 
-  // Back to the live console, where the saved flights are listed. A plain
-  // click goes through navigate() so the page doesn't reload (and a board
-  // that is connected stays connected). Middle click or Ctrl+click still
-  // opens a new tab.
-  const back = h('a', {
-    class: 'fc-mission-back',
-    href: consoleHref(ctx.link),
-    onclick: (e) => {
-      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
-      ctx.navigate({ track: true });
-    },
-  }, iconNode(uiIcon('arrowLeft', 18)), 'Back to the console');
-
-  const dot = h('span', { class: 'fc-dot fc-mission-dot', 'aria-hidden': 'true' });
   const name = h('span', { class: 'fc-mission-name' });
   const flags = h('div', { class: 'fc-mission-flags' });
   const clock = h('p', { class: 'fc-mission-clock' });
   const caption = h('p', { class: 'fc-mission-caption' });
 
-  // The button keeps both labels stacked in the same spot and shows one, so
-  // it never changes width when "Link copied" appears.
-  const copyButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm fc-mission-copy', onclick: copyLink },
-    h('span', { class: 'fc-copy-face fc-copy-face--idle' }, iconNode(uiIcon('link', 17)), 'Copy link'),
-    h('span', { class: 'fc-copy-face fc-copy-face--done' }, iconNode(uiIcon('check', 17)), 'Link copied'));
-  // Always in the page (even when empty) so screen readers announce it.
-  const copyStatus = h('span', { class: 'sr-only', role: 'status' });
-  const copyFallback = h('div', { class: 'fc-mission-fallback', hidden: true });
-
   setChildren(root, h('header', { class: 'fc-mission' },
-    h('div', { class: 'fc-mission-nav' }, back),
-    h('div', { class: 'fc-mission-actions' }, copyButton, copyStatus),
-    h('div', { class: 'fc-mission-id' },
-      h('h1', { class: 'fc-mission-title' }, dot, name),
-      flags),
     h('div', { class: 'fc-mission-time' }, clock, caption),
-    copyFallback));
-
-  let copyTimer = null;
-  async function copyLink() {
-    clearTimeout(copyTimer);
-    copyFallback.hidden = true;
-    let copied = false;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(ctx.link);
-        copied = true;
-      }
-    } catch { copied = false; }
-    if (!copied) copied = copyWithSelection(ctx.link);
-    if (copied) {
-      copyButton.classList.add('fc-mission-copy--done');
-      setText(copyStatus, 'Link copied');
-      copyTimer = setTimeout(() => {
-        copyButton.classList.remove('fc-mission-copy--done');
-        setText(copyStatus, '');
-      }, config.LINK_COPIED_MS);
-    } else {
-      // The browser blocked copying, so show the link to copy by hand,
-      // already selected.
-      copyButton.classList.remove('fc-mission-copy--done');
-      setText(copyStatus, '');
-      const field = h('input', {
-        id: 'fc-copy-field',
-        class: 'fc-mission-field',
-        type: 'text',
-        readOnly: true,
-        value: ctx.link,
-        onfocus: (e) => e.target.select(),
-      });
-      setChildren(copyFallback,
-        h('label', { class: 'fc-mission-field-label', for: 'fc-copy-field' }, 'Copying was blocked. Here is the link:'),
-        field);
-      copyFallback.hidden = false;
-      field.focus({ preventScroll: true });
-      field.select();
-    }
-  }
+    h('div', { class: 'fc-mission-id' },
+      h('h2', { class: 'fc-mission-title' }, name),
+      flags)));
 
   function render() {
     const rocket = store.getFocused();
     const d = rocket?.derived;
-    dot.style.setProperty('--dot', rocket?.profile.color ?? 'var(--fc-muted)');
     setText(name, rocket?.profile.name ?? 'No rocket yet');
 
     // The clock: "--" until there is data, "On pad" before liftoff, then
@@ -152,31 +83,6 @@ export function createMissionHeader(root, ctx) {
     destroy() {
       unsubscribe();
       scheduler.cancel();
-      clearTimeout(copyTimer);
     },
   };
-}
-
-// The console's address: this flight's link with ?track in place of the
-// ?flight= part.
-function consoleHref(link) {
-  const url = new URL(link, window.location.href);
-  url.search = '?track';
-  url.hash = '';
-  return url.href;
-}
-
-// Older way to copy text, for browsers without the clipboard API.
-function copyWithSelection(text) {
-  const area = document.createElement('textarea');
-  area.value = text;
-  area.setAttribute('readonly', '');
-  area.style.position = 'fixed';
-  area.style.opacity = '0';
-  document.body.append(area);
-  area.select();
-  let ok = false;
-  try { ok = document.execCommand('copy'); } catch { ok = false; }
-  area.remove();
-  return ok;
 }

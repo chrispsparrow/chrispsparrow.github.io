@@ -27,14 +27,14 @@ On the live site the same page is at https://www.dogtoothsystems.com/flight-cons
 `js/main.js` reads the address bar and shows one of three screens.
 
 - `/flight-console/` with nothing after it is the landing: the hero and two cards, nothing else. It downloads no flight data.
-- `/flight-console/?track` is the console, live. One Connect button opens the board's serial port. The saved flights are listed at the bottom. `?track#fc-saved` (the overview's "Saved flights" button) opens the console scrolled to that list, with keyboard focus on its heading.
-- `/flight-console/?flight=gps-board-sim-01` is the console, playing that saved flight.
-- If the flight id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a "Back to the console" button. The message says whether it looks like a connection problem or a missing or damaged file on the site.
+- `/flight-console/?track` is the console, live. The CONNECT button opens the board's serial port, and the SAVED FLIGHTS dropdown in the same bar lists the saved flights. `?track#fc-saved` (the overview's "Saved flights" link) opens the console with that dropdown open and keyboard focus on its button.
+- `/flight-console/?flight=gps-board-sim-01` is the console, playing that saved flight. While it loads, the console stays up and its 3D panel says "Loading the flight...".
+- If the flight id isn't in the library, or the library or the flight's data didn't load, it shows a short message with a BACK TO THE CONSOLE button (and TRY AGAIN when it looks like a connection problem). The message says whether it looks like a connection problem or a missing or damaged file on the site.
 - Until `main.js` starts, the page says "Loading the Flight Console...". If the page's own code fails to download, a small script in `index.html` says so instead of leaving the page empty.
 
-Links inside the page ("Track a Rocket", "Open the console", the Saved flights rows, "Back to the console", the "Flight Console" link at the top of the console) change the address with `history.pushState`, so no page reload happens. A middle click or Ctrl+click still opens a new tab, since every link has a real address. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. After every switch inside the page, keyboard focus moves to the new screen's main heading.
+Links inside the page ("Track a Rocket", "Open the console", the lines in SAVED FLIGHTS, the close button on a replay's name, BACK TO THE CONSOLE) change the address with `history.pushState`, so no page reload happens. A middle click or Ctrl+click still opens a new tab, since every link has a real address. When the browser's back or forward button changes the address, the browser fires a `popstate` event and `main.js` runs the same check again. After every switch inside the page, keyboard focus moves to the new screen's main heading.
 
-Page titles: "Flight Console | Dogtooth Systems" on the landing, "Track a Rocket | Flight Console | Dogtooth Systems" on the live console, and "<flight title> | Flight Console | Dogtooth Systems" for a replay.
+Page titles: "Flight Console | Dogtooth Systems" on the landing, and "Track a Rocket | Dogtooth Systems" on the live console and on every replay.
 
 ## The landing
 
@@ -44,38 +44,30 @@ Behind the hero, the sea floor moves. `js/hero-seafloor.js` draws contour lines 
 
 `js/views/launcher.js` starts it once with `startSeafloor(canvas)`, which returns a `stop()` function. Nothing else on the page uses `hero-seafloor.js`. So a later real-data ocean currents animation can replace `hero-seafloor.js` completely, as long as it exports the same shape: a start function that takes the canvas (and an optional options object) and returns a stop function. Its colors come from CSS variables on the canvas (`--seafloor-line`, `--seafloor-current` and the others listed at the top of the file), set in the landing part of `flight-console.css`.
 
-## The console: modes and panes
+## The console: the bar, two panels and the modes
 
-The console is one CSS grid, `<section id="fc-console">`. Every part of it is a direct child of the grid, a "pane", with a `data-pane` name and its own `grid-area`. The grid's `data-mode` says what the console is showing, and `flight-console.css` decides which panes that mode shows and where.
+The console (`<section id="fc-console">` in `index.html`) fills the window under the site's nav, and the page never scrolls. The site footer hides while it is up (`main.js` sets `data-fc-screen` on the `<body>`, and the CSS reads it). Top to bottom:
 
-The panes:
+- **The bar.** CONNECT on the left and SAVED FLIGHTS on the right, and while a replay is open, its name with a close button in between. There is no status strip: CONNECT shows the link on itself. It says CONNECTING while the port picker is open and the port opens, DISCONNECT while connected, and DISCONNECTING. Its small square fills orange while the board's status blocks arrive on time, and empties when one is 3 s late. A line only screen readers hear says the same in words ("Connected at 115,200 baud"). Pressed during a replay, CONNECT goes back to live first and opens the port picker right away.
+- **Status lines**, under the bar, only while one has something to say: a note about the link ("No port was picked, so nothing changed.", "The board was unplugged..."), the Chrome or Edge warning, and NOT RECOGNIZED for data the console doesn't know (with a RAW OUTPUT button that opens the raw output in panel 2). The Chrome or Edge warning only shows after CONNECT is pressed in a browser without Web Serial. The link note and the warning have a close button.
+- **Two panels**, side by side in one sliding track, like the pages of a monitor (`js/views/panels.js`). One is on screen at a time:
+  - **Panel 1, the 3D view**, in every mode. It fills the panel with no frame around it. With nothing connected it waits looking at the whole Earth. Its camera buttons and KEY are in the bottom left corner, and Cesium's credits in the bottom right. In windows 860 pixels wide or less the credits sit on their own line just above the camera buttons instead (`map-view.js` keeps the buttons' height in `--fc-ctl-h`), so the two never overlap, even when the buttons wrap to two rows.
+  - **Panel 2, graphs and readings.** Live, the board's readings (grouped Global Positioning System (GPS), GPS motion model and radio, with the errors from the board at the top), the raw serial output (closed at first) and the graphs of the last 10 minutes, with SAVE AS COMMA-SEPARATED VALUES (CSV) next to their heading. Each graph says NO DATA until the first block. In a replay, the mission timeline, the flight details (with COPY LINK) and the detection check instead, since the bench graphs don't apply to a saved flight.
 
-- `head`: a "Flight Console" link back to the landing, the title "Track a Rocket", and one line on how to use it.
-- `bar`: Connect, Disconnect, the connection status (with the 115,200 baud), the source once it is known, the last heartbeat and its number, Lost blocks, Blocks received and Save as CSV. Notes about the link show under it, and so does a note in browsers that can't open serial ports.
-- `intro`: how to connect.
-- `notice`: shown when lines arrive but none of them match a source the console knows.
-- `errors`: the "Error:" lines from the board.
-- `readings`: the latest readings, grouped GPS, GPS MOTION MODEL and RADIO.
-- `graphs`: the last 10 minutes of altitude, satellites, lock quality, GPS data rate and radio packets sent and errors.
-- `stage`: the map or 3D view (`#fc-map`), with the readings panel (`#fc-stats`) and the altitude tape (`#fc-tape`) floating over it.
-- `raw`: the raw serial output.
-- `saved`: the Saved flights list.
-- `mission`, `rockets`, `phases`, `timeline` and `lower`: a replay's header, rocket chips, phase strip, altitude timeline, and the mission timeline with the flight details and detection check.
+  The arrow tabs at the left and right edges switch the panels. Only the one toward the other panel shows. The left and right arrow keys switch them too, except while keyboard focus is in something that uses those keys itself: the 3D view (its camera), a graph (it picks a time), the altitude timeline, the SAVED FLIGHTS dropdown, a form field, the raw output, or anything else that scrolls sideways. The panel off screen is inert, so the keyboard and screen readers skip it. The panels slide, except for viewers who ask for less motion. `data-panel` on the console (`globe` or `data`) says which panel is on screen.
 
-The modes:
+The console's `data-mode` says what the panels hold:
 
-- `idle`: no source found yet. Head, bar, intro and saved (and errors, if any come in). If lines arrive that the console doesn't recognize, the notice shows, the raw output opens in place of the intro, and the source says "Not recognized".
-- `bench`: a Dogtooth board's status block came in over USB. Head and bar, then the readings and graphs side by side (the diagnostics come first), then the 3D view at a moderate height showing the board's position, then raw and saved. The readings panel and the altitude tape don't float over the 3D view here, because the bench readings already show the numbers.
-- `flight`: a flight source, like the Manta ground station. Nothing makes this mode yet. The 3D view takes over, nearly the whole window tall, with the readings panel and altitude tape over it. Only a Dogtooth board's status block fills the bench readings and graphs, so they show under the 3D view only once a block has come in during the visit (`main.js` sets `data-has-blocks` on the grid). It is all CSS plus the switch in `main.js`, which goes by the source's `mode`, so a future source with `mode: 'flight'` just works.
-- `replay`: a saved flight, the same console as before: header, phase strip, the stage with its panels, the altitude timeline, then the mission timeline next to the flight details and detection check. None of the live panes show.
+- `idle`: no source found yet. The 3D view waits looking at the whole Earth, and panel 2's readings and graphs say NO DATA.
+- `bench`: a Dogtooth board's status block came in over USB. The 3D view flies down to the board's position with the readings panel over it (height above ground, vertical speed, the GPS fix and the last block's age, with the acronyms spelled out), and panel 2 fills in with the board's own readings and graphs. The readings panel is added on its own when the board is found, so the 3D view keeps running.
+- `flight`: a flight source, like the Manta ground station. Nothing makes this mode yet. The 3D view has the readings panel over it. It goes by the source's `mode` in `main.js`, so a future source with `mode: 'flight'` just works.
+- `replay`: a saved flight. The 3D view has the flight clock (with the rocket's name and the simulated or real label), the phase strip, the readings panel and the altitude timeline (with PLAY or PAUSE and the speeds) floating over it. The timeline is the console's one altitude display. Panel 2 has the mission timeline, the flight details and the detection check.
 
-Phones get one column in every mode, and the page never scrolls sideways at 390 or 320 pixels wide. The panes are in the page in the order they show, so the keyboard goes through them in the same order. The one exception is flight mode, where the stage moves above the readings and graphs.
+The overlays on the 3D view are marked `data-fc-cover`, so the 3D view keeps its labels clear of them. The altitude timeline's height is kept in `--fc-tl-space` on the panel (`main.js` measures it), so the 3D view's controls and credits sit just above it.
 
-Panes are spaced with a bottom margin, not a grid row gap. That way the empty row of a pane a mode hides takes no room.
+On a wide screen everything fits the window at 1920 by 1080, 1440 by 900, 1366 by 768 and 1280 by 720, and long lists scroll inside their own box. In shorter windows (760 pixels tall or less, like a laptop's browser) the readings and the timeline get tighter, so the readings and their "More readings" toggle still fit above the credits. At 620 pixels tall or less the whole readings panel scrolls, and "More readings" opens in place under the main rows.
 
-### Later: one screen, no scrolling
-
-The grid is built so it can become a one-screen layout with tabs or flip-through panels. Give the grid a fixed height (the window minus the nav), one row and one column, and put every pane of the mode in that one cell. Then show one pane at a time, the one the tabs pick (for example a `data-show` attribute on the grid), and let a pane that is too tall scroll inside itself. No markup has to move, since every pane is already a direct child of the grid. The comment at the top of the console part of `flight-console.css` says the same.
+On phones each panel still fills the screen under the bar and panel 2 scrolls inside itself. The overlays on the 3D view get small: the clock, its caption and the simulated or real label share one line (the flight's name is already in the bar, so the rocket's name there is only for screen readers), the six phases fit one line without their start times (those are in the mission timeline), the readings are a compact grid, and the timeline puts PLAY, the speeds and the time in one row under a short strip, with its heading only for screen readers. On short phones (and phones turned sideways) panel 1 stacks instead: the clock and phase strip, then the 3D view at a fixed height, then the readings and the timeline, and it scrolls inside itself. Each part keeps its full height there and the panel scrolls. The page never scrolls sideways, at 390 or 320 pixels wide either.
 
 ## The live console
 
@@ -95,14 +87,14 @@ If a line makes the code that reads it throw, `serial-link.js` logs the error an
 
 ### A board on a desk in the 3D view
 
-The map and the 3D view were written for flights, so they talk about a rocket, a launch point and the whole flight. In bench mode `main.js` passes `BENCH_WORDS` (from `js/views/hud-text.js`) in the views' `ctx.words`: the camera button says "Follow board", the legend says "Board track" and "Start point", the spot where the board first sat still with a GPS fix is tagged START POINT, and there is no "Whole flight" button. Replays use `FLIGHT_WORDS`, the same words as before. The legend also says what the label codes mean: AGL is height above ground level and VS is vertical speed.
+The map and the 3D view were written for flights, so they talk about a rocket, a launch point and the whole flight. Before a source is found (idle) and in bench mode, `main.js` runs the 3D view on the bench store and passes `BENCH_WORDS` (from `js/views/hud-text.js`) in the views' `ctx.words`: the camera button says FOLLOW BOARD, the KEY says "Board track" and "Start point", the spot where the board first sat still with a GPS fix is tagged START POINT, there is no WHOLE FLIGHT button, and the readings panel says "No data from this board yet" before its first reading. Replays use `FLIGHT_WORDS`. The KEY also says what the label codes mean: AGL is height above ground level and VS is vertical speed. Before any data comes in, the 3D view has no notes, since nothing is connected yet.
 
 ### The live store: no liftoff, no ground station
 
 The live bench store is made with two differences from a replay's store:
 
 - Liftoff detection is off (`LIFTOFF_AGL_M` and `LIFTOFF_VSPEED_MPS` set to `Infinity` in `BENCH_DETECTOR` in `js/live/bench-feed.js`, which `LIVE_STORE_OPTIONS` there uses, so the page and the tests make the store the same way). A board on a desk isn't flying, and one GPS altitude jump of 30 m or more would read as "Liftoff detected". The same two numbers decide when data "started in flight", which a board on a desk never did either. The pad is still found, and the 3D view needs it to place the board. The thresholds in `config.js` don't change.
-- It has no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California. For a board on a desk that would put a tower thousands of kilometers away. So the live store has none: `getGroundStation()` returns null, and the map, the 3D view and the readings panel leave out the tower, the teal line and every distance to it. The map's legend drops those two rows. The map waits on a wide view of the world, and the 3D view waits looking down at the whole Earth, until there is a position to show. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one.
+- It has no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California. For a board on a desk that would put a tower thousands of kilometers away. So the live store has none: `getGroundStation()` returns null, and the map, the 3D view and the readings panel leave out the tower, the line to it and every distance to it. The KEY drops those two rows. The map waits on a wide view of the world, and the 3D view waits looking down at the whole Earth, until there is a position to show. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one.
 
 Replays work exactly as before, with the demo ground station.
 
@@ -111,9 +103,9 @@ Replays work exactly as before, with the demo ground station.
 The ground station isn't built yet, so nothing on the page reads it. There are two marked spots for it:
 
 - `js/live/sources.js` has a commented-out entry for "Manta ground station" with what to fill in: a `test(line)` that is true only for the ground station's own lines, a `parse(line)` that gives back `{ kind: 'sample', sample }` (`parseSerialLine()` in `js/parser.js` is a good start), and `mode: 'flight'`.
-- `main.js` has a "MANTA HOOK" comment over `feedFlightLine()`. It already passes each line of a flight source to its `parse()` (a line that makes it throw is skipped) and puts the samples in a flight store with the normal detector and no demo ground station. Before it is used, that store's clock also has to keep moving between packets (`store.setTime`), the way `bench-feed.js` does it for the board. The console's head line and the "How to connect" steps in `index.html` also only talk about a Dogtooth board on USB, so they need a line for Manta then.
+- `main.js` has a "MANTA HOOK" comment over `feedFlightLine()`. It already passes each line of a flight source to its `parse()` (a line that makes it throw is skipped) and puts the samples in a flight store with the normal detector and no demo ground station. Before it is used, that store's clock also has to keep moving between packets (`store.setTime`), the way `bench-feed.js` does it for the board. The square on the CONNECT button also only follows the Dogtooth status blocks (`data-beat` in `bench-panel.js`), so Manta needs its own on-time check there.
 
-When a source with `mode: 'flight'` is found, the console switches to flight mode and the 3D view takes over.
+When a source with `mode: 'flight'` is found, the console switches to flight mode: the 3D view on the flight store, with the readings panel over it.
 
 ### The Dogtooth status block
 
@@ -149,33 +141,33 @@ The banner line is also how `sources.js` recognizes a Dogtooth board.
 How the console reads it:
 
 - **Banner.** A line starting with `====` begins a new block. The console reads `HEARTBEAT #` and `TIME RUNNING` from it. The time can be `5.3 s`, `1 min 5.3 s` or `1 h 2 min 5 s`, and the console turns it into seconds.
-- **Sections.** A line with no colon is a section name. The readings pane groups by section.
+- **Sections.** A line with no colon is a section name. The readings in panel 2 group by section. The GPS group's heading spells out Global Positioning System (GPS), and lock quality's second line spells out horizontal dilution of precision (HDOP), since those are their first uses on the screen.
 - **Fields.** Every other line is a label, a row of dashes and a value. The label is everything before the first colon. The console strips the dashes and spaces to get the value, but keeps a minus sign, so `---- -71.0896268` reads as -71.0896268. Fields are found by their label, never their position, so the board can reorder them or leave some out. Labels the console doesn't know are skipped, and they still show in the raw output.
 - **Values.** `LOCKED` or `SEARCHING`. `100 % (HDOP 0.99)` gives the lock quality percent and the HDOP. `GOOD 723 char/s` gives a status word (`GOOD`, `LOW` or `SILENT`) and a rate. `ON` or `OFF` for each motion model. Everything else is a number with an optional unit. A value that isn't a number where one is expected (like `--`) shows as text and stays off the graphs.
 - **End of a block.** A block is finished at the next banner, or at the blank line after the RADIO section. If the port closes partway through a block, the console keeps what it got.
-- **Lost blocks.** If the heartbeat number skips ahead (64, then 66), the missing numbers are added to Lost blocks. The jump across a disconnect doesn't count, because nobody was listening. Neither does a board restart.
-- **Heartbeat.** The last heartbeat time comes from the banner and turns red after 3 s with no new block.
+- **Lost blocks.** If the heartbeat number skips ahead (64, then 66), the missing numbers count as lost blocks. The jump across a disconnect doesn't count, because nobody was listening. Neither does a board restart. The panel keeps the count, but the console doesn't show it anymore.
+- **Heartbeat.** Each banner is a heartbeat. While connected, the square on DISCONNECT is filled orange, and it empties once 3 s pass with no new block. When the port closes (DISCONNECT, or the board is unplugged), the NOT RECOGNIZED line under the bar goes away, since nothing is coming in any more.
 - **Restarts.** If `TIME RUNNING` or the heartbeat number goes back, the board restarted. The graphs start over, since their times would overlap, and so does the live store (the 3D track). The CSV keeps every block.
-- **Errors.** A line starting with `Error:` can come at any time, even inside a block. It goes in the errors pane. The same error again, with no other error in between, adds to its count instead of making a new row. It's also kept with the newest block for the CSV's `ERRORS` column.
+- **Errors.** A line starting with `Error:` can come at any time, even inside a block. It goes in the errors box at the top of the readings in panel 2. The same error again, with no other error in between, adds to its count instead of making a new row. It's also kept with the newest block for the CSV's `ERRORS` column.
 - **Position.** A position only counts if latitude and longitude are both numbers on the globe, they aren't both 0, and the same block doesn't say SEARCHING. The board prints 0.0000000 while it searches, so no made-up position is ever drawn.
 
 Lines outside a block, like the startup banner, go in the raw output only.
 
-What the graphs show: the last 10 minutes (or since the board started, if that's shorter). The time along the bottom is the board's `TIME RUNNING`, so data that arrives in a burst still lands at the right time. Lines break at each connect and disconnect and across gaps over 6 s. Altitude is left off while the block says SEARCHING. After a disconnect, the graphs stop moving so the data stays in view. Pointing at any graph (or tabbing to one and using the arrow keys) picks a time, and every graph shows that moment.
+What the graphs show: NO DATA until the first block, then the last 10 minutes (or since the board started, if that's shorter). The time along the bottom is the board's `TIME RUNNING`, so data that arrives in a burst still lands at the right time. Lines break at each connect and disconnect and across gaps over 6 s. Altitude is left off while the block says SEARCHING. After a disconnect, the graphs stop moving so the data stays in view. Pointing at any graph (or tabbing to one and using the arrow keys) picks a time, and every graph shows that moment.
 
 ### Names the console knows
 
-Every name the console matches is in one place at the top of `js/bench/parse.js`: `BANNER` for the banner, `ERROR_LABEL`, and `FIELDS` for the sections and labels. They're copied exactly from the board's output, capitals and brackets included, and a label must match exactly to count. If the firmware renames something, change it there. A new entry in `FIELDS` gets a row in the readings pane and a column in the CSV.
+Every name the console matches is in one place at the top of `js/bench/parse.js`: `BANNER` for the banner, `ERROR_LABEL`, and `FIELDS` for the sections and labels. They're copied exactly from the board's output, capitals and brackets included, and a label must match exactly to count. If the firmware renames something, change it there. A new entry in `FIELDS` gets a row in the readings and a column in the CSV.
 
 | Section | Label | Read as |
 |---|---|---|
-| GPS | TARGET LOCK [GPS] | LOCKED (teal) or SEARCHING (coral) |
+| GPS | TARGET LOCK [GPS] | LOCKED (plain) or SEARCHING (orange) |
 | GPS | CONNECTED SATELLITES | number |
 | GPS | LOCK QUALITY | percent and HDOP |
 | GPS | LATITUDE | number |
 | GPS | LONGITUDE | number |
 | GPS | ALTITUDE | number and unit |
-| GPS | GPS DATA RATE | GOOD (teal), LOW (gold) or SILENT (coral), then a rate |
+| GPS | GPS DATA RATE | GOOD (plain), LOW (orange outline) or SILENT (orange), then a rate |
 | GPS | CORRUPTED DATA OCCURRENCES (GPS) | number |
 | GPS MOTION MODEL | PORTABLE, AUTOMOTIVE, AIRBORNE 4G, OTHER | ON or OFF |
 | RADIO | RADIO PACKETS SENT | number |
@@ -188,12 +180,12 @@ This block format dates from 2026-11-13. Before that, the flight firmware in `DO
 
 ### The CSV file
 
-Save as CSV downloads every block received since the page loaded, across every connect and disconnect, and across trips to a replay and back. One row per block, in the order they arrived:
+SAVE AS COMMA-SEPARATED VALUES (CSV), next to the graphs' heading in panel 2, downloads every block received since the page loaded, across every connect and disconnect, and across trips to a replay and back. One row per block, in the order they arrived:
 
 - `PC time (UTC)`: when the computer got the block's banner, as ISO 8601.
 - `HEARTBEAT #` and `TIME RUNNING (s)`, from the banner.
 - One column per field, in the order of `FIELDS`, holding the value as the board printed it. `LOCK QUALITY` splits into `LOCK QUALITY (%)` and `HDOP`. `GPS DATA RATE` splits into `GPS DATA RATE STATUS` and `GPS DATA RATE (char/s)`. The motion model columns start with `GPS MOTION MODEL`, so `AIRBORNE 4G` makes sense on its own. A header's unit is the first unit the board sent for it.
-- `ERRORS`: every `Error:` message from the block's banner until the next banner, split by ` | ` when there's more than one. An error before the first banner of a connection belongs to no block, so it's only in the errors pane.
+- `ERRORS`: every `Error:` message from the block's banner until the next banner, split by ` | ` when there's more than one. An error before the first banner of a connection belongs to no block, so it's only in the errors box.
 
 Lines outside a block, like the startup banner, aren't in the CSV. Nothing is uploaded. Everything stays in the tab until it's closed or reloaded.
 
@@ -203,7 +195,9 @@ Lines outside a block, like the startup banner, aren't in the CSV. Nothing is up
 
 ## Saved flights and replays
 
-The Saved flights pane at the bottom of the console lists every flight in the library (`data/flights/index.json`), newest first. A plain click on a row opens its replay in place. The replay's "Back to the console" link (top left) goes back to `?track`, where a connected board is still connected and its data is still there.
+SAVED FLIGHTS, the small dropdown on the right of the console's bar (`js/views/saved-menu.js`), is a log with one line per flight in the library (`data/flights/index.json`): its name, its date and its flight time (`summary.flightDurationS`). A LIVE line at the top goes back to the live console, and the line for what is on screen now is marked. A plain click on a line opens it in place. A middle click or Ctrl+click opens a new tab, since every line is a real link. It works from the keyboard: Enter, Space or the down arrow opens it, the up and down arrows move between lines, Home and End go to the ends, and Escape closes it and puts focus back on its button. Tabbing out of it or clicking anywhere else closes it too.
+
+While a replay is open, its name shows in the middle of the bar with a close button, the slim way back to live. Either way, back at `?track` a connected board is still connected and its data is still there.
 
 ### How one sample travels from the file to the screen
 
@@ -212,11 +206,11 @@ The Saved flights pane at the bottom of the console lists every flight in the li
 3. `player.js` sorts every rocket's samples by time and feeds them to the store as its clock runs. At 5x speed it feeds five seconds of data per second of real time, and it never skips a sample.
 4. `store.js` files the sample under its rocket and hands it to that rocket's own detector.
 5. `detector.js` updates ground level, altitude above ground and vertical speed, and returns any new events, like "Apogee detected".
-6. The store tells every view something changed. Each view reads what it needs from the store and redraws: the map (or the 3D view) moves the rocket and its label, the readings and the altitude tape update their numbers, the phase strip moves on, the timeline's playhead moves, and the mission timeline adds the event.
+6. The store tells every view something changed. Each view reads what it needs from the store and redraws: the 3D view (or the map) moves the rocket and its label, the readings update their numbers, the phase strip and the clock move on, the timeline's playhead moves, and the mission timeline adds the event.
 
 The views never talk to each other. They only read the store, which is why the live console can feed the same store and the 3D view follows the board. The one exception is the 3D view. The map view starts it and shares its buttons, notes and "Follow rocket" setting with it.
 
-When a flight opens, `main.js` also runs the whole flight once through a second, hidden store (the "pre-scan"). That gives the altitude timeline each rocket's whole altitude curve and the events to mark on it, and gives the altitude tape its top value, before playback gets there. Nothing from the pre-scan reaches the shown store, so the readings, the map and the mission timeline only ever show what has happened up to the playhead. Live data has no pre-scan (an empty one is passed).
+When a flight opens, `main.js` also runs the whole flight once through a second, hidden store (the "pre-scan"). That gives the altitude timeline each rocket's whole altitude curve and the events to mark on it, and gives the 3D view its starting distance, before playback gets there. Nothing from the pre-scan reaches the shown store, so the readings, the map and the mission timeline only ever show what has happened up to the playhead. Live data has no pre-scan (an empty one is passed).
 
 Opening a flight always builds a brand new store, player and set of views. Leaving it destroys them, so nothing from one flight can show up in the next.
 
@@ -237,8 +231,8 @@ node --test "flight-console/test/*.test.mjs"
 
 ### Page
 
-- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console grid with every pane (the live panes' fixed text and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. It also loads the Share Tech Mono font, used only for the green labels on the map and in the 3D view, and Space Mono, used only for the raw serial output. It has no tag for CesiumJS on purpose (see "The 3D view").
-- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. It starts with the page's color and font settings (the design tokens, as CSS variables, including the `--bc-*` names the live panels and their graphs read) and the shared pieces like buttons, panels and the event dots. Then come the landing, the console grid, the console's head, intro, notice and Saved flights, the live panels, Leaflet, and one part per replay area: console top, map, readings and tape, altitude timeline, and the panels under it. Every animation only runs when the viewer hasn't asked for less motion.
+- `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console (the bar, the status lines, the two panels and the arrow tabs, with the live panel's fixed text and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. Its fonts come from the theme (see below), and Space Mono is used only for the raw serial output. It has no tag for CesiumJS on purpose (see "The 3D view").
+- `flight-console.css`: styles for this page only. Everything is scoped under `.fc-page`, so none of it can affect other pages. The palette and the fonts live in `../css/flight-console-theme.css` (navy, orange used sparingly, off-white, and shades mixed from them). The tokens at the top of this file only give those colors jobs, including the `--bc-*` names the live panel and its graphs read. Then come the shared pieces (buttons in Saira Stencil One, labels and readouts in Share Tech Mono, headings in Barlow Condensed, sharp corners), the landing, the console (bar, status lines, panels and tabs), panel 1 and its overlays, the 3D view's frame, the 2D map, and panel 2, live and replay. Every animation only runs when the viewer hasn't asked for less motion.
 - `README.md`: this guide.
 - `.gitignore`: keeps `js/config.local.js` out of Git.
 
@@ -272,28 +266,29 @@ node --test "flight-console/test/*.test.mjs"
 - `js/main.js`: picks the screen from the address, runs the routing, makes the live session (link, panel, detector, live stores) and the live map, loads saved flights, runs the pre-scan, and connects each replay's store, player and views. The "MANTA HOOK" is here.
 - `js/hero-seafloor.js`: the moving sea floor behind the landing's hero. One export, `startSeafloor(canvas, options)`, which returns `stop()`.
 - `js/live/serial-link.js`: the serial port, opened with Web Serial at 115,200 baud and read line by line.
-- `js/live/bench-panel.js`: the bar, errors, readings, graphs, raw output and Save as CSV. It finds its parts by the `bc-*` ids in `index.html`.
-- `js/bench/charts.js`: draws the live graphs on canvas, in the colors from the `--bc-*` variables.
+- `js/live/bench-panel.js`: the CONNECT button (its words and its square), the Chrome or Edge warning, errors, readings, graphs, raw output and Save as CSV. It finds its parts by the `bc-*` ids in `index.html`.
+- `js/bench/charts.js`: draws the live graphs on canvas, in the colors from the `--bc-*` variables (the browser works each one out, color-mix included) and the readout font. Before any data a graph says NO DATA.
 
 ### Views (they draw parts of the page)
 
 - `js/views/dom.js`: small helpers for building page elements (HTML and SVG), limiting how often a view redraws, checking for reduced motion, and drawing an event's dot by how it was found.
 - `js/views/icons.js`: the drawings the page shares: the rocket (always pointing straight up, since no board sends orientation), the launch rail, the ground station tower, and the button icons.
-- `js/views/launcher.js`: starts the landing's sea floor, and draws the Saved flights list (one row per flight, the whole row is the link) with notes when the library didn't load or an entry had to be skipped. It only reads the manifest, never a flight's data files.
+- `js/views/launcher.js`: starts the landing's sea floor. It still has `createSavedFlights()`, the old Saved flights list, which nothing uses now (left for the landing's merge, safe to delete).
+- `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped. It only reads the manifest, never a flight's data files.
+- `js/views/panels.js`: the two panels: the arrow tabs, the left and right arrow keys (and where they belong to something else), and keeping the panel off screen inert.
 - `js/views/esri.js`: asks Esri once whether it accepts the satellite key. Every map in the visit shares the answer, so a visit only asks once.
-- `js/views/mission-header.js`: the "Back to the console" link, "Simulated flight" or "Real flight", the focused rocket's name, the big T+ flight clock (it stops at the landing time once the landing is detected), and the "Copy link" button.
+- `js/views/mission-header.js`: the replay's clock in the top left corner of the 3D view: the big off-white T+ flight time (it stops at the landing time once the landing is detected), the focused rocket's name, and "Simulated flight" or "Real flight" with any honesty labels.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with 2 or more rockets. Click one to focus it.
 - `js/views/phase-strip.js`: the six phases across the top (Pad, Ascent, Apogee, Drogue, Main, Landed), driven only by the detector. Drogue and Main have dashed bars because they are inferred.
-- `js/views/map-view.js`: the Leaflet map, with the "Satellite", "Dark map" and "3D" buttons, the "Labels" and "Follow rocket" checkboxes, the legend, and the rocket, launch rail and ground station markers with their green labels. It shows the "No map" panel if Leaflet or the map tiles can't load. It also owns the switch to the 3D view: the "3D" button, which view opens first, the loading and failure messages, and the three camera buttons. With no ground station it leaves out the tower, the line and the legend rows.
+- `js/views/map-view.js`: the 3D view's frame: it starts the 3D view, shows the loading and failure messages, and owns the camera buttons and the KEY in the bottom left corner. It is also the 2D map the 3D view falls back to (Leaflet, with SATELLITE, DARK MAP and 3D buttons, the "Labels" and "Follow rocket" checkboxes, and the rocket, launch rail and ground station markers with their labels), and the "No map" panel if Leaflet or the map tiles can't load. With no ground station it leaves out the tower, the line and the KEY's rows.
 - `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer and draws the trails, the drop line, the rocket, launch rail and ground station icons, their labels, the line to the ground station and the event markers. It also looks up ground heights, moves the camera and keeps labels from overlapping. See "The 3D view".
 - `js/views/cesium-loader.js`: downloads CesiumJS when the 3D view opens.
-- `js/views/hud-text.js`: the words on a rocket's green label ("AGL 264 M", "NO GPS FIX · 4 S"), shared by the map and the 3D view so both always say the same thing. Also `FLIGHT_WORDS` and `BENCH_WORDS`, what the two views call the thing they track (see "A board on a desk in the 3D view").
-- `js/views/stats-panel.js`: the readings panel floating over the map (under it on phones): altitude, vertical speed, ground speed, GPS and last packet, with everything else under "More readings", one section per sensor group the rocket actually sent.
-- `js/views/alt-tape.js`: the altitude tape on the left edge of the map (a thin strip on phones), from 0 to the rocket's highest point in the pre-scan, with the altitude now and the highest point so far.
-- `js/views/timeline.js`: the altitude timeline under the map. It shows the focused rocket's whole altitude curve (gold up to the playhead), other rockets as thin lines, and event markers that jump to their event. Click, drag or use the arrow keys to move through the flight. Play, pause and the speed buttons sit under it.
-- `js/views/event-log.js`: the mission timeline: every event in time order on a line, each dot drawn by how the event was found, with the newest one in gold. It shows a "Now" tag while the playhead is on that event. Screen readers only hear events that arrive during normal playback, never the whole list again after a seek.
-- `js/views/flight-info.js`: the "About this flight" panel: the flight's title, simulated or real, description, date, launch site, boards, data files with reading and bad line counts, and any notes from the parser.
-- `js/views/debug-panel.js`: the "Detection check" section for simulated flights.
+- `js/views/hud-text.js`: the words on a rocket's label ("AGL 264 M", "NO GPS FIX · 4 S"), shared by the map and the 3D view so both always say the same thing. Also `FLIGHT_WORDS` and `BENCH_WORDS`, what the two views call the thing they track (see "A board on a desk in the 3D view").
+- `js/views/stats-panel.js`: the readings panel floating over the 3D view in a replay, in bench mode and in flight mode (top right, or a compact grid on phones): altitude above ground level (AGL), vertical speed (VS), ground speed, Global Positioning System (GPS) and last packet, with everything else under "More readings", one section per sensor group the rocket actually sent. Its labels spell out each acronym the first time the screen shows it.
+- `js/views/timeline.js`: the altitude timeline along the bottom of the 3D view, the console's one altitude display. It shows the focused rocket's whole altitude curve (orange up to the playhead), other rockets as thin lines, and event markers that jump to their event. Click, drag or use the arrow keys to move through the flight. PLAY or PAUSE and the speed buttons sit beside it.
+- `js/views/event-log.js`: the mission timeline in panel 2: every event in time order on a line, each dot drawn by how the event was found, in dim off-white with the newest one in orange (a lost GPS fix is orange too). It shows a "Now" tag while the playhead is on that event. Screen readers only hear events that arrive during normal playback, never the whole list again after a seek.
+- `js/views/flight-info.js`: the "About this flight" panel in panel 2: the flight's title, simulated or real, COPY LINK, description, date, launch site, boards, data files with reading and bad line counts, and any notes from the parser.
+- `js/views/debug-panel.js`: the "Detection check" section for simulated flights, in panel 2.
 
 ### Tests and tools (run with Node from the website folder)
 
@@ -303,15 +298,15 @@ node --test "flight-console/test/*.test.mjs"
 
 ### Version numbers
 
-When a file changes, bump its `?v=` number everywhere it's loaded, so returning visitors don't get the old copy. `flight-console.css` and `js/main.js` are loaded from `index.html`. The modules work the same way: GitHub Pages lets a browser keep a file for 10 minutes, and a new `main.js` mixed with an old cached `launcher.js` wouldn't even start. So `main.js` imports `store.js`, `views/launcher.js`, `views/mission-header.js`, `views/map-view.js`, `views/stats-panel.js` and `views/hud-text.js` with `?v=2`, and `map-view.js` imports `globe-view.js` and `hud-text.js` with `?v=2` (so does `globe-view.js` for `hud-text.js`). Every file that imports a module uses the same query, since two different addresses would load a module twice. The `js/bench/` files are imported with `?v=3` by the `js/live/` files and by each other. The `js/live/` files import each other with no query, so `main.js` imports them with none too.
+When a file changes, bump its `?v=` number everywhere it's loaded, so returning visitors don't get the old copy. `flight-console.css` and `js/main.js` are loaded from `index.html`. The modules work the same way: GitHub Pages lets a browser keep a file for 10 minutes, and a new `main.js` mixed with an old cached `launcher.js` wouldn't even start. So `main.js` imports `store.js`, `views/launcher.js`, `views/timeline.js`, `views/event-log.js`, `views/flight-info.js`, `views/hud-text.js` and `live/bench-panel.js` with `?v=2`, and `views/mission-header.js`, `views/map-view.js` and `views/stats-panel.js` with `?v=3`. `map-view.js` imports `globe-view.js` with `?v=3`, and `hud-text.js` with `?v=2` (so does `globe-view.js`). Every file that imports a module uses the same query, since two different addresses would load a module twice. The `js/bench/` files are imported with `?v=3` by the `js/live/` files and by each other, except `charts.js`, which `bench-panel.js` imports with `?v=4`. The other `js/live/` files import each other with no query, so `main.js` imports them with none too. A module that only gained different colors (like `icons.js` and `config.js`) can keep its address: an old cached copy only shows the old colors for a few minutes.
 
 ## The library file, index.json
 
 Each flight in the `flights` list has these fields:
 
 - `id`: a short name made of letters, numbers, `-` and `_`. It is the folder name under `data/flights/` and the value after `?flight=`.
-- `title`: shown in the Saved flights list and in the console.
-- `date`: the flight date as `YYYY-MM-DD`. The Saved flights list shows newest first.
+- `title`: shown in SAVED FLIGHTS and on the replay's line in the console's bar.
+- `date`: the flight date as `YYYY-MM-DD`. SAVED FLIGHTS shows it, newest first.
 - `kind`: `"simulated"` or `"real"`. The page always shows which one it is.
 - `featured`: `true` for one flight. The page no longer shows it differently (the old launcher's featured card is gone), but `add_flight.mjs` still keeps it on only one flight.
 - `description`: one or two plain sentences.
@@ -328,8 +323,8 @@ Each flight in the `flights` list has these fields:
   - `timeOffsetS` (optional): seconds added to that file's times, to line up boards whose clocks started at different moments.
 - `summary`: filled in by `add_flight.mjs` from the real data.
   - `rocketCount`: how many rockets.
-  - `maxAglM`: the highest altitude above ground, in meters. The Saved flights list's "Apogee" comes from it.
-  - `flightDurationS`: seconds from liftoff to landing, or the whole data span if either wasn't detected.
+  - `maxAglM`: the highest altitude above ground, in meters.
+  - `flightDurationS`: seconds from liftoff to landing, or the whole data span if either wasn't detected. SAVED FLIGHTS shows it as the flight time.
   - `sensors`: the sensor groups found, like `["gps"]`.
   - `events`: the flight events detected.
   - The rest fed the old launcher's featured card. The page doesn't show them anymore, but `add_flight.mjs` still fills them in and they cost nothing to keep. They all describe one rocket, the one that flew highest:
@@ -341,7 +336,7 @@ Each flight in the `flights` list has these fields:
     - `driftM`: meters from the pad to the landing point.
     - `maxGsDistanceM`: the farthest the rocket got from the ground station, in meters.
     - `gsDemo`: `true` when those ground station distances use the demo ground station position from `config.js`, because the data had no ground station GPS packets.
-  - Any summary value can be `null`. The Saved flights list shows `--` for a missing apogee.
+  - Any summary value can be `null`. SAVED FLIGHTS leaves a missing flight time blank.
 
 ## Adding a flight
 
@@ -354,7 +349,7 @@ Each flight in the `flights` list has these fields:
 3. The tool checks everything first: the id and date, the file names, the rocket IDs, and that every rocket has readable data. If anything is wrong it stops and writes nothing. Then it copies the file into `data/flights/my-flight-01/`, runs it through the same parser, detector and store the page uses, fills in the summary (including the simplified track and altitude line for the featured card), and updates `index.json`. It prints what it found.
    To redo the summary for a flight that's already in the library (after a change to the detector or the tool), run the same command again with `--replace`. The `--file` has to point at a copy outside `data/flights/`, since the tool won't copy a file onto itself. The copy is byte for byte, so the log in the library doesn't change.
 4. Run `node flight-console/tools/check_detection.mjs my-flight-01` to see the detected events.
-5. Refresh the console. The new flight is in Saved flights.
+5. Refresh the console. The new flight is in SAVED FLIGHTS.
 
 For a flight with several rockets in separate files, repeat `--file` once per rocket. The first `--rocket-name`, `--board` and `--rocket-id` go with the first `--file`, and so on. Every board sends node ID 1 until it gets its own number, so two boards' files need `--rocket-id` (for example `--rocket-id a --rocket-id b`). A single file that holds several rocket IDs, like a ground station log, becomes one rocket entry per ID automatically.
 
@@ -391,7 +386,7 @@ All of these are in `js/config.js`.
 - `DEFAULT_MAP_LAYER`: the map background a first-time viewer sees (`'satellite'` or `'dark'`).
 - `SATELLITE_MAX_NATIVE_ZOOM`: the deepest zoom with real Esri photos (19). Closer zooms scale those photos up.
 - `HALO_COLOR`, `HALO_OPACITY` and `HALO_WIDTH_PX`: the thin dark outline under tracks and markers that keeps them visible on photos.
-- `TRACK_COLOR`, `GROUND_STATION_COLOR` and `PAD_COLOR`: the focused rocket's gold track, the teal ground station and the off-white launch rail. `ROCKET_PALETTE` gives each rocket its own color (its dot, and its track while another rocket is focused). It leaves out gold, green, teal and red on purpose, because those already mean something on the page.
+- `TRACK_COLOR`, `GROUND_STATION_COLOR` and `PAD_COLOR`: the focused rocket's orange track (and its fins), the dim off-white ground station and the off-white launch rail. `ROCKET_PALETTE` gives each rocket its own color (its mark, and its track while another rocket is focused), all mixed from the theme's navy, orange and off-white. These are hex copies of the theme's colors, since the map and the 3D view need plain colors and Node reads `config.js` too.
 - `ROCKET_ICON_PX` and `ROCKET_ICON_FOCUSED_PX`: the rocket icon's height on the map, for other rockets and the focused one.
 - `TIMELINE_KEY_STEP_S` and `TIMELINE_KEY_BIG_STEP_S`: how far the arrow keys (and Shift with an arrow, or Page Up and Page Down) move the playhead on the altitude timeline.
 - `EVENT_NOW_S`: how long after an event the mission timeline's "Now" tag stays on it.
@@ -401,17 +396,17 @@ All of these are in `js/config.js`.
 - `CESIUM_LOAD_TIMEOUT_MS` and `TERRAIN_SAMPLE_TIMEOUT_MS`: how long to wait for Cesium to download, and for the terrain and a ground height, before giving up. `GLOBE_READY_TIMEOUT_MS` is the longest the "Loading the 3D view..." panel stays up once Cesium has downloaded.
 - `PAD_RESAMPLE_M`: how far a launch pad has to move before its ground height is looked up again.
 - `GLOBE_START_HEADING_DEG`, `GLOBE_START_PITCH_DEG`, `GLOBE_START_RANGE_PER_APOGEE`, `GLOBE_START_RANGE_MIN_M` and `GLOBE_START_RANGE_MAX_M`: the 3D camera's starting angle and distance.
-- `GLOBE_ZOOM_MIN_M` and `GLOBE_ZOOM_MAX_M`: how close and how far the 3D camera can zoom. `GLOBE_FIT_MARGIN` is how much room "Whole flight" leaves.
+- `GLOBE_ZOOM_MIN_M` and `GLOBE_ZOOM_MAX_M`: how close and how far the 3D camera can zoom. `GLOBE_FIT_MARGIN` is how much room WHOLE FLIGHT leaves.
 - `GLOBE_ORBIT_DEG_PER_PX` and `GLOBE_ZOOM_PER_NOTCH`: how fast a drag turns the 3D camera and how much one wheel notch zooms. Lower both for a calmer view. `GLOBE_KEY_TURN_DEG` and `GLOBE_KEY_ZOOM` do the same for the keyboard.
 - `GLOBE_PITCH_MIN_DEG`, `GLOBE_PITCH_MAX_DEG` and `GLOBE_GROUND_CLEARANCE_M`: how steep and how flat the 3D camera can look, and how far it stays above the ground. `GLOBE_MOVE_MS` is how long it takes to glide to a new view.
 - `GLOBE_MAX_PIXEL_RATIO`: the sharpest the 3D view draws on high-resolution screens. Lower it to save battery.
 - `GLOBE_ICON_NEAR_M`, `GLOBE_ICON_FAR_M` and `GLOBE_ICON_FAR_SCALE`: how much the 3D view's icons and labels shrink when the camera is far away.
 - `DROP_LINE_COLOR` and `DROP_LINE_WIDTH_PX`: the line from the focused rocket down to the ground in 3D.
-- The page's colors and fonts (the design tokens) are CSS variables at the top of `flight-console.css`.
+- The page's colors and fonts come from `../css/flight-console-theme.css`. The tokens at the top of `flight-console.css` give them jobs.
 
 ## Map keys
 
-The map has two backgrounds, picked with the "Satellite" and "Dark map" buttons on the map. Satellite is the default. The browser remembers each viewer's choice (in localStorage). If the browser blocks storage, the choice just isn't remembered.
+The 2D map, the fallback when the 3D view can't run, has two backgrounds, picked with its SATELLITE and DARK MAP buttons. Satellite is the default. The browser remembers each viewer's choice (in localStorage). If the browser blocks storage, the choice just isn't remembered.
 
 ### Satellite (Esri)
 
@@ -445,14 +440,20 @@ The 3D view's terrain (Cesium World Terrain) and its aerial imagery (ion's defau
 
 ## The 3D view
 
-The "3D" button next to "Satellite" and "Dark map" swaps the map for a 3D view of the same flight, drawn with CesiumJS on real terrain. The readings, the altitude tape, the phase strip and both timelines don't change, because they only read the store. Switching between the map and 3D keeps the playback time, play or pause, the focused rocket and "Follow rocket".
+The console's first panel is a 3D view of the board or the flight, drawn with CesiumJS on real terrain, in every mode. The 2D map is only its fallback: if the 3D view can't start, it says why and offers BACK TO THE MAP, and the map's 3D button tries again. The readings, the phase strip and both timelines don't change between the two, because they only read the store. Switching keeps the playback time, play or pause, the focused rocket and following.
+
+### Look
+
+The 3D view sits on the page with no frame, border or box. The space around the Earth is the page's navy (`scene.backgroundColor`), and there are no stars, skybox, sun or moon. The glow of the atmosphere around the Earth is darkened and tinted toward the navy (`SKY_*` at the top of `globe-view.js`). Below `SKY_GLOW_MIN_M` (100 km) above the ground the glow is off, so the sky over the ground is the page's own navy, and the haze over distant ground is darker and greyer (`GROUND_HAZE_*`).
+
+Close to the ground, the ground itself fades into the navy toward the horizon, so it never ends in a hard line against the sky. It is a material on the globe only (`horizonFade` in `globe-view.js`), so the rocket, its trail and every label stay as they are, even with the rocket right at the horizon. Before every frame the fade's start and end distances are worked out from where they show on screen (`HORIZON_FADE_FROM` and `HORIZON_FADE_TO`, shares of the view's height below the horizon). They are capped at shares of the distance to the horizon (`HORIZON_FADE_FROM_MAX` and `HORIZON_FADE_TO_MAX`), because far mountains sit higher than sea level and show closer to the horizon. Cesium's own fog look is off close to the ground, since it would lighten the far ground again. (Its density stays, so it still skips drawing ground hidden in it.) A soft navy fade under the console's bar hides the line where the panel starts. Labels are off-white and dim off-white Share Tech Mono on a deep navy backing. Orange is kept for the rocket, its trail and its fins, and for a label that warns.
 
 ### Loading
 
 - A flight opens on the 3D view. That is `DEFAULT_VIEW` in `js/config.js`. Set it to `'map'` and a flight opens on the map instead.
-- CesiumJS is a big download (about 1.8 MB), so the landing never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens: when a flight opens on it, when the live console finds a board, or when someone clicks "3D".
+- CesiumJS is a big download (about 1.8 MB), so the landing never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens: when the console opens (live or a replay), or when someone clicks the map's 3D button.
 - It comes from Cesium's own release CDN, pinned to version 1.146 (`CESIUM_VERSION` in `js/config.js`).
-- Once a viewer picks the map or the 3D view, later flights in the same visit open on that one. The choice isn't kept between visits, so every visit starts on `DEFAULT_VIEW`. With `'map'` there, Cesium only downloads after a click on "3D".
+- Once a viewer goes to the map, later screens in the same visit open on it. The choice isn't kept between visits, so every visit starts on `DEFAULT_VIEW`. With `'map'` there, Cesium only downloads after a click on "3D".
 - If Cesium can't load, the map area says "The 3D view needs internet to load. The map view still works." with a button back to the map. The rest of the console keeps running. A slow download isn't thrown away when the wait runs out, so a second click on "3D" picks up the same download.
 - If the browser takes the 3D view's graphics away while it runs (a phone left in the background can do this), the map area says the 3D view stopped working. The next click on "3D" starts a new one.
 - The map stays in place under the 3D view, paused, so switching back is instant. Leaving a flight destroys the Cesium viewer and lets go of its WebGL context, so opening many flights doesn't use more and more memory.
@@ -461,16 +462,16 @@ The "3D" button next to "Satellite" and "Dark map" swaps the map for a 3D view o
 
 It draws the same things as the map and follows the same rules.
 
-- The focused rocket's trail in gold with a dark outline, and the other rockets' trails thinner in their own colors. Only good GPS positions are drawn. Across a gap the trail is dashed.
+- The focused rocket's trail in orange with a dark outline, and the other rockets' trails thinner in their own colors. Only good GPS positions are drawn. Across a gap the trail is dashed.
 - A thin line from the focused rocket straight down to the ground, so its height is easy to judge.
 - The same rocket icon as the map. It always points straight up, since no board sends orientation. With no GPS fix it turns grey and hollow at the last good position, and the label says why and for how long. It also turns grey and hollow when its newest position has no height yet (a barometer that went quiet). It then stays at the last point that had one, and the distance says "Last known".
-- The launch rail and the ground station on the terrain, with the same green labels.
-- A dashed teal line from the ground station to the focused rocket, with the straight-line distance.
-- A marker in the sky at the focused rocket's apogee, drogue, main and landing, and at any event its board reported. They are drawn like the altitude timeline's markers (a filled dot for reported, a gold ring for detected, a dashed ring for inferred), with a label like "Apogee detected · 3,000 m". A board's own event shows the board's words and no height, since the board reported none. Liftoff has no marker, because the launch rail already marks that spot. A marker only appears once playback reaches its event. An event that falls in a GPS gap gets no marker, because there is no real position to put it at.
+- The launch rail and the ground station on the terrain, with the same labels.
+- A dashed dim off-white line from the ground station to the focused rocket, with the straight-line distance.
+- A marker in the sky at the focused rocket's apogee, drogue, main and landing, and at any event its board reported. They are drawn like the altitude timeline's markers (a filled dot for reported, an orange ring for detected, a dashed ring for inferred), with a label like "Apogee detected, 3,000 m". A board's own event shows the board's words and no height, since the board reported none. Liftoff has no marker, because the launch rail already marks that spot. A marker only appears once playback reaches its event. An event that falls in a GPS gap gets no marker, because there is no real position to put it at.
 
 The rocket moves from one data point to the next as packets arrive. Nothing is smoothed in between, so at one packet a second it moves once a second.
 
-Cesium draws a label in one color and can't draw the frame and side bar the map's tags have. So the 3D labels are the same words in the same font on a dark backing. A label that would cover another one moves to another side of its icon. If no side is clear it hides until there is room. The focused rocket's label and the ground station's always show.
+Cesium draws a label in one color and can't draw the frame and side bar the map's tags have. So the 3D labels are the same words in the same font on a dark backing. A label that would cover another one moves to another side of its icon. If no side is clear it hides until there is room. Only the focused rocket's label always shows. The ground station's steps out of sight while it would sit under the camera buttons, the credits or the timeline, or off the edge. The KEY still names the tower.
 
 ### Heights
 
@@ -502,13 +503,13 @@ The 3D view's distance ("2.28 km straight line") is the straight line through th
 
 ### Camera
 
-The camera always looks at one point and circles around it. The three buttons choose that point.
+The camera always looks at one point and circles around it. The three buttons in the bottom left corner choose that point.
 
-- "Follow rocket" (on at the start): the camera looks at the focused rocket and steps with it. It is the same setting as the map's "Follow rocket" checkbox.
-- "Whole flight": frames the trails so far, the launch pads and the ground station, in the part of the view the readings panel and the altitude tape leave free. It keeps framing them as the trail grows, until you zoom or slide the view yourself.
-- "Reset view": back to the starting angle and distance. While following, it centers on the rocket. Otherwise it aims above the launch pad, so the pad and the highest point both fit.
+- FOLLOW ROCKET (on at the start, FOLLOW BOARD for a board on a desk): the camera looks at the focused rocket and steps with it. It is the same setting as the map's "Follow rocket" checkbox.
+- WHOLE FLIGHT: frames the trails so far, the launch pads and the ground station, in the part of the view the readings panel leaves free. It keeps framing them as the trail grows, until you zoom or slide the view yourself.
+- RESET VIEW: back to the starting angle and distance. While following, it centers on the rocket. Otherwise it aims above the launch pad, so the pad and the highest point both fit.
 
-The starting view looks north from the side, tilted 12 degrees down. Its distance is three times the flight's highest point, taken from the pre-scan (the same number the altitude tape uses for its scale). Live data has no pre-scan, so it starts at `GLOBE_START_RANGE_MIN_M`. Until there is a position to look at, the camera waits over the ground station. With no ground station (a board on the bench), it waits far out, looking down at the whole Earth.
+The starting view looks north from the side, tilted 12 degrees down. Its distance is three times the flight's highest point, taken from the pre-scan (the same number the altitude timeline uses for its scale). Live data has no pre-scan, so it starts at `GLOBE_START_RANGE_MIN_M`. Until there is a position to look at, the camera waits over the ground station. With no ground station (nothing connected yet, or a board on the bench), it waits far out, looking down at the whole Earth. When the first position comes in, it flies down to it in Cesium's own flight (`FLY_IN_S`), or jumps there for viewers who ask for less motion. Anything the viewer does with the camera on the way ends the flight at its goal.
 
 ### Moving the camera
 
@@ -517,12 +518,12 @@ Cesium's own mouse and touch controls are made for spinning a whole globe, and t
 - Drag with one finger or the left mouse button to circle around the point the camera looks at. A drag across 720 px goes half way round (`GLOBE_ORBIT_DEG_PER_PX`).
 - Use the mouse wheel or pinch to zoom. One wheel notch is 20 percent (`GLOBE_ZOOM_PER_NOTCH`).
 - Twist two fingers to turn the view.
-- Drag with the right mouse button, or hold Shift and drag, to slide the view over the ground. That stops following the rocket, like dragging the map does. Two fingers dragging also slide the view, but only once "Follow rocket" is off, so a pinch can't switch it off by accident.
+- Drag with the right mouse button, or hold Shift and drag, to slide the view over the ground. That stops following the rocket, like dragging the map does. Two fingers dragging also slide the view, but only once FOLLOW ROCKET is off, so a pinch can't switch it off by accident.
 - With keyboard focus on the 3D view, the arrow keys move the camera around the point, and + and - zoom.
 
-Nothing keeps moving after you let go. The camera can't go under the ground or flip over the top. A drag on the 3D view never scrolls the page. The page scrolls from anywhere outside it.
+Nothing keeps moving after you let go. The camera can't go under the ground or flip over the top. A drag on the 3D view never scrolls anything. (The console doesn't scroll at all, except on short phones, where panel 1 scrolls from anywhere outside the 3D view.)
 
-"Follow rocket", "Whole flight" and "Reset view" glide to their new view. When the viewer has asked for less motion, the camera jumps there.
+FOLLOW ROCKET, WHOLE FLIGHT and RESET VIEW glide to their new view. When the viewer has asked for less motion, the camera jumps there.
 
 ### Drawing only when needed
 
@@ -531,10 +532,10 @@ The scene only redraws when something changes: new data, a camera move, or new t
 ## What the page promises
 
 - It never shows a made-up position. With no GPS fix it says "No GPS fix" and shows how old the last good position is. A rocket that stops sending shows "No recent packets" the same way. The distance to the ground station then says "Last known". On the map and the altitude timeline, a stretch with no position or no altitude (no fix, or nothing heard for longer than `LINK_STALE_S`) is dashed or left as a break, never drawn as measured.
-- Old numbers never look live. When there is no new altitude, the last one loses its gold color and says how old it is, and vertical speed shows `--`. On the map, the rocket turns grey and hollow at its last good position and its label says "NO GPS FIX" with the age.
+- Old numbers never look live. When there is no new altitude, the last one dims and says how old it is, and vertical speed shows `--`. On the map, the rocket turns grey and hollow at its last good position and its label says "NO GPS FIX" with the age.
 - It never shows orientation it doesn't have. The rocket icon always points straight up.
 - It only shows values a board actually sent. Missing values show `--`, never 0, and a sensor section only appears if that rocket sent that sensor.
-- Every event says how it was found: "reported" (the board said so), "detected" (measured from altitude) or "inferred" (worked out from the descent rate). The timeline markers and the mission timeline draw it the same way: a filled dot for reported, a gold ring for detected, and a dashed ring for inferred or estimated.
+- Every event says how it was found: "reported" (the board said so), "detected" (measured from altitude) or "inferred" (worked out from the descent rate). The timeline markers and the mission timeline draw it the same way: a filled dot for reported, an orange ring for detected, and a dashed ring for inferred or estimated.
 - It always says where the data came from and whether the flight is simulated or real.
 - The 3D view follows the same rules as the map: only good positions, dashed gaps, no smoothing between packets, a rocket that never turns, and events that say how they were found. It never converts between GPS heights and Cesium's. It stands every point on the ground height looked up at the launch pad, and says so when it can't.
 - If the 3D view can't load, the map area says so, with a button back to the map. Everything else keeps running.
@@ -546,5 +547,4 @@ The scene only redraws when something changes: new data, a camera move, or new t
 - Web Bluetooth: a second link next to `serial-link.js` with the same callbacks (`onLine`, `onLink`, `onNote`, `onOpen`, `onClose`), so the same source detection and panels work on it.
 - Ground station position: `parseJsonLine()` already accepts `{"type":"gs","lat":..,"lon":..,"alt":..,"fix":1}`, and the store uses it as soon as one arrives, live or in a replay.
 - A real-data ocean currents animation for the landing: see "The landing".
-- A one-screen console with tabs: see "Later: one screen, no scrolling".
 - New sensors: add channels to `js/schema.js`. The parser and the readings panel pick them up without other changes, including new GPS channels (listed under the GPS rows the panel lays out itself) and new sensor groups, which show under "More readings".

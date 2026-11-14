@@ -2,11 +2,11 @@
 // The mission timeline: every event in time order along a vertical line,
 // one dot per event. The dot shows how the event was found, drawn the same
 // way as the markers on the altitude timeline: a filled dot (reported by
-// the board), a gold ring (detected from altitude) or a dashed ring
+// the board), a ring (detected from altitude) or a dashed ring
 // (inferred from the descent rate, or a time that was estimated). The
 // message next to it says the same thing in words.
 //
-// The newest entry is gold. The store only holds events up to the
+// The newest entry is lit, with an orange dot. The store only holds events up to the
 // playhead, so that entry is the latest thing that happened. While the
 // playhead is on it (within EVENT_NOW_S of when it was confirmed) it also
 // shows a small "Now" tag. A toggle switches between all rockets and only the focused one. With
@@ -26,8 +26,8 @@ export function createEventLog(root, ctx) {
   const { store, config } = ctx;
   let mode = 'all'; // 'all' or 'focused'
 
-  const allButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => setMode('all') }, 'All rockets');
-  const oneButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => setMode('focused') }, 'This rocket');
+  const allButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => setMode('all') }, 'ALL ROCKETS');
+  const oneButton = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => setMode('focused') }, 'THIS ROCKET');
   // The <ol> stays a plain list (scrollable, so it can take keyboard focus).
   // The live region that announces new entries wraps it.
   const list = h('ol', { class: 'fc-log-list', tabindex: '0', 'aria-labelledby': 'fc-log-title' });
@@ -122,7 +122,7 @@ export function createEventLog(root, ctx) {
   }
   list.addEventListener('scroll', markEdges, { passive: true });
 
-  // Only the last entry (the one closest to the playhead) gets the gold
+  // Only the last entry (the one closest to the playhead) gets the lit
   // look. Changing a class is never announced by the live region.
   function markNewest() {
     for (const el of list.querySelectorAll('.is-now')) el.classList.remove('is-now', 'is-at-playhead');
@@ -146,8 +146,8 @@ export function createEventLog(root, ctx) {
     const liftoffT = rocket?.derived?.liftoffT;
     const when = Number.isFinite(liftoffT) ? formatFlightClock(e.t - liftoffT) : 'On pad';
     const kind = eventMarkerKind(e, rocket?.derived);
-    // Losing the GPS fix is a warning, so its dot is coral.
-    const dotStyle = e.type === 'gps_fix_lost' ? { '--basis-color': 'var(--fc-coral)' } : null;
+    // Losing the GPS fix is a warning, so its dot is orange.
+    const dotStyle = e.type === 'gps_fix_lost' ? { '--basis-color': 'var(--fc-warn)' } : null;
 
     const li = h('li', { class: animate ? 'fc-log-item fc-log-item--new' : 'fc-log-item' },
       h('span', { class: 'fc-log-time' }, when),

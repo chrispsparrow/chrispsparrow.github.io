@@ -70,7 +70,7 @@ export function prefersReducedMotion() {
 }
 
 // How an event was found, as the timeline markers and the mission timeline
-// draw it: 'reported' (a filled dot), 'detected' (a gold ring) or 'inferred'
+// draw it: 'reported' (a filled dot), 'detected' (an orange ring) or 'inferred'
 // (a dashed ring, also used for anything estimated). A liftoff whose time is
 // estimated counts as estimated. state is that rocket's detector state.
 export function eventMarkerKind(event, state) {

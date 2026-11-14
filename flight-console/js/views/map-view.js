@@ -1,21 +1,32 @@
 // map-view.js
-// The map: every rocket's track (the focused rocket's in gold, the others
-// thinner in their own colors), a rocket icon for each rocket, the launch
-// rail on the pad, the ground station tower in teal, and a dashed teal line
-// from the ground station to the focused rocket labeled with distance and
-// bearing. Only good GPS positions are ever drawn. Across a fix gap, or a
-// stretch with no position at all, the track is dashed. Lines and icons get a thin dark outline so they stand
-// out on bright photos.
+// The 3D view's frame, and the 2D map it falls back to.
+//
+// The console's first panel is the 3D view (globe-view.js), in every mode.
+// This file starts it, shows "Loading the 3D view..." until its first
+// picture is in, and owns its small controls in the bottom left corner:
+// the camera buttons (FOLLOW, WHOLE FLIGHT, RESET VIEW) and the KEY, which
+// opens a short legend for the lines, icons and label codes. If the 3D
+// view can't start (no WebGL, no internet, a lost context), it says why and
+// offers the 2D map below instead.
+//
+// The 2D map: every rocket's track (the focused rocket's in orange, the
+// others thinner in their own colors), a rocket icon for each rocket, the
+// launch rail on the pad, the ground station tower in dim off-white, and a
+// dashed line from the ground station to the focused rocket labeled with
+// distance and bearing. Only good GPS positions are ever drawn. Across a
+// fix gap, or a stretch with no position at all, the track is dashed.
+// Lines and icons get a thin dark outline so they stand out on bright
+// photos.
 //
 // A store with no ground station (a board on the bench) has no tower, no
-// teal line and no distance: the map leaves all of them out, and the legend
+// line to it and no distance: the map leaves all of them out, and the KEY
 // drops their rows.
 //
-// Each icon has a green HUD label next to it. The rocket's says its name,
+// Each icon has an off-white HUD label next to it. The rocket's says its name,
 // height above ground and vertical speed. With no GPS fix (or no recent
 // packets at all), the rocket turns grey and hollow at its last good
 // position, its sonar rings stop, and the label says why and for how long.
-// The distance label then says "Last known" and the teal line dims. The rocket icon always points straight up: no board sends
+// The distance label then says "Last known" and the line dims. The rocket icon always points straight up: no board sends
 // orientation data, so it never turns.
 //
 // Two map backgrounds: Esri satellite imagery (the default, with Esri's
@@ -25,10 +36,11 @@
 // check is shared by every map in the visit (esri.js), so a yes from Esri
 // counts for the whole visit.
 //
-// The readings panel and the altitude tape float over the map (other
-// views), and so do this map's own controls and legend. Anything in the
-// stage marked data-fc-cover counts as covered, and the first view, Follow
-// and the labels all keep clear of covered areas.
+// The console's overlays (the replay's clock and phase strip, the readings
+// panel and the altitude timeline, from other views) float over the frame,
+// and so do this frame's own controls. Anything in the stage marked
+// data-fc-cover counts as covered, and the first view, Follow and the
+// labels all keep clear of covered areas.
 //
 // If Leaflet didn't load, or the map tiles keep failing, the map is
 // replaced by a "No map" panel with each rocket's position, distance and
@@ -36,14 +48,13 @@
 // failure the panel offers both backgrounds to try again. If Leaflet shows
 // up late (slow connection), the real map takes over.
 //
-// The "3D" button next to "Satellite" and "Dark map" swaps the map for the
-// 3D view (globe-view.js) in the same spot. This file owns the switch: the
-// button, which view a flight opens on, the loading and failure messages,
-// and the three camera buttons. A flight opens on DEFAULT_VIEW (config.js),
-// which is the 3D view, so Cesium downloads then (cesium-loader.js). After
-// the viewer picks a view, later flights in the same visit open on that.
-// The map stays alive underneath while 3D is showing, so switching back is
-// instant, and "Follow rocket" is one setting shared by both.
+// The frame opens on DEFAULT_VIEW (config.js), which is the 3D view, so
+// Cesium downloads then (cesium-loader.js). While the 3D view shows, the
+// map's own buttons (Satellite, Dark map) stay out of sight. They only show
+// on the 2D map, next to a "3D" button to try the 3D view again. After the
+// viewer goes to the map, later screens in the same visit open on it. The
+// map stays alive underneath while 3D is showing, so switching back is
+// instant, and following the rocket is one setting shared by both.
 //
 // Used by: main.js. Reads the store, and the 3D view it starts (for its
 // notes and camera mode). Never other views.
@@ -90,7 +101,7 @@ const FIT_MIN_ZOOM = 3;
 // Follow also pans once the focused rocket's label comes this close (px)
 // to the map's edge or a covered area, before it slides under a panel.
 const FOLLOW_LABEL_GAP_PX = 8;
-// The teal line to the ground station while the focused rocket has no fix
+// The line to the ground station while the focused rocket has no fix
 // right now: dimmer, since it ends at an old position.
 const GS_LINE_OPACITY = 0.95;
 const GS_LINE_STALE_OPACITY = 0.4;
@@ -129,9 +140,9 @@ export function createMapView(root, ctx) {
   // backgrounds, and 3D swaps the map for the 3D view. A labels switch
   // shows while Satellite is on. "Map" only stands in for the two
   // backgrounds while the map library is missing, as the way back from 3D.
-  const satelliteBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'Satellite');
-  const darkBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'Dark map');
-  const mapBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectMap() }, 'Map');
+  const satelliteBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'SATELLITE');
+  const darkBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'DARK MAP');
+  const mapBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectMap() }, 'MAP');
   const threeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectThree() }, '3D');
   const labelsBox = h('input', { type: 'checkbox', checked: true, onchange: () => setLabels(labelsBox.checked) });
   const labelsLabel = h('label', { class: 'fc-map-check' }, labelsBox, 'Labels');
@@ -140,16 +151,38 @@ export function createMapView(root, ctx) {
     layerSeg, labelsLabel);
 
   // The 3D camera buttons, in place of the "Follow rocket" checkbox while
-  // the 3D view is showing.
-  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, words.follow);
-  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, words.whole ?? '');
-  const resetBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => { globe?.resetView(); updateCameraButtons(); } }, 'Reset view');
+  // the 3D view is showing. Button labels are written in capitals.
+  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, words.follow.toUpperCase());
+  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, (words.whole ?? '').toUpperCase());
+  const resetBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => { globe?.resetView(); updateCameraButtons(); } }, 'RESET VIEW');
   // A board on a desk has no flight to frame, so it gets no "Whole flight".
   const cameraPick = h('div', { class: 'fc-seg fc-cam-pick', role: 'group', 'aria-label': '3D camera', hidden: true },
     followBtn, words.whole ? wholeBtn : null, resetBtn);
 
-  // Top left corner: the controls, with the map's notes under them.
-  const controls = h('div', { class: 'fc-map-controls fc-float' }, layerPick, followLabel, cameraPick);
+  // The legend, behind a small KEY toggle at the end of the controls.
+  // Closed at first. It says "(demo position)" while the ground station is
+  // the config placeholder. The dashed line covers both kinds of gap: no
+  // GPS fix, and no packets at all for a while.
+  const legendGsText = h('span', {}, 'Ground station');
+  // The two ground station rows hide while there is no ground station.
+  const legendGsRows = [
+    legendRow(iconNode(towerSvg()), legendGsText),
+    legendRow(lineKey(config.GROUND_STATION_COLOR, 2, '5 3'), 'Distance to ground station'),
+  ];
+  const legend = h('div', { class: 'fc-map-legend' },
+    legendRow(lineKey(config.TRACK_COLOR, 3, null), words.track),
+    legendRow(lineKey(config.TRACK_COLOR, 2, '3 4'), 'No position fix'),
+    legendRow(iconNode(padSvg()), words.pad),
+    ...legendGsRows,
+    // The field codes on the labels, spelled out.
+    legendRow(h('span', { class: 'fc-legend-code' }, 'AGL'), 'Height above ground level'),
+    legendRow(h('span', { class: 'fc-legend-code' }, 'VS'), 'Vertical speed, ▲ up or ▼ down'));
+  const keyBox = h('details', { class: 'fc-map-key', hidden: true },
+    h('summary', { class: 'fc-btn fc-btn--sm fc-map-key-toggle' }, 'KEY'),
+    legend);
+
+  // Bottom left corner: the controls, with the frame's notes above them.
+  const controls = h('div', { class: 'fc-map-controls' }, layerPick, followLabel, cameraPick, keyBox);
   const status = h('p', { class: 'fc-map-status', role: 'status' });
   const topLeft = h('div', { class: 'fc-map-topleft' }, controls, status);
 
@@ -171,28 +204,10 @@ export function createMapView(root, ctx) {
   const globeSay = h('p', { class: 'sr-only', role: 'status' });
   const globeBox = h('div', { class: 'fc-globe', hidden: true }, globeCanvas, globeCredits, globePanel);
   // Cesium's "Data attribution" dialog opens in this box. It goes on the
-  // stage, above the readings panel and the altitude tape, so they can't
+  // stage, above the overlays (the readings panel and the timeline), so they can't
   // cover the data credits (see startThree).
   const globeDialogs = h('div', { class: 'fc-globe-dialogs' });
 
-  // The legend. Says "(demo position)" while the ground station is the
-  // config placeholder. The dashed line covers both kinds of gap: no GPS
-  // fix, and no packets at all for a while.
-  const legendGsText = h('span', {}, 'Ground station');
-  // The two ground station rows hide while there is no ground station.
-  const legendGsRows = [
-    legendRow(iconNode(towerSvg()), legendGsText),
-    legendRow(lineKey(config.GROUND_STATION_COLOR, 2, '5 3'), 'Distance to ground station'),
-  ];
-  const legend = h('div', { class: 'fc-map-legend fc-float', 'aria-hidden': 'true' },
-    legendRow(lineKey(config.TRACK_COLOR, 3, null), words.track),
-    legendRow(lineKey(config.TRACK_COLOR, 2, '3 4'), 'No GPS position'),
-    legendRow(iconNode(padSvg()), words.pad),
-    ...legendGsRows,
-    // The field codes on the green labels.
-    legendRow(h('span', { class: 'fc-legend-code' }, 'AGL'), 'Height above ground level'),
-    legendRow(h('span', { class: 'fc-legend-code' }, 'VS'), 'Vertical speed, ▲ up or ▼ down'));
-  legend.hidden = true;
   controls.hidden = true;
 
   // The controls come first, so Tab reaches them before the map (and then
@@ -200,9 +215,17 @@ export function createMapView(root, ctx) {
   const frame = h('div', { class: 'fc-map-frame' }, topLeft, canvas, waitBox, globeBox, globeSay);
 
   setChildren(root, h('section', { class: 'fc-mapbox', 'aria-labelledby': 'fc-map-title' },
-    h('h2', { class: 'sr-only', id: 'fc-map-title' }, 'Map'),
-    frame,
-    legend));
+    h('h2', { class: 'sr-only', id: 'fc-map-title' }, words.globeLabel),
+    frame));
+
+  // On narrow screens Cesium's credits sit on their own line just above
+  // the bottom left corner's controls and notes (flight-console.css). The
+  // controls wrap to two rows on a small phone, so their height is kept in
+  // --fc-ctl-h on the frame.
+  const cornerObserver = 'ResizeObserver' in window
+    ? new ResizeObserver(() => frame.style.setProperty('--fc-ctl-h', `${Math.round(topLeft.offsetHeight)}px`))
+    : null;
+  cornerObserver?.observe(topLeft);
 
   // A short sample of a map line for the legend, with the same dark outline.
   function lineKey(color, weight, dash) {
@@ -215,32 +238,6 @@ export function createMapView(root, ctx) {
 
   function legendRow(key, text) {
     return h('div', { class: 'fc-legend-row' }, h('span', { class: 'fc-legend-key' }, key), text);
-  }
-
-  // On wide screens the altitude tape (another view) starts just under
-  // these controls and notes. Its top comes from --fc-map-controls-bottom
-  // on the stage: their bottom edge, measured from the stage's top, plus a
-  // 10 px gap. It is written again whenever they change size (the controls
-  // wrap to two rows on a narrow map, and notes come and go). With nothing
-  // showing, the stylesheet's default applies.
-  const controlsObserver = 'ResizeObserver' in window ? new ResizeObserver(() => updateControlsBottom()) : null;
-  controlsObserver?.observe(controls);
-  controlsObserver?.observe(status);
-
-  function updateControlsBottom() {
-    const stage = root.closest('.fc-stage');
-    if (!stage) return;
-    let bottom = -Infinity;
-    for (const el of [controls, status]) {
-      if (!el.isConnected) continue;
-      const r = el.getBoundingClientRect();
-      if (r.height >= 1) bottom = Math.max(bottom, r.bottom);
-    }
-    const value = Number.isFinite(bottom) ? `${Math.round(bottom - stage.getBoundingClientRect().top + 10)}px` : '';
-    if (value === controlsBottom) return;
-    controlsBottom = value;
-    if (value) stage.style.setProperty('--fc-map-controls-bottom', value);
-    else stage.style.removeProperty('--fc-map-controls-bottom');
   }
 
   // ------------------------------------------------------------------
@@ -269,7 +266,6 @@ export function createMapView(root, ctx) {
   let gsTip = { text: null, spot: null, stale: null };
   let cornerBR = null;            // Leaflet's bottom right corner (zoom and credits)
   let cornerStyle = '';
-  let controlsBottom = null;      // last value written to --fc-map-controls-bottom
 
   // Map or 3D
   let view = 'map';        // 'map' or '3d': which one the frame shows
@@ -323,10 +319,9 @@ export function createMapView(root, ctx) {
   // ------------------------------------------------------------------
   function startLeaflet(leaflet) {
     L = leaflet;
-    // The controls and legend show first, so the map starts at its real size
-    // (on phones the legend sits under the map and takes some of its height).
+    // The controls and the KEY show first, so the map starts at its real size.
     controls.hidden = false;
-    legend.hidden = false;
+    keyBox.hidden = false;
     layerPick.hidden = false;
     followLabel.hidden = false;
     try {
@@ -676,10 +671,13 @@ export function createMapView(root, ctx) {
     // In 3D they come back to the corner, since they are the way back.
     if (in3d && layerPick.parentNode !== controls) controls.insertBefore(layerPick, followLabel);
     else if (!in3d && tilesFailed && retryBox && layerPick.parentNode !== retryBox) retryBox.append(layerPick);
-    controls.hidden = !in3d && (mode === 'loading' || tilesFailed);
+    // The 3D view is the panel. The map's own buttons only show on the 2D
+    // map, the way back to 3D included.
+    layerPick.hidden = in3d;
+    controls.hidden = in3d ? three !== 'ready' : (mode === 'loading' || tilesFailed);
     followLabel.hidden = in3d || mode !== 'leaflet';
     cameraPick.hidden = !(in3d && three === 'ready');
-    legend.hidden = in3d ? three !== 'ready' : mode !== 'leaflet';
+    keyBox.hidden = in3d ? three !== 'ready' : mode !== 'leaflet';
     updateLayerControls();
     updateCameraButtons();
   }
@@ -762,7 +760,7 @@ export function createMapView(root, ctx) {
     const gen = ++threeGen;
     three = 'loading';
     showThreePanel('loading');
-    Promise.all([loadCesium(), import('./globe-view.js?v=2')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=3')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -777,7 +775,7 @@ export function createMapView(root, ctx) {
           credits: globeCredits,
           dialogs: globeDialogs,
           follow,
-          covers: () => rectsOver(globeCanvas, [...coverElements(), controls, status, legend, globeCredits], []),
+          covers: () => rectsOver(globeCanvas, [...coverElements(), controls, status, globeCredits], []),
           onReady: () => {
             if (destroyed || gen !== threeGen) return;
             three = 'ready';
@@ -839,7 +837,7 @@ export function createMapView(root, ctx) {
       setText(globeSay, 'Loading the 3D view...');
       return;
     }
-    const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'Back to the map');
+    const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'BACK TO THE MAP');
     const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
     setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
       h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
@@ -849,13 +847,18 @@ export function createMapView(root, ctx) {
   }
 
   // ------------------------------------------------------------------
-  // Covered areas: the parts of the map hidden under the readings panel,
-  // the altitude tape and this map's own controls. Measured on every draw,
-  // because they change size (and on phones they sit below the map).
+  // Covered areas: the parts of the map hidden under the console's overlays
+  // (the clock, phase strip, readings panel and altitude timeline), its
+  // arrow tabs and this frame's own controls. Measured on every draw,
+  // because they change size.
   // ------------------------------------------------------------------
   function coverElements() {
     const stage = root.closest('.fc-stage');
-    return stage ? [...stage.querySelectorAll('[data-fc-cover]')] : [];
+    const panels = stage ? [...stage.querySelectorAll('[data-fc-cover]')] : [];
+    // The console's arrow tabs at the panel's edges cover a little of the
+    // view too. (A hidden one has no size, so it doesn't count.)
+    const tabs = [...(root.closest('.fc-screens')?.querySelectorAll('.fc-flip') ?? [])];
+    return [...panels, ...tabs];
   }
 
   // Rectangles in map pixels ({ left, top, right, bottom }) for everything
@@ -865,7 +868,7 @@ export function createMapView(root, ctx) {
     if (!map) return [];
     const leafletBits = ['.leaflet-control-zoom', '.leaflet-control-scale', '.leaflet-control-attribution'].map((sel) => canvas.querySelector(sel));
     const panels = coverElements();
-    return rectsOver(canvas, [...panels, controls, status, legend, ...leafletBits], panels);
+    return rectsOver(canvas, [...panels, controls, status, ...leafletBits], panels);
   }
 
   // The parts of elements that overlap boxEl, in boxEl's own pixels. The 3D
@@ -877,7 +880,7 @@ export function createMapView(root, ctx) {
       if (!el || !el.isConnected) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
-      // panel: one of the other views' panels (the readings or the tape).
+      // panel: one of the other views' panels (the readings panel, say).
       const rect = { left: r.left - box.left, top: r.top - box.top, right: r.right - box.left, bottom: r.bottom - box.top, panel: panels.includes(el) };
       if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= box.width || rect.top >= box.height) continue;
       out.push(rect);
@@ -932,23 +935,26 @@ export function createMapView(root, ctx) {
   const freeArea = (size) => (ins) => (size.x - ins.left - ins.right) * (size.y - ins.top - ins.bottom);
 
   // Leaflet's bottom right corner holds the zoom buttons and the credits.
-  // It stops short of the legend and scale on the left, and moves left of
+  // It stops short of the controls and scale on the left, and moves left of
   // the readings panel if that panel reaches down to it.
   function placeCorner(size) {
     if (!cornerBR) return;
     const box = canvas.getBoundingClientRect();
     let left = 0;
-    for (const el of [legend, canvas.querySelector('.leaflet-control-scale')]) {
+    for (const el of [topLeft, canvas.querySelector('.leaflet-control-scale')]) {
       if (!el || el.hidden) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.bottom <= box.top || r.top >= box.bottom || r.left >= box.right) continue;
       left = Math.max(left, r.right - box.left + 8);
     }
+    // Only a panel beside the corner at the right edge counts, not one
+    // above or below it (like the altitude timeline it sits on).
     let right = 0;
-    const cornerTop = size.y - cornerBR.offsetHeight - 8;
+    const cornerBottom = cornerBR.getBoundingClientRect().bottom;
+    const cornerTop = cornerBottom - cornerBR.offsetHeight - 8;
     for (const el of coverElements()) {
       const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.bottom - box.top <= cornerTop || r.right - box.left < size.x - 80 || r.top >= box.bottom) continue;
+      if (r.width < 1 || r.bottom <= cornerTop || r.top >= cornerBottom || r.right - box.left < size.x - 80) continue;
       right = Math.max(right, size.x - (r.left - box.left) + 4);
     }
     const style = `${Math.round(left)}|${Math.round(right)}`;
@@ -976,7 +982,7 @@ export function createMapView(root, ctx) {
     };
   }
 
-  // The look of a rocket's track: gold and thicker for the focused rocket,
+  // The look of a rocket's track: orange and thicker for the focused rocket,
   // its own color and thinner for the others. Gap lines stay thin.
   function trackStyle(rocket, isFocused, dashed) {
     const weight = dashed || !isFocused ? config.TRACK_WEIGHT_PX : config.TRACK_WEIGHT_FOCUSED_PX;
@@ -1034,9 +1040,9 @@ export function createMapView(root, ctx) {
     gsLineHalo = null;
   }
 
-  // The legend says "(demo position)" while the ground station is the
-  // config placeholder. The 3D view shows the same legend, so this runs
-  // for both views.
+  // The KEY says "(demo position)" while the ground station is the config
+  // placeholder. The 3D view shows the same KEY, so this runs for both
+  // views.
   function updateLegend() {
     const gs = store.getGroundStation();
     for (const row of legendGsRows) {
@@ -1695,10 +1701,13 @@ export function createMapView(root, ctx) {
   }
 
   function statusText(focused) {
-    const noFixAnywhere = store.getRockets().every((r) => !r.lastGoodFix);
+    // Before any data at all (nothing connected yet), there is nothing to
+    // say about a fix.
+    const anyData = store.getRockets().some((r) => r.lastPacketT !== null);
+    const noFixAnywhere = anyData && store.getRockets().every((r) => !r.lastGoodFix);
     let focusNote = '';
     const where = view === '3d' ? 'in the 3D view' : 'on the map';
-    if (focused && !focused.lastGoodFix && !noFixAnywhere) {
+    if (anyData && focused && !focused.lastGoodFix && !noFixAnywhere) {
       if (focused.lastPacketT === null) focusNote = `${focused.profile.name} hasn't sent any data yet, so it isn't ${where}.`;
       else if (focused.sensorGroups.has('gps')) focusNote = `${focused.profile.name} has no GPS fix yet, so it isn't ${where}.`;
       else focusNote = `${focused.profile.name} has sent no GPS data, so it isn't ${where}.`;
@@ -1855,10 +1864,9 @@ export function createMapView(root, ctx) {
     destroy() {
       destroyed = true;
       threeGen += 1;
+      cornerObserver?.disconnect();
       unsubscribe();
       scheduler.cancel();
-      controlsObserver?.disconnect();
-      root.closest('.fc-stage')?.style.removeProperty('--fc-map-controls-bottom');
       destroyGlobe();
       removeMap();
     },

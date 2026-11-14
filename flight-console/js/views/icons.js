@@ -7,18 +7,22 @@
 //
 // The rocket always points straight up. No board sends orientation data
 // yet, so the icon never turns to suggest which way the rocket points.
-// Used by: map-view.js, launcher.js, mission-header.js, stats-panel.js,
+// Used by: map-view.js, globe-view.js, launcher.js, stats-panel.js,
 // timeline.js and debug-panel.js.
 
-import { HALO_COLOR, PAD_COLOR, GROUND_STATION_COLOR } from '../config.js';
+import { HALO_COLOR, PAD_COLOR, GROUND_STATION_COLOR, TRACK_COLOR } from '../config.js';
 
 // The colors come from config.js, so changing one there changes the icons
 // too: the dark outline (HALO_COLOR), the off-white of the launch rail and
-// the rocket's body (PAD_COLOR) and the ground station's teal
-// (GROUND_STATION_COLOR).
+// the rocket's body (PAD_COLOR), the rocket's orange fins (TRACK_COLOR) and
+// the ground station's dim off-white (GROUND_STATION_COLOR). The nozzle and
+// the window are mixes of the theme's off-white and navy.
 const HALO = HALO_COLOR;
 const OFF_WHITE = PAD_COLOR;
-const TEAL = GROUND_STATION_COLOR;
+const STATION = GROUND_STATION_COLOR;
+const FINS = TRACK_COLOR;
+const NOZZLE = '#636E7C';   // 40% off-white, 60% navy
+const WINDOW = '#0B1A2E';   // the theme's navy
 
 // ------------------------------------------------------------------
 // Rocket: nose cone, body, two fins, a small round window and a nozzle,
@@ -49,9 +53,9 @@ export function rocketSvg(size = 30) {
   return `<svg class="fc-ico-rocket" viewBox="0 -1 ${ROCKET_VIEW[0]} ${ROCKET_VIEW[1]}" width="${width}" height="${height}" aria-hidden="true" focusable="false">` +
     `<path class="fc-rkt-halo" d="${ROCKET_OUTLINE}" fill="${HALO}" stroke="${HALO}" stroke-width="3" stroke-linejoin="round"/>` +
     `<path class="fc-rkt-body" d="${ROCKET_OUTLINE}" fill="${OFF_WHITE}" stroke-linejoin="round"/>` +
-    `<path class="fc-rkt-fins" d="${ROCKET_FINS}" fill="#B4B0A6"/>` +
-    `<path class="fc-rkt-nozzle" d="${ROCKET_NOZZLE}" fill="#7D7A73"/>` +
-    `<circle class="fc-rkt-window" cx="12" cy="13.4" r="2.2" fill="#0A0F1A"/>` +
+    `<path class="fc-rkt-fins" d="${ROCKET_FINS}" fill="${FINS}"/>` +
+    `<path class="fc-rkt-nozzle" d="${ROCKET_NOZZLE}" fill="${NOZZLE}"/>` +
+    `<circle class="fc-rkt-window" cx="12" cy="13.4" r="2.2" fill="${WINDOW}"/>` +
     '</svg>';
 }
 
@@ -91,8 +95,8 @@ export function towerSvg() {
   return `<svg class="fc-ico-tower" viewBox="0 0 26 32" width="26" height="32" aria-hidden="true" focusable="false">` +
     `<g fill="none" stroke="${HALO}" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round">${TOWER_LINES}</g>` +
     `<circle cx="13" cy="9.5" r="3.4" fill="${HALO}"/>` +
-    `<g fill="none" stroke="${TEAL}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${TOWER_LINES}</g>` +
-    `<circle cx="13" cy="9.5" r="2" fill="${TEAL}"/>` +
+    `<g fill="none" stroke="${STATION}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${TOWER_LINES}</g>` +
+    `<circle cx="13" cy="9.5" r="2" fill="${STATION}"/>` +
     '</svg>';
 }
 

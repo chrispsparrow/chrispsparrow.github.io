@@ -190,7 +190,7 @@ test('the store\'s clock keeps moving between blocks, so quiet data turns old', 
   feed.tick();
   assert.ok(Math.abs(store.getNow() - 75.3) < 1e-9);
   assert.equal(store.isSilent(rocket), true);
-  assert.equal(rocketHudLine(store, config, rocket).alt, 'NO RECENT PACKETS · 10 S');
+  assert.equal(rocketHudLine(store, config, rocket).alt, 'NO RECENT PACKETS, 10 S');
 });
 
 test('the feed starts its clock timer once, at the first block, and stops it', () => {
@@ -336,7 +336,7 @@ test('a board on a desk shows a pad and fires no flight events', () => {
   assert.ok(run.aglMax < 5 && run.aglMin > -5, `height above the pad stays within 5 m (${run.aglMin.toFixed(1)} to ${run.aglMax.toFixed(1)})`);
 
   // The label on the 3D view and the map.
-  assert.equal(run.hud[0].alt, 'NO GPS FIX · --', 'while searching');
+  assert.equal(run.hud[0].alt, 'NO GPS FIX, --', 'while searching');
   const live = rocketHudLine(store, config, rocket);
   assert.equal(live.altKey, 'AGL');
   assert.equal(live.warn, false);
@@ -351,7 +351,7 @@ test('a board on a desk shows a pad and fires no flight events', () => {
   feed.tick();
   assert.equal(store.isSilent(rocket), true);
   assert.equal(store.hasFixNow(rocket), false);
-  assert.deepEqual(rocketHudLine(store, config, rocket), { altKey: '', alt: 'NO RECENT PACKETS · 10 S', speed: '', warn: true });
+  assert.deepEqual(rocketHudLine(store, config, rocket), { altKey: '', alt: 'NO RECENT PACKETS, 10 S', speed: '', warn: true });
   assert.deepEqual(store.getEvents(), [], 'going quiet isn\'t an event');
   assert.equal(store.getGroundStation(), null, 'no ground station on the bench');
 });

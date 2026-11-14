@@ -6,7 +6,7 @@
       "date": "2026-09-30",
       "kind": "simulated",
       "featured": true,
-      "description": "This log came from my firmware's own GPS parser and packet code, running on a PC with a simulated GPS feed. The packets have the same format the board sends over the radio.",
+      "description": "This log came from my firmware's own GPS parser and packet code, running on a personal computer (PC) with a simulated GPS feed. The packets have the same format the board sends over the radio.",
       "site": "Placeholder launch site",
       "cover": {
         "file": "cover-3d.webp",

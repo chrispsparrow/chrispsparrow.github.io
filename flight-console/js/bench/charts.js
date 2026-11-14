@@ -10,22 +10,73 @@ export function niceStep(raw) {
   return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
 }
 
-// Colors and the font come from the page's CSS variables, so the graphs
-// always match the panels around them.
+// Colors and the fonts come from the page's CSS variables, so the graphs
+// always match the panels around them. Each color is worked out by the
+// browser itself (a variable can hold a color-mix() of the theme colors,
+// which a canvas can't always read as it is) and handed on as rgba().
+//   accent  the line color of a one-line graph (the theme's orange)
+//   font    the small labels and readouts (Share Tech Mono)
 export function readTheme(el = document.body) {
   const s = getComputedStyle(el);
   const v = (name) => s.getPropertyValue(name).trim();
+  const color = (name) => resolveColor(el, name);
   return {
-    panel: v('--bc-panel'),
-    grid: v('--bc-divider'),
-    text: v('--bc-text'),
-    text2: v('--bc-text-2'),
-    muted: v('--bc-muted'),
-    gold: v('--bc-gold'),
-    sent: v('--bc-sent'),
-    err: v('--bc-err'),
-    font: v('--font-text') || 'system-ui, sans-serif',
+    panel: color('--bc-panel'),
+    grid: color('--bc-divider'),
+    text: color('--bc-text'),
+    text2: color('--bc-text-2'),
+    muted: color('--bc-muted'),
+    accent: color('--bc-accent'),
+    sent: color('--bc-sent'),
+    err: color('--bc-err'),
+    font: v('--bc-font-readout') || v('--font-text') || 'ui-monospace, monospace',
   };
+}
+
+// A CSS color variable as rgba(), worked out by the browser: a probe
+// element takes the color, and a 1 by 1 canvas turns whatever the browser
+// computed into plain numbers. Missing variables come back transparent.
+let probeCanvas = null;
+function resolveColor(el, name) {
+  const probe = document.createElement('span');
+  probe.style.display = 'none';
+  probe.style.color = `var(${name}, transparent)`;
+  el.append(probe);
+  const css = getComputedStyle(probe).color;
+  probe.remove();
+  probeCanvas ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  if (!probeCanvas) return css;
+  probeCanvas.canvas.width = 1;
+  probeCanvas.canvas.height = 1;
+  probeCanvas.clearRect(0, 0, 1, 1);
+  probeCanvas.fillStyle = css;
+  probeCanvas.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = probeCanvas.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+}
+
+// The placeholder a graph shows before any data: "NO DATA" in the small
+// readout font, on a thin dashed line across the middle.
+function drawNoData(ctx, w, h, th) {
+  ctx.save();
+  ctx.strokeStyle = th.grid;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  ctx.moveTo(8, Math.round(h / 2) + 0.5);
+  ctx.lineTo(w - 8, Math.round(h / 2) + 0.5);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = `13px ${th.font}`;
+  const text = 'NO DATA';
+  const tw = ctx.measureText(text).width;
+  ctx.fillStyle = th.panel;
+  ctx.fillRect(w / 2 - tw / 2 - 10, h / 2 - 10, tw + 20, 20);
+  ctx.fillStyle = th.muted;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, w / 2, h / 2 + 1);
+  ctx.restore();
 }
 
 // Sizes the canvas to its box on screen at the screen's pixel density.
@@ -184,11 +235,7 @@ export class TimeChart {
 
     if (empty) {
       this.plot = null;
-      ctx.fillStyle = th.muted;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `14px ${th.font}`;
-      ctx.fillText('No data yet', w / 2, h / 2);
+      drawNoData(ctx, w, h, th);
       return;
     }
 
@@ -349,11 +396,7 @@ export class TrackPlot {
     ctx.font = `12px ${th.font}`;
 
     if (!pts.length) {
-      ctx.fillStyle = th.muted;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `14px ${th.font}`;
-      ctx.fillText('No position yet', w / 2, h / 2);
+      drawNoData(ctx, w, h, th);
       return;
     }
 
@@ -386,8 +429,8 @@ export class TrackPlot {
     ctx.stroke();
 
     // The trace: a faint line through every fix, small dots on each.
-    ctx.strokeStyle = th.gold;
-    ctx.fillStyle = th.gold;
+    ctx.strokeStyle = th.accent;
+    ctx.fillStyle = th.accent;
     ctx.lineWidth = 1.5;
     ctx.lineJoin = 'round';
     ctx.globalAlpha = 0.45;
@@ -422,7 +465,7 @@ export class TrackPlot {
     ctx.fill();
     ctx.beginPath();
     ctx.arc(xOf(mark), yOf(mark), 5, 0, Math.PI * 2);
-    ctx.fillStyle = th.gold;
+    ctx.fillStyle = th.accent;
     ctx.fill();
 
     // Scale bar, bottom left.

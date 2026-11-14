@@ -119,211 +119,196 @@
     </section>
 
     <!-- ── CONSOLE: /flight-console/?track (live) and ?flight=<id> (replay) ──
-         One CSS grid. Every pane is a direct child with a data-pane name
-         and its own grid area, and data-mode on the grid says which panes
-         show (see the console part of flight-console.css):
-           idle    head, bar, notice, errors, intro, saved. For data it
-                   doesn't recognize, raw takes intro's place.
-           bench   head, bar, notice, errors, readings and graphs side by
-                   side, stage, raw, saved
-           flight  head, bar, notice, errors, stage (tall), readings and
-                   graphs, raw, saved
-           replay  mission, rockets, phases, stage, timeline, lower
-         The panes are in the order they show, so the keyboard goes
-         through them in the same order (flight mode's stage, which moves
-         up, is the one exception). The bc-* ids are the ones
-         js/live/bench-panel.js looks up. -->
-    <section id="fc-console" class="fc-console" data-mode="idle" aria-label="Flight Console" hidden>
+         One screen that fits the window under the nav, with no page scroll:
+           the bar      CONNECT on the left, SAVED FLIGHTS on the right, and
+                        the replay's name with a close button in between
+           status       short status lines that show only when there is
+                        something to say (a link note, the Chrome or Edge
+                        warning, data the console doesn't recognize)
+           two panels   side by side in a sliding track, one on screen at a
+                        time, switched with the arrow buttons at the edges or
+                        the left and right arrow keys (js/views/panels.js):
+             globe      the 3D view filling the panel, with the replay's
+                        clock, phase strip, readings and altitude timeline
+                        floating over it
+             data       live: the readings, graphs, raw output and Save as
+                        CSV. Replay: the mission timeline, the flight details
+                        and the detection check.
+         data-mode on the console (idle, bench, flight or replay) says what
+         it shows, and data-panel (globe or data) which panel is on screen.
+         The bc-* ids are the ones js/live/bench-panel.js looks up. -->
+    <section id="fc-console" class="fc-console" data-mode="idle" data-panel="globe" aria-labelledby="fc-console-title" hidden>
+      <h1 id="fc-console-title" class="sr-only">Track a Rocket</h1>
 
-      <!-- head: back to the landing, the title and one line on using it. -->
-      <header class="fc-con-head" data-pane="head">
-        <a class="fc-con-back" href="./" data-fc-nav="landing"><svg class="fc-ui-ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5.5M11 6L5 12L11 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Flight Console</a>
-        <h1 id="fc-console-title" class="fc-con-title">Track a Rocket</h1>
-        <p class="fc-con-lede">Plug a Dogtooth board into this computer with a Universal Serial Bus (USB) cable and press Connect. The console shows its Global Positioning System (GPS) and radio readings live, with its position in 3D. Every reading can be saved as a comma-separated values (CSV) file.</p>
-      </header>
+      <!-- The bar. CONNECT shows the link state on itself (CONNECTING,
+           DISCONNECT while connected), and the status line under it (for
+           screen readers only) says the same in words. -->
+      <div class="fc-bar">
+        <button id="bc-connect" class="fc-connect" type="button" data-state="idle">
+          <span class="fc-connect-mark" aria-hidden="true"></span>
+          <span id="bc-connect-text" class="fc-connect-text">CONNECT</span>
+        </button>
+        <span id="bc-link-text" class="sr-only" role="status">Not connected</span>
 
-      <!-- bar: one Connect button for every source, the link and what is
-           talking on it, the heartbeat and block counts, and Save as CSV. -->
-      <section class="fc-bar" data-pane="bar" aria-label="Connection">
-        <div class="bc-bar">
-          <div class="bc-bar-actions">
-            <button id="bc-connect" class="bc-btn bc-btn--gold" type="button">Connect</button>
-            <button id="bc-disconnect" class="bc-btn bc-btn--outline" type="button" disabled>Disconnect</button>
-          </div>
-          <div class="bc-bar-status">
-            <div class="bc-stat">
-              <span id="bc-link-dot" class="bc-dot" data-state="idle" aria-hidden="true"></span>
-              <span class="bc-stat-text">
-                <span class="bc-stat-label">Connection</span>
-                <span id="bc-link-text" class="bc-stat-value" role="status">Not connected</span>
-              </span>
-            </div>
-            <div class="bc-stat">
-              <span class="bc-stat-text">
-                <span class="bc-stat-label">Source</span>
-                <span id="fc-source-text" class="bc-stat-value">None yet</span>
-              </span>
-            </div>
-            <div class="bc-stat">
-              <span id="bc-beat-dot" class="bc-dot" data-state="none" aria-hidden="true"></span>
-              <span class="bc-stat-text">
-                <span class="bc-stat-label">Last heartbeat</span>
-                <span id="bc-beat-text" class="bc-stat-value bc-num">None yet</span>
-                <span id="bc-beat-num" class="bc-stat-sub bc-num" hidden></span>
-              </span>
-            </div>
-            <div class="bc-stat">
-              <span id="bc-lost-dot" class="bc-dot" data-state="none" aria-hidden="true"></span>
-              <span class="bc-stat-text">
-                <span class="bc-stat-label">Lost blocks</span>
-                <span id="bc-lost" class="bc-stat-value bc-num">0</span>
-              </span>
-            </div>
-            <div class="bc-stat">
-              <span class="bc-stat-text">
-                <span class="bc-stat-label">Blocks received</span>
-                <span id="bc-count" class="bc-stat-value bc-num">0</span>
-              </span>
-            </div>
-          </div>
-          <button id="bc-save" class="bc-btn" type="button" disabled>Save as CSV</button>
+        <!-- The open replay, with a slim way back to live. -->
+        <div id="fc-replay-chip" class="fc-replay-chip" hidden>
+          <span class="fc-replay-kind">REPLAY</span>
+          <span id="fc-replay-name" class="fc-replay-name"></span>
+          <a class="fc-replay-close" href="./?track" data-fc-nav="track" aria-label="Close the replay and go back to live">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
         </div>
-        <p id="bc-link-note" class="bc-link-note" aria-live="polite" hidden></p>
-        <p id="bc-unsupported" class="bc-unsupported" role="alert" hidden>This browser can't open serial ports, so it can't connect to a board. Open this page in Chrome or Edge on a desktop or laptop. Saved flights still play here.</p>
-      </section>
 
-      <!-- notice: lines arrive but none match a source (js/live/sources.js). -->
-      <section id="fc-notice" class="fc-notice" data-pane="notice" aria-labelledby="fc-notice-title" hidden>
-        <h2 id="fc-notice-title" class="fc-notice-title">The console doesn't recognize this data yet</h2>
-        <p>Lines are coming in, but none of them match a format the console knows. The raw serial output below shows exactly what arrived. A Dogtooth board needs firmware that prints its status block once a second.</p>
-      </section>
-
-      <!-- errors: lines that start with "Error:". Hidden until the first one. -->
-      <section id="bc-errors" class="bc-panel bc-errors" data-pane="errors" aria-labelledby="bc-errors-title" hidden>
-        <div class="bc-panel-head">
-          <h2 id="bc-errors-title" class="bc-panel-title">Errors from the board <span id="bc-errors-count" class="bc-num"></span></h2>
-          <button id="bc-errors-clear" class="bc-btn bc-btn--sm" type="button">Clear</button>
-        </div>
-        <ol id="bc-errors-list" class="bc-errors-list" aria-live="polite"></ol>
-      </section>
-
-      <!-- intro: idle only. How to connect. (Hidden while the data isn't
-           recognized, since the connection itself worked.) -->
-      <section class="fc-intro" data-pane="intro" aria-labelledby="fc-intro-title">
-        <h2 id="fc-intro-title" class="fc-intro-title">How to connect</h2>
-        <ol class="fc-intro-list">
-          <li>Use Chrome or Edge on a desktop or laptop. Other browsers can't open serial ports.</li>
-          <li>Close any other program that has the board's port open, like the serial monitor in Arduino or PlatformIO. Only one program can use a port at a time.</li>
-          <li>Plug the board in, press Connect and pick its port. The console opens it at 115,200 baud.</li>
-          <li>Nothing is uploaded. The readings stay in this tab until you close it, unless you save them as a CSV file.</li>
-        </ol>
-      </section>
-
-      <!-- readings: one group per section of the board's block (GPS, GPS
-           MOTION MODEL, RADIO), built by js/live/bench-panel.js. -->
-      <section class="bc-panel bc-readings" data-pane="readings" aria-labelledby="bc-readings-title">
-        <div class="bc-panel-head">
-          <h2 id="bc-readings-title" class="bc-panel-title">Latest readings</h2>
-          <span id="bc-readings-age" class="bc-panel-sub">No readings yet</span>
-        </div>
-        <p class="bc-panel-note">The labels are the board's own. HDOP means horizontal dilution of precision. Lower is better.</p>
-        <div id="bc-readings-groups" class="bc-readings-groups"></div>
-      </section>
-
-      <!-- graphs: the last 10 minutes on the board's own clock. -->
-      <section class="bc-graphs" data-pane="graphs" aria-labelledby="bc-graphs-title">
-        <div class="bc-graphs-head">
-          <h2 id="bc-graphs-title" class="bc-section-title">The last 10 minutes</h2>
-          <p class="bc-section-sub">The times along the bottom are how long the board has been running. Point at a graph to read every graph at that time. With the keyboard, tab to a graph and use the arrow keys.</p>
-        </div>
-        <div class="bc-graph-grid">
-          <section class="bc-panel bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
-            <div class="bc-graph-head">
-              <h3 id="bc-g-alt" class="bc-graph-title">Altitude</h3>
-              <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="alt">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-            </div>
-            <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Altitude graph, no data yet."></canvas>
-          </section>
-          <section class="bc-panel bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
-            <div class="bc-graph-head">
-              <h3 id="bc-g-sats" class="bc-graph-title">Connected satellites</h3>
-              <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="sats">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-            </div>
-            <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Connected satellites graph, no data yet."></canvas>
-          </section>
-          <section class="bc-panel bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
-            <div class="bc-graph-head">
-              <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
-              <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="quality">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-            </div>
-            <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
-          </section>
-          <section class="bc-panel bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
-            <div class="bc-graph-head">
-              <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
-              <p class="bc-graph-read"><span class="bc-graph-value bc-num" data-value="gpsRate">No data</span><span class="bc-graph-when" data-when hidden>Latest</span></p>
-            </div>
-            <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
-          </section>
-          <section class="bc-panel bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
-            <div class="bc-graph-head">
-              <h3 id="bc-g-radio" class="bc-graph-title">Radio packets</h3>
-              <p class="bc-graph-read bc-graph-read--keys">
-                <span class="bc-key"><span class="bc-key-line bc-key-line--sent" aria-hidden="true"></span>Sent <span class="bc-graph-value bc-num" data-value="radioSent">No data</span></span>
-                <span class="bc-key"><span class="bc-key-line bc-key-line--err" aria-hidden="true"></span>Errors <span class="bc-graph-value bc-num" data-value="radioErrors">No data</span></span>
-                <span class="bc-graph-when" data-when hidden>Latest</span>
-              </p>
-            </div>
-            <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Radio packets graph, no data yet."></canvas>
-          </section>
-        </div>
-      </section>
-
-      <!-- Replay panes above the stage: the header, the rocket chips (two
-           or more rockets) and the phase strip. -->
-      <div id="fc-mission" class="fc-area-head" data-pane="mission"></div>
-      <div id="fc-rocketbar" class="fc-area-rockets" data-pane="rockets"></div>
-      <div id="fc-phases" class="fc-area-phases" data-pane="phases"></div>
-
-      <!-- stage: the map or 3D view, with the readings panel and the
-           altitude tape floating over it (replay and flight modes).
-           data-fc-cover marks the panels that cover part of the map, so the
-           map keeps the rocket out from under them. -->
-      <div class="fc-stage" data-pane="stage">
-        <div id="fc-map" class="fc-stage-map"></div>
-        <div id="fc-stats" class="fc-stage-readings" data-fc-cover></div>
-        <div id="fc-tape" class="fc-stage-tape" data-fc-cover></div>
-      </div>
-
-      <!-- Replay panes under the stage: the altitude timeline, then the
-           mission timeline next to the flight details and detection check. -->
-      <div id="fc-timeline" class="fc-area-timeline" data-pane="timeline"></div>
-      <div class="fc-lower" data-pane="lower">
-        <div id="fc-log" class="fc-area-log"></div>
-        <div class="fc-lower-side">
-          <div id="fc-info" class="fc-area-info"></div>
-          <div id="fc-debug" class="fc-area-debug"></div>
+        <!-- SAVED FLIGHTS: a small dropdown log, one line per flight
+             (js/views/saved-menu.js fills it from data/flights/index.json). -->
+        <div id="fc-saved" class="fc-dd">
+          <button id="fc-saved-button" class="fc-dd-button" type="button" aria-expanded="false" aria-controls="fc-saved-menu">
+            <span>SAVED FLIGHTS</span>
+            <svg class="fc-dd-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 9L12 15L18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </button>
+          <div id="fc-saved-menu" class="fc-dd-menu" hidden></div>
         </div>
       </div>
 
-      <!-- raw: every line exactly as it arrived. -->
-      <details id="bc-raw" class="bc-panel bc-details" data-pane="raw">
-        <summary>Raw serial output</summary>
-        <div class="bc-details-body">
-          <p>The last 1,000 lines, exactly as they arrived.</p>
-          <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
+      <!-- Status lines. Each shows only while it has something to say. -->
+      <div class="fc-status">
+        <div id="fc-link-note-box" class="fc-status-line" hidden>
+          <p id="bc-link-note" class="fc-status-text" aria-live="polite"></p>
+          <button class="fc-status-close" type="button" data-close="fc-link-note-box" aria-label="Hide this note">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </button>
         </div>
-      </details>
+        <div id="bc-unsupported" class="fc-status-line fc-status-line--warn" role="alert" hidden>
+          <p class="fc-status-text">This browser can't open serial ports, so it can't connect to a board. Chrome and Edge on a desktop or laptop can.</p>
+          <button class="fc-status-close" type="button" data-close="bc-unsupported" aria-label="Hide this warning">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </button>
+        </div>
+        <!-- Lines arrive but none match a source (js/live/sources.js). -->
+        <div id="fc-notice" class="fc-status-line fc-status-line--warn" hidden>
+          <p class="fc-status-text"><span class="fc-status-tag">NOT RECOGNIZED</span> Lines are coming in, but not in a format the console knows.</p>
+          <button id="fc-notice-raw" class="fc-status-action" type="button">RAW OUTPUT</button>
+        </div>
+      </div>
 
-      <!-- saved: the flight library. Each row opens its replay in place.
-           ?track#fc-saved opens the console scrolled to it (js/main.js). -->
-      <section id="fc-saved" class="fc-saved" data-pane="saved" aria-labelledby="fc-saved-title">
-        <h2 id="fc-saved-title" class="fc-section-title">Saved flights</h2>
-        <p class="fc-section-sub">Open a saved flight to play it back in 3D, with its altitude and flight events.</p>
-        <div id="fc-library"></div>
-        <div id="fc-library-notes" class="fc-library-notes" role="status"></div>
-      </section>
+      <!-- The two panels. The one off screen is inert (js/views/panels.js). -->
+      <div id="fc-screens" class="fc-screens">
+        <div class="fc-screens-track">
 
+          <!-- Panel 1: the 3D view, in every mode. The overlays are marked
+               data-fc-cover, so the 3D view keeps its labels clear of them. -->
+          <section id="fc-panel-globe" class="fc-screen fc-stage" data-screen="globe" aria-label="3D view">
+            <div id="fc-map" class="fc-stage-map"></div>
+            <div class="fc-overlay">
+              <div class="fc-ov-top" data-fc-cover>
+                <div id="fc-mission" class="fc-ov-mission"></div>
+                <div id="fc-phases" class="fc-ov-phases"></div>
+              </div>
+              <div id="fc-rocketbar" class="fc-ov-rockets" data-fc-cover></div>
+              <div id="fc-stats" class="fc-ov-readings" data-fc-cover></div>
+              <div id="fc-timeline" class="fc-ov-timeline" data-fc-cover></div>
+            </div>
+          </section>
+
+          <!-- Panel 2: graphs and readings. -->
+          <section id="fc-panel-data" class="fc-screen fc-data" data-screen="data" aria-label="Graphs and readings">
+
+            <!-- Live: the board's readings, graphs and raw output. -->
+            <div class="fc-data-live">
+              <div class="fc-data-side">
+                <section class="bc-box bc-readings" aria-labelledby="bc-readings-title">
+                  <div class="bc-box-head">
+                    <h2 id="bc-readings-title" class="bc-box-title">Latest readings</h2>
+                    <span id="bc-readings-age" class="bc-box-sub">No readings yet</span>
+                  </div>
+                  <!-- Lines from the board that start with "Error:". -->
+                  <section id="bc-errors" class="bc-errors" aria-labelledby="bc-errors-title" hidden>
+                    <div class="bc-errors-head">
+                      <h3 id="bc-errors-title" class="bc-errors-title">Errors from the board <span id="bc-errors-count" class="bc-num"></span></h3>
+                      <button id="bc-errors-clear" class="fc-btn fc-btn--xs" type="button">CLEAR</button>
+                    </div>
+                    <ol id="bc-errors-list" class="bc-errors-list" aria-live="polite"></ol>
+                  </section>
+                  <!-- One group per section of the board's block, built by
+                       js/live/bench-panel.js. -->
+                  <div id="bc-readings-groups" class="bc-readings-groups"></div>
+                </section>
+                <details id="bc-raw" class="bc-raw">
+                  <summary>Raw serial output</summary>
+                  <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
+                </details>
+              </div>
+
+              <section class="bc-graphs" aria-labelledby="bc-graphs-title">
+                <div class="bc-graphs-head">
+                  <h2 id="bc-graphs-title" class="bc-box-title">The last 10 minutes</h2>
+                  <button id="bc-save" class="fc-btn fc-btn--xs" type="button" disabled>SAVE AS COMMA-SEPARATED VALUES (CSV)</button>
+                </div>
+                <div class="bc-graph-grid">
+                  <section class="bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
+                    <div class="bc-graph-head">
+                      <h3 id="bc-g-alt" class="bc-graph-title">Altitude</h3>
+                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="alt"></span></p>
+                    </div>
+                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Altitude graph, no data yet."></canvas>
+                  </section>
+                  <section class="bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
+                    <div class="bc-graph-head">
+                      <h3 id="bc-g-sats" class="bc-graph-title">Connected satellites</h3>
+                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="sats"></span></p>
+                    </div>
+                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Connected satellites graph, no data yet."></canvas>
+                  </section>
+                  <section class="bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
+                    <div class="bc-graph-head">
+                      <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
+                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="quality"></span></p>
+                    </div>
+                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
+                  </section>
+                  <section class="bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
+                    <div class="bc-graph-head">
+                      <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
+                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="gpsRate"></span></p>
+                    </div>
+                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
+                  </section>
+                  <section class="bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
+                    <div class="bc-graph-head">
+                      <h3 id="bc-g-radio" class="bc-graph-title">Radio packets</h3>
+                      <p class="bc-graph-read">
+                        <span class="bc-graph-when" data-when hidden>Latest</span>
+                        <span class="bc-key"><span class="bc-key-line bc-key-line--sent" aria-hidden="true"></span>Sent <span class="bc-graph-value bc-num" data-value="radioSent"></span></span>
+                        <span class="bc-key"><span class="bc-key-line bc-key-line--err" aria-hidden="true"></span>Errors <span class="bc-graph-value bc-num" data-value="radioErrors"></span></span>
+                      </p>
+                    </div>
+                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Radio packets graph, no data yet."></canvas>
+                  </section>
+                </div>
+              </section>
+            </div>
+
+            <!-- Replay: the mission timeline, then the flight details and
+                 the detection check. A saved flight has no bench graphs. -->
+            <div class="fc-data-replay">
+              <div id="fc-log" class="fc-data-log"></div>
+              <div class="fc-data-about">
+                <div id="fc-info"></div>
+                <div id="fc-debug"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Monitor-style arrows at the edges. Only the one toward the other
+             panel shows. -->
+        <button id="fc-flip-prev" class="fc-flip fc-flip--prev" type="button" aria-controls="fc-panel-globe" aria-label="Show the 3D view">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M15 5L8 12L15 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+        </button>
+        <button id="fc-flip-next" class="fc-flip fc-flip--next" type="button" aria-controls="fc-panel-data" aria-label="Show the graphs and readings">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M9 5L16 12L9 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+        </button>
+      </div>
     </section>
 
     <!-- Screen reader lines: the bench panel's graph readouts (bc-announce)

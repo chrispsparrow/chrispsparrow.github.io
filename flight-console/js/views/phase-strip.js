@@ -3,7 +3,7 @@
 // Main, Landed. They follow only the live detector's current phase for the
 // focused rocket (never the simulator's truth):
 //   passed        a solid muted bar, with the T+ time the phase began
-//   current       a gold bar and gold text (aria-current="step")
+//   current       an orange bar and off-white text (aria-current="step")
 //   not yet       a dim bar
 //   not detected  an empty bar, for a phase before the current one that the
 //                 detector never found (drogue and main when a rocket lands

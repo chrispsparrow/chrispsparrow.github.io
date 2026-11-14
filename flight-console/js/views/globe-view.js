@@ -43,9 +43,21 @@
 // at, the wheel or a pinch to zoom, and the right button or two fingers to
 // slide the view (see "Controls" near the end).
 //
+// Look. The view sits on the page with no frame: the space around the
+// Earth is the page's navy, there are no stars, sun or moon, and the glow of
+// the atmosphere is darkened and tinted toward the navy. Close to the
+// ground the glow is off, so the sky is the page's navy too and the horizon
+// meets the page. The globe fades into the page instead of sitting in a box. Labels are off-white and dim
+// off-white Share Tech Mono on a deep navy backing. Orange is kept for the
+// rocket and its trail, and for a label that warns (no GPS fix).
+//
 // Rendering. The scene only redraws when something changes (Cesium's
 // requestRenderMode), which saves battery. Every change here ends with
 // scene.requestRender().
+//
+// Starting far out. With no ground station the camera first waits looking
+// at the whole Earth. When the first position comes in, it flies down to it
+// (or jumps there, for visitors who ask for less motion).
 //
 // Used by: map-view.js, which loads Cesium first and owns the buttons.
 // Reads the store, never other views.
@@ -55,12 +67,12 @@ import { distanceM, formatDistance, formatRounded10 } from '../geo.js';
 import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR } from './icons.js';
 import { rocketHudLine, FLIGHT_WORDS } from './hud-text.js?v=2';
 
-// The fix-gap line: gold dashes on a dark line, so it reads as dashed
+// The fix-gap line: orange dashes on a dark line, so it reads as dashed
 // against the sky and the ground alike. The pattern is 16 bits spread over
-// DASH_PX screen pixels (a 1 is gold).
+// DASH_PX screen pixels (a 1 is orange).
 const GAP_DASH_PX = 14;
 const GAP_DASH_BITS = 0b1111110000000000;
-// The ground station line: longer teal dashes.
+// The ground station line: longer dim off-white dashes.
 const GS_DASH_PX = 14;
 const GS_DASH_BITS = 0b1111111110000000;
 const GS_LINE_OPACITY = 0.95;
@@ -107,6 +119,32 @@ const STATION_KEEP_M = 100;
 const WAIT_FAR_LAT = 25;
 const WAIT_FAR_LON = -40;
 const WAIT_FAR_RANGE_M = 20000000;
+// How long (s) the camera takes to fly down from there to the first
+// position.
+const FLY_IN_S = 2.6;
+// The atmosphere's glow around the Earth, seen from far away, pulled
+// toward the page's navy: the same blue with much less light, so the rim
+// stays a thin dark blue. Each is a shift from -1 to 1. Below
+// SKY_GLOW_MIN_M (m above the ground) the glow is off, so the sky over the
+// ground is the page's own navy and the horizon meets the page.
+const SKY_SATURATION_SHIFT = 0.05;
+const SKY_BRIGHTNESS_SHIFT = -0.66;
+const SKY_HUE_SHIFT = 0;
+const SKY_GLOW_MIN_M = 100000;
+// The haze over the ground far away, darker and greyer, so distant ground
+// fades toward the navy.
+const GROUND_HAZE_SATURATION_SHIFT = -0.2;
+const GROUND_HAZE_BRIGHTNESS_SHIFT = -0.5;
+// Close to the ground, the ground fades into the page's navy toward the
+// horizon. On screen the fade starts this share of the view's height below
+// the horizon, and the ground is solid navy from the second share on.
+const HORIZON_FADE_FROM = 0.11;
+const HORIZON_FADE_TO = 0.006;
+// Far ground usually sits higher than sea level, so it shows closer to the
+// horizon than that works out. The fade never starts or ends farther away
+// than these shares of the distance to the horizon.
+const HORIZON_FADE_FROM_MAX = 0.1;
+const HORIZON_FADE_TO_MAX = 0.38;
 
 export function createGlobeView(container, ctx, options) {
   const { Cesium: C, credits, dialogs, covers, onReady, onChange, onFail, onFollowOff } = options;
@@ -116,23 +154,26 @@ export function createGlobeView(container, ctx, options) {
   const prescan = ctx.prescan instanceof Map ? ctx.prescan : new Map();
 
   // ------------------------------------------------------------------
-  // Colors and fonts, from the page's own design tokens (the CSS
-  // variables at the top of flight-console.css).
+  // Colors and fonts, from the Flight Console theme
+  // (css/flight-console-theme.css): off-white and dim off-white text on a
+  // deep navy backing, orange for warnings, and the page's navy around the
+  // Earth. Each color is worked out by the browser (a theme shade can be a
+  // color-mix()) and handed to Cesium as plain rgba().
   // ------------------------------------------------------------------
   const styles = getComputedStyle(container);
   const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
   const rgba = (css, alpha = 1) => C.Color.fromCssColorString(css).withAlpha(alpha);
-  const HUD = token('--fc-hud', '#4dff7a');
-  const HUD_2 = token('--fc-hud-2', '#b4ffc6');
-  const HUD_DARK = token('--fc-hud-outline', '#04140a');
-  const CORAL = token('--fc-coral', '#e07a5f');
-  const TEXT = token('--fc-text', '#e8e6df');
-  const MUTED = token('--fc-muted', '#9aa3b5');
-  const PAGE = token('--fc-bg', '#0a0f1a');
-  const hudFamily = token('--fc-font-hud', '"Share Tech Mono", monospace');
-  const textFamily = token('--fc-font-text', 'sans-serif');
+  const color = (name, fallback) => cssColor(container, name, fallback);
+  const HUD = color('--fc-offwhite', '#E8EDF2');          // label text
+  const HUD_2 = color('--fc-text-dim', '#A1A9B3');        // a label's second line
+  const HUD_DARK = color('--fc-navy-deep', '#081221');    // the backing behind labels
+  const WARN = color('--fc-orange', '#FF7A1A');           // no GPS fix, and other warnings
+  const TEXT = HUD;
+  const MUTED = HUD_2;
+  const PAGE = color('--fc-navy', '#0B1A2E');             // the space around the Earth
+  const hudFamily = token('--fc-font-readout', '"Share Tech Mono", monospace');
   const hudFont = (px) => `${px}px ${hudFamily}`;
-  const textFont = `600 12px ${textFamily}`;
+  const textFont = hudFont(12);
 
   // ------------------------------------------------------------------
   // The viewer. Every built-in widget is off. Cesium's logo and data
@@ -213,11 +254,87 @@ export function createGlobeView(container, ctx, options) {
   // Terrain hides what is behind or under it. The drop line relies on this
   // to end at the ground. Icons and labels are never hidden (see ALWAYS).
   scene.globe.depthTestAgainstTerrain = true;
-  // The ground's color where there is no imagery.
-  scene.globe.baseColor = rgba('#1a2233');
+  // The ground's color where there is no imagery: the theme's raised navy.
+  scene.globe.baseColor = rgba(color('--fc-navy-raised', '#1D2B3E'));
+  // The page's navy all around the Earth, with no stars, sun or moon.
   scene.backgroundColor = rgba(PAGE);
+  if (scene.skyBox) scene.skyBox.show = false;
   if (scene.sun) scene.sun.show = false;
   if (scene.moon) scene.moon.show = false;
+  // The atmosphere's glow (the ring around the Earth from far away),
+  // darkened and tinted toward the navy. Close to the ground it is off, so
+  // the sky is the page's navy and the view has no edge against the page.
+  const sky = scene.skyAtmosphere;
+  if (sky) {
+    sky.hueShift = SKY_HUE_SHIFT;
+    sky.saturationShift = SKY_SATURATION_SHIFT;
+    sky.brightnessShift = SKY_BRIGHTNESS_SHIFT;
+  }
+  // Close to the ground the sky is the page's navy, so the far edge of the
+  // ground would end in a hard, straight line. Instead the ground fades to
+  // the navy with distance, so it melts into the page at the horizon, far
+  // mountains included. The distances are worked out before every frame
+  // from where they show on screen (HORIZON_FADE_FROM and _TO). It is a
+  // material on the ground only, so the rocket, its track and every label
+  // stay as they are. Far out, with the glow on, there is no fade.
+  const horizonFade = new C.Material({
+    fabric: {
+      type: 'FcHorizonFade',
+      uniforms: { fadeColor: rgba(PAGE), fadeFrom: 1e9, fadeTo: 2e9 },
+      source: `czm_material czm_getMaterial(czm_materialInput materialInput) {
+        czm_material material = czm_getDefaultMaterial(materialInput);
+        material.diffuse = fadeColor.rgb;
+        material.alpha = smoothstep(fadeFrom, fadeTo, length(materialInput.positionToEyeEC));
+        return material;
+      }`,
+    },
+  });
+  // Cesium's own haze and fog would lighten the far ground again after the
+  // fade, so close to the ground they are off. (The fog's density stays,
+  // so it still skips drawing ground hidden in it.)
+  const fog = scene.fog;
+  const fogLook = fog?.visualDensityScalar;
+  function updateHorizonFade(high) {
+    const globe = scene.globe;
+    if (fog && Number.isFinite(fogLook)) {
+      const look = high ? fogLook : 0;
+      if (fog.visualDensityScalar !== look) fog.visualDensityScalar = look;
+    }
+    if (high) {
+      if (globe.material) globe.material = undefined;
+      return;
+    }
+    if (globe.material !== horizonFade) globe.material = horizonFade;
+    const viewH = scene.canvas.clientHeight;
+    const fovy = camera.frustum.fovy;
+    if (!(viewH > 0) || !(fovy > 0)) return;
+    // Sea-level ground at distance d (m) shows h/d + d/2R radians below
+    // level, and the horizon sqrt(2h/R) below level, for a camera h m up.
+    // So the ground a radians below the horizon is at the nearer root of
+    // d² - 2Rk·d + 2Rh = 0, with k = sqrt(2h/R) + a. (fovy is the view's
+    // height in radians.)
+    const R = globe.ellipsoid.maximumRadius;
+    const h = Math.max(1, camera.positionCartographic.height);
+    const pxPerRadian = (viewH / 2) / Math.tan(fovy / 2);
+    const distanceAt = (px) => {
+      const k = Math.sqrt(2 * h / R) + px / pxPerRadian;
+      return R * k - Math.sqrt(Math.max(0, (R * k) ** 2 - 2 * R * h));
+    };
+    const horizon = Math.sqrt(2 * R * h + h * h);
+    horizonFade.uniforms.fadeFrom = Math.min(distanceAt(viewH * HORIZON_FADE_FROM), horizon * HORIZON_FADE_FROM_MAX);
+    horizonFade.uniforms.fadeTo = Math.min(distanceAt(viewH * HORIZON_FADE_TO), horizon * HORIZON_FADE_TO_MAX);
+  }
+  const stopSkySwitch = scene.preRender.addEventListener(() => {
+    const high = camera.positionCartographic.height > SKY_GLOW_MIN_M;
+    if (sky && sky.show !== high) sky.show = high;
+    updateHorizonFade(high);
+  });
+  // The same for the haze over the ground far away.
+  const haze = scene.atmosphere;
+  if (haze) {
+    haze.saturationShift = GROUND_HAZE_SATURATION_SHIFT;
+    haze.brightnessShift = GROUND_HAZE_BRIGHTNESS_SHIFT;
+  }
   // Cesium's own camera controls are off (see "Controls" near the end for
   // the ones used instead). Its check that keeps the camera above the
   // terrain is off too. It would move the camera behind this file's back,
@@ -364,7 +481,7 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // Event markers, drawn the way the altitude timeline draws them: a
-  // filled dot for reported, a gold ring for detected, a dashed ring for
+  // filled dot for reported, an orange ring for detected, a dashed ring for
   // inferred or estimated.
   function eventIcon(kind) {
     const size = EVENT_MARK_PX + 4; // room for the dark edge
@@ -406,7 +523,6 @@ export function createGlobeView(container, ctx, options) {
   const fontsReady = Promise.race([
     Promise.all([
       document.fonts?.load?.(`400 48px ${hudFamily}`),
-      document.fonts?.load?.(`600 48px ${textFamily}`),
     ]),
     new Promise((resolve) => { setTimeout(resolve, FONT_WAIT_MS); }),
   ]).catch(() => null);
@@ -617,8 +733,8 @@ export function createGlobeView(container, ctx, options) {
   // or icon, and another side wouldn't. The focused rocket's tag goes
   // first, then the other rockets, the ground station, the launch points,
   // the event markers and the distance label. Only the focused rocket's
-  // tag and the ground station's always show. Any other tag with no clear
-  // place stays out of sight until it has one.
+  // tag always shows. Any other tag with no clear place stays out of sight
+  // until it has one.
   let covered = [];
   function placeTags() {
     if (destroyed || !tags.size) return;
@@ -908,7 +1024,7 @@ export function createGlobeView(container, ctx, options) {
     parts.padTag = null;
   }
 
-  // The look of a rocket's trail: gold and thicker for the focused rocket,
+  // The look of a rocket's trail: orange and thicker for the focused rocket,
   // its own color and thinner for the others, each with a dark outline.
   // (The outline width counts both sides and comes out of the line's width.)
   function trailLine(rocket, isFocused, positions) {
@@ -1049,7 +1165,7 @@ export function createGlobeView(container, ctx, options) {
     setTagText(parts.tag, [rocket.profile.callsign, line2]);
     setTagPosition(parts.tag, position);
     parts.tag.wanted = true;
-    const line2Color = rgba(hud.warn ? CORAL : HUD_2, isFocused ? 1 : 0.74);
+    const line2Color = rgba(hud.warn ? WARN : HUD_2, isFocused ? 1 : 0.74);
     if (!C.Color.equals(parts.tag.labels[1].fillColor, line2Color)) parts.tag.labels[1].fillColor = line2Color;
   }
 
@@ -1129,6 +1245,9 @@ export function createGlobeView(container, ctx, options) {
         sides: ['right', 'left', 'below'],
         icon: { left: TOWER_ANCHOR[0], right: TOWER_SIZE[0] - TOWER_ANCHOR[0], up: TOWER_ANCHOR[1], down: TOWER_SIZE[1] - TOWER_ANCHOR[1] },
         lift: 14,
+        // It steps out of sight while it would sit under the controls or
+        // the timeline, or off the edge (the KEY still names the tower).
+        optional: true,
         order: 2,
       });
     }
@@ -1152,7 +1271,7 @@ export function createGlobeView(container, ctx, options) {
   const link = { line: null, tag: null, stale: null };
   const drop = { line: null };
 
-  // The dashed teal line from the ground station to the focused rocket,
+  // The dashed line from the ground station to the focused rocket,
   // through the air, labeled with the straight-line distance between them
   // (so it counts the rocket's height, unlike the map's ground distance).
   // With no fix right now it ends at the last good position, so it dims
@@ -1217,7 +1336,7 @@ export function createGlobeView(container, ctx, options) {
   // Event markers in the sky, for the focused rocket: one at the trail
   // point of its apogee, drogue, main and landing, and of each event its
   // board reported, drawn by how the event was found, with a short label
-  // like "Apogee detected · 3,000 m". They come
+  // like "Apogee detected, 3,000 m". They come
   // from the live store, so a marker only exists once playback has
   // reached its event. An event with no good position at its time (a GPS
   // gap) gets no marker, since there is no real place to put it.
@@ -1263,13 +1382,13 @@ export function createGlobeView(container, ctx, options) {
     }
   }
 
-  // "Apogee detected · 3,000 m", with the event's own height. A board's
+  // "Apogee detected, 3,000 m", with the event's own height. A board's
   // own event shows the board's words and no height, since the board
   // reported none. A landing has no height worth saying.
   function eventText(e, kind) {
     const said = e.type === 'reported' ? (/"(.*)"/.exec(e.message ?? '')?.[1] ?? null) : null;
     const name = e.type === 'reported' ? (said ? `"${said}"` : 'Board event') : EVENT_WORDS[e.type];
-    const where = e.type !== 'landed' && Number.isFinite(e.aglM) ? ` · ${formatRounded10(e.aglM)} m` : '';
+    const where = e.type !== 'landed' && Number.isFinite(e.aglM) ? `, ${formatRounded10(e.aglM)} m` : '';
     return `${name} ${kind}${where}`;
   }
 
@@ -1346,13 +1465,14 @@ export function createGlobeView(container, ctx, options) {
   let started = false;         // the starting view has been set on real data
   let framed = null;           // what 'whole' last framed: { center, radius }
   let glide = null;            // a camera move in progress: { to, frame }
+  let flying = false;          // the fly-in from the far view is running
   const frameOf = (position) => C.Transforms.eastNorthUpToFixedFrame(position);
   const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
   const PITCH_MIN = C.Math.toRadians(config.GLOBE_PITCH_MIN_DEG);
   const PITCH_MAX = C.Math.toRadians(config.GLOBE_PITCH_MAX_DEG);
 
   // The flight's highest point above ground (m), from the pre-scan (the
-  // same number the altitude tape uses for its scale). 0 if there is none.
+  // same number the timeline uses for its scale). 0 if there is none.
   function flightTop() {
     let top = 0;
     for (const [, scan] of prescan) top = Math.max(top, scan.state?.maxAgl ?? 0);
@@ -1462,10 +1582,42 @@ export function createGlobeView(container, ctx, options) {
   function stopGlide() {
     if (glide) window.cancelAnimationFrame(glide.frame);
     glide = null;
+    if (flying) camera.cancelFlight();
+  }
+
+  // The first position after the far view: Cesium's own flight down to it,
+  // ending exactly where `to` looks from. Anything the viewer does with the
+  // camera on the way ends the flight at its goal.
+  function flyIn(to) {
+    stopGlide();
+    Object.assign(look, to);
+    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+    look.pitch = clamp(look.pitch, PITCH_MIN, PITCH_MAX);
+    if (prefersReducedMotion()) {
+      aim();
+      return;
+    }
+    const landed = () => {
+      if (!flying) return;
+      flying = false;
+      if (!destroyed) aim();
+    };
+    camera.lookAtTransform(C.Matrix4.IDENTITY);
+    flying = true;
+    camera.flyTo({
+      destination: cameraSpot(look),
+      orientation: { heading: look.heading, pitch: look.pitch, roll: 0 },
+      duration: FLY_IN_S,
+      complete: landed,
+      cancel: landed,
+    });
+    scene.requestRender();
   }
 
   // Ends a glide at its goal (the view is about to be hidden).
   function finishGlide() {
+    // A fly-in ends at its goal when it is cancelled.
+    if (flying) camera.cancelFlight();
     if (!glide) return;
     const { to } = glide;
     stopGlide();
@@ -1506,7 +1658,7 @@ export function createGlobeView(container, ctx, options) {
     // starting tilt, so the ground stays in view.
     const pitch = Math.min(C.Math.toRadians(config.GLOBE_START_PITCH_DEG), Math.max(C.Math.toRadians(-70), look.pitch));
     // Fit it in the part of the view between the tall panels that float
-    // over it (the altitude tape on the left, the readings on the right),
+    // over it (like the readings panel on the right),
     // not under them.
     const width = scene.canvas.clientWidth;
     const height = scene.canvas.clientHeight;
@@ -1541,9 +1693,17 @@ export function createGlobeView(container, ctx, options) {
       started = true;
       const pad = firstPad();
       const pivot = cameraMode === 'follow' && target ? target : pad ? abovePad(pad) : first;
-      moveTo({ pivot, ...startOrbit() }, { animate: false });
+      // From the far view it flies down. Over a ground station it is
+      // already close, so it starts there.
+      if (waitFar && cameraMode !== 'whole') flyIn({ pivot, ...startOrbit() });
+      else moveTo({ pivot, ...startOrbit() }, { animate: false });
       // "Whole flight" was chosen before there was anything to frame.
       if (cameraMode === 'whole') frameEverything({ animate: false });
+      return;
+    }
+    // The fly-in ends on the newest point.
+    if (flying) {
+      if (cameraMode === 'follow' && target) look.pivot = target;
       return;
     }
     if (cameraMode === 'follow' && target) {
@@ -1859,6 +2019,7 @@ export function createGlobeView(container, ctx, options) {
       stopWatchingReady();
       stopPlacing();
       stopPlacingLink();
+      stopSkySwitch();
       stopGlide();
       window.cancelAnimationFrame(pairFrame);
       scene.canvas.removeEventListener('webglcontextlost', onContextLost);
@@ -1888,4 +2049,27 @@ export function createGlobeView(container, ctx, options) {
       }
     },
   };
+}
+
+// A CSS color variable as an rgba() string Cesium can read. The browser
+// works it out: a probe element takes the color, and a 1 by 1 canvas turns
+// whatever the browser computed (a color-mix() included) into plain
+// numbers. fallback is used if the variable is missing.
+let probeCanvas = null;
+function cssColor(el, name, fallback) {
+  const probe = document.createElement('span');
+  probe.style.display = 'none';
+  probe.style.color = `var(${name}, ${fallback})`;
+  el.append(probe);
+  const css = getComputedStyle(probe).color;
+  probe.remove();
+  probeCanvas ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  if (!probeCanvas) return fallback;
+  probeCanvas.canvas.width = 1;
+  probeCanvas.canvas.height = 1;
+  probeCanvas.clearRect(0, 0, 1, 1);
+  probeCanvas.fillStyle = css;
+  probeCanvas.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = probeCanvas.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
 }

@@ -1,5 +1,5 @@
 // hud-text.js
-// The words on a rocket's green label, shared by the map and the 3D view so
+// The words on a rocket's label, shared by the map and the 3D view so
 // both always say the same thing, and the words both use for what they're
 // tracking.
 //
@@ -45,7 +45,7 @@ export const BENCH_WORDS = Object.freeze({
 // how long: since the last packet of any kind, the last GPS data, or the
 // last good fix, so it agrees with the readings panel.
 // Returns { altKey, alt, speed, warn }. warn is true when the line says the
-// position is old (the label then turns coral).
+// position is old (the label then turns orange).
 export function rocketHudLine(store, config, rocket) {
   const d = rocket.derived;
   if (!store.hasFixNow(rocket)) {
@@ -58,7 +58,7 @@ export function rocketHudLine(store, config, rocket) {
       why = 'NO GPS DATA';
       since = rocket.latestByGroup.gps?.t;
     }
-    return { altKey: '', alt: `${why} · ${hudAge(store.ageOf(since))}`, speed: '', warn: true };
+    return { altKey: '', alt: `${why}, ${hudAge(store.ageOf(since))}`, speed: '', warn: true };
   }
   const agl = d?.agl;
   if (!Number.isFinite(agl)) return { altKey: 'AGL', alt: `${MISSING} M`, speed: '', warn: false };

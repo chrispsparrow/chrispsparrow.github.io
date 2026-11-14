@@ -2,66 +2,79 @@
    flight-console.css
    Styles for the Flight Console page only (flight-console/index.html).
    Everything is scoped under .fc-page (the page's <body> class), so none
-   of it can leak into the rest of the site. Fonts come from the site's
-   variables in ../css/style.css. The only extra fonts are Share Tech Mono,
-   used only for the green labels on the map and in 3D, and Space Mono
-   (--font-mono), used only for the raw serial output.
+   of it can leak into the rest of the site.
 
-   Parts, in order: tokens and shared pieces, the landing, the console
-   grid and its live panes, the Saved flights list, the live panels from
-   the Bench Console, Leaflet, then the replay's parts (the top of the
-   console, the map, the readings and tape, the altitude timeline, and the
-   panels under it).
+   Colors and fonts come from the Flight Console theme,
+   ../css/flight-console-theme.css: navy, orange (the accent, used
+   sparingly) and off-white, plus the shades mixed from them. The tokens
+   below only give those colors jobs. Fonts: Saira Stencil One for button
+   labels, Barlow Condensed for headings, Share Tech Mono for small labels
+   and readouts, Funnel Sans for paragraphs, and Space Mono (--font-mono)
+   only for the raw serial output, which is real machine text.
 
-   Readable in bright sun: light text on a dark ground, gold for the most
-   important numbers, large values, mostly opaque panels, and tabular
-   (fixed-width) digits on every value that changes.
+   Parts, in order: tokens and shared pieces, the landing, then the console
+   (the bar, the status lines, the two panels and the arrows between them),
+   the 3D view's panel and everything floating over it, the graphs and
+   readings panel, Leaflet (the 2D map the 3D view falls back to), and the
+   replay's parts: phase strip, readings, altitude timeline, mission
+   timeline, flight details and detection check.
+
+   Sharp corners and thin outlines everywhere. Tabular (fixed-width) digits
+   on every value that changes.
    ============================================================ */
 
 /* ------------------------------------------------------------
-   Design tokens
+   Design tokens: the theme's colors, by job
    ------------------------------------------------------------ */
 .fc-page {
-  --fc-bg: var(--fc-navy);     /* page background (css/flight-console-theme.css) */
-  --fc-panel: #0b1912;         /* cards and panels */
-  --fc-border: #2c4a38;        /* panel borders */
-  --fc-divider: #1d3527;       /* lines inside panels */
-  --fc-text: #e8e6df;          /* main text */
-  --fc-text-2: #b8bfcc;        /* secondary text */
-  --fc-muted: #9aa3b5;         /* muted text, passed or unknown things */
-  --fc-gold: #d4a843;          /* rocket data and main actions */
-  --fc-teal: #3fb8a8;          /* the ground station */
-  --fc-blue: #5aa9ff;          /* the Bluetooth or USB data link */
-  --fc-coral: #e07a5f;         /* no GPS fix and other warnings */
-  --fc-hud: #4dff7a;           /* map marker labels only */
-  --fc-hud-2: #b4ffc6;         /* the second, lighter line of a map label */
-  --fc-hud-outline: #04140a;   /* the outline around map label text */
-  --fc-ink: #0a0f1a;           /* text on gold */
-  --fc-float: rgba(11, 25, 18, 0.94); /* panels floating over the map */
-  --fc-gold-soft: color-mix(in srgb, var(--fc-gold) 14%, transparent);
-  --fc-radius: 10px;
-  --fc-radius-sm: 6px;
-  --fc-font-text: var(--font-text);
-  --fc-font-display: var(--font-display);
-  --fc-font-hud: 'Share Tech Mono', ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
-  --fc-gap: clamp(0.75rem, 1.6vw, 1.1rem);
+  --fc-bg: var(--fc-navy);                 /* page background */
+  --fc-panel: var(--fc-navy-raised);       /* boxes and panels */
+  --fc-well: var(--fc-navy-deep);          /* wells inside panels */
+  --fc-border: var(--fc-line-strong);      /* outlines that need to read */
+  --fc-divider: var(--fc-line);            /* thin lines inside panels */
+  --fc-text: var(--fc-offwhite);           /* main text */
+  --fc-text-2: var(--fc-text-dim);         /* secondary text */
+  --fc-muted: color-mix(in srgb, var(--fc-offwhite) 54%, var(--fc-navy)); /* passed or unknown things, about 5:1 on navy */
+  --fc-accent: var(--fc-orange);           /* the rocket, the main action, what is live */
+  --fc-accent-soft: var(--fc-orange-soft);
+  --fc-warn: var(--fc-orange);             /* no GPS fix, errors, SEARCHING */
+  --fc-ink: var(--fc-navy);                /* text on orange */
+  --fc-float: color-mix(in srgb, var(--fc-navy) 84%, transparent); /* boxes floating over the 3D view */
+  --fc-radius: 0;
+  --fc-radius-sm: 0;
+  --fc-gap: clamp(0.6rem, 1.2vw, 0.85rem);
+  --fc-font-text: var(--fc-font-body);
+  --fc-font-display: var(--fc-font-head);
+  --fc-font-hud: var(--fc-font-readout);
+  /* The labels on the 2D map (the 3D view reads the theme directly). */
+  --fc-hud: var(--fc-offwhite);
+  --fc-hud-2: var(--fc-text-dim);
+  --fc-hud-outline: var(--fc-navy-deep);
+  /* Older names, so a rule that still uses one gets a theme color. */
+  --fc-gold: var(--fc-accent);
+  --fc-gold-soft: var(--fc-accent-soft);
+  --fc-coral: var(--fc-warn);
+  --fc-teal: var(--fc-text-2);
+  --fc-blue: var(--fc-text-2);
   /* The live panels' names for the same colors. js/live/bench-panel.js
      and js/bench/charts.js read them (the graphs draw with them). */
   --bc-panel: var(--fc-panel);
-  --bc-panel-2: #07120c;       /* wells inside panels, like the raw output */
+  --bc-panel-2: var(--fc-well);
   --bc-border: var(--fc-border);
   --bc-divider: var(--fc-divider);
   --bc-text: var(--fc-text);
   --bc-text-2: var(--fc-text-2);
   --bc-muted: var(--fc-muted);
-  --bc-gold: var(--fc-gold);
-  --bc-teal: var(--fc-teal);
-  --bc-coral: var(--fc-coral);
-  --bc-sent: #4594e8;          /* radio packets sent (graph line) */
-  --bc-err: #d9704f;           /* radio errors (graph line) */
+  --bc-accent: var(--fc-accent);           /* a one-line graph's line */
+  --bc-gold: var(--bc-accent);             /* older name */
+  --bc-teal: var(--fc-text-2);
+  --bc-coral: var(--fc-warn);
+  --bc-sent: var(--fc-offwhite);           /* radio packets sent (graph line) */
+  --bc-err: var(--fc-orange);              /* radio errors (graph line) */
   --bc-ink: var(--fc-ink);
-  --bc-radius: var(--fc-radius);
-  --bc-radius-sm: var(--fc-radius-sm);
+  --bc-radius: 0;
+  --bc-radius-sm: 0;
+  --bc-font-readout: var(--fc-font-readout);
   background: var(--fc-bg);
 }
 
@@ -77,8 +90,8 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   padding: 0;
   min-height: 70vh;
 }
-/* Each screen pads itself, starting under the fixed nav. */
-.fc-page .fc-console,
+/* The message screen pads itself, starting under the fixed nav. (The
+   console fills the window under the nav instead.) */
 .fc-page .fc-message {
   padding: calc(var(--fc-nav-h) + 1rem) clamp(1rem, 2.5vw, 2rem) clamp(2.5rem, 5vw, 4rem);
 }
@@ -86,11 +99,11 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 .fc-page [hidden] { display: none !important; }
 
 .fc-page .fc-main :focus-visible {
-  outline: 2px solid var(--fc-gold);
+  outline: 2px solid var(--fc-accent);
   outline-offset: 2px;
 }
-.fc-page .fc-main a { color: var(--fc-gold); text-decoration: underline; text-underline-offset: 3px; }
-.fc-page .fc-main a:hover { color: #e6bd5c; }
+.fc-page .fc-main a { color: var(--fc-accent); text-decoration: underline; text-underline-offset: 3px; }
+.fc-page .fc-main a:hover { color: var(--fc-text); }
 
 /* Every changing number keeps the same width per digit. */
 .fc-page .fc-num { font-variant-numeric: tabular-nums; }
@@ -98,65 +111,78 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 /* ------------------------------------------------------------
    Text
    ------------------------------------------------------------ */
-/* Section titles are h2s, so they keep the display font. */
 .fc-page .fc-section-title {
+  font-family: var(--fc-font-head);
   font-size: clamp(1.6rem, 3.2vw, 2.2rem);
+  font-weight: 600;
   line-height: 1.1;
   color: var(--fc-text);
   margin: 0 0 0.4rem;
 }
 .fc-page .fc-section-sub { color: var(--fc-text-2); font-size: 1.05rem; line-height: 1.5; margin: 0 0 1.5rem; }
-.fc-page .fc-wait { color: var(--fc-text-2); }
-.fc-page .fc-panel-title { font-size: 1.1rem; line-height: 1.2; color: var(--fc-text); margin: 0; }
+.fc-page .fc-wait { color: var(--fc-text-2); font-family: var(--fc-font-readout); font-size: 0.85rem; }
+.fc-page .fc-panel-title {
+  font-family: var(--fc-font-head);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--fc-text);
+  margin: 0;
+}
 
 /* ------------------------------------------------------------
-   Buttons
+   Buttons: Saira Stencil One labels (written in capitals in the page's
+   text), sharp corners and a thin outline. The main action is orange.
    ------------------------------------------------------------ */
 .fc-page .fc-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-family: var(--fc-font-text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.2;
+  gap: 0.45rem;
+  font-family: var(--fc-font-stencil);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
   color: var(--fc-text);
-  background: var(--fc-panel);
+  background: transparent;
   border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius-sm);
-  padding: 0.55rem 0.95rem;
-  min-height: 2.5rem;
+  border-radius: 0;
+  padding: 0.55rem 0.9rem;
+  min-height: 2.25rem;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
 }
 .fc-page .fc-main a.fc-btn { color: var(--fc-text); text-decoration: none; }
-.fc-page .fc-btn:hover:not(:disabled) { background: #18233a; border-color: var(--fc-muted); }
+.fc-page .fc-btn:hover:not(:disabled) { border-color: var(--fc-text); background: color-mix(in srgb, var(--fc-offwhite) 6%, transparent); }
 .fc-page .fc-btn .fc-ui-ico { flex: none; }
-/* A toggle that is on (speed, map background, filter). */
+/* A toggle that is on (speed, follow, filter): an off-white outline on a
+   light fill. Orange is kept for the rocket, CONNECT and warnings. */
 .fc-page .fc-btn[aria-pressed="true"] {
-  background: var(--fc-gold-soft);
-  border-color: var(--fc-gold);
-  color: var(--fc-gold);
+  background: color-mix(in srgb, var(--fc-offwhite) 16%, transparent);
+  border-color: var(--fc-text);
+  color: var(--fc-text);
 }
-/* Main actions: filled gold. */
-.fc-page .fc-btn--gold,
-.fc-page .fc-main a.fc-btn--gold {
-  background: var(--fc-gold);
-  border-color: var(--fc-gold);
+/* The main action: filled orange. */
+.fc-page .fc-btn--accent,
+.fc-page .fc-main a.fc-btn--accent {
+  background: var(--fc-accent);
+  border-color: var(--fc-accent);
   color: var(--fc-ink);
 }
-.fc-page .fc-btn--gold:hover:not(:disabled),
-.fc-page .fc-main a.fc-btn--gold:hover { background: #e2b955; border-color: #e2b955; color: var(--fc-ink); }
-.fc-page .fc-btn--sm { font-size: 0.85rem; padding: 0.3rem 0.65rem; min-height: 2rem; }
-.fc-page .fc-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.fc-page .fc-btn--accent:hover:not(:disabled),
+.fc-page .fc-main a.fc-btn--accent:hover {
+  background: color-mix(in srgb, var(--fc-orange) 82%, var(--fc-offwhite));
+  border-color: color-mix(in srgb, var(--fc-orange) 82%, var(--fc-offwhite));
+  color: var(--fc-ink);
+}
+.fc-page .fc-btn--sm { font-size: 0.74rem; padding: 0.4rem 0.62rem; min-height: 1.95rem; }
+.fc-page .fc-btn--xs { font-size: 0.7rem; padding: 0.32rem 0.55rem; min-height: 1.75rem; }
+.fc-page .fc-btn:disabled { cursor: not-allowed; opacity: 0.45; }
 /* A row of joined toggle buttons. */
 .fc-page .fc-seg { display: inline-flex; }
-.fc-page .fc-seg .fc-btn { border-radius: 0; }
 .fc-page .fc-seg .fc-btn + .fc-btn { margin-left: -1px; }
-.fc-page .fc-seg .fc-btn:first-child { border-radius: var(--fc-radius-sm) 0 0 var(--fc-radius-sm); }
-.fc-page .fc-seg .fc-btn:last-child { border-radius: 0 var(--fc-radius-sm) var(--fc-radius-sm) 0; }
 .fc-page .fc-seg .fc-btn[aria-pressed="true"] { position: relative; z-index: 1; }
 
 /* ------------------------------------------------------------
@@ -167,33 +193,35 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-family: var(--fc-font-readout);
+  font-size: 0.72rem;
+  font-weight: 400;
   line-height: 1.2;
   color: var(--fc-text-2);
   border: 1px solid var(--fc-border);
-  border-radius: 999px;
-  padding: 0.2rem 0.65rem;
+  border-radius: 0;
+  padding: 0.15rem 0.45rem;
   white-space: nowrap;
 }
-.fc-page .fc-pill--sim { color: var(--fc-text); border-color: var(--fc-muted); }
-.fc-page .fc-pill--real { color: var(--fc-teal); border-color: var(--fc-teal); }
-.fc-page .fc-pill--warn { color: var(--fc-coral); border-color: var(--fc-coral); }
+.fc-page .fc-pill--sim { color: var(--fc-text-2); }
+.fc-page .fc-pill--real { color: var(--fc-text); border-color: var(--fc-text); }
+.fc-page .fc-pill--warn { color: var(--fc-warn); border-color: var(--fc-warn); }
 
-/* A rocket's color dot. Decorative: the name next to it is the label. */
+/* A rocket's color mark. Decorative: the name next to it is the label. */
 .fc-page .fc-dot {
   display: inline-block;
-  width: 0.75em;
-  height: 0.75em;
-  border-radius: 50%;
+  width: 0.65em;
+  height: 0.65em;
   background: var(--dot, var(--fc-text));
-  box-shadow: 0 0 0 2px rgba(4, 8, 15, 0.6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fc-navy-deep) 60%, transparent);
   flex-shrink: 0;
 }
 
-/* How an event was found, drawn the same on the altitude timeline and in
-   the mission timeline: a filled dot (reported by the board), a gold ring
-   (detected from altitude) or a dashed ring (inferred or estimated). */
+/* How an event was found, drawn the same on the altitude timeline, in the
+   mission timeline and in the 3D view: a filled dot (reported by the
+   board), an orange ring (detected from altitude) or a dashed ring
+   (inferred or estimated). The round shape is the symbol, so it stays
+   round. */
 .fc-page .fc-basis {
   display: inline-block;
   box-sizing: border-box;
@@ -202,9 +230,9 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   border-radius: 50%;
   flex: none;
 }
-.fc-page .fc-basis--reported { background: var(--basis-color, var(--fc-gold)); border: 2px solid var(--basis-color, var(--fc-gold)); }
-.fc-page .fc-basis--detected { background: var(--fc-bg); border: 2.5px solid var(--basis-color, var(--fc-gold)); }
-.fc-page .fc-basis--inferred { background: var(--fc-bg); border: 2px dashed var(--basis-color, var(--fc-gold)); }
+.fc-page .fc-basis--reported { background: var(--basis-color, var(--fc-accent)); border: 2px solid var(--basis-color, var(--fc-accent)); }
+.fc-page .fc-basis--detected { background: var(--fc-bg); border: 2.5px solid var(--basis-color, var(--fc-accent)); }
+.fc-page .fc-basis--inferred { background: var(--fc-bg); border: 2px dashed var(--basis-color, var(--fc-accent)); }
 
 /* ------------------------------------------------------------
    Surfaces
@@ -213,17 +241,16 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 .fc-page .fc-panel {
   position: relative;
   background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
+  border: 1px solid var(--fc-divider);
+  border-radius: 0;
 }
 .fc-page .fc-card { padding: clamp(1.1rem, 2.6vw, 1.75rem); }
-.fc-page .fc-panel { padding: 1rem 1.1rem; }
-/* Panels and controls floating over the map: almost opaque, no heavy blur. */
+.fc-page .fc-panel { padding: 0.85rem 1rem; }
+/* Boxes floating over the 3D view: nearly opaque navy, no blur. */
 .fc-page .fc-float {
   background: var(--fc-float);
-  border: 1px solid var(--fc-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--fc-divider);
+  border-radius: 0;
 }
 .fc-page .fc-panel-head {
   display: flex;
@@ -231,7 +258,7 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.7rem;
 }
 
 /* ------------------------------------------------------------
@@ -466,856 +493,525 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
    grid), and let a pane that is too tall scroll inside itself. No markup
    has to move, since every pane is already a direct child of the grid.
    ============================================================ */
+
+/* ============================================================
+   The console as it is now (the text above describes the older,
+   scrolling layout and is kept as it was):
+
+   #fc-console fills the window under the nav and the page never scrolls
+   (the site footer hides while it is up). Top to bottom:
+     .fc-bar        CONNECT on the left, SAVED FLIGHTS on the right, and the
+                    replay's name with a close button in between
+     .fc-status     short status lines, only while one has something to say
+     .fc-screens    the two panels side by side in a sliding track, one on
+                    screen at a time, with an arrow tab at the edge toward
+                    the other one (js/views/panels.js)
+   data-panel on the console ('globe' or 'data') says which panel is on
+   screen, and data-mode ('idle', 'bench', 'flight' or 'replay') what the
+   panels hold. On phones each panel still fills the screen under the bar,
+   and the second one scrolls inside itself.
+   ============================================================ */
+html:has(body[data-fc-screen="console"]) { overflow: hidden; }
+.fc-page[data-fc-screen="console"] footer { display: none; }
+.fc-page[data-fc-screen="console"] .fc-main { min-height: 0; }
+
 .fc-page .fc-console {
-  max-width: 1480px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: var(--fc-gap);
-  row-gap: 0;
-  align-items: start;
-  font-variant-numeric: tabular-nums;
-}
-.fc-page .fc-console > [data-pane] { min-width: 0; margin: 0 0 var(--fc-gap); }
-
-.fc-page .fc-console > [data-pane="head"] { grid-area: head; }
-.fc-page .fc-console > [data-pane="bar"] { grid-area: bar; }
-.fc-page .fc-console > [data-pane="intro"] { grid-area: intro; }
-.fc-page .fc-console > [data-pane="notice"] { grid-area: notice; }
-.fc-page .fc-console > [data-pane="errors"] { grid-area: errors; }
-.fc-page .fc-console > [data-pane="readings"] { grid-area: readings; }
-.fc-page .fc-console > [data-pane="graphs"] { grid-area: graphs; }
-.fc-page .fc-console > [data-pane="stage"] { grid-area: stage; }
-.fc-page .fc-console > [data-pane="raw"] { grid-area: raw; }
-.fc-page .fc-console > [data-pane="saved"] { grid-area: saved; }
-.fc-page .fc-console > [data-pane="mission"] { grid-area: mission; }
-.fc-page .fc-console > [data-pane="rockets"] { grid-area: rockets; }
-.fc-page .fc-console > [data-pane="phases"] { grid-area: phases; }
-.fc-page .fc-console > [data-pane="timeline"] { grid-area: timeline; }
-.fc-page .fc-console > [data-pane="lower"] { grid-area: lower; }
-
-/* Which panes each mode shows. */
-.fc-page .fc-console[data-mode="idle"] > :not([data-pane="head"], [data-pane="bar"], [data-pane="notice"], [data-pane="raw"], [data-pane="errors"], [data-pane="intro"], [data-pane="saved"]),
-.fc-page .fc-console[data-mode="idle"]:not([data-unknown]) > [data-pane="raw"],
-.fc-page .fc-console[data-mode="idle"][data-unknown] > [data-pane="intro"],
-.fc-page .fc-console:is([data-mode="bench"], [data-mode="flight"]) > :is([data-pane="intro"], [data-pane="mission"], [data-pane="rockets"], [data-pane="phases"], [data-pane="timeline"], [data-pane="lower"]),
-.fc-page .fc-console[data-mode="replay"] > :not([data-pane="mission"], [data-pane="rockets"], [data-pane="phases"], [data-pane="stage"], [data-pane="timeline"], [data-pane="lower"]),
-/* Only a Dogtooth board's status block fills the readings and graphs. In
-   flight mode they stay out until one has come in this visit
-   (data-has-blocks, set by main.js), so the 3D view has the page. */
-.fc-page .fc-console[data-mode="flight"]:not([data-has-blocks]) > :is([data-pane="readings"], [data-pane="graphs"]) {
-  display: none;
-}
-/* The bench panel already shows the numbers, so the readings panel and
-   the altitude tape only float over the 3D view in flight mode (in bench
-   mode main.js doesn't make them, and this keeps any leftovers out). */
-.fc-page .fc-console[data-mode="bench"] .fc-stage-readings,
-.fc-page .fc-console[data-mode="bench"] .fc-stage-tape { display: none; }
-
-/* Where each mode puts its panes. */
-.fc-page .fc-console[data-mode="idle"] {
-  grid-template-areas: "head" "bar" "notice" "errors" "intro" "raw" "saved";
-}
-.fc-page .fc-console[data-mode="bench"] {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
-  grid-template-areas:
-    "head     head"
-    "bar      bar"
-    "notice   notice"
-    "errors   errors"
-    "readings graphs"
-    "stage    stage"
-    "raw      raw"
-    "saved    saved";
-}
-.fc-page .fc-console[data-mode="flight"] {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
-  grid-template-areas:
-    "head     head"
-    "bar      bar"
-    "notice   notice"
-    "errors   errors"
-    "stage    stage"
-    "readings graphs"
-    "raw      raw"
-    "saved    saved";
-}
-.fc-page .fc-console[data-mode="replay"] {
-  grid-template-areas: "mission" "rockets" "phases" "stage" "timeline" "lower";
-}
-/* Narrow windows and phones: one column. */
-@media (max-width: 1100px) {
-  .fc-page .fc-console[data-mode="bench"] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "head" "bar" "notice" "errors" "readings" "graphs" "stage" "raw" "saved";
-  }
-  .fc-page .fc-console[data-mode="flight"] {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "head" "bar" "notice" "errors" "stage" "readings" "graphs" "raw" "saved";
-  }
-}
-
-.fc-page .fc-area-rockets:empty,
-.fc-page .fc-area-info:empty,
-.fc-page .fc-area-debug:empty { display: none; }
-
-/* ------------------------------------------------------------
-   The stage: the map or 3D view, with the readings panel (top right) and
-   the altitude tape (left edge) floating over it in replay and flight
-   modes.
-   ------------------------------------------------------------ */
-.fc-page .fc-stage {
-  position: relative;
-  height: clamp(540px, 76vh, 900px);
-  border-radius: var(--fc-radius);
-}
-.fc-page .fc-stage-map { position: absolute; inset: 0; }
-.fc-page .fc-stage-readings {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: min(312px, calc(100% - 24px));
-  /* Stops well above the bottom right corner, where the zoom buttons and
-     the map credits live. "More readings" scrolls inside the panel. */
-  max-height: calc(100% - 132px);
+  --fc-edge: clamp(10px, 1.6vw, 18px);   /* room along the panel edges */
+  --fc-tab-w: 30px;                       /* the arrow tabs' width */
+  position: fixed;
+  inset: var(--fc-nav-h) 0 0;
+  z-index: 1;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  z-index: 900;
-}
-.fc-page .fc-stage-tape {
-  position: absolute;
-  left: 12px;
-  /* Just under the map's own controls in the top left. map-view.js writes
-     their bottom edge into this variable, since they can wrap to two rows. */
-  top: var(--fc-map-controls-bottom, 68px);
-  bottom: 72px;
-  width: 70px;
-  z-index: 850;
-}
-.fc-page .fc-stage-readings:empty,
-.fc-page .fc-stage-tape:empty { display: none; }
-@media (min-width: 901px) {
-  /* Bench: the 3D view at a moderate height, under the diagnostics. */
-  .fc-page .fc-console[data-mode="bench"] > .fc-stage { height: clamp(360px, 58vh, 620px); }
-  /* Flight: the 3D view takes over, nearly the whole window. */
-  .fc-page .fc-console[data-mode="flight"] > .fc-stage { height: clamp(540px, calc(100vh - 2.5rem), 1100px); }
-}
-
-/* Under the timeline: the mission timeline, with the flight details and the
-   detection check next to it. */
-.fc-page .fc-lower {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  gap: var(--fc-gap);
-  align-items: start;
-}
-.fc-page .fc-lower-side { display: flex; flex-direction: column; gap: var(--fc-gap); min-width: 0; }
-
-/* Tablets, phones and narrow windows: the map gets the full width, and the
-   readings and the tape move below it. (Floating beside the map they would
-   leave too little of it free.) The map stays tall, except on the bench,
-   where the diagnostics come first. */
-@media (max-width: 900px) {
-  .fc-page .fc-stage { height: auto; display: flex; flex-direction: column; gap: var(--fc-gap); }
-  .fc-page .fc-stage-map { position: relative; inset: auto; height: clamp(460px, 78vh, 680px); }
-  .fc-page .fc-console[data-mode="bench"] .fc-stage-map { height: clamp(320px, 62vh, 480px); }
-  .fc-page .fc-stage-readings,
-  .fc-page .fc-stage-tape {
-    position: static;
-    width: auto;
-    max-height: none;
-    top: auto; right: auto; bottom: auto; left: auto;
-  }
-}
-/* Phones: everything in one column. */
-@media (max-width: 760px) {
-  .fc-page .fc-lower { grid-template-columns: minmax(0, 1fr); }
+  background: var(--fc-bg);
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------
-   Console head: back to the landing, the title and one line on how to
-   use it.
+   The bar
    ------------------------------------------------------------ */
-.fc-page .fc-con-head { padding-top: clamp(0.25rem, 1.5vw, 1rem); }
-.fc-page .fc-main a.fc-con-back {
+.fc-page .fc-bar {
+  position: relative;
+  z-index: 30;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  min-height: 52px;
+  padding: 6px var(--fc-edge);
+}
+
+/* CONNECT. Its words follow the link (bench-panel.js): CONNECT, then
+   CONNECTING, then DISCONNECT while connected. The small square fills
+   orange while the board is connected and its status blocks arrive on
+   time. */
+.fc-page .fc-connect {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 2rem;
-  padding: 0.25rem 0.1rem;
-  color: var(--fc-text-2);
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
+  gap: 0.6rem;
+  min-width: 10.25rem;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.95rem;
+  font-family: var(--fc-font-stencil);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--fc-accent);
+  background: transparent;
+  border: 1px solid var(--fc-accent);
+  border-radius: 0;
+  cursor: pointer;
 }
-.fc-page .fc-main a.fc-con-back:hover { color: var(--fc-text); }
-.fc-page .fc-con-back .fc-ui-ico { flex: none; }
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-con-back .fc-ui-ico { transition: transform 0.15s ease; }
-  .fc-page .fc-main a.fc-con-back:hover .fc-ui-ico { transform: translateX(-3px); }
+.fc-page .fc-connect:hover:not([aria-disabled="true"]) { background: var(--fc-accent); color: var(--fc-ink); }
+.fc-page .fc-connect-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
 }
-.fc-page .fc-con-title {
-  margin: 0.35rem 0 0.7rem;
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-  color: var(--fc-text);
-}
-.fc-page .fc-con-lede {
-  max-width: 48rem;
-  margin: 0 0 0.5rem;
-  font-size: clamp(1rem, 1.4vw, 1.1rem);
-  line-height: 1.6;
-  color: var(--fc-text-2);
-}
+.fc-page .fc-connect[aria-disabled="true"] { cursor: progress; color: var(--fc-text-2); border-color: var(--fc-border); }
+.fc-page .fc-connect[data-state="open"] { color: var(--fc-text); border-color: var(--fc-border); }
+.fc-page .fc-connect[data-state="open"]:hover { background: color-mix(in srgb, var(--fc-offwhite) 8%, transparent); color: var(--fc-text); border-color: var(--fc-text); }
+.fc-page .fc-connect[data-state="open"] .fc-connect-mark { border-color: var(--fc-accent); }
+.fc-page .fc-connect[data-state="open"][data-beat="ok"] .fc-connect-mark { background: var(--fc-accent); }
+/* Connected but no block yet, or the last one is late: the square stays
+   an empty orange outline. */
+.fc-page .fc-connect[disabled] { opacity: 0.45; cursor: not-allowed; }
 
-/* How to connect (idle only) */
-.fc-page .fc-intro {
-  padding: 1.1rem 1.25rem 1.2rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
-}
-.fc-page .fc-intro-title { margin: 0 0 0.7rem; font-size: 1.2rem; line-height: 1.2; color: var(--fc-text); }
-.fc-page .fc-intro-list {
-  margin: 0;
-  padding-left: 1.35rem;
-  display: grid;
-  gap: 0.5rem;
-  max-width: 52rem;
-  color: var(--fc-text-2);
-  line-height: 1.55;
-}
-.fc-page .fc-intro-list li::marker { color: var(--fc-gold); font-weight: 600; }
-
-/* The console doesn't recognize the data */
-.fc-page .fc-notice {
-  padding: 1rem 1.2rem;
-  background: color-mix(in srgb, var(--fc-coral) 9%, var(--fc-panel));
-  border: 1px solid color-mix(in srgb, var(--fc-coral) 55%, var(--fc-border));
-  border-left: 4px solid var(--fc-coral);
-  border-radius: var(--fc-radius-sm);
-}
-.fc-page .fc-notice-title { margin: 0 0 0.4rem; font-size: 1.1rem; line-height: 1.25; color: #f0a58f; }
-.fc-page .fc-notice p { margin: 0; max-width: 52rem; line-height: 1.55; color: var(--fc-text); }
-
-/* ------------------------------------------------------------
-   Saved flights: a heading, one line, then one row per flight, where the
-   whole row is the link.
-   ------------------------------------------------------------ */
-.fc-page .fc-console > [data-pane="saved"] { margin-top: clamp(1rem, 3vw, 2rem); }
-.fc-page .fc-saved .fc-section-sub { margin-bottom: 1rem; }
-.fc-page .fc-library-notes:empty { display: none; }
-.fc-page .fc-note {
-  border-left: 3px solid var(--fc-coral);
-  background: var(--fc-panel);
-  padding: 0.75rem 1rem;
-  margin: 1rem 0 0;
-  color: var(--fc-text);
-  border-radius: 0 var(--fc-radius-sm) var(--fc-radius-sm) 0;
-}
-.fc-page .fc-empty { margin: 0; color: var(--fc-text-2); }
-.fc-page .fc-lib {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
-  overflow: hidden;
-}
-.fc-page .fc-lib-item + .fc-lib-item { border-top: 1px solid var(--fc-divider); }
-.fc-page .fc-main a.fc-lib-row {
-  display: grid;
-  grid-template-columns: 11.5rem minmax(0, 1fr) auto 9rem auto;
-  align-items: center;
-  gap: 0.4rem 1.4rem;
-  padding: 1.05rem 1.35rem;
-  color: var(--fc-text);
-  text-decoration: none;
-}
-.fc-page .fc-main a.fc-lib-row:hover {
-  color: var(--fc-text);
-  background: #16213a;
-  box-shadow: inset 3px 0 0 var(--fc-gold);
-}
-/* Inside the list's rounded box, the focus ring is drawn inside the row. */
-.fc-page .fc-main a.fc-lib-row:focus-visible {
-  outline-offset: -3px;
-  background: #16213a;
-}
-/* Wide screens: the date, kind and apogee become columns of the row. */
-.fc-page .fc-lib-meta { display: contents; }
-.fc-page .fc-lib-date { grid-column: 1; grid-row: 1; font-size: 0.95rem; color: var(--fc-text-2); }
-.fc-page .fc-lib-title { grid-column: 2; grid-row: 1; min-width: 0; font-size: 1.05rem; font-weight: 600; line-height: 1.3; }
-.fc-page .fc-lib-kind { grid-column: 3; grid-row: 1; justify-self: start; }
-.fc-page .fc-lib-alt { grid-column: 4; grid-row: 1; text-align: right; white-space: nowrap; }
-.fc-page .fc-lib-alt-label { font-size: 0.85rem; color: var(--fc-text-2); }
-.fc-page .fc-lib-alt-value { font-weight: 600; color: var(--fc-gold); }
-/* "--" for a value the summary doesn't have: muted, never gold. */
-.fc-page .fc-lib-alt-value.fc-missing { color: var(--fc-muted); }
-.fc-page .fc-lib-go {
-  grid-column: 5;
-  grid-row: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-weight: 600;
-  color: var(--fc-gold);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-main a.fc-lib-row { transition: background-color 0.15s, box-shadow 0.15s; }
-  .fc-page .fc-lib-go .fc-ui-ico { transition: transform 0.15s; }
-  .fc-page .fc-main a.fc-lib-row:hover .fc-lib-go .fc-ui-ico { transform: translateX(3px); }
-}
-/* Tablets and phones: rows wrap to two lines, the title, then the date,
-   kind and apogee, so the title never gets squeezed. */
-@media (max-width: 1000px) {
-  .fc-page .fc-main a.fc-lib-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.45rem 1rem;
-    padding: 0.95rem 1rem;
-  }
-  .fc-page .fc-lib-title { grid-column: 1; grid-row: 1; }
-  .fc-page .fc-lib-meta {
-    grid-column: 1;
-    grid-row: 2;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.85rem;
-  }
-  .fc-page .fc-lib-date { font-size: 0.9rem; }
-  .fc-page .fc-lib-go { grid-column: 2; grid-row: 1 / span 2; }
-}
-
-/* ============================================================
-   The live panels from the Bench Console (js/live/bench-panel.js): the
-   connection bar, the errors box, the latest readings, the graphs and the
-   raw serial output. Moved here with the panel, organization first. Their
-   look gets redone later. The bc-* colors are set at the top of this file.
-   ============================================================ */
-.fc-page .bc-num { font-variant-numeric: tabular-nums; }
-
-.fc-page .bc-unsupported {
-  margin: 0.6rem 0 0;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid var(--bc-coral);
-  border-left-width: 4px;
-  border-radius: var(--bc-radius-sm);
-  background: color-mix(in srgb, var(--bc-coral) 10%, var(--bc-panel));
-  color: var(--bc-text);
-  line-height: 1.55;
-}
-
-/* Buttons */
-.fc-page .bc-btn {
-  display: inline-flex;
+/* The open replay's name, with the way back to live. */
+.fc-page .fc-replay-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-family: var(--font-text);
-  font-size: 0.98rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--bc-text);
-  background: var(--bc-panel);
-  border: 1px solid var(--bc-border);
-  border-radius: var(--bc-radius-sm);
-  padding: 0.65rem 1.15rem;
-  min-height: 2.75rem;
-  cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  gap: 0.6rem;
 }
-.fc-page .bc-btn:hover:not(:disabled) { background: #14271c; border-color: var(--bc-muted); }
-.fc-page .bc-btn--gold { background: var(--bc-gold); border-color: var(--bc-gold); color: var(--bc-ink); }
-.fc-page .bc-btn--gold:hover:not(:disabled) { background: #e2b955; border-color: #e2b955; }
-.fc-page .bc-btn--outline { background: transparent; border-color: var(--bc-text-2); }
-.fc-page .bc-btn--outline:hover:not(:disabled) { background: color-mix(in srgb, var(--bc-text) 8%, transparent); border-color: var(--bc-text); }
-.fc-page .bc-btn--sm { font-size: 0.85rem; padding: 0.3rem 0.7rem; min-height: 2rem; }
-.fc-page .bc-btn:disabled { cursor: not-allowed; opacity: 0.5; }
-
-/* Panels */
-.fc-page .bc-panel {
-  background: var(--bc-panel);
-  border: 1px solid var(--bc-border);
-  border-radius: var(--bc-radius);
-  padding: 1rem 1.15rem;
-  min-width: 0;
-}
-.fc-page .bc-panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem 1rem;
-  margin-bottom: 0.75rem;
-}
-.fc-page .bc-panel-title { font-size: 1.15rem; line-height: 1.2; color: var(--bc-text); margin: 0; }
-.fc-page .bc-panel-sub { font-size: 0.88rem; color: var(--bc-muted); }
-.fc-page .bc-panel-sub[data-stale="yes"] { color: var(--bc-coral); }
-.fc-page .bc-panel-note { margin: -0.35rem 0 0.9rem; font-size: 0.88rem; line-height: 1.45; color: var(--bc-muted); }
-.fc-page .bc-section-title { font-size: clamp(1.3rem, 2.4vw, 1.6rem); line-height: 1.15; color: var(--bc-text); margin: 0 0 0.35rem; }
-.fc-page .bc-section-sub { margin: 0; color: var(--bc-text-2); font-size: 0.95rem; line-height: 1.5; }
-
-/* Connection bar */
-.fc-page .bc-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.9rem clamp(1rem, 3vw, 2.25rem);
-  padding: 0.9rem 1.15rem;
-  background: var(--bc-panel);
-  border: 1px solid var(--bc-border);
-  border-radius: var(--bc-radius);
-}
-.fc-page .bc-bar-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-.fc-page .bc-bar-status { display: flex; flex-wrap: wrap; gap: 0.75rem clamp(1rem, 3vw, 2.25rem); flex: 1 1 auto; }
-.fc-page .bc-stat { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
-.fc-page .bc-stat-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-.fc-page .bc-stat-label { font-size: 0.8rem; color: var(--bc-muted); line-height: 1.2; }
-.fc-page .bc-stat-value { font-size: 1rem; font-weight: 600; color: var(--bc-text); line-height: 1.3; }
-.fc-page .bc-stat-sub { font-size: 0.8rem; color: var(--bc-muted); line-height: 1.2; }
-.fc-page .bc-dot[data-state="late"] + .bc-stat-text .bc-stat-value { color: #f0a58f; }
-
-/* Status dots. Each one sits next to a word that says the same thing. */
-.fc-page .bc-dot {
-  position: relative;
+.fc-page .fc-replay-kind {
   flex: none;
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 50%;
-  background: var(--bc-muted);
-}
-.fc-page .bc-dot[data-state="picking"],
-.fc-page .bc-dot[data-state="opening"],
-.fc-page .bc-dot[data-state="closing"] { background: var(--bc-gold); }
-.fc-page .bc-dot[data-state="open"],
-.fc-page .bc-dot[data-state="ok"] { background: var(--bc-teal); }
-.fc-page .bc-dot[data-state="lost"],
-.fc-page .bc-dot[data-state="late"] { background: var(--bc-coral); }
-.fc-page .bc-dot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--bc-teal);
-  border-radius: 50%;
-  opacity: 0;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .bc-dot[data-state="open"]::after { animation: bc-pulse 2.4s ease-out infinite; }
-}
-@keyframes bc-pulse {
-  from { transform: scale(1); opacity: 0.7; }
-  to { transform: scale(2.6); opacity: 0; }
-}
-
-.fc-page .bc-link-note { margin: 0.6rem 0 0; font-size: 0.95rem; line-height: 1.5; color: var(--bc-text-2); }
-.fc-page .bc-link-note[data-kind="warn"] { color: #f0a58f; }
-
-/* Errors from the board */
-.fc-page .bc-errors { border-color: color-mix(in srgb, var(--bc-coral) 55%, var(--bc-border)); border-left: 4px solid var(--bc-coral); }
-.fc-page .bc-errors .bc-panel-title { color: #f0a58f; }
-.fc-page .bc-errors-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 13rem;
-  overflow-y: auto;
-}
-.fc-page .bc-errors-list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem 0.9rem;
-  padding: 0.45rem 0;
-  border-top: 1px solid var(--bc-divider);
-  line-height: 1.45;
-}
-.fc-page .bc-errors-list li:first-child { border-top: 0; padding-top: 0; }
-.fc-page .bc-errors-list time { color: var(--bc-muted); font-variant-numeric: tabular-nums; min-width: 6.5rem; }
-.fc-page .bc-error-msg { color: var(--bc-text); overflow-wrap: anywhere; }
-.fc-page .bc-error-times { color: var(--bc-muted); }
-
-/* Latest readings: one group per section of the board's block (GPS, GPS
-   MOTION MODEL, RADIO). */
-.fc-page .bc-readings-groups { display: grid; gap: 1.1rem; }
-.fc-page .bc-group-title {
-  margin: 0 0 0.3rem;
-  font-size: 0.95rem;
-  line-height: 1.2;
-  color: var(--bc-gold);
-}
-.fc-page .bc-readings-list { margin: 0; }
-.fc-page .bc-reading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.55rem 0;
-  border-top: 1px solid var(--bc-divider);
-}
-.fc-page .bc-reading:first-child { border-top: 0; padding-top: 0.2rem; }
-.fc-page .bc-reading dt { color: var(--bc-text-2); font-size: 0.9rem; min-width: 0; overflow-wrap: anywhere; }
-.fc-page .bc-reading dd {
-  margin: 0;
-  color: var(--bc-text);
-  font-size: 1.08rem;
-  font-weight: 600;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-.fc-page .bc-reading dd.is-empty { color: var(--bc-muted); font-weight: 400; font-size: 0.95rem; }
-.fc-page .bc-reading--note { justify-content: flex-start; }
-.fc-page .bc-dd-sub { margin-left: 0.5rem; color: var(--bc-muted); font-size: 0.88rem; font-weight: 400; }
-
-/* Status words from the board (LOCKED, SEARCHING, GOOD, LOW, SILENT, ON).
-   The word is always written out, so the color only backs it up. */
-.fc-page .bc-pill {
-  display: inline-block;
-  padding: 0.12rem 0.55rem;
-  border: 1px solid var(--bc-border);
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--bc-text);
-}
-.fc-page .bc-pill[data-tone="good"],
-.fc-page .bc-pill[data-tone="on"] {
-  color: #7fd8cb;
-  background: color-mix(in srgb, var(--bc-teal) 16%, transparent);
-  border-color: color-mix(in srgb, var(--bc-teal) 60%, transparent);
-}
-.fc-page .bc-pill[data-tone="warn"] {
-  color: #ecc56a;
-  background: color-mix(in srgb, var(--bc-gold) 16%, transparent);
-  border-color: color-mix(in srgb, var(--bc-gold) 60%, transparent);
-}
-.fc-page .bc-pill[data-tone="bad"] {
-  color: #f0a58f;
-  background: color-mix(in srgb, var(--bc-coral) 18%, transparent);
-  border-color: color-mix(in srgb, var(--bc-coral) 65%, transparent);
-}
-.fc-page .bc-pill[data-tone="off"] { color: var(--bc-muted); }
-
-/* Graphs */
-.fc-page .bc-graphs { display: flex; flex-direction: column; gap: var(--fc-gap); }
-.fc-page .bc-graph-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--fc-gap);
-}
-.fc-page .bc-graph { padding-bottom: 0.75rem; }
-.fc-page .bc-graph--wide { grid-column: 1 / -1; }
-.fc-page .bc-graph-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  margin-bottom: 0.6rem;
-}
-.fc-page .bc-graph-title { font-size: 1.05rem; line-height: 1.2; color: var(--bc-text); margin: 0; }
-.fc-page .bc-graph-read {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.2rem 0.8rem;
-}
-.fc-page .bc-graph-value { font-size: 1.1rem; font-weight: 600; color: var(--bc-text); }
-.fc-page .bc-graph-when { font-size: 0.82rem; color: var(--bc-muted); }
-.fc-page .bc-key { display: inline-flex; align-items: baseline; gap: 0.4rem; color: var(--bc-text-2); font-size: 0.92rem; }
-.fc-page .bc-key-line { display: inline-block; width: 14px; height: 2px; border-radius: 1px; align-self: center; }
-.fc-page .bc-key-line--sent { background: var(--bc-sent); }
-.fc-page .bc-key-line--err { background: var(--bc-err); }
-.fc-page .bc-graph-canvas {
-  display: block;
-  width: 100%;
-  height: 168px;
-  cursor: crosshair;
-  touch-action: pan-y;
-  border-radius: 4px;
-}
-
-/* Raw serial output. Serial text is real machine text, so it uses the
-   site's code font. */
-.fc-page .bc-details { padding: 0; }
-.fc-page .bc-details > summary {
-  cursor: pointer;
-  padding: 0.95rem 1.15rem;
-  font-weight: 600;
-  font-size: 1.02rem;
-  color: var(--bc-text);
-  border-radius: var(--bc-radius);
-}
-.fc-page .bc-details > summary:hover { background: #10221a; }
-.fc-page .bc-details[open] > summary { border-radius: var(--bc-radius) var(--bc-radius) 0 0; }
-.fc-page .bc-details-body { padding: 0 1.15rem 1.1rem; color: var(--bc-text-2); line-height: 1.6; }
-.fc-page .bc-details-body p { margin: 0 0 0.75rem; max-width: 52rem; }
-.fc-page .bc-raw-log {
-  margin: 0;
-  max-height: 22rem;
-  overflow: auto;
-  white-space: pre;
-  padding: 0.8rem 0.95rem;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  line-height: 1.55;
-  color: var(--bc-text);
-  background: var(--bc-panel-2);
-  border: 1px solid var(--bc-divider);
-  border-radius: var(--bc-radius-sm);
-}
-
-@media (max-width: 700px) {
-  .fc-page .bc-graph-grid { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 640px) {
-  .fc-page .bc-bar { padding: 0.85rem 0.9rem; }
-  .fc-page .bc-bar-actions { width: 100%; }
-  .fc-page .bc-bar-actions .bc-btn { flex: 1 1 0; }
-  .fc-page #bc-save { width: 100%; }
-  .fc-page .bc-graph-canvas { height: 156px; }
-  .fc-page .bc-panel { padding: 0.9rem 0.9rem; }
-  .fc-page .bc-details { padding: 0; }
-}
-
-/* ------------------------------------------------------------
-   Leaflet on a dark page (the console map, live and in replays)
-   ------------------------------------------------------------ */
-.fc-page .leaflet-container { background: #0b111d; font-family: var(--fc-font-text); }
-/* The site's "svg { max-width: 100% }" squeezes the drawing layer of any map
-   pane except Leaflet's own overlay pane (which Leaflet exempts), so every
-   pane gets the same exemption. Icons inside markers keep their own size. */
-.fc-page .leaflet-pane > svg,
-.fc-page .leaflet-marker-icon svg { max-width: none; max-height: none; }
-/* On high-resolution screens the photos can show a thin light and dark seam
-   where two tiles meet (the map sits at a fraction of a pixel on the page).
-   Each photo is drawn half a pixel bigger so it overlaps its neighbor, with
-   normal blending (Leaflet's own "plus-lighter" blending would brighten the
-   overlap). The dark map is dark at the seams, so it doesn't need this. */
-.fc-page .fc-sat-tiles img.leaflet-tile {
-  mix-blend-mode: normal;
-  width: 256.5px !important;
-  height: 256.5px !important;
-}
-.fc-page .leaflet-container a { color: var(--fc-gold); }
-.fc-page .leaflet-control-attribution {
-  background: color-mix(in srgb, var(--fc-bg) 88%, transparent);
+  font-family: var(--fc-font-readout);
+  font-size: 0.72rem;
   color: var(--fc-text-2);
-  /* The satellite credits are long, so the line is cut to fit (Esri's own
-     map tools do the same) and opens in full on hover, keyboard focus or a
-     tap. "Powered by Esri" comes first, so it always shows. */
-  max-width: 100%;
-  white-space: nowrap;
+}
+.fc-page .fc-replay-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.fc-page .leaflet-control-attribution:hover,
-.fc-page .leaflet-control-attribution:focus-within,
-.fc-page .leaflet-control-attribution.fc-credit-open { white-space: normal; }
-.fc-page .leaflet-control-zoom a {
-  font-family: var(--fc-font-text);
-  background: var(--fc-float);
-  color: var(--fc-text);
-  border-color: var(--fc-border);
-}
-.fc-page .leaflet-control-zoom a:hover { background: #18233a; color: var(--fc-text); }
-.fc-page .leaflet-control-zoom { border: 1px solid var(--fc-border) !important; }
-.fc-page .leaflet-control-scale-line {
-  background: color-mix(in srgb, var(--fc-bg) 85%, transparent);
-  color: var(--fc-text);
-  border-color: var(--fc-text-2);
-  font-variant-numeric: tabular-nums;
-}
-/* Leaflet's own divIcon box (white square) is never wanted. */
-.fc-page .leaflet-div-icon { background: none; border: none; }
-
-/* ============================================================
-   The top of the console: the mission header (mission-header.js), the
-   rocket chips for flights with several rockets (rocket-bar.js) and the
-   phase strip (phase-strip.js). Uses the tokens and base classes
-   at the top of this file.
-   ============================================================ */
-
-/* ------------------------------------------------------------
-   Mission header
-   Wide screens: the back link and the copy button on a top row, then the
-   rocket's name and labels on the left and the big clock on the right.
-   ------------------------------------------------------------ */
-.fc-page .fc-mission {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "nav  actions"
-    "id   time"
-    "copy copy";
-  column-gap: 1.5rem;
-  row-gap: 0.4rem;
-  align-items: end;
-}
-.fc-page .fc-mission-nav { grid-area: nav; align-self: center; min-width: 0; }
-.fc-page .fc-mission-actions { grid-area: actions; align-self: center; justify-self: end; }
-.fc-page .fc-mission-id { grid-area: id; min-width: 0; }
-.fc-page .fc-mission-time { grid-area: time; justify-self: end; text-align: right; }
-
-/* "All flights": a quiet text link with an arrow. */
-.fc-page .fc-main a.fc-mission-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2rem;
-  padding: 0.25rem 0.1rem;
-  color: var(--fc-text-2);
-  font-size: 0.95rem;
+  white-space: nowrap;
+  font-family: var(--fc-font-head);
+  font-size: 1.05rem;
   font-weight: 600;
+  line-height: 1.2;
+  color: var(--fc-text);
+}
+.fc-page .fc-main a.fc-replay-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--fc-text-2);
+  border: 1px solid var(--fc-divider);
   text-decoration: none;
 }
-.fc-page .fc-main a.fc-mission-back:hover { color: var(--fc-text); }
-.fc-page .fc-mission-back .fc-ui-ico { flex: none; }
+.fc-page .fc-main a.fc-replay-close:hover { color: var(--fc-accent); border-color: var(--fc-accent); }
 
-/* The focused rocket's name, with its color dot. */
-.fc-page .fc-mission-title {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0.2rem 0 0;
-  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
-  line-height: 1.08;
-  letter-spacing: -0.015em;
-  color: var(--fc-text);
+/* SAVED FLIGHTS: a small dropdown log, one line per flight. */
+.fc-page .fc-dd {
+  position: relative;
+  flex: none;
+  margin-left: auto;
 }
-.fc-page .fc-mission-dot { width: 0.42em; height: 0.42em; }
-.fc-page .fc-mission-name { min-width: 0; overflow-wrap: anywhere; }
-.fc-page .fc-mission-flags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
-
-/* The flight clock: big, gold, fixed-width digits. */
-.fc-page .fc-mission-clock {
-  margin: 0;
-  font-family: var(--fc-font-text);
-  font-size: clamp(2.6rem, 6vw, 4.2rem);
-  font-weight: 600;
-  line-height: 0.95;
-  letter-spacing: -0.01em;
-  color: var(--fc-gold);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-/* "--" before any data: no gold, it isn't a reading. */
-.fc-page .fc-mission-clock[data-state="idle"] { color: var(--fc-muted); }
-.fc-page .fc-mission-caption { margin: 0.45rem 0 0; font-size: 0.88rem; line-height: 1.3; color: var(--fc-text-2); }
-
-/* Copy link. Both labels sit in the same grid cell and only one shows, so
-   the button keeps its width. */
-.fc-page .fc-mission-copy { display: inline-grid; }
-.fc-page .fc-copy-face {
-  grid-area: 1 / 1;
+.fc-page .fc-dd-button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.8rem;
+  font-family: var(--fc-font-stencil);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--fc-text);
+  background: transparent;
+  border: 1px solid var(--fc-border);
+  border-radius: 0;
+  cursor: pointer;
 }
-.fc-page .fc-copy-face--done,
-.fc-page .fc-mission-copy--done .fc-copy-face--idle { visibility: hidden; }
-.fc-page .fc-mission-copy--done .fc-copy-face--done { visibility: visible; }
-/* Wins over the base hover style too, since the pointer is usually still
-   on the button. */
-.fc-page .fc-btn.fc-mission-copy.fc-mission-copy--done {
-  color: var(--fc-gold);
-  border-color: var(--fc-gold);
-  background: var(--fc-gold-soft);
+.fc-page .fc-dd-button:hover,
+.fc-page .fc-dd.is-open .fc-dd-button { border-color: var(--fc-text); }
+.fc-page .fc-dd-chevron { flex: none; }
+.fc-page .fc-dd.is-open .fc-dd-chevron { transform: rotate(180deg); }
+.fc-page .fc-dd-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: min(34rem, calc(100vw - 2 * var(--fc-edge)));
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.35rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-border);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--fc-navy-deep) 70%, transparent);
+}
+.fc-page .fc-dd-list { list-style: none; margin: 0; padding: 0; }
+.fc-page .fc-main a.fc-dd-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  color: var(--fc-text);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.fc-page .fc-main a.fc-dd-item:hover,
+.fc-page .fc-main a.fc-dd-item:focus-visible { background: color-mix(in srgb, var(--fc-offwhite) 7%, transparent); }
+.fc-page .fc-main a.fc-dd-item:focus-visible { outline-offset: -2px; }
+.fc-page .fc-dd-mark { width: 7px; height: 7px; align-self: center; border: 1px solid var(--fc-muted); }
+.fc-page .fc-dd-item[aria-current="page"] .fc-dd-mark { background: var(--fc-accent); border-color: var(--fc-accent); }
+.fc-page .fc-dd-name { min-width: 0; font-size: 0.92rem; line-height: 1.3; overflow-wrap: anywhere; }
+.fc-page .fc-dd-item--live .fc-dd-name { font-family: var(--fc-font-readout); font-size: 0.85rem; }
+.fc-page .fc-dd-date,
+.fc-page .fc-dd-time {
+  font-family: var(--fc-font-readout);
+  font-size: 0.78rem;
+  color: var(--fc-text-2);
+  white-space: nowrap;
+}
+.fc-page .fc-dd-time { min-width: 6.5rem; text-align: right; }
+.fc-page .fc-dd-list li + li { border-top: 1px solid var(--fc-divider); }
+.fc-page .fc-dd-note {
+  margin: 0.35rem 0.65rem 0.4rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--fc-text-2);
 }
 
-/* Shown only when the browser blocks copying: the link, ready to copy. */
-.fc-page .fc-mission-fallback {
-  grid-area: copy;
+/* ------------------------------------------------------------
+   Status lines under the bar: a note about the link, the Chrome or Edge
+   warning, and data the console doesn't recognize. They take room only
+   while one shows.
+   ------------------------------------------------------------ */
+.fc-page .fc-status {
+  position: relative;
+  z-index: 25;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 var(--fc-edge);
+}
+.fc-page .fc-status:has(> :not([hidden])) { padding-bottom: 8px; }
+.fc-page .fc-status-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 64rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-text-2);
+}
+.fc-page .fc-status-line--warn,
+.fc-page .fc-status-line[data-kind="warn"] { border-left-color: var(--fc-warn); }
+.fc-page .fc-status-text { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 0.86rem; line-height: 1.4; color: var(--fc-text); }
+.fc-page .fc-status-tag { margin-right: 0.45rem; font-family: var(--fc-font-readout); font-size: 0.75rem; color: var(--fc-warn); }
+.fc-page .fc-status-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  color: var(--fc-text-2);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.fc-page .fc-status-close:hover { color: var(--fc-text); }
+.fc-page .fc-status-action {
+  flex: none;
+  font-family: var(--fc-font-stencil);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.6rem;
+  color: var(--fc-text);
+  background: transparent;
+  border: 1px solid var(--fc-border);
+  cursor: pointer;
+}
+.fc-page .fc-status-action:hover { border-color: var(--fc-accent); color: var(--fc-accent); }
+
+/* ------------------------------------------------------------
+   The two panels and the arrow tabs between them
+   ------------------------------------------------------------ */
+.fc-page .fc-screens {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.fc-page .fc-screens-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+}
+.fc-page .fc-console[data-panel="data"] .fc-screens-track { transform: translateX(-50%); }
+.fc-page .fc-screen {
+  position: relative;
+  flex: 0 0 50%;
+  width: 50%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Monitor-style tabs at the panel edges: only the one toward the other
+   panel shows. */
+.fc-page .fc-flip {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: var(--fc-tab-w);
+  height: 76px;
+  margin-top: -38px;
+  padding: 0;
+  color: var(--fc-text);
+  background: color-mix(in srgb, var(--fc-navy) 80%, transparent);
+  border: 1px solid var(--fc-border);
+  border-radius: 0;
+  cursor: pointer;
+}
+.fc-page .fc-flip--prev { left: 0; border-left: 0; }
+.fc-page .fc-flip--next { right: 0; border-right: 0; }
+.fc-page .fc-flip:hover { color: var(--fc-accent); border-color: var(--fc-accent); }
+.fc-page .fc-flip svg { display: block; }
+
+/* ============================================================
+   Panel 1: the 3D view, filling the panel in every mode, with the
+   replay's clock and phase strip, the readings panel and the altitude
+   timeline floating over it. map-view.js puts its own small controls in
+   the bottom left corner and Cesium's credits in the bottom right, both
+   just above the timeline (--fc-tl-space, set by main.js).
+   ============================================================ */
+.fc-page .fc-stage { background: var(--fc-bg); }
+.fc-page .fc-stage-map { position: absolute; inset: 0; }
+/* A soft navy fade under the bar, so the sky meets it with no line. */
+.fc-page .fc-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 26px;
+  z-index: 4;
+  background: linear-gradient(var(--fc-bg), color-mix(in srgb, var(--fc-bg) 0%, transparent));
+  pointer-events: none;
+}
+.fc-page .fc-stage-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-family: var(--fc-font-readout);
+  font-size: 0.85rem;
+  color: var(--fc-text-2);
+}
+
+/* The overlay layer. Clicks and drags pass through it to the 3D view,
+   except on the boxes themselves. */
+.fc-page .fc-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 296px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top      readings"
+    "rockets  readings"
+    ".        readings"
+    "timeline timeline";
+  gap: 10px;
+  padding: 12px calc(var(--fc-tab-w) + 12px) 12px 12px;
+  pointer-events: none;
+}
+.fc-page .fc-ov-top {
+  grid-area: top;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.fc-page .fc-ov-top > *,
+.fc-page .fc-ov-rockets,
+.fc-page .fc-ov-readings,
+.fc-page .fc-ov-timeline { pointer-events: auto; min-width: 0; }
+.fc-page .fc-ov-rockets { grid-area: rockets; align-self: start; }
+.fc-page .fc-ov-readings {
+  grid-area: readings;
+  align-self: start;
+  /* Stops short of Cesium's credits, just above the timeline. */
+  max-height: calc(100% - 30px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fc-page .fc-ov-timeline { grid-area: timeline; }
+.fc-page .fc-ov-mission:empty,
+.fc-page .fc-ov-phases:empty,
+.fc-page .fc-ov-rockets:empty,
+.fc-page .fc-ov-readings:empty,
+.fc-page .fc-ov-timeline:empty { display: none; }
+/* The clock and phase strip belong to a replay. */
+.fc-page .fc-console:not([data-mode="replay"]) .fc-ov-top { display: none; }
+
+/* ------------------------------------------------------------
+   The replay's clock (mission-header.js): the big flight time, then the
+   rocket's name and the labels.
+   ------------------------------------------------------------ */
+.fc-page .fc-mission {
+  padding: 0.55rem 0.8rem 0.6rem;
+  background: var(--fc-float);
+  border: 1px solid var(--fc-divider);
+}
+.fc-page .fc-mission-clock {
+  margin: 0;
+  font-family: var(--fc-font-readout);
+  font-size: 2.15rem;
+  line-height: 1;
+  color: var(--fc-text);
+  white-space: nowrap;
+}
+/* "--" before any data: dimmed, it isn't a reading. */
+.fc-page .fc-mission-clock[data-state="idle"] { color: var(--fc-muted); }
+.fc-page .fc-mission-caption {
+  margin: 0.3rem 0 0;
+  font-family: var(--fc-font-readout);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--fc-text-2);
+}
+.fc-page .fc-mission-id {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.8rem;
-  margin-top: 0.7rem;
-  padding: 0.7rem 0.85rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-left: 3px solid var(--fc-gold);
-  border-radius: var(--fc-radius-sm);
+  gap: 0.3rem 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--fc-divider);
 }
-.fc-page .fc-mission-field-label { color: var(--fc-text-2); font-size: 0.92rem; }
-.fc-page .fc-mission-field {
-  flex: 1 1 18rem;
-  min-width: 0;
-  font: inherit;
-  font-size: 0.92rem;
+.fc-page .fc-mission-title {
+  margin: 0;
+  font-family: var(--fc-font-head);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
   color: var(--fc-text);
-  background: var(--fc-bg);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius-sm);
-  padding: 0.45rem 0.6rem;
 }
+.fc-page .fc-mission-title:focus { outline: none; }
+.fc-page .fc-mission-flags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 
-@media (max-width: 760px) {
-  .fc-page .fc-mission {
-    grid-template-areas:
-      "nav  actions"
-      "id   id"
-      "time time"
-      "copy copy";
-    column-gap: 1rem;
-  }
-  /* The clock with its caption beside it, under a thin line. */
-  .fc-page .fc-mission-time {
-    justify-self: stretch;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.2rem 0.8rem;
-    text-align: left;
-    margin-top: 0.7rem;
-    padding-top: 0.8rem;
-    border-top: 1px solid var(--fc-divider);
-  }
-  .fc-page .fc-mission-caption { margin: 0; }
+/* ------------------------------------------------------------
+   Phase strip (phase-strip.js): six thin bars with their names
+   ------------------------------------------------------------ */
+.fc-page .fc-ov-phases { flex: 1 1 auto; max-width: 640px; }
+.fc-page .fc-phase-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0.55rem 0.7rem 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+  background: var(--fc-float);
+  border: 1px solid var(--fc-divider);
+}
+.fc-page .fc-phase {
+  --bar: color-mix(in srgb, var(--fc-offwhite) 20%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.fc-page .fc-phase-bar { display: block; height: 3px; background: var(--bar); }
+.fc-page .fc-phase-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.45rem; min-width: 0; }
+.fc-page .fc-phase-name {
+  font-family: var(--fc-font-head);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--fc-muted);
+}
+.fc-page .fc-phase-when {
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--fc-muted);
+  white-space: nowrap;
+}
+/* Passed: a solid dim bar. */
+.fc-page .fc-phase[data-state="passed"] { --bar: var(--fc-text-2); }
+.fc-page .fc-phase[data-state="passed"] .fc-phase-name { color: var(--fc-text-2); }
+/* Now: an orange bar under an off-white name. */
+.fc-page .fc-phase[data-state="current"] { --bar: var(--fc-accent); }
+.fc-page .fc-phase[data-state="current"] .fc-phase-name,
+.fc-page .fc-phase[data-state="current"] .fc-phase-when { color: var(--fc-text); }
+/* Never found by the detector: an empty outline, so it never looks passed. */
+.fc-page .fc-phase[data-state="missed"] .fc-phase-bar { background: none; border: 1px solid var(--fc-muted); height: 4px; }
+/* Inferred phases (drogue and main): the bar is dashed in every state. */
+.fc-page .fc-phase--inferred .fc-phase-bar {
+  background: repeating-linear-gradient(90deg, var(--bar) 0 8px, transparent 8px 12px);
+}
+.fc-page .fc-phase--inferred[data-state="missed"] .fc-phase-bar { background: none; border-style: dashed; }
+/* Fades on the side that has more phases past the edge (set by the JS,
+   when the strip scrolls sideways on a phone). */
+.fc-page .fc-phase-list--more-right {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent);
+}
+.fc-page .fc-phase-list--more-left {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px);
+  mask-image: linear-gradient(90deg, transparent, #000 30px);
+}
+.fc-page .fc-phase-list--more-left.fc-phase-list--more-right {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent);
 }
 
 /* ------------------------------------------------------------
-   Rocket chips (flights with two or more rockets)
+   Rocket chips (rocket-bar.js), for flights with two or more rockets
    ------------------------------------------------------------ */
-.fc-page .fc-rocketbar {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.6rem;
-}
+.fc-page .fc-rocketbar { display: flex; flex-wrap: wrap; gap: 6px; }
 .fc-page .fc-chip {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 0.3rem;
+  gap: 0.2rem;
   min-width: 0;
-  min-height: 3.25rem;
-  padding: 0.6rem 0.85rem 0.65rem;
+  width: 200px;
+  padding: 0.45rem 0.65rem;
   text-align: left;
   font-family: var(--fc-font-text);
   color: var(--fc-text);
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
+  background: var(--fc-float);
+  border: 1px solid var(--fc-divider);
+  border-radius: 0;
   cursor: pointer;
 }
-.fc-page .fc-chip:hover { border-color: var(--fc-muted); }
-.fc-page .fc-chip[aria-pressed="true"] {
-  border-color: var(--chip, var(--fc-gold));
-  box-shadow: inset 0 0 0 1px var(--chip, var(--fc-gold));
-  background: color-mix(in srgb, var(--chip, var(--fc-gold)) 7%, var(--fc-panel));
-}
-.fc-page .fc-chip-head { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.fc-page .fc-chip:hover { border-color: var(--fc-text-2); }
+.fc-page .fc-chip[aria-pressed="true"] { border-color: var(--fc-accent); box-shadow: inset 0 0 0 1px var(--fc-accent); }
+.fc-page .fc-chip-head { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .fc-page .fc-chip-name {
   min-width: 0;
-  font-size: 1rem;
+  font-family: var(--fc-font-head);
+  font-size: 0.95rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1323,185 +1019,358 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 .fc-page .fc-chip-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.1rem 0.9rem;
-  font-size: 0.84rem;
+  gap: 0.1rem 0.7rem;
+  font-family: var(--fc-font-readout);
+  font-size: 0.7rem;
   line-height: 1.35;
   color: var(--fc-text-2);
 }
 .fc-page .fc-chip-meta > span:empty { display: none; }
-.fc-page .fc-chip-fix { font-weight: 600; }
 .fc-page .fc-chip-fix--ok { color: var(--fc-text); }
-.fc-page .fc-chip-fix--no { color: var(--fc-coral); }
-
-/* A rocket that isn't focused logged an event. The still version is an
-   outline (it clears after a moment). With motion allowed, the chip lights
-   up in the rocket's color and fades back instead. */
-.fc-page .fc-chip--flash { outline: 2px solid var(--chip, var(--fc-gold)); outline-offset: 2px; }
-@keyframes fc-chip-flash {
-  0%, 25% {
-    background: color-mix(in srgb, var(--chip, var(--fc-gold)) 30%, var(--fc-panel));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip, var(--fc-gold)) 55%, transparent);
-  }
-}
-
-/* Phones: the chips stay in one row and scroll sideways. The padding
-   leaves room for the focus ring, which the scrolling would clip. */
-@media (max-width: 760px) {
-  .fc-page .fc-rocketbar {
-    display: flex;
-    overflow-x: auto;
-    padding: 4px 4px 0.45rem;
-    margin: -4px -4px 0;
-    scrollbar-width: thin;
-  }
-  .fc-page .fc-chip { flex: 0 0 auto; width: min(250px, 76vw); }
-}
+.fc-page .fc-chip-fix--no { color: var(--fc-warn); }
+/* A rocket that isn't focused logged an event: an outline for a moment. */
+.fc-page .fc-chip--flash { outline: 2px solid var(--fc-accent); outline-offset: 2px; }
 
 /* ------------------------------------------------------------
-   Phase strip
+   The readings panel (stats-panel.js), at the top right
    ------------------------------------------------------------ */
-.fc-page .fc-phase-list {
-  position: relative;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-}
-.fc-page .fc-phase {
-  --bar: var(--fc-divider);
+.fc-page .fc-readings {
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  padding: 0.6rem 0.8rem 0.25rem;
+  color: var(--fc-text);
+  line-height: 1.3;
+}
+.fc-page .fc-rd-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.fc-page .fc-rd-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-width: 0;
+  color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.72rem;
 }
-.fc-page .fc-phase-bar {
-  display: block;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--bar);
+.fc-page .fc-rd-who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-page .fc-rd-main { flex: none; }
+.fc-page .fc-rd-label { color: var(--fc-text-2); font-family: var(--fc-font-readout); font-size: 0.7rem; line-height: 1.3; }
+.fc-page .fc-rd-hero { padding-bottom: 0.45rem; border-bottom: 1px solid var(--fc-divider); }
+.fc-page .fc-rd-big {
+  margin-top: 0.15rem;
+  font-family: var(--fc-font-readout);
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--fc-text);
+  overflow-wrap: anywhere;
 }
-.fc-page .fc-phase-text {
+.fc-page .fc-rd-big .fc-rd-unit { font-size: 0.45em; }
+.fc-page .fc-rd-hero .fc-rd-small { margin-top: 0.25rem; }
+/* Live values are off-white and old ones are dimmed. Warnings are orange,
+   with words that say what is wrong. */
+.fc-page .fc-rd-big.is-live,
+.fc-page .fc-rd-value.is-live { color: var(--fc-text); }
+.fc-page .fc-rd-big.is-old,
+.fc-page .fc-rd-value.is-old { color: var(--fc-text-2); }
+.fc-page .fc-rd-value.is-warn { color: var(--fc-warn); }
+.fc-page .fc-rd-list,
+.fc-page .fc-rd-grid { margin: 0; }
+.fc-page .fc-rd-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 0.55rem;
+  justify-content: space-between;
+  gap: 0.1rem 0.75rem;
+  padding: 0.36rem 0;
+  border-bottom: 1px solid var(--fc-divider);
   min-width: 0;
 }
-.fc-page .fc-phase-name { font-size: 0.95rem; font-weight: 600; line-height: 1.25; color: var(--fc-muted); }
-.fc-page .fc-phase-when {
-  font-size: 0.82rem;
+.fc-page .fc-rd-row dt { flex: 0 1 auto; min-width: 0; }
+.fc-page .fc-rd-row dd { margin: 0 0 0 auto; text-align: right; min-width: 0; }
+.fc-page .fc-rd-value {
+  font-family: var(--fc-font-readout);
+  font-size: 0.98rem;
   line-height: 1.25;
-  color: var(--fc-muted);
-  font-variant-numeric: tabular-nums;
+  color: var(--fc-text);
+  overflow-wrap: anywhere;
+}
+.fc-page .fc-rd-unit { font-size: 0.8em; }
+.fc-page .fc-rd-arrow { font-size: 0.8em; }
+.fc-page .fc-rd-small {
+  margin-top: 0.1rem;
+  color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+.fc-page .fc-rd-small:empty { display: none; }
+/* Long values, and long labels like the GPS row's, sit under their label. */
+.fc-page .fc-rd-row--wide { flex-direction: column; align-items: flex-start; }
+.fc-page .fc-rd-row--wide dd { margin: 0; text-align: left; }
+/* The GPS note, in orange so it is noticed. */
+.fc-page .fc-rd-alert {
+  flex: none;
+  margin: 0.45rem 0 0.1rem;
+  padding: 0.4rem 0.55rem;
+  border-left: 2px solid var(--fc-warn);
+  background: var(--fc-accent-soft);
+  color: var(--fc-text);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+/* "More readings": closed by default. It is the part that scrolls, with
+   its toggle staying at the top while the rows move under it. */
+.fc-page .fc-rd-more {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-border) transparent;
+  margin: 0 -0.8rem;
+  padding: 0 0.8rem;
+}
+.fc-page .fc-rd-more-toggle {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.2rem;
+  padding: 0.3rem 0;
+  background: var(--fc-bg);
+  color: var(--fc-text);
+  font-family: var(--fc-font-head);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.fc-page .fc-rd-more-toggle::-webkit-details-marker { display: none; }
+.fc-page .fc-rd-more-toggle .fc-ui-ico { color: var(--fc-text-2); flex: none; }
+.fc-page .fc-rd-more[open] > .fc-rd-more-toggle { border-bottom: 1px solid var(--fc-divider); }
+.fc-page .fc-rd-more[open] > .fc-rd-more-toggle .fc-ui-ico { transform: rotate(90deg); }
+.fc-page .fc-rd-more-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
+.fc-page .fc-main .fc-rd-more-toggle:focus-visible { outline-offset: -2px; }
+.fc-page .fc-rd-more-body { padding-bottom: 0.5rem; }
+.fc-page .fc-rd-sec { padding-top: 0.55rem; }
+.fc-page .fc-rd-sec + .fc-rd-sec { border-top: 1px solid var(--fc-divider); margin-top: 0.3rem; }
+.fc-page .fc-rd-sec-title { font-family: var(--fc-font-head); font-size: 0.9rem; font-weight: 600; line-height: 1.25; color: var(--fc-text); margin: 0 0 0.1rem; }
+.fc-page .fc-rd-note { color: var(--fc-text-2); font-size: 0.76rem; line-height: 1.4; margin: 0.2rem 0 0.25rem; }
+.fc-page .fc-rd-grid .fc-rd-row { padding: 0.28rem 0; border-bottom: 0; }
+.fc-page .fc-rd-grid .fc-rd-value { font-size: 0.9rem; }
+.fc-page .fc-rd-sensors {
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--fc-divider);
+  color: var(--fc-text-2);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------
+   The altitude timeline (timeline.js) along the bottom: the play button,
+   the speeds and the time on the left, the curve on the right. It is the
+   console's one altitude display.
+   ------------------------------------------------------------ */
+.fc-page .fc-tl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "head     head"
+    "controls strip";
+  column-gap: 0.85rem;
+  padding: 0.45rem 0.7rem 0.55rem;
+  background: var(--fc-float);
+  border: 1px solid var(--fc-divider);
+}
+.fc-page .fc-tl-head { grid-area: head; margin-bottom: 0.35rem; align-items: center; }
+.fc-page .fc-tl-head .fc-panel-title { font-size: 0.9rem; }
+.fc-page .fc-tl-titles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; min-width: 0; }
+.fc-page .fc-tl-key,
+.fc-page .fc-tl-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.9rem;
+  font-family: var(--fc-font-readout);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--fc-text-2);
+}
+.fc-page .fc-tl-key li,
+.fc-page .fc-tl-legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.fc-page .fc-tl-key li.is-focused { color: var(--fc-text); }
+.fc-page .fc-tl-legend .fc-basis { --basis-size: 10px; --basis-color: var(--fc-text-2); }
+.fc-page .fc-tl-swatch { width: 14px; height: 2px; background: var(--swatch); flex: none; }
+.fc-page .fc-tl-key li.is-focused .fc-tl-swatch { height: 3px; }
+
+.fc-page .fc-tl-strip { grid-area: strip; position: relative; height: 84px; }
+.fc-page .fc-tl-track {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--fc-navy-deep) 70%, transparent);
+  box-shadow: inset 0 0 0 1px var(--fc-divider);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-page .fc-tl-track[aria-disabled="true"] { cursor: default; }
+.fc-page .fc-tl-svg { position: absolute; inset: 0; display: block; max-width: none; }
+/* Drawing: thin, quiet guides so the curve does the talking. */
+.fc-page .fc-tl-grid line { stroke: var(--fc-divider); stroke-width: 1; }
+.fc-page .fc-tl-base { stroke: var(--fc-border); stroke-width: 1; }
+.fc-page .fc-tl-ticks line { stroke: var(--fc-border); stroke-width: 1; }
+.fc-page .fc-tl-ticks text { fill: var(--fc-muted); font-family: var(--fc-font-readout); font-size: 10.5px; }
+.fc-page .fc-tl-gaps rect { fill: var(--fc-warn); opacity: 0.1; }
+.fc-page .fc-tl-peak { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.4; }
+.fc-page .fc-tl-others path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
+.fc-page .fc-tl-area-rest { fill: var(--fc-text); opacity: 0.04; }
+.fc-page .fc-tl-line-rest { fill: none; stroke: var(--fc-muted); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
+.fc-page .fc-tl-fill-top { stop-color: var(--fc-accent); stop-opacity: 0.24; }
+.fc-page .fc-tl-fill-bottom { stop-color: var(--fc-accent); stop-opacity: 0.02; }
+.fc-page .fc-tl-line-played { fill: none; stroke: var(--fc-accent); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.fc-page .fc-tl-stems line { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.28; }
+.fc-page .fc-tl-hover-line { stroke: var(--fc-text); stroke-width: 1; opacity: 0.35; }
+/* The playhead: an orange line with a small square grip on top. */
+.fc-page .fc-tl-playhead line { stroke: var(--fc-accent); stroke-width: 2; }
+.fc-page .fc-tl-playhead-grip { fill: var(--fc-accent); stroke: var(--fc-bg); stroke-width: 2; rx: 0; }
+.fc-page .fc-tl-now { fill: var(--fc-accent); stroke: var(--fc-bg); stroke-width: 2; }
+/* Markers and labels sit in a layer over the strip. Only the marker
+   buttons take clicks, so a click anywhere else seeks. */
+.fc-page .fc-tl-marks { position: absolute; inset: 0; pointer-events: none; }
+.fc-page .fc-tl-peak-label {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: 0 0.35rem 0 0.15rem;
+  background: var(--fc-well);
+  color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.2;
   white-space: nowrap;
 }
-
-/* Passed: a solid muted bar. */
-.fc-page .fc-phase[data-state="passed"] { --bar: var(--fc-muted); }
-.fc-page .fc-phase[data-state="passed"] .fc-phase-name { color: var(--fc-text-2); }
-/* Now: gold bar, gold text. */
-.fc-page .fc-phase[data-state="current"] { --bar: var(--fc-gold); }
-.fc-page .fc-phase[data-state="current"] .fc-phase-bar { box-shadow: 0 0 10px color-mix(in srgb, var(--fc-gold) 45%, transparent); }
-.fc-page .fc-phase[data-state="current"] .fc-phase-name,
-.fc-page .fc-phase[data-state="current"] .fc-phase-when { color: var(--fc-gold); }
-/* Never found by the detector: an empty outline, so it never looks passed. */
-.fc-page .fc-phase[data-state="missed"] .fc-phase-bar {
+.fc-page .fc-tl-peak-label.is-right { padding: 0 0.15rem 0 0.35rem; }
+.fc-page .fc-tl-peak-label.is-under-head { opacity: 0.25; }
+.fc-page .fc-tl-mark {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: none;
-  border: 1px solid color-mix(in srgb, var(--fc-muted) 55%, transparent);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
-
-/* Inferred phases (drogue and main): the bar is dashed in every state. */
-.fc-page .fc-phase--inferred .fc-phase-bar {
-  background: repeating-linear-gradient(90deg, var(--bar) 0 12px, transparent 12px 18px);
+.fc-page .fc-tl-mark .fc-basis { --basis-size: 12px; --basis-color: var(--fc-muted); box-shadow: 0 0 0 2px var(--fc-well); }
+.fc-page .fc-tl-mark.is-reached .fc-basis { --basis-color: var(--fc-accent); }
+.fc-page .fc-tl-mark:hover .fc-basis,
+.fc-page .fc-tl-mark:focus-visible .fc-basis { transform: scale(1.18); }
+.fc-page .fc-tl-mark-label {
+  position: absolute;
+  padding: 0.05rem 0.3rem;
+  background: color-mix(in srgb, var(--fc-navy-deep) 85%, transparent);
+  color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  white-space: nowrap;
 }
-.fc-page .fc-phase--inferred[data-state="missed"] .fc-phase-bar {
-  background: none;
-  border-style: dashed;
+.fc-page .fc-tl-mark-label.is-reached { color: var(--fc-text); }
+.fc-page .fc-tl-hover {
+  position: absolute;
+  top: 3px;
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.1rem 0.45rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-border);
+  color: var(--fc-text);
+  font-family: var(--fc-font-readout);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
 }
-
-/* Phones: each phase keeps a readable width and the strip scrolls
-   sideways. The name and its time stack. */
-@media (max-width: 760px) {
-  .fc-page .fc-phase-list {
-    grid-template-columns: repeat(6, minmax(78px, 1fr));
-    overflow-x: auto;
-    padding-bottom: 0.35rem;
-    scrollbar-width: thin;
-  }
-  .fc-page .fc-phase-text { flex-direction: column; align-items: flex-start; gap: 0.1rem; }
-  /* The focus ring sits inside, so the edge fades don't hide it. */
-  .fc-page .fc-main .fc-phase-list:focus-visible { outline-offset: -2px; border-radius: var(--fc-radius-sm); }
+.fc-page .fc-tl-hover-alt { color: var(--fc-text-2); }
+.fc-page .fc-tl-tip {
+  position: absolute;
+  z-index: 3;
+  width: max-content;
+  max-width: min(34rem, 100%);
+  padding: 0.4rem 0.6rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-border);
+  color: var(--fc-text-2);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  cursor: pointer;
 }
-/* Fades on the side that has more phases past the edge (set by the JS). */
-.fc-page .fc-phase-list--more-right {
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+.fc-page .fc-tl-tip strong { color: var(--fc-text); font-weight: 600; }
+.fc-page .fc-tl-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 2rem);
+  margin: 0;
+  text-align: center;
+  color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.8rem;
+  pointer-events: none;
 }
-.fc-page .fc-phase-list--more-left {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px);
-  mask-image: linear-gradient(90deg, transparent, #000 36px);
+/* Play, the speeds and the time, stacked left of the curve. */
+.fc-page .fc-tl-controls {
+  grid-area: controls;
+  display: grid;
+  grid-template-columns: auto;
+  align-content: start;
+  gap: 0.35rem;
+  margin: 0;
 }
-.fc-page .fc-phase-list--more-left.fc-phase-list--more-right {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+.fc-page .fc-tl-play { min-width: 0; width: 100%; border-color: var(--fc-text); }
+.fc-page .fc-tl-controls .fc-seg { display: flex; }
+.fc-page .fc-tl-controls .fc-seg .fc-btn { flex: 1 1 0; min-width: 2.6rem; padding-inline: 0.4rem; }
+.fc-page .fc-tl-time {
+  margin: 0;
+  font-family: var(--fc-font-readout);
+  font-size: 0.78rem;
+  color: var(--fc-text);
+  white-space: nowrap;
 }
-
-/* ------------------------------------------------------------
-   Motion, only for viewers who haven't asked for less
-   ------------------------------------------------------------ */
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-mission-back .fc-ui-ico { transition: transform 0.15s ease; }
-  .fc-page .fc-main a.fc-mission-back:hover .fc-ui-ico { transform: translateX(-3px); }
-  .fc-page .fc-chip { transition: border-color 0.15s, background-color 0.15s; }
-  .fc-page .fc-chip--flash { outline-color: transparent; animation: fc-chip-flash 1.4s ease-out; }
-  .fc-page .fc-phase-bar { transition: background-color 0.3s, box-shadow 0.3s; }
-  .fc-page .fc-phase-name,
-  .fc-page .fc-phase-when { transition: color 0.3s; }
-}
-
+.fc-page .fc-tl-time-total { color: var(--fc-muted); }
 
 /* ============================================================
-   The console map (js/views/map-view.js).
-
-   The map fills the stage. Its own controls float over it in the top left
-   corner, the legend in the bottom left (right of the altitude tape), and
-   Leaflet's zoom buttons and credits in the bottom right. The readings
-   panel and the altitude tape float above all of this from their own
-   mounts. Map labels are small green tags on a dark backing, so they read
-   on bright satellite photos and on the dark map alike.
+   The 3D view's frame (map-view.js) and the 3D view itself
+   (globe-view.js). No frame, border or box around it: the space around
+   the Earth is the page's navy.
    ============================================================ */
-
-/* ------------------------------------------------------------
-   Frame
-   ------------------------------------------------------------ */
-/* Its own stacking layer, so nothing in the map (Leaflet's controls
-   included) can rise above the readings panel or the tape. */
-.fc-page .fc-mapbox {
-  position: relative;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  isolation: isolate;
-}
-.fc-page .fc-map-frame {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
-  overflow: hidden;
-  background: var(--fc-bg);
-}
+.fc-page .fc-mapbox { position: relative; height: 100%; isolation: isolate; }
+.fc-page .fc-map-frame { position: absolute; inset: 0; overflow: hidden; background: var(--fc-bg); }
 .fc-page .fc-map-canvas { position: absolute; inset: 0; z-index: 0; }
-/* Keyboard focus on the map: the gold ring goes around the frame, just
-   outside it. On the map itself Leaflet's layers would paint over it. */
-.fc-page .fc-main .fc-map-canvas:focus-visible { outline: none; }
-.fc-page .fc-map-frame:has(> .fc-map-canvas:focus-visible) {
-  outline: 2px solid var(--fc-gold);
-  outline-offset: 2px;
-}
+.fc-page .fc-main .fc-map-canvas:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: -2px; }
 .fc-page .fc-map-wait {
   position: absolute;
   inset: 0;
@@ -1509,433 +1378,96 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   place-items: center;
   padding: 1rem;
   color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.85rem;
   text-align: center;
 }
 
-/* ------------------------------------------------------------
-   Floating controls (top left) and the map's notes under them
-   ------------------------------------------------------------ */
+/* The frame's own controls and notes, in the bottom left corner just above
+   the altitude timeline. The notes sit above the controls. */
 .fc-page .fc-map-topleft {
   position: absolute;
-  top: 12px;
   left: 12px;
+  bottom: max(12px, var(--fc-tl-space, 0px));
   z-index: 800;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-start;
-  gap: 8px;
-  /* Stops short of the readings panel in the top right corner. */
-  max-width: calc(100% - 24px - 324px);
+  gap: 6px;
+  max-width: calc(100% - 24px - var(--fc-tab-w, 0px));
   pointer-events: none;
 }
 .fc-page .fc-map-topleft > * { pointer-events: auto; }
-.fc-page .fc-map-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-}
-.fc-page .fc-layer-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.fc-page .fc-map-controls .fc-btn--sm { font-size: 0.85rem; padding: 0.3rem 0.75rem; }
-/* "Labels" and "Follow rocket": checkboxes with a thin divider before them. */
+.fc-page .fc-map-controls { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+.fc-page .fc-map-controls .fc-btn--sm { background: var(--fc-float); }
+.fc-page .fc-map-controls .fc-btn--sm[aria-pressed="true"] { background: color-mix(in srgb, var(--fc-navy) 78%, var(--fc-offwhite)); }
+.fc-page .fc-layer-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* "Labels" and "Follow rocket" on the 2D map: checkboxes. */
 .fc-page .fc-map-check {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 2rem;
-  padding: 0 0.7rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  min-height: 1.95rem;
+  padding: 0 0.6rem;
+  font-family: var(--fc-font-readout);
+  font-size: 0.75rem;
   line-height: 1.2;
-  color: var(--fc-text);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.fc-page .fc-map-controls .fc-map-check { border-left: 1px solid var(--fc-border); }
-.fc-page .fc-map-check input {
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  accent-color: var(--fc-gold);
-  cursor: pointer;
-}
-.fc-page .fc-map-check:hover { background: rgba(232, 230, 223, 0.06); border-radius: var(--fc-radius-sm); }
-
-/* Notes like "Satellite imagery isn't available right now", under the
-   controls. The altitude tape starts below both (map-view.js measures
-   them). The empty note keeps no box, but stays in the page so screen
-   readers still hear new notes. */
-.fc-page .fc-map-status {
-  margin: 0;
-  max-width: 440px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
-  line-height: 1.45;
   color: var(--fc-text);
   background: var(--fc-float);
   border: 1px solid var(--fc-border);
-  border-left: 3px solid var(--fc-coral);
-  border-radius: var(--fc-radius-sm);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  cursor: pointer;
 }
-.fc-page .fc-map-status:empty {
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-/* ------------------------------------------------------------
-   Legend (bottom left, right of the altitude tape)
-   ------------------------------------------------------------ */
+.fc-page .fc-map-check input { width: 0.9rem; height: 0.9rem; margin: 0; accent-color: var(--fc-accent); cursor: pointer; }
+/* KEY: the legend behind a small toggle. It opens upward, lined up with
+   the left end of the controls. */
+.fc-page .fc-map-key { position: static; }
+.fc-page .fc-map-key-toggle { list-style: none; background: var(--fc-float); }
+.fc-page .fc-map-key-toggle::-webkit-details-marker { display: none; }
+.fc-page .fc-map-key[open] > .fc-map-key-toggle { border-color: var(--fc-text); background: color-mix(in srgb, var(--fc-navy) 78%, var(--fc-offwhite)); }
 .fc-page .fc-map-legend {
   position: absolute;
-  left: 94px;
-  bottom: 12px;
-  z-index: 800;
+  left: 0;
+  bottom: calc(100% + 6px);
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 0.55rem 0.75rem 0.55rem 0.6rem;
-  font-size: 0.8rem;
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 48px));
+  padding: 0.55rem 0.7rem 0.55rem 0.55rem;
+  font-size: 0.78rem;
   line-height: 1.25;
   color: var(--fc-text);
-  pointer-events: none;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-border);
 }
-/* No altitude tape: the legend moves to the edge, above the distance scale
-   that the tape would otherwise stand over. */
-.fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-map-legend { left: 12px; bottom: 42px; }
 .fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
-.fc-page .fc-legend-key {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 18px;
-}
+.fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 18px; }
 .fc-page .fc-legend-key svg { display: block; }
 .fc-page .fc-legend-key .fc-ico-pad { width: 14px; height: 18px; }
 .fc-page .fc-legend-key .fc-ico-tower { width: 15px; height: 18px; }
-/* A field code from the green labels (AGL, VS), in their color. */
-.fc-page .fc-legend-code { font-size: 0.72rem; font-weight: 600; line-height: 1; color: var(--fc-hud); }
-
-/* ------------------------------------------------------------
-   Leaflet's corners in this map: the scale under the tape, and the zoom
-   buttons above the credits (map-view.js keeps that corner clear of the
-   legend and the readings panel).
-   ------------------------------------------------------------ */
-.fc-page .fc-mapbox .leaflet-control-scale { margin: 0 0 12px 12px; }
-.fc-page .fc-mapbox .leaflet-control-zoom { margin: 0 12px 10px 0; }
-.fc-page .fc-mapbox .leaflet-control-zoom a { width: 32px; height: 32px; line-height: 30px; }
-.fc-page .fc-mapbox .leaflet-control-attribution { padding: 1px 8px; border-top-left-radius: var(--fc-radius-sm); }
-.fc-page .fc-mapbox .leaflet-control-attribution a { text-underline-offset: 2px; }
-
-/* ------------------------------------------------------------
-   Map icons and HUD labels
-   ------------------------------------------------------------ */
-/* Leaflet's box for each icon. Labels and rings spill out of it. */
-.fc-page .fc-mk { background: none; border: 0; }
-.fc-page .fc-mk svg { display: block; }
-
-/* Map labels are small tactical tags, like the ones on a military map
-   display: green Share Tech Mono on a nearly opaque green-black tag, with
-   a thin green frame and a solid bar on the side that faces the icon. The
-   tag keeps them readable on photos and on the dark map. --hud-accent is
-   the frame and bar color (coral while a rocket has no GPS fix). Text is
-   uppercase in the script itself. */
-.fc-page .fc-hud {
-  --hud-accent: var(--fc-hud);
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 3px 7px 3px 6px;
-  font-family: var(--fc-font-hud);
-  font-weight: 400;
-  letter-spacing: 0.03em;
-  color: var(--fc-hud);
-  white-space: nowrap;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--fc-hud-outline) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--hud-accent) 50%, transparent);
-  border-left: 3px solid var(--hud-accent);
-  border-radius: 1px;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fc-hud-outline) 60%, transparent), 0 2px 6px rgba(0, 0, 0, 0.35);
-  text-shadow: 0 0 4px color-mix(in srgb, var(--fc-hud) 30%, transparent);
-}
-/* The icon is off the map: its label stays out of sight. So does a launch
-   point's label with no clear place (it keeps its size, so the script can
-   tell when a place frees up). */
-.fc-page .fc-mk-off .fc-hud,
-.fc-page .fc-hud.fc-hud--blocked { visibility: hidden; }
-.fc-page .fc-hud-name { font-size: 12px; line-height: 14px; }
-.fc-page .fc-hud-line2 { font-size: 11px; line-height: 13px; color: var(--fc-hud-2); }
-/* Field codes in a data line ("AGL", "VS"), dimmer than their values. */
-.fc-page .fc-hud-key { opacity: 0.6; margin-right: 0.4em; }
-.fc-page .fc-hud-key:empty { display: none; }
-.fc-page .fc-hud-speed { margin-left: 0.9em; }
-/* A label on the left of its icon has its bar on the right, so the bar
-   always faces the icon. */
-.fc-page .fc-rkt--left .fc-rkt-label,
-.fc-page .fc-pad-label,
-.fc-page .fc-gs--left .fc-gs-label {
-  padding: 3px 6px 3px 7px;
-  border-left: 1px solid color-mix(in srgb, var(--hud-accent) 50%, transparent);
-  border-right: 3px solid var(--hud-accent);
-}
-.fc-page .fc-pad--right .fc-pad-label,
-.fc-page .fc-pad--below .fc-pad-label {
-  padding: 3px 7px 3px 6px;
-  border-left: 3px solid var(--hud-accent);
-  border-right: 1px solid color-mix(in srgb, var(--hud-accent) 50%, transparent);
-}
-
-/* Rocket. Its marker box has no size: (0, 0) is the rocket's position, the
-   middle of the icon. --w and --h are the icon's size, set by the script. */
-.fc-page .fc-rkt {
-  position: absolute;
-  left: 0;
-  top: 0;
-  --w: 16px;
-  --h: 22px;
-  --ring: 46px;
-  --ring-color: var(--fc-gold);
-}
-.fc-page .fc-rkt--focus { --ring: 76px; }
-.fc-page .fc-rkt-icon {
-  position: absolute;
-  z-index: 1;
-  left: calc(var(--w) / -2);
-  top: calc(var(--h) / -2);
-  width: var(--w);
-  height: var(--h);
-}
-.fc-page .fc-rkt-label { z-index: 2; top: 0; left: calc(var(--w) / 2 + 8px); transform: translateY(-50%); }
-.fc-page .fc-rkt--left .fc-rkt-label { left: auto; right: calc(var(--w) / 2 + 8px); align-items: flex-end; }
-/* No room on either side: centered under (or over) the icon, 4 px from it. */
-.fc-page .fc-rkt--below .fc-rkt-label { top: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
-.fc-page .fc-rkt--above .fc-rkt-label { top: auto; bottom: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
-/* Other rockets: smaller, with a dimmer label. */
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-label { opacity: 0.74; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-name { font-size: 11px; line-height: 13px; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-line2 { font-size: 10px; line-height: 12px; }
-
-/* Sonar rings around a rocket with a good fix, gold for every rocket and
-   fainter for the ones that aren't focused. The resting style is three
-   still rings, and they only pulse outward when motion is welcome. The
-   thin dark edge on each ring is the map's outline color (HALO_COLOR). */
-.fc-page .fc-rkt-rings { position: absolute; left: 0; top: 0; z-index: 0; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-rings { opacity: 0.5; }
-.fc-page .fc-rkt-rings i {
-  position: absolute;
-  left: calc(var(--ring) / -2);
-  top: calc(var(--ring) / -2);
-  width: var(--ring);
-  height: var(--ring);
-  box-sizing: border-box;
-  border: 2.5px solid var(--ring-color);
-  border-radius: 50%;
-  box-shadow: 0 0 0 1.5px rgba(4, 8, 15, 0.5), inset 0 0 0 1.5px rgba(4, 8, 15, 0.5);
-}
-.fc-page .fc-rkt-rings i:nth-child(1) { transform: scale(0.5); opacity: 0.95; }
-.fc-page .fc-rkt-rings i:nth-child(2) { transform: scale(0.76); opacity: 0.6; }
-.fc-page .fc-rkt-rings i:nth-child(3) { transform: scale(1); opacity: 0.3; }
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-rkt-rings i { animation: fc-sonar 2.4s cubic-bezier(0.25, 0.6, 0.4, 1) infinite backwards; }
-  .fc-page .fc-rkt-rings i:nth-child(2) { animation-delay: 0.8s; }
-  .fc-page .fc-rkt-rings i:nth-child(3) { animation-delay: 1.6s; }
-}
-@keyframes fc-sonar {
-  from { transform: scale(0.3); opacity: 1; }
-  to { transform: scale(1); opacity: 0; }
-}
-
-/* No GPS fix right now: grey and hollow at the last good position, no
-   rings, and a coral second line saying how old the position is. The
-   inside is filled almost solid dark, so nothing under it (like the launch
-   rail) shows through and reads as part of the rocket. */
-.fc-page .fc-rkt--nofix .fc-rkt-rings { display: none; }
-.fc-page .fc-rkt--nofix .fc-rkt-halo { fill: var(--fc-bg); fill-opacity: 0.92; stroke-width: 3.6; }
-.fc-page .fc-rkt--nofix .fc-rkt-body { fill: none; stroke: var(--fc-muted); stroke-width: 1.5; }
-.fc-page .fc-rkt--nofix .fc-rkt-fins,
-.fc-page .fc-rkt--nofix .fc-rkt-nozzle { display: none; }
-.fc-page .fc-rkt--nofix .fc-rkt-window { fill: none; stroke: var(--fc-muted); stroke-width: 1.2; }
-.fc-page .fc-rkt--nofix .fc-hud-line2 { color: var(--fc-coral); }
-.fc-page .fc-rkt--nofix .fc-rkt-label { --hud-accent: var(--fc-coral); }
-
-/* Launch rail. Its box is the drawing (PAD_SIZE), anchored at the bottom
-   middle of the blast plate. The label sits to the left by default, so it
-   never meets the rocket's label while the rocket is on the pad. */
-.fc-page .fc-pad,
-.fc-page .fc-gs { position: relative; width: 100%; height: 100%; }
-.fc-page .fc-pad-label { top: 11px; right: calc(100% + 5px); transform: translateY(-50%); align-items: flex-end; }
-.fc-page .fc-pad--right .fc-pad-label { right: auto; left: calc(100% + 5px); align-items: flex-start; }
-/* No room on either side: centered under the spot (18 px below it). */
-.fc-page .fc-pad--below .fc-pad-label { top: 39px; right: auto; left: 50%; transform: translateX(-50%); align-items: center; }
-
-/* Ground station tower, anchored at the middle of its base. */
-.fc-page .fc-gs-label { top: 16px; left: calc(100% + 4px); transform: translateY(-50%); }
-.fc-page .fc-gs--left .fc-gs-label { left: auto; right: calc(100% + 4px); align-items: flex-end; }
-/* No room on either side: centered under the tower, 6 px below its base. */
-.fc-page .fc-gs--below .fc-gs-label { top: calc(100% + 4px); left: 50%; transform: translateX(-50%); align-items: center; }
-
-/* The distance and bearing chip on the ground station line. */
-.fc-page .leaflet-tooltip.fc-tip {
-  padding: 0.2rem 0.6rem;
-  font-family: var(--fc-font-text);
+.fc-page .fc-legend-code { font-family: var(--fc-font-readout); font-size: 0.72rem; line-height: 1; color: var(--fc-text); }
+/* Notes like "3D ground height is approximate". The empty note keeps no
+   box, but stays in the page so screen readers still hear new notes. */
+.fc-page .fc-map-status {
+  margin: 0;
+  max-width: 420px;
+  padding: 0.4rem 0.65rem;
   font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.45;
   color: var(--fc-text);
   background: var(--fc-float);
-  border: 1px solid var(--fc-teal);
-  border-radius: 999px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-warn);
 }
-.fc-page .leaflet-tooltip.fc-tip::before { display: none; }
-/* No fix right now: it measures to an old position ("Last known ..."), so
-   it drops the teal and goes muted. */
-.fc-page .leaflet-tooltip.fc-tip--stale {
-  color: var(--fc-muted);
-  border-color: color-mix(in srgb, var(--fc-muted) 55%, transparent);
-}
-/* No part of the line has room for it right now. */
-.fc-page .leaflet-tooltip.fc-tip--away { visibility: hidden; }
+.fc-page .fc-map-status:empty { padding: 0; border: 0; background: none; }
 
-/* ------------------------------------------------------------
-   No-map panel: shown when Leaflet or the map tiles can't load. It keeps
-   clear of the readings panel and the tape that float over this spot.
-   ------------------------------------------------------------ */
-.fc-page .fc-nomap {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-  padding: 1.25rem calc(324px + 1.25rem) 1.25rem calc(82px + 1.25rem);
-  background-color: var(--fc-bg);
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-.fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-nomap { padding-left: 1.25rem; }
-.fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-nomap { padding-right: 1.25rem; }
-/* Without the map library, the "Map" and "3D" buttons float over the
-   panel's top left corner, so its first card starts below them. */
-.fc-page .fc-nomap--controls .fc-nomap-head { margin-top: 3rem; }
-.fc-page .fc-nomap-head {
-  max-width: 40rem;
-  margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-border);
-  border-left: 3px solid var(--fc-coral);
-  border-radius: var(--fc-radius-sm);
-}
-.fc-page .fc-nomap-title { font-size: 1.25rem; line-height: 1.2; color: var(--fc-text); margin: 0 0 0.35rem; }
-.fc-page .fc-nomap-note { color: var(--fc-text-2); line-height: 1.5; margin: 0; }
-.fc-page .fc-nomap-retry { margin-top: 0.75rem; }
-.fc-page .fc-nomap-retry .fc-nomap-note { margin-bottom: 0.45rem; }
-.fc-page .fc-nomap-retry .fc-layer-pick { display: inline-flex; }
-.fc-page .fc-nomap-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
-  gap: 0.75rem;
-}
-.fc-page .fc-nomap-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.2rem 1rem;
-  padding: 0.85rem 1rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-radius: var(--fc-radius);
-}
-.fc-page .fc-compass { width: 64px; height: 64px; grid-row: span 4; }
-.fc-page .fc-compass-ring { fill: var(--fc-bg); stroke: var(--fc-border); stroke-width: 2; }
-.fc-page .fc-compass-tick { stroke: var(--fc-muted); stroke-width: 1.5; stroke-linecap: round; }
-.fc-page .fc-compass-n { fill: var(--fc-text-2); font-family: var(--fc-font-text); font-size: 9px; font-weight: 600; }
-.fc-page .fc-nomap-name { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: var(--fc-text); }
-.fc-page .fc-nomap-line { color: var(--fc-text); font-size: 0.95rem; line-height: 1.4; }
-.fc-page .fc-nomap-range { color: var(--fc-text-2); }
-.fc-page .fc-nomap-warn { color: var(--fc-coral); font-weight: 600; }
-.fc-page .fc-nomap-gs { grid-column: 1 / -1; color: var(--fc-text-2); font-size: 0.92rem; padding-top: 0.2rem; }
-
-/* ------------------------------------------------------------
-   Tablets and phones (the stage's own breakpoint): the readings and the
-   tape sit below the map, so the controls can use the whole width, the
-   legend moves under the map, and the no-map panel needs no room for them.
-   ------------------------------------------------------------ */
-@media (max-width: 900px) {
-  .fc-page .fc-map-topleft { max-width: calc(100% - 24px); }
-  .fc-page .fc-map-legend {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.3rem 0.9rem;
-    margin-top: 0.55rem;
-    padding: 0;
-    font-size: 0.78rem;
-    color: var(--fc-text-2);
-    background: none;
-    border: 0;
-    box-shadow: none;
-  }
-  .fc-page .fc-legend-row { gap: 0.4rem; }
-  .fc-page .fc-legend-key { width: 22px; }
-  .fc-page .fc-nomap,
-  .fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-nomap,
-  .fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-nomap { padding: 1rem; }
-}
-
-/* Phones: smaller controls with less padding, so Satellite, Dark map, 3D,
-   Labels and Follow rocket fit on one row on most phones. (In the 3D view
-   the three camera buttons take a second row.) */
-@media (max-width: 760px) {
-  .fc-page .fc-map-topleft { top: 8px; left: 8px; max-width: calc(100% - 16px); }
-  .fc-page .fc-map-controls { gap: 3px; padding: 3px; }
-  .fc-page .fc-map-controls .fc-layer-pick { gap: 3px; }
-  .fc-page .fc-map-controls .fc-btn--sm { font-size: 0.78rem; padding: 0.3rem 0.3rem; }
-  .fc-page .fc-map-check { font-size: 0.78rem; padding: 0 0.3rem; gap: 0.3rem; }
-  .fc-page .fc-map-check input { width: 0.9rem; height: 0.9rem; }
-  .fc-page .fc-mapbox .leaflet-control-scale { margin: 0 0 10px 10px; }
-  .fc-page .fc-mapbox .leaflet-control-zoom { margin: 0 10px 8px 0; }
-}
-/* Small phones: a little less padding again, so the row still fits at
-   375 px wide. Narrower than that it wraps to two rows. */
-@media (max-width: 380px) {
-  .fc-page .fc-map-controls .fc-btn--sm { padding: 0.3rem 0.22rem; }
-  .fc-page .fc-map-check { padding: 0 0.22rem; gap: 0.25rem; }
-}
-
-/* ------------------------------------------------------------
-   3D view (js/views/globe-view.js, started by map-view.js). It fills the
-   same frame as the map, over it, and sits under the floating controls.
-   The map's own controls, notes and legend stay where they are. Cesium's
-   logo and data credits go in the bottom right corner, where the map's
-   credits are.
-   ------------------------------------------------------------ */
-.fc-page .fc-globe {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: var(--fc-bg);
-}
+/* The 3D view fills the frame. */
+.fc-page .fc-globe { position: absolute; inset: 0; z-index: 1; background: var(--fc-bg); }
 .fc-page .fc-globe-canvas { position: absolute; inset: 0; }
 /* Cesium's own stylesheet sizes its canvas and stops touches on it from
-   scrolling the page. Both are repeated here, so the view still fits and a
-   drag still turns the camera if that stylesheet didn't load. The page
-   scrolls from anywhere outside the view (the page margins beside it, and
-   everything above and below). */
+   scrolling. Both are repeated here, so the view still fits and a drag
+   still turns the camera if that stylesheet didn't load. */
 .fc-page .fc-globe-canvas .cesium-viewer,
 .fc-page .fc-globe-canvas .cesium-viewer-cesiumWidgetContainer,
 .fc-page .fc-globe-canvas .cesium-widget,
@@ -1945,27 +1477,22 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   max-width: none;
 }
 .fc-page .fc-globe-canvas .cesium-widget canvas { display: block; touch-action: none; cursor: grab; }
-.fc-page .fc-globe-canvas.is-dragging .cesium-widget canvas { cursor: grabbing; }
-/* Keyboard focus on the 3D view (the arrow keys move its camera): the gold
-   ring goes around the frame, as it does for the map. */
-.fc-page .fc-main .fc-globe-canvas:focus-visible { outline: none; }
-.fc-page .fc-map-frame:has(.fc-globe-canvas:focus-visible) {
-  outline: 2px solid var(--fc-gold);
-  outline-offset: 2px;
-}
-/* Cesium's logo and credits. They are required, so they always show. */
+/* Keyboard focus on the 3D view (the arrow keys move its camera): a thin
+   orange line just inside its edge. */
+.fc-page .fc-main .fc-globe-canvas:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: -2px; }
+/* Cesium's logo and credits. They are required, so they always show, in
+   the bottom right corner just above the altitude timeline. */
 .fc-page .fc-globe-credits {
   position: absolute;
   right: 0;
-  bottom: 0;
+  bottom: var(--fc-tl-space, 0px);
   z-index: 2;
   max-width: calc(100% - 24px);
   padding: 3px 8px;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1.3;
   color: var(--fc-text-2);
-  background: color-mix(in srgb, var(--fc-bg) 88%, transparent);
-  border-top-left-radius: var(--fc-radius-sm);
+  background: color-mix(in srgb, var(--fc-bg) 80%, transparent);
 }
 .fc-page .fc-globe-credits:empty { display: none; }
 .fc-page .fc-globe-credits .cesium-widget-credits {
@@ -1980,22 +1507,15 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   color: inherit;
   text-shadow: none;
 }
-.fc-page .fc-globe-credits img { display: block; max-height: 22px; width: auto; }
-.fc-page .fc-main .fc-globe-credits a { color: var(--fc-gold); text-underline-offset: 2px; }
-/* Cesium's "Data attribution" dialog lists the terrain and imagery
-   credits. It opens in this box, which lies over the whole stage above the
-   readings panel and the altitude tape, so nothing covers it. The box
-   itself lets clicks through. Only the open dialog takes them. */
-.fc-page .fc-globe-dialogs {
-  position: absolute;
-  inset: 0;
-  z-index: 950;
-  pointer-events: none;
-}
+.fc-page .fc-globe-credits img { display: block; max-height: 18px; width: auto; }
+.fc-page .fc-main .fc-globe-credits a { color: var(--fc-text-2); text-underline-offset: 2px; }
+.fc-page .fc-main .fc-globe-credits a:hover { color: var(--fc-text); }
+/* Cesium's "Data attribution" dialog opens in this box, which lies over
+   the whole panel above the overlays. The box lets clicks through. Only
+   the open dialog takes them. */
+.fc-page .fc-globe-dialogs { position: absolute; inset: 0; z-index: 950; pointer-events: none; }
 .fc-page .fc-globe-dialogs .cesium-credit-lightbox-overlay { pointer-events: auto; }
-/* The panel over the 3D view while it isn't running: "Loading", or why
-   there is no 3D view. Like the no-map panel, it keeps clear of the
-   readings panel and the tape. */
+/* While the 3D view isn't running: "Loading", or why there is no 3D view. */
 .fc-page .fc-globe-panel {
   position: absolute;
   inset: 0;
@@ -2003,779 +1523,573 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   display: grid;
   place-items: center;
   overflow: auto;
-  padding: 4.5rem calc(324px + 1.25rem) 1.25rem calc(82px + 1.25rem);
-  background-color: var(--fc-bg);
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--fc-border) 35%, transparent) 1px, transparent 1px);
-  background-size: 48px 48px;
+  padding: 5rem 1.25rem 1.25rem;
+  background: var(--fc-bg);
 }
-.fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-globe-panel { padding-left: 1.25rem; }
-.fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-globe-panel { padding-right: 1.25rem; }
-.fc-page .fc-globe-wait { margin: 0; color: var(--fc-text-2); text-align: center; }
+.fc-page .fc-globe-wait { margin: 0; color: var(--fc-text-2); font-family: var(--fc-font-readout); font-size: 0.85rem; text-align: center; }
 .fc-page .fc-globe-card {
   max-width: 30rem;
-  padding: 0.9rem 1rem;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-border);
-  border-left: 3px solid var(--fc-gold);
-  border-radius: var(--fc-radius-sm);
+  padding: 0.85rem 1rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-text-2);
 }
-.fc-page .fc-globe-card--warn { border-left-color: var(--fc-coral); }
+.fc-page .fc-globe-card--warn { border-left-color: var(--fc-warn); }
 .fc-page .fc-globe-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
-/* The 3D camera buttons, after a thin divider like the checkboxes have. */
-.fc-page .fc-map-controls .fc-cam-pick { padding-left: 4px; border-left: 1px solid var(--fc-border); }
-@media (max-width: 900px) {
-  .fc-page .fc-globe-panel,
-  .fc-page .fc-stage:has(> .fc-stage-tape:empty) .fc-globe-panel,
-  .fc-page .fc-stage:has(> .fc-stage-readings:empty) .fc-globe-panel { padding: 4rem 1rem 1rem; }
-  /* The readings and the tape sit under the map here, so the dialog only
-     covers the map's own box. */
-  .fc-page .fc-globe-dialogs { bottom: auto; height: clamp(460px, 78vh, 680px); }
-}
-@media (max-width: 760px) {
-  .fc-page .fc-map-controls .fc-cam-pick { padding-left: 3px; }
-  .fc-page .fc-globe-credits { font-size: 0.68rem; }
-  .fc-page .fc-globe-credits img { max-height: 18px; }
-}
-
-
-/* ============================================================
-   The readings panel (#fc-stats, stats-panel.js) and the altitude tape
-   (#fc-tape, alt-tape.js). On a wide screen both float over the map: the
-   panel at the top right, the tape along the left edge. On phones they sit
-   under the map: the panel as a two-column grid, the tape as a thin strip.
-   ============================================================ */
 
 /* ------------------------------------------------------------
-   Readings panel
+   The 2D map, if the 3D view can't run (Leaflet on the navy page)
    ------------------------------------------------------------ */
-/* The mount is a flex column with a max height, so the panel can shrink
-   to fit the map and let "More readings" scroll inside it. */
-.fc-page .fc-readings {
-  flex: 0 1 auto;
-  min-height: 0;
+.fc-page .leaflet-container { background: var(--fc-well); font-family: var(--fc-font-text); }
+/* The site's "svg { max-width: 100% }" squeezes the drawing layer of any
+   map pane except Leaflet's own overlay pane, so every pane gets the same
+   exemption. Icons inside markers keep their own size. */
+.fc-page .leaflet-pane > svg,
+.fc-page .leaflet-marker-icon svg { max-width: none; max-height: none; }
+/* On high-resolution screens the photos can show a thin seam where two
+   tiles meet. Each photo is drawn half a pixel bigger so it overlaps its
+   neighbor, with normal blending. */
+.fc-page .fc-sat-tiles img.leaflet-tile { mix-blend-mode: normal; width: 256.5px !important; height: 256.5px !important; }
+.fc-page .leaflet-container a { color: var(--fc-text-2); }
+.fc-page .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--fc-bg) 85%, transparent);
+  color: var(--fc-text-2);
+  /* The satellite credits are long, so the line is cut to fit and opens in
+     full on hover, keyboard focus or a tap. */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fc-page .leaflet-control-attribution:hover,
+.fc-page .leaflet-control-attribution:focus-within,
+.fc-page .leaflet-control-attribution.fc-credit-open { white-space: normal; }
+.fc-page .leaflet-control-zoom a {
+  font-family: var(--fc-font-text);
+  background: var(--fc-float);
+  color: var(--fc-text);
+  border-color: var(--fc-border);
+  border-radius: 0 !important;
+}
+.fc-page .leaflet-control-zoom a:hover { background: var(--fc-panel); color: var(--fc-text); }
+.fc-page .leaflet-control-zoom { border: 1px solid var(--fc-border) !important; border-radius: 0 !important; }
+.fc-page .leaflet-control-scale-line {
+  background: color-mix(in srgb, var(--fc-bg) 85%, transparent);
+  color: var(--fc-text);
+  border-color: var(--fc-text-2);
+  font-family: var(--fc-font-readout);
+}
+.fc-page .leaflet-div-icon { background: none; border: none; }
+/* Leaflet's corners sit above the altitude timeline, and its distance
+   scale above this frame's own controls in the bottom left corner. */
+.fc-page .fc-mapbox .leaflet-bottom { bottom: var(--fc-tl-space, 0px); }
+.fc-page .fc-mapbox .leaflet-bottom.leaflet-left { bottom: calc(max(12px, var(--fc-tl-space, 0px)) + 40px); }
+.fc-page .fc-mapbox .leaflet-control-scale { margin: 0 0 0 12px; }
+.fc-page .fc-mapbox .leaflet-control-zoom { margin: 0 12px 10px 0; }
+.fc-page .fc-mapbox .leaflet-control-zoom a { width: 32px; height: 32px; line-height: 30px; }
+.fc-page .fc-mapbox .leaflet-control-attribution { padding: 1px 8px; }
+.fc-page .fc-mk { background: none; border: 0; }
+.fc-page .fc-mk svg { display: block; }
+
+/* Map labels: small tags in Share Tech Mono, off-white on a deep navy
+   backing with a thin frame and a solid bar on the side that faces the
+   icon. --hud-accent is the frame and bar color (orange while a rocket has
+   no GPS fix). Text is uppercase in the script itself. */
+.fc-page .fc-hud {
+  --hud-accent: var(--fc-text-2);
+  position: absolute;
   display: flex;
   flex-direction: column;
-  padding: 0.8rem 0.95rem 0.35rem;
-  color: var(--fc-text);
+  align-items: flex-start;
+  gap: 1px;
+  padding: 3px 7px 3px 6px;
+  font-family: var(--fc-font-readout);
+  font-weight: 400;
+  color: var(--fc-hud);
+  white-space: nowrap;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--fc-hud-outline) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
+  border-left: 3px solid var(--hud-accent);
+}
+.fc-page .fc-mk-off .fc-hud,
+.fc-page .fc-hud.fc-hud--blocked { visibility: hidden; }
+.fc-page .fc-hud-name { font-size: 12px; line-height: 14px; }
+.fc-page .fc-hud-line2 { font-size: 11px; line-height: 13px; color: var(--fc-hud-2); }
+.fc-page .fc-hud-key { opacity: 0.6; margin-right: 0.4em; }
+.fc-page .fc-hud-key:empty { display: none; }
+.fc-page .fc-hud-speed { margin-left: 0.9em; }
+/* A label on the left of its icon has its bar on the right. */
+.fc-page .fc-rkt--left .fc-rkt-label,
+.fc-page .fc-pad-label,
+.fc-page .fc-gs--left .fc-gs-label {
+  padding: 3px 6px 3px 7px;
+  border-left: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
+  border-right: 3px solid var(--hud-accent);
+}
+.fc-page .fc-pad--right .fc-pad-label,
+.fc-page .fc-pad--below .fc-pad-label {
+  padding: 3px 7px 3px 6px;
+  border-left: 3px solid var(--hud-accent);
+  border-right: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
+}
+/* Rocket. Its marker box has no size: (0, 0) is the rocket's position. */
+.fc-page .fc-rkt { position: absolute; left: 0; top: 0; --w: 16px; --h: 22px; --ring: 46px; --ring-color: var(--fc-accent); }
+.fc-page .fc-rkt--focus { --ring: 76px; }
+.fc-page .fc-rkt-icon { position: absolute; z-index: 1; left: calc(var(--w) / -2); top: calc(var(--h) / -2); width: var(--w); height: var(--h); }
+.fc-page .fc-rkt-label { z-index: 2; top: 0; left: calc(var(--w) / 2 + 8px); transform: translateY(-50%); }
+.fc-page .fc-rkt--left .fc-rkt-label { left: auto; right: calc(var(--w) / 2 + 8px); align-items: flex-end; }
+.fc-page .fc-rkt--below .fc-rkt-label { top: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
+.fc-page .fc-rkt--above .fc-rkt-label { top: auto; bottom: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
+.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-label { opacity: 0.74; }
+.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-name { font-size: 11px; line-height: 13px; }
+.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-line2 { font-size: 10px; line-height: 12px; }
+/* Sonar rings around a rocket with a good fix. Three still rings, which
+   only pulse outward when motion is welcome. */
+.fc-page .fc-rkt-rings { position: absolute; left: 0; top: 0; z-index: 0; }
+.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-rings { opacity: 0.5; }
+.fc-page .fc-rkt-rings i {
+  position: absolute;
+  left: calc(var(--ring) / -2);
+  top: calc(var(--ring) / -2);
+  width: var(--ring);
+  height: var(--ring);
+  box-sizing: border-box;
+  border: 2.5px solid var(--ring-color);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--fc-navy-deep) 50%, transparent), inset 0 0 0 1.5px color-mix(in srgb, var(--fc-navy-deep) 50%, transparent);
+}
+.fc-page .fc-rkt-rings i:nth-child(1) { transform: scale(0.5); opacity: 0.95; }
+.fc-page .fc-rkt-rings i:nth-child(2) { transform: scale(0.76); opacity: 0.6; }
+.fc-page .fc-rkt-rings i:nth-child(3) { transform: scale(1); opacity: 0.3; }
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-rkt-rings i { animation: fc-sonar 2.4s cubic-bezier(0.25, 0.6, 0.4, 1) infinite backwards; }
+  .fc-page .fc-rkt-rings i:nth-child(2) { animation-delay: 0.8s; }
+  .fc-page .fc-rkt-rings i:nth-child(3) { animation-delay: 1.6s; }
+}
+@keyframes fc-sonar {
+  from { transform: scale(0.3); opacity: 1; }
+  to { transform: scale(1); opacity: 0; }
+}
+/* No GPS fix right now: grey and hollow at the last good position, no
+   rings, and an orange second line saying how old the position is. */
+.fc-page .fc-rkt--nofix .fc-rkt-rings { display: none; }
+.fc-page .fc-rkt--nofix .fc-rkt-halo { fill: var(--fc-bg); fill-opacity: 0.92; stroke-width: 3.6; }
+.fc-page .fc-rkt--nofix .fc-rkt-body { fill: none; stroke: var(--fc-muted); stroke-width: 1.5; }
+.fc-page .fc-rkt--nofix .fc-rkt-fins,
+.fc-page .fc-rkt--nofix .fc-rkt-nozzle { display: none; }
+.fc-page .fc-rkt--nofix .fc-rkt-window { fill: none; stroke: var(--fc-muted); stroke-width: 1.2; }
+.fc-page .fc-rkt--nofix .fc-hud-line2 { color: var(--fc-warn); }
+.fc-page .fc-rkt--nofix .fc-rkt-label { --hud-accent: var(--fc-warn); }
+/* Launch rail and ground station tower. */
+.fc-page .fc-pad,
+.fc-page .fc-gs { position: relative; width: 100%; height: 100%; }
+.fc-page .fc-pad-label { top: 11px; right: calc(100% + 5px); transform: translateY(-50%); align-items: flex-end; }
+.fc-page .fc-pad--right .fc-pad-label { right: auto; left: calc(100% + 5px); align-items: flex-start; }
+.fc-page .fc-pad--below .fc-pad-label { top: 39px; right: auto; left: 50%; transform: translateX(-50%); align-items: center; }
+.fc-page .fc-gs-label { top: 16px; left: calc(100% + 4px); transform: translateY(-50%); }
+.fc-page .fc-gs--left .fc-gs-label { left: auto; right: calc(100% + 4px); align-items: flex-end; }
+.fc-page .fc-gs--below .fc-gs-label { top: calc(100% + 4px); left: 50%; transform: translateX(-50%); align-items: center; }
+/* The distance and bearing tag on the ground station line. */
+.fc-page .leaflet-tooltip.fc-tip {
+  padding: 0.15rem 0.5rem;
+  font-family: var(--fc-font-readout);
+  font-size: 0.75rem;
   line-height: 1.3;
-}
-.fc-page .fc-rd-head {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.45rem;
-}
-/* Whose readings these are, with two or more rockets. */
-.fc-page .fc-rd-who {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-  color: var(--fc-text-2);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.fc-page .fc-rd-who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.fc-page .fc-rd-main { flex: none; }
-.fc-page .fc-rd-label { color: var(--fc-text-2); font-size: 0.85rem; line-height: 1.3; }
-
-/* Altitude above ground: the biggest number on the page after the clock. */
-.fc-page .fc-rd-hero { padding-bottom: 0.6rem; border-bottom: 1px solid var(--fc-divider); }
-.fc-page .fc-rd-big {
-  margin-top: 0.15rem;
-  font-size: 2.85rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.02em;
   color: var(--fc-text);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  background: var(--fc-float);
+  border: 1px solid var(--fc-text-2);
+  border-radius: 0;
+  box-shadow: none;
+  white-space: nowrap;
 }
-.fc-page .fc-rd-big .fc-rd-unit { font-size: 0.42em; font-weight: 500; letter-spacing: 0; }
-.fc-page .fc-rd-hero .fc-rd-small { margin-top: 0.3rem; font-size: 0.88rem; }
+.fc-page .leaflet-tooltip.fc-tip::before { display: none; }
+.fc-page .leaflet-tooltip.fc-tip--stale { color: var(--fc-muted); border-color: var(--fc-divider); }
+.fc-page .leaflet-tooltip.fc-tip--away { visibility: hidden; }
+/* No map at all: each rocket's position, distance and bearing. */
+.fc-page .fc-nomap {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 1rem 1rem calc(1rem + var(--fc-tl-space, 0px));
+  background: var(--fc-bg);
+}
+.fc-page .fc-nomap--controls .fc-nomap-head { margin-top: 0; }
+.fc-page .fc-nomap-head {
+  max-width: 40rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-warn);
+}
+.fc-page .fc-nomap-title { font-family: var(--fc-font-head); font-size: 1.15rem; font-weight: 600; line-height: 1.2; color: var(--fc-text); margin: 0 0 0.35rem; }
+.fc-page .fc-nomap-note { color: var(--fc-text-2); line-height: 1.5; margin: 0; }
+.fc-page .fc-nomap-retry { margin-top: 0.75rem; }
+.fc-page .fc-nomap-retry .fc-nomap-note { margin-bottom: 0.45rem; }
+.fc-page .fc-nomap-retry .fc-layer-pick { display: inline-flex; }
+.fc-page .fc-nomap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 0.75rem;
+}
+.fc-page .fc-nomap-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.2rem 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-divider);
+}
+.fc-page .fc-compass { width: 64px; height: 64px; grid-row: span 4; }
+.fc-page .fc-compass-ring { fill: var(--fc-bg); stroke: var(--fc-border); stroke-width: 2; }
+.fc-page .fc-compass-tick { stroke: var(--fc-muted); stroke-width: 1.5; stroke-linecap: round; }
+.fc-page .fc-compass-n { fill: var(--fc-text-2); font-family: var(--fc-font-readout); font-size: 9px; }
+.fc-page .fc-nomap-name { display: flex; align-items: center; gap: 0.5rem; font-family: var(--fc-font-head); font-weight: 600; color: var(--fc-text); }
+.fc-page .fc-nomap-line { color: var(--fc-text); font-family: var(--fc-font-readout); font-size: 0.85rem; line-height: 1.4; }
+.fc-page .fc-nomap-range { color: var(--fc-text-2); }
+.fc-page .fc-nomap-warn { color: var(--fc-warn); }
+.fc-page .fc-nomap-gs { grid-column: 1 / -1; color: var(--fc-text-2); font-size: 0.85rem; padding-top: 0.2rem; }
 
-/* Live rocket data is gold. Old values lose the gold, warnings are coral. */
-.fc-page .fc-rd-big.is-gold,
-.fc-page .fc-rd-value.is-gold { color: var(--fc-gold); }
-.fc-page .fc-rd-big.is-old,
-.fc-page .fc-rd-value.is-old { color: var(--fc-text-2); }
-.fc-page .fc-rd-value.is-warn { color: var(--fc-coral); }
+/* ============================================================
+   Panel 2: graphs and readings. Live, the board's readings, the graphs
+   and the raw output (bench-panel.js). In a replay, the mission timeline,
+   the flight details and the detection check. On a wide screen it fits
+   the window, and long lists scroll inside their own box.
+   ============================================================ */
+.fc-page .fc-data {
+  padding: 12px var(--fc-edge) 14px calc(var(--fc-tab-w) + 12px);
+}
+.fc-page .fc-console[data-mode="replay"] .fc-data-live,
+.fc-page .fc-console:not([data-mode="replay"]) .fc-data-replay { display: none; }
 
-/* The rows: label on the left, value on the right. A value that doesn't
-   fit wraps under its label. */
-.fc-page .fc-rd-list,
-.fc-page .fc-rd-grid { margin: 0; }
-.fc-page .fc-rd-row {
+/* Shared box look for the live panel. */
+.fc-page .bc-box {
+  background: var(--fc-panel);
+  border: 1px solid var(--fc-divider);
+  padding: 0.7rem 0.85rem;
+  min-width: 0;
+}
+.fc-page .bc-box-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.1rem 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--fc-divider);
-  min-width: 0;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.5rem;
 }
-.fc-page .fc-rd-row dt { flex: 0 1 auto; min-width: 0; }
-.fc-page .fc-rd-row dd { margin: 0 0 0 auto; text-align: right; min-width: 0; }
-.fc-page .fc-rd-value {
-  font-size: 1.12rem;
+.fc-page .bc-box-title {
+  margin: 0;
+  font-family: var(--fc-font-head);
+  font-size: 1.1rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--fc-text);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
 }
-.fc-page .fc-rd-unit { font-size: 0.8em; font-weight: 500; }
-.fc-page .fc-rd-arrow { font-size: 0.8em; }
-.fc-page .fc-rd-small {
-  margin-top: 0.1rem;
-  color: var(--fc-text-2);
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1.3;
-}
-.fc-page .fc-rd-small:empty { display: none; }
-/* Long values (ground level, distance from the ground station) sit under
-   their label. */
-.fc-page .fc-rd-row--wide { flex-direction: column; align-items: flex-start; }
-.fc-page .fc-rd-row--wide dd { margin: 0; text-align: left; }
+.fc-page .bc-box-sub { font-family: var(--fc-font-readout); font-size: 0.72rem; color: var(--fc-muted); }
+.fc-page .bc-box-sub[data-stale="yes"] { color: var(--fc-warn); }
+.fc-page .bc-num { font-variant-numeric: tabular-nums; }
 
-/* The GPS note, in coral so it is noticed. */
-.fc-page .fc-rd-alert {
-  flex: none;
-  margin: 0.6rem 0 0.15rem;
-  padding: 0.5rem 0.65rem;
-  border-left: 3px solid var(--fc-coral);
-  border-radius: 0 4px 4px 0;
-  background: color-mix(in srgb, var(--fc-coral) 10%, transparent);
-  color: var(--fc-coral);
-  font-size: 0.85rem;
-  font-weight: 500;
-  line-height: 1.4;
+.fc-page .fc-data-live {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(270px, 330px) minmax(0, 1fr);
+  gap: 12px;
 }
-
-/* "More readings": closed by default. On a wide screen it is the part that
-   scrolls, with its toggle staying at the top while the rows move under it. */
-.fc-page .fc-rd-more {
-  flex: 0 1 auto;
+.fc-page .fc-data-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--fc-border) transparent;
-  margin: 0 -0.95rem;
-  padding: 0 0.95rem;
 }
-.fc-page .fc-rd-more-toggle {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.fc-page .bc-readings { flex: none; }
+
+/* Errors from the board (lines that start with "Error:"). */
+.fc-page .bc-errors {
+  margin: 0 0 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-warn);
+  background: var(--fc-well);
+}
+.fc-page .bc-errors-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.3rem; }
+.fc-page .bc-errors-title { margin: 0; font-family: var(--fc-font-head); font-size: 0.92rem; font-weight: 600; color: var(--fc-warn); }
+.fc-page .bc-errors-list { list-style: none; margin: 0; padding: 0; max-height: 7.5rem; overflow-y: auto; }
+.fc-page .bc-errors-list li {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2.6rem;
-  padding: 0.35rem 0;
-  background: var(--fc-bg);
-  color: var(--fc-text);
+  flex-wrap: wrap;
+  gap: 0.1rem 0.7rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--fc-divider);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.fc-page .bc-errors-list li:first-child { border-top: 0; padding-top: 0; }
+.fc-page .bc-errors-list time { color: var(--fc-muted); font-family: var(--fc-font-readout); font-size: 0.72rem; }
+.fc-page .bc-error-msg { color: var(--fc-text); overflow-wrap: anywhere; }
+.fc-page .bc-error-times { color: var(--fc-muted); font-family: var(--fc-font-readout); font-size: 0.72rem; }
+
+/* Latest readings: one group per section of the board's block. The labels
+   are the board's own, in capitals as it prints them. */
+.fc-page .bc-readings-groups { display: grid; gap: 0.6rem; }
+.fc-page .bc-group-title {
+  margin: 0 0 0.15rem;
+  font-family: var(--fc-font-head);
   font-size: 0.92rem;
   font-weight: 600;
+  line-height: 1.2;
+  color: var(--fc-text-2);
+}
+.fc-page .bc-readings-list { margin: 0; }
+.fc-page .bc-reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 0.75rem;
+  padding: var(--bc-row-pad, 0.24rem) 0;
+  border-top: 1px solid var(--fc-divider);
+}
+.fc-page .bc-reading:first-child { border-top: 0; }
+.fc-page .bc-reading dt {
+  flex: none;
+  max-width: 64%;
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--fc-text-2);
+  overflow-wrap: anywhere;
+}
+.fc-page .bc-reading dd {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--fc-font-readout);
+  font-size: 0.86rem;
+  line-height: 1.3;
+  color: var(--fc-text);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.fc-page .bc-reading dd.is-empty { color: var(--fc-muted); font-size: 0.72rem; }
+.fc-page .bc-reading--note { justify-content: flex-start; }
+.fc-page .bc-reading--note dd { text-align: left; }
+.fc-page .bc-dd-sub { display: block; margin-top: 0.1rem; color: var(--fc-text-2); font-size: 0.68rem; }
+/* The HDOP, on its own line under lock quality. */
+.fc-page .bc-reading dd.bc-reading-note { flex: 1 1 100%; margin-top: 0.05rem; font-size: 0.66rem; color: var(--fc-text-2); }
+/* Status words from the board (LOCKED, SEARCHING, GOOD, LOW, SILENT, ON).
+   The word is always written out, so the color only backs it up: plain for
+   good news, orange for a warning. */
+.fc-page .bc-pill {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--fc-border);
+  font-family: var(--fc-font-readout);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--fc-text);
+}
+.fc-page .bc-pill[data-tone="good"],
+.fc-page .bc-pill[data-tone="on"] { color: var(--fc-text); border-color: var(--fc-text-2); }
+.fc-page .bc-pill[data-tone="warn"] { color: var(--fc-warn); border-color: color-mix(in srgb, var(--fc-orange) 55%, transparent); }
+.fc-page .bc-pill[data-tone="bad"] { color: var(--fc-ink); background: var(--fc-warn); border-color: var(--fc-warn); }
+.fc-page .bc-pill[data-tone="off"] { color: var(--fc-muted); border-color: var(--fc-divider); }
+
+/* Raw serial output, collapsed. Serial text is real machine text, so it
+   uses the site's code font. */
+.fc-page .bc-raw { flex: none; background: var(--fc-panel); border: 1px solid var(--fc-divider); }
+.fc-page .bc-raw > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  font-family: var(--fc-font-head);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fc-text);
   cursor: pointer;
   list-style: none;
-  user-select: none;
 }
-.fc-page .fc-rd-more-toggle::-webkit-details-marker { display: none; }
-.fc-page .fc-rd-more-toggle .fc-ui-ico { color: var(--fc-gold); flex: none; }
-.fc-page .fc-rd-more[open] > .fc-rd-more-toggle { border-bottom: 1px solid var(--fc-divider); }
-.fc-page .fc-rd-more[open] > .fc-rd-more-toggle .fc-ui-ico { transform: rotate(90deg); }
-.fc-page .fc-rd-more-toggle:hover { color: var(--fc-gold); }
-/* The scrolling box would cut off the usual outside focus ring. */
-.fc-page .fc-main .fc-rd-more-toggle:focus-visible { outline-offset: -2px; border-radius: 4px; }
-.fc-page .fc-rd-more-body { padding-bottom: 0.6rem; }
-
-.fc-page .fc-rd-sec { padding-top: 0.65rem; }
-.fc-page .fc-rd-sec + .fc-rd-sec { border-top: 1px solid var(--fc-divider); margin-top: 0.35rem; }
-.fc-page .fc-rd-sec-title { font-size: 0.95rem; font-weight: 600; line-height: 1.25; color: var(--fc-text); margin: 0 0 0.1rem; }
-.fc-page .fc-rd-note { color: var(--fc-text-2); font-size: 0.8rem; line-height: 1.4; margin: 0.2rem 0 0.25rem; }
-.fc-page .fc-rd-grid .fc-rd-row { padding: 0.32rem 0; border-bottom: 0; }
-.fc-page .fc-rd-grid .fc-rd-value { font-size: 1.05rem; }
-.fc-page .fc-rd-sensors {
-  margin: 0.55rem 0 0;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--fc-divider);
-  color: var(--fc-text-2);
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-/* ------------------------------------------------------------
-   Altitude tape (on the map: a vertical scale, 0 m at the bottom)
-   ------------------------------------------------------------ */
-.fc-page .fc-tape {
-  position: relative;
-  box-sizing: border-box;
-  height: 100%;
-  color: var(--fc-text-2);
-  font-size: 0.72rem;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  --p: 0;
-  --high: 0;
-}
-.fc-page .fc-tape-caption { display: none; }
-/* Room at both ends, so the value chip and the end labels stay inside. */
-.fc-page .fc-tape-scale { position: absolute; top: 22px; bottom: 22px; left: 0; right: 0; }
-
-.fc-page .fc-tape-track {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 12px;
-  width: 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--fc-muted) 28%, transparent);
-  overflow: hidden;
-}
-/* Faint gold up to the highest point so far, solid gold up to now. */
-.fc-page .fc-tape-reach,
-.fc-page .fc-tape-fill { position: absolute; left: 0; right: 0; bottom: 0; }
-.fc-page .fc-tape-reach { height: calc(var(--high) * 100%); background: color-mix(in srgb, var(--fc-gold) 32%, transparent); }
-.fc-page .fc-tape-fill { height: calc(var(--p) * 100%); background: var(--fc-gold); }
-.fc-page .fc-tape.is-old .fc-tape-fill { background: var(--fc-muted); }
-
-/* Ticks end at the track. Labeled ones are longer. */
-.fc-page .fc-tape-tick { position: absolute; left: 0; right: 16px; bottom: calc(var(--at) * 100%); height: 0; }
-.fc-page .fc-tape-tick::after {
+.fc-page .bc-raw > summary::-webkit-details-marker { display: none; }
+.fc-page .bc-raw > summary::before {
   content: '';
-  position: absolute;
-  right: 0;
-  top: -0.5px;
-  width: 6px;
-  height: 1px;
-  background: var(--fc-text-2);
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--fc-text-2);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
 }
-.fc-page .fc-tape-tick--minor::after { width: 3px; background: var(--fc-muted); }
-.fc-page .fc-tape-tick-label {
-  position: absolute;
-  right: 9px;
-  top: 0;
-  transform: translateY(-50%);
-  white-space: nowrap;
-}
-.fc-page .fc-tape-tick--max .fc-tape-tick-label { color: var(--fc-text); font-weight: 600; }
-/* A label under the value chip is hidden (alt-tape.js decides). */
-.fc-page .fc-tape-tick-label.is-covered { visibility: hidden; }
-.fc-page .fc-tape-tick-unit { color: var(--fc-text-2); font-weight: 400; }
-
-/* The highest point so far: a short gold line across the track. */
-.fc-page .fc-tape-high {
-  position: absolute;
-  right: 8px;
-  width: 12px;
-  height: 2px;
-  bottom: calc(var(--high) * 100%);
-  transform: translateY(50%);
-  border-radius: 1px;
-  background: var(--fc-gold);
-  box-shadow: 0 0 0 1px rgba(4, 8, 15, 0.7);
+.fc-page .bc-raw[open] > summary::before { transform: rotate(90deg); }
+.fc-page .bc-raw > summary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.fc-page .bc-raw-log {
+  margin: 0 0.6rem 0.6rem;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre;
+  padding: 0.6rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--fc-text);
+  background: var(--fc-well);
+  border: 1px solid var(--fc-divider);
 }
 
-/* The value chip sits on the scale at the altitude now, like the readout
-   box on an aircraft's altitude tape. */
-.fc-page .fc-tape-marker {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: calc(var(--p) * 100%);
-  transform: translateY(50%);
+/* Graphs: the last 10 minutes, two columns and a wide one for the radio,
+   sharing the panel's height. */
+.fc-page .bc-graphs { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.fc-page .bc-graphs-head {
+  flex: none;
   display: flex;
-  justify-content: center;
-  z-index: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 8px;
 }
-.fc-page .fc-tape-chip {
+.fc-page .bc-graph-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.fc-page .bc-graph {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 100%;
-  box-sizing: border-box;
-  padding: 4px 3px;
-  border-radius: 4px;
-  background: var(--fc-gold);
-  color: var(--fc-ink);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
-  font-size: 0.8rem;
-  font-weight: 700;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-.fc-page .fc-tape-unit { font-size: 0.82em; font-weight: 600; }
-.fc-page .fc-tape-last { display: none; font-size: 0.66rem; font-weight: 600; margin-top: 1px; }
-/* Old altitude: grey and hollow, and the chip says it's the last known value. */
-.fc-page .fc-tape.is-old .fc-tape-chip {
-  background: var(--fc-bg);
-  color: var(--fc-text-2);
-  box-shadow: inset 0 0 0 1.5px var(--fc-muted), 0 1px 6px rgba(0, 0, 0, 0.5);
-}
-.fc-page .fc-tape.is-old .fc-tape-last { display: block; }
-
-/* ------------------------------------------------------------
-   Motion: the marker and the gold fill glide between updates. Only for
-   viewers who haven't asked for less motion.
-   ------------------------------------------------------------ */
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-tape-marker,
-  .fc-page .fc-tape-high { transition: bottom 0.12s linear, left 0.12s linear, transform 0.12s linear; }
-  .fc-page .fc-tape-fill,
-  .fc-page .fc-tape-reach { transition: height 0.12s linear, width 0.12s linear; }
-  .fc-page .fc-rd-more-toggle .fc-ui-ico { transition: transform 0.15s ease; }
-}
-
-/* ------------------------------------------------------------
-   Tablets and phones: both sit under the map (the stage stacks at the
-   same width). The panel is a two-column grid and the tape turns
-   sideways (0 m on the left).
-   ------------------------------------------------------------ */
-@media (max-width: 900px) {
-  .fc-page .fc-readings {
-    background: var(--fc-panel);
-    border-radius: var(--fc-radius);
-    box-shadow: none;
-    padding: 1rem 1.1rem 0.4rem;
-  }
-  .fc-page .fc-rd-list,
-  .fc-page .fc-rd-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 1rem;
-  }
-  .fc-page .fc-rd-row { display: block; }
-  .fc-page .fc-rd-row dd { margin: 0.1rem 0 0; text-align: left; }
-  .fc-page .fc-rd-row--wide { grid-column: 1 / -1; }
-  .fc-page .fc-rd-more { overflow: visible; margin: 0; padding: 0; }
-  .fc-page .fc-rd-more-toggle { position: static; background: none; }
-
-  .fc-page .fc-tape {
-    height: auto;
-    padding: 0.8rem 1.1rem 0.75rem;
-    background: var(--fc-panel);
-    border-radius: var(--fc-radius);
-    box-shadow: none;
-  }
-  .fc-page .fc-tape-caption {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0.25rem 1rem;
-    margin-bottom: 0.65rem;
-    font-size: 0.85rem;
-    line-height: 1.3;
-  }
-  .fc-page .fc-tape-key { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .fc-page .fc-tape-key-mark { width: 3px; height: 0.9rem; border-radius: 1px; background: var(--fc-gold); }
-  .fc-page .fc-tape-scale { position: relative; top: auto; bottom: auto; height: 46px; }
-
-  .fc-page .fc-tape-track { top: 11px; bottom: auto; left: 0; right: 0; width: auto; height: 4px; }
-  .fc-page .fc-tape-reach,
-  .fc-page .fc-tape-fill { top: 0; right: auto; height: auto; }
-  .fc-page .fc-tape-reach { width: calc(var(--high) * 100%); }
-  .fc-page .fc-tape-fill { width: calc(var(--p) * 100%); }
-
-  .fc-page .fc-tape-tick { left: calc(var(--at) * 100%); right: auto; bottom: auto; top: 17px; width: 0; height: auto; }
-  .fc-page .fc-tape-tick::after { right: auto; left: -0.5px; top: 0; width: 1px; height: 6px; }
-  .fc-page .fc-tape-tick--minor::after { width: 1px; height: 3px; }
-  .fc-page .fc-tape-tick-label { right: auto; left: 0; top: 11px; transform: translateX(-50%); }
-  .fc-page .fc-tape-tick--min .fc-tape-tick-label { transform: none; }
-  .fc-page .fc-tape-tick--max .fc-tape-tick-label { transform: translateX(-100%); }
-
-  .fc-page .fc-tape-high { left: calc(var(--high) * 100%); right: auto; bottom: auto; top: 5px; width: 2px; height: 16px; transform: translateX(-50%); }
-
-  /* The chip slides along the track and never leaves the strip: at 0 m its
-     left edge is at the start, at the top its right edge is at the end. */
-  .fc-page .fc-tape-marker {
-    left: calc(var(--p) * 100%);
-    right: auto;
-    top: 13px;
-    bottom: auto;
-    transform: translate(calc(var(--p) * -100%), -50%);
-  }
-  .fc-page .fc-tape-chip { flex-direction: row; align-items: baseline; gap: 0.4rem; min-width: 0; padding: 3px 7px; font-size: 0.85rem; }
-  .fc-page .fc-tape-last { margin-top: 0; }
-}
-
-
-/* ============================================================
-   The altitude timeline under the map (js/views/timeline.js): the
-   whole-flight altitude curve with its playhead and event markers, and the
-   play, speed and time row under it.
-   ============================================================ */
-
-.fc-page .fc-tl { padding: 0.95rem 1.1rem 1rem; }
-
-/* ------------------------------------------------------------
-   Head: title, the rocket key (2+ rockets) and the marker legend
-   ------------------------------------------------------------ */
-.fc-page .fc-tl-head { margin-bottom: 0.75rem; align-items: center; }
-.fc-page .fc-tl-titles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 1.25rem;
+  min-height: 0;
   min-width: 0;
-}
-.fc-page .fc-tl-key,
-.fc-page .fc-tl-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 1rem;
-  font-size: 0.85rem;
-  line-height: 1.3;
-  color: var(--fc-text-2);
-}
-.fc-page .fc-tl-key li,
-.fc-page .fc-tl-legend li { display: inline-flex; align-items: center; gap: 0.45rem; }
-.fc-page .fc-tl-key li.is-focused { color: var(--fc-text); font-weight: 600; }
-.fc-page .fc-tl-legend .fc-basis { --basis-size: 12px; }
-/* A short line in a rocket's color, like its line on the strip. */
-.fc-page .fc-tl-swatch {
-  width: 16px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--swatch);
-  flex: none;
-}
-.fc-page .fc-tl-key li.is-focused .fc-tl-swatch { height: 3px; }
-
-/* ------------------------------------------------------------
-   The strip. The slider (.fc-tl-track) fills it and holds the drawing.
-   Markers, labels and the readouts sit in layers over it, next to the
-   slider rather than inside it.
-   ------------------------------------------------------------ */
-.fc-page .fc-tl-strip { position: relative; height: 152px; }
-.fc-page .fc-tl-track {
-  position: absolute;
-  inset: 0;
-  background: var(--fc-bg);
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px var(--fc-divider);
-  overflow: hidden;
-  cursor: pointer;
-  /* A vertical swipe still scrolls the page on phones. */
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.fc-page .fc-tl-track[aria-disabled="true"] { cursor: default; }
-.fc-page .fc-tl-svg { position: absolute; inset: 0; display: block; max-width: none; }
-
-/* Drawing. Thin, quiet guides so the curve does the talking. */
-.fc-page .fc-tl-grid line { stroke: var(--fc-divider); stroke-width: 1; }
-.fc-page .fc-tl-base { stroke: var(--fc-border); stroke-width: 1; }
-.fc-page .fc-tl-ticks line { stroke: var(--fc-border); stroke-width: 1; }
-.fc-page .fc-tl-ticks text {
-  fill: var(--fc-muted);
-  font-family: var(--fc-font-text);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-}
-.fc-page .fc-tl-gaps rect { fill: var(--fc-coral); opacity: 0.1; }
-.fc-page .fc-tl-peak { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.4; }
-.fc-page .fc-tl-others path {
-  fill: none;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  opacity: 0.7;
-}
-.fc-page .fc-tl-area-rest { fill: var(--fc-text); opacity: 0.035; }
-.fc-page .fc-tl-line-rest {
-  fill: none;
-  stroke: var(--fc-muted);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  opacity: 0.55;
-}
-.fc-page .fc-tl-fill-top { stop-color: var(--fc-gold); stop-opacity: 0.26; }
-.fc-page .fc-tl-fill-bottom { stop-color: var(--fc-gold); stop-opacity: 0.03; }
-.fc-page .fc-tl-line-played {
-  fill: none;
-  stroke: var(--fc-gold);
-  stroke-width: 2.5;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.fc-page .fc-tl-stems line { stroke: var(--fc-text-2); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.28; }
-.fc-page .fc-tl-hover-line { stroke: var(--fc-text); stroke-width: 1; opacity: 0.35; }
-/* The playhead: a gold line with a small grip on top. */
-.fc-page .fc-tl-playhead line { stroke: var(--fc-gold); stroke-width: 2; }
-.fc-page .fc-tl-playhead-grip { fill: var(--fc-gold); stroke: var(--fc-bg); stroke-width: 2; }
-/* Where the playhead crosses the curve. */
-.fc-page .fc-tl-now { fill: var(--fc-gold); stroke: var(--fc-bg); stroke-width: 2; }
-
-/* Layer for the markers and labels. Only the marker buttons take clicks,
-   so a click anywhere else lands on the slider and seeks. */
-.fc-page .fc-tl-marks { position: absolute; inset: 0; pointer-events: none; }
-
-/* The highest point's height, on its dashed line. */
-.fc-page .fc-tl-peak-label {
-  position: absolute;
-  transform: translateY(-50%);
-  padding: 0 0.4rem 0 0.15rem;
-  background: var(--fc-bg);
-  color: var(--fc-text-2);
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.fc-page .fc-tl-peak-label.is-right { padding: 0 0.15rem 0 0.4rem; }
-/* The playhead is passing behind the label: fade it so the playhead shows. */
-.fc-page .fc-tl-peak-label.is-under-head { opacity: 0.25; }
-
-/* Event markers: the dot is the shared .fc-basis shape, the button around
-   it is a bigger target. Gold once the playhead reaches the event, muted
-   (like the unplayed curve) before that. */
-.fc-page .fc-tl-mark {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  margin: -13px 0 0 -13px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-.fc-page .fc-tl-mark .fc-basis {
-  --basis-size: 14px;
-  --basis-color: var(--fc-muted);
-  box-shadow: 0 0 0 2px var(--fc-bg);
-}
-.fc-page .fc-tl-mark.is-reached .fc-basis { --basis-color: var(--fc-gold); }
-.fc-page .fc-tl-mark:hover .fc-basis,
-.fc-page .fc-tl-mark:focus-visible .fc-basis { transform: scale(1.18); }
-.fc-page .fc-tl-mark:hover .fc-basis { box-shadow: 0 0 0 2px var(--fc-bg), 0 0 0 4px color-mix(in srgb, var(--fc-gold) 35%, transparent); }
-
-/* "Apogee" and "Main" next to their markers. */
-.fc-page .fc-tl-mark-label {
-  position: absolute;
-  padding: 0.05rem 0.35rem;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--fc-bg) 82%, transparent);
-  color: var(--fc-text-2);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-.fc-page .fc-tl-mark-label.is-reached { color: var(--fc-text); }
-
-/* Hover readout: flight time and altitude at the pointer. */
-.fc-page .fc-tl-hover {
-  position: absolute;
-  top: 4px;
-  display: flex;
-  gap: 0.6rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  background: var(--fc-float);
-  border: 1px solid var(--fc-border);
-  color: var(--fc-text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.3;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.fc-page .fc-tl-hover-alt { color: var(--fc-text-2); font-weight: 500; }
-
-/* Marker tooltip. */
-.fc-page .fc-tl-tip {
-  position: absolute;
-  z-index: 3;
-  width: max-content;
-  max-width: min(34rem, 100%);
-  padding: 0.45rem 0.65rem;
-  border-radius: var(--fc-radius-sm);
+  padding: 0.5rem 0.7rem 0.45rem;
   background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  color: var(--fc-text-2);
-  font-size: 0.85rem;
-  line-height: 1.4;
-  cursor: pointer;
+  border: 1px solid var(--fc-divider);
 }
-.fc-page .fc-tl-tip strong { color: var(--fc-text); font-weight: 600; }
-
-/* No altitude data for the focused rocket. */
-.fc-page .fc-tl-empty {
-  position: absolute;
-  top: calc(50% - 13px);
-  left: 50%;
-  transform: translate(-50%, -50%);
-  max-width: calc(100% - 2rem);
-  margin: 0;
-  padding: 0.3rem 0.75rem;
-  border-radius: var(--fc-radius-sm);
-  background: color-mix(in srgb, var(--fc-bg) 88%, transparent);
-  text-align: center;
-  color: var(--fc-text-2);
-  font-size: 0.95rem;
-  pointer-events: none;
-}
-
-/* ------------------------------------------------------------
-   Controls row: play, speed, time
-   ------------------------------------------------------------ */
-.fc-page .fc-tl-controls {
+.fc-page .bc-graph--wide { grid-column: 1 / -1; }
+.fc-page .bc-graph-head {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 0.75rem;
-  margin-top: 0.85rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 0.8rem;
+  margin-bottom: 0.3rem;
 }
-.fc-page .fc-tl-play { min-width: 7.25rem; }
-.fc-page .fc-tl-controls .fc-seg .fc-btn { min-width: 3.1rem; }
-.fc-page .fc-tl-time {
-  margin: 0 0 0 auto;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--fc-text);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.fc-page .fc-tl-time-total { color: var(--fc-muted); font-weight: 500; }
-
-/* Gentle motion for the marker hover, only for people who are fine with it. */
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-tl-mark .fc-basis { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.fc-page .bc-graph-title { margin: 0; font-family: var(--fc-font-head); font-size: 0.95rem; font-weight: 600; line-height: 1.2; color: var(--fc-text); }
+.fc-page .bc-graph-read { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0.15rem 0.7rem; }
+.fc-page .bc-graph-value { font-family: var(--fc-font-readout); font-size: 0.86rem; color: var(--fc-text); }
+.fc-page .bc-graph-when { font-family: var(--fc-font-readout); font-size: 0.68rem; color: var(--fc-muted); }
+.fc-page .bc-key { display: inline-flex; align-items: baseline; gap: 0.35rem; color: var(--fc-text-2); font-size: 0.8rem; }
+.fc-page .bc-key-line { display: inline-block; width: 14px; height: 2px; align-self: center; }
+.fc-page .bc-key-line--sent { background: var(--bc-sent); }
+.fc-page .bc-key-line--err { background: var(--bc-err); }
+.fc-page .bc-graph-canvas {
+  flex: 1 1 0;
+  display: block;
+  width: 100%;
+  height: 0;
+  min-height: 56px;
+  cursor: crosshair;
+  touch-action: pan-y;
 }
 
 /* ------------------------------------------------------------
-   Phones
+   Panel 2 in a replay: the mission timeline on the left, the flight
+   details and the detection check on the right.
    ------------------------------------------------------------ */
-@media (max-width: 760px) {
-  .fc-page .fc-tl { padding: 0.85rem 1.1rem 0.9rem; }
-  .fc-page .fc-tl-head { gap: 0.5rem 1rem; }
-  .fc-page .fc-tl-key,
-  .fc-page .fc-tl-legend { font-size: 0.8rem; gap: 0.3rem 0.85rem; }
-  .fc-page .fc-tl-strip { height: 116px; }
-  .fc-page .fc-tl-mark { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
-  .fc-page .fc-tl-mark .fc-basis { --basis-size: 12px; }
-  .fc-page .fc-tl-controls { gap: 0.55rem; }
-  .fc-page .fc-tl-play { min-width: 6.5rem; }
+.fc-page .fc-data-replay {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
 }
-
-
-/* ============================================================
-   The part of the console under the altitude timeline: the mission
-   timeline (js/views/event-log.js) on the left, with "About this flight"
-   (flight-info.js) and the detection check (debug-panel.js) stacked on
-   the right. The two-column grid itself is in the console layout above. Phones
-   get one column.
-   Scoped under .fc-page like the rest of the page.
-   ============================================================ */
-
-/* ------------------------------------------------------------
-   Mission timeline
-   ------------------------------------------------------------ */
-.fc-page .fc-log-panel { padding-bottom: 0.75rem; }
-
-/* The scrolling list. It takes keyboard focus, so the gold focus ring
-   needs a little room inside the panel. */
-.fc-page .fc-log-list {
-  --log-pad: 0.55rem;      /* space above and below each entry's text */
-  --log-gap: 0.3rem;       /* space between entries */
-  --log-line: 1.4rem;      /* line height of an entry's text */
-  --basis-size: 14px;
-  list-style: none;
-  max-height: 440px;
+.fc-page .fc-data-log { min-height: 0; display: flex; flex-direction: column; }
+.fc-page .fc-data-log > .fc-log-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.fc-page .fc-data-log .fc-log-region { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.fc-page .fc-data-about {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   overflow-y: auto;
-  padding: 0.2rem 0.2rem 0.1rem;
-  margin: 0 -0.2rem;
-  border-radius: var(--fc-radius-sm);
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--fc-border) transparent;
 }
-/* A soft fade on an edge that has more entries past it (set by
-   event-log.js while scrolling). */
-.fc-page .fc-log-list--above { --fade-top: 1.75rem; }
-.fc-page .fc-log-list--below { --fade-bottom: 1.75rem; }
+.fc-page .fc-data-about > div:empty { display: none; }
+
+/* The mission timeline (event-log.js): every event on a line, each dot
+   drawn by how the event was found. The newest one is orange, the others
+   dim off-white (a lost GPS fix is orange too, set by the script). */
+.fc-page .fc-log-panel { padding-bottom: 0.6rem; }
+.fc-page .fc-log-list {
+  --log-pad: 0.45rem;
+  --log-gap: 0.25rem;
+  --log-line: 1.35rem;
+  --basis-size: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  list-style: none;
+  max-height: none;
+  overflow-y: auto;
+  padding: 0.2rem 0.2rem 0.1rem;
+  margin: 0 -0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-border) transparent;
+}
+.fc-page .fc-log-list--above { --fade-top: 1.5rem; }
+.fc-page .fc-log-list--below { --fade-bottom: 1.5rem; }
 .fc-page .fc-log-list--above,
 .fc-page .fc-log-list--below {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - var(--fade-bottom, 0px)), transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - var(--fade-bottom, 0px)), transparent 100%);
 }
-/* The mask would also hide the focus ring, so it goes away while the list
-   has keyboard focus. */
-.fc-page .fc-log-list:focus-visible {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-/* One entry: the flight time, the dot on the line, the message, and the
-   "Now" tag (only on the newest entry). */
+.fc-page .fc-log-list:focus-visible { -webkit-mask-image: none; mask-image: none; outline-offset: -2px; }
 .fc-page .fc-log-item {
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: 3.9rem 1.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 3.9rem 1.4rem minmax(0, 1fr) auto;
   grid-template-areas: "when mark body now";
   column-gap: 0.5rem;
-  padding: 0 0.75rem 0 0.3rem;
+  padding: 0 0.7rem 0 0.3rem;
 }
-/* The highlight behind the newest entry (clear on the others). It sits
-   behind the text and stops short of the gap below the entry. */
 .fc-page .fc-log-item::before {
   content: "";
   grid-area: 1 / 1 / -1 / -1;
-  margin: 0 -0.75rem var(--log-gap) -0.3rem;
-  border-radius: 8px;
+  margin: 0 -0.7rem var(--log-gap) -0.3rem;
   z-index: -1;
 }
-
 .fc-page .fc-log-time {
   grid-area: when;
   justify-self: end;
   padding-top: var(--log-pad);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-family: var(--fc-font-readout);
+  font-size: 0.8rem;
   line-height: var(--log-line);
   color: var(--fc-muted);
   white-space: nowrap;
 }
-/* The "Now" tag only shows on the newest entry, and only while the
-   playhead is on it (event-log.js adds is-at-playhead). */
 .fc-page .fc-log-now {
   grid-area: now;
   align-self: start;
   display: none;
-  margin-top: calc(var(--log-pad) + (var(--log-line) - 1.3rem) / 2);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.3rem;
-  color: var(--fc-ink);
-  background: var(--fc-gold);
-  border-radius: 999px;
-  padding: 0 0.55rem;
+  margin-top: calc(var(--log-pad) + (var(--log-line) - 1.2rem) / 2);
+  font-family: var(--fc-font-readout);
+  font-size: 0.68rem;
+  line-height: 1.2rem;
+  color: var(--fc-text);
+  box-shadow: inset 0 0 0 1px var(--fc-text-2);
+  padding: 0 0.45rem;
   white-space: nowrap;
 }
-
-/* The vertical line runs through every entry's dot column. It starts at
-   the first dot and ends at the last one. */
 .fc-page .fc-log-mark {
   grid-area: mark;
   position: relative;
@@ -2790,180 +2104,413 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 2px;
-  margin-left: -1px;
+  width: 1px;
   background: var(--fc-border);
 }
 .fc-page .fc-log-item:first-child .fc-log-mark::before { top: calc(var(--log-pad) + var(--log-line) / 2); }
 .fc-page .fc-log-item:last-child .fc-log-mark::before { bottom: auto; height: calc(var(--log-pad) + var(--log-line) / 2); }
 .fc-page .fc-log-item:only-child .fc-log-mark::before { display: none; }
-.fc-page .fc-log-mark .fc-basis { position: relative; }
-
-.fc-page .fc-log-body {
-  grid-area: body;
-  min-width: 0;
-  padding: var(--log-pad) 0 var(--log-pad);
-  margin-bottom: var(--log-gap);
-}
+.fc-page .fc-log-mark .fc-basis { position: relative; --basis-color: var(--fc-text-2); }
+.fc-page .fc-log-item.is-now .fc-log-mark .fc-basis { --basis-color: var(--fc-accent); }
+.fc-page .fc-log-body { grid-area: body; min-width: 0; padding: var(--log-pad) 0; margin-bottom: var(--log-gap); }
 .fc-page .fc-log-rocket {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.88rem;
+  font-family: var(--fc-font-head);
+  font-size: 0.85rem;
   font-weight: 600;
   line-height: var(--log-line);
   color: var(--dot, var(--fc-text));
 }
-.fc-page .fc-log-msg {
-  font-size: 0.95rem;
-  line-height: var(--log-line);
-  color: var(--fc-text-2);
-  overflow-wrap: anywhere;
-}
-
-/* The newest entry: gold time, a soft gold band, brighter text and a halo
-   around its dot. */
+.fc-page .fc-log-msg { font-size: 0.88rem; line-height: var(--log-line); color: var(--fc-text-2); overflow-wrap: anywhere; }
 .fc-page .fc-log-item.is-now::before {
-  background: var(--fc-gold-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fc-gold) 38%, transparent);
+  background: color-mix(in srgb, var(--fc-offwhite) 7%, transparent);
+  box-shadow: inset 2px 0 0 var(--fc-text-2);
 }
-.fc-page .fc-log-item.is-now .fc-log-time { color: var(--fc-gold); }
+.fc-page .fc-log-item.is-now .fc-log-time { color: var(--fc-text); }
 .fc-page .fc-log-item.is-now .fc-log-now { display: inline-block; visibility: hidden; }
 .fc-page .fc-log-item.is-now.is-at-playhead .fc-log-now { visibility: visible; }
 .fc-page .fc-log-item.is-now .fc-log-msg { color: var(--fc-text); }
-.fc-page .fc-log-item.is-now .fc-basis { box-shadow: 0 0 0 4px color-mix(in srgb, var(--basis-color, var(--fc-gold)) 26%, transparent); }
+.fc-page .fc-log-empty { color: var(--fc-muted); font-size: 0.88rem; line-height: 1.5; padding: 0.5rem 0.4rem; }
 
-.fc-page .fc-log-empty {
-  color: var(--fc-muted);
-  font-size: 0.95rem;
-  line-height: 1.5;
-  padding: 0.6rem 0.4rem 0.7rem;
-}
-
-/* Phones: the dot column moves to the left edge, and the time (with the
-   "Now" tag) sits on its own line above the message. */
-@media (max-width: 760px) {
-  .fc-page .fc-log-list { max-height: 380px; }
-  .fc-page .fc-log-item {
-    grid-template-columns: 1.5rem auto minmax(0, 1fr);
-    grid-template-areas:
-      "mark when now"
-      "mark body body";
-    column-gap: 0.55rem;
-    padding: 0 0.7rem 0 0.25rem;
-  }
-  .fc-page .fc-log-item::before { margin: 0 -0.7rem var(--log-gap) -0.25rem; }
-  .fc-page .fc-log-time { justify-self: start; }
-  .fc-page .fc-log-now { justify-self: start; }
-  .fc-page .fc-log-body { padding-top: 0.05rem; }
-}
-
-/* ------------------------------------------------------------
-   About this flight
-   ------------------------------------------------------------ */
-.fc-page .fc-info-title {
-  font-size: 1.05rem;
-  line-height: 1.3;
-  color: var(--fc-text);
-  margin: 0 0 0.35rem;
-}
-.fc-page .fc-info-desc {
-  color: var(--fc-text-2);
-  font-size: 0.95rem;
-  line-height: 1.55;
-}
+/* About this flight (flight-info.js), with COPY LINK. */
+.fc-page .fc-info-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.fc-page .fc-info-title { font-family: var(--fc-font-head); font-size: 1rem; font-weight: 600; line-height: 1.3; color: var(--fc-text); margin: 0 0 0.3rem; }
+.fc-page .fc-info-desc { color: var(--fc-text-2); font-size: 0.88rem; line-height: 1.55; }
 .fc-page .fc-info-list {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  gap: 0.6rem 1.1rem;
-  margin-top: 0.95rem;
-  padding-top: 0.9rem;
+  gap: 0.45rem 1rem;
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--fc-divider);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   line-height: 1.45;
 }
-.fc-page .fc-info-list dt { color: var(--fc-muted); }
+.fc-page .fc-info-list dt { color: var(--fc-muted); font-family: var(--fc-font-readout); font-size: 0.74rem; padding-top: 0.12rem; }
 .fc-page .fc-info-list dd { color: var(--fc-text); min-width: 0; overflow-wrap: anywhere; }
-/* Several values in one row (files, rockets, notes) each get a line. */
 .fc-page .fc-info-line { display: block; }
 .fc-page .fc-info-line + .fc-info-line { margin-top: 0.3rem; }
 .fc-page .fc-info-rocket { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.45rem; }
 .fc-page .fc-info-strong { font-weight: 600; }
 .fc-page .fc-info-keep { white-space: nowrap; }
 .fc-page .fc-info-soft { color: var(--fc-text-2); }
-
-/* Very narrow screens: labels above their values. */
-@media (max-width: 420px) {
-  .fc-page .fc-info-list { grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
-  .fc-page .fc-info-list dd + dt { margin-top: 0.55rem; }
+/* COPY LINK keeps both labels in one grid cell and shows one, so it keeps
+   its width. */
+.fc-page .fc-copy { display: inline-grid; }
+.fc-page .fc-copy-face { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }
+.fc-page .fc-copy-face--done,
+.fc-page .fc-copy--done .fc-copy-face--idle { visibility: hidden; }
+.fc-page .fc-copy--done .fc-copy-face--done { visibility: visible; }
+.fc-page .fc-btn.fc-copy.fc-copy--done { color: var(--fc-text); border-color: var(--fc-text); background: color-mix(in srgb, var(--fc-offwhite) 12%, transparent); }
+.fc-page .fc-copy-fallback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin: 0 0 0.7rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--fc-well);
+  border: 1px solid var(--fc-divider);
+  border-left: 2px solid var(--fc-text-2);
+}
+.fc-page .fc-copy-field-label { color: var(--fc-text-2); font-size: 0.85rem; }
+.fc-page .fc-copy-field {
+  flex: 1 1 16rem;
+  min-width: 0;
+  font-family: var(--fc-font-readout);
+  font-size: 0.8rem;
+  color: var(--fc-text);
+  background: var(--fc-bg);
+  border: 1px solid var(--fc-border);
+  border-radius: 0;
+  padding: 0.4rem 0.55rem;
 }
 
-/* ------------------------------------------------------------
-   Detection check
-   ------------------------------------------------------------ */
+/* Detection check (debug-panel.js): closed at first. */
 .fc-page .fc-debug { padding: 0; }
 .fc-page .fc-debug > summary {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.9rem 1.1rem;
-  /* Reads as a panel title, like the other panels' h2s. */
-  font-family: var(--fc-font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  font-family: var(--fc-font-head);
+  font-size: 1.02rem;
+  font-weight: 600;
   line-height: 1.3;
   color: var(--fc-text);
   cursor: pointer;
   list-style: none;
-  border-radius: var(--fc-radius);
 }
 .fc-page .fc-debug > summary::-webkit-details-marker { display: none; }
-.fc-page .fc-debug > summary:hover { background: #18233a; }
-.fc-page .fc-debug[open] > summary { border-radius: var(--fc-radius) var(--fc-radius) 0 0; }
-.fc-page .fc-debug > summary .fc-ui-ico { flex: none; color: var(--fc-gold); }
+.fc-page .fc-debug > summary:hover { color: var(--fc-text); text-decoration: underline; text-underline-offset: 3px; }
+.fc-page .fc-debug > summary .fc-ui-ico { flex: none; color: var(--fc-text-2); }
 .fc-page .fc-debug[open] > summary .fc-ui-ico { transform: rotate(90deg); }
-
 .fc-page .fc-debug-body {
   display: grid;
-  gap: 0.85rem;
-  padding: 0.95rem 1.1rem 1.1rem;
+  gap: 0.7rem;
+  padding: 0.75rem 1rem 0.9rem;
   border-top: 1px solid var(--fc-divider);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 .fc-page .fc-debug-intro { color: var(--fc-text-2); }
-/* The true and detected phase right now. */
 .fc-page .fc-debug-now {
   color: var(--fc-text);
-  background: var(--fc-bg);
+  background: var(--fc-well);
   border: 1px solid var(--fc-divider);
-  border-radius: var(--fc-radius-sm);
-  padding: 0.6rem 0.8rem;
+  padding: 0.5rem 0.7rem;
+  font-family: var(--fc-font-readout);
+  font-size: 0.8rem;
 }
 .fc-page .fc-debug-list { list-style: none; }
-.fc-page .fc-debug-list li {
-  color: var(--fc-text-2);
-  padding: 0.55rem 0;
-  border-top: 1px solid var(--fc-divider);
-}
+.fc-page .fc-debug-list li { color: var(--fc-text-2); padding: 0.45rem 0; border-top: 1px solid var(--fc-divider); }
 .fc-page .fc-debug-list li:last-child { border-bottom: 1px solid var(--fc-divider); }
-.fc-page .fc-debug-event { color: var(--fc-text); font-weight: 600; }
-.fc-page .fc-debug-list strong { color: var(--fc-gold); font-weight: 600; }
+.fc-page .fc-debug-event { color: var(--fc-text); font-family: var(--fc-font-head); font-weight: 600; }
+.fc-page .fc-debug-list strong { color: var(--fc-text); font-weight: 600; }
 .fc-page .fc-debug-bad { color: var(--fc-muted); }
 
-/* ------------------------------------------------------------
-   Motion (only for viewers who haven't asked for less)
-   ------------------------------------------------------------ */
-@media (prefers-reduced-motion: no-preference) {
-  /* A new entry slides up into place during normal playback. */
-  .fc-page .fc-log-item--new { animation: fc-log-in 0.4s ease-out; }
-  /* The gold band fades off the entry that is no longer the newest. */
-  .fc-page .fc-log-item::before { transition: background-color 0.5s ease, box-shadow 0.5s ease; }
-  .fc-page .fc-debug > summary .fc-ui-ico { transition: transform 0.2s ease; }
+/* Message screen headings use the theme's heading font. */
+.fc-page .fc-message h1 { font-family: var(--fc-font-head); font-weight: 600; }
 
+/* ============================================================
+   Narrower windows and phones. Each panel still fills the screen under
+   the bar. Panel 2 scrolls inside itself, and so does a long readings
+   panel. The page never scrolls sideways.
+   ============================================================ */
+@media (max-width: 1100px) {
+  .fc-page .fc-overlay { grid-template-columns: minmax(0, 1fr) minmax(0, 270px); }
+  .fc-page .fc-data-live { grid-template-columns: minmax(250px, 290px) minmax(0, 1fr); }
+}
+
+/* Short desktop windows (720 px tall, say): the readings get a little
+   tighter, so the whole column still fits without scrolling. */
+@media (min-width: 821px) and (max-height: 820px) {
+  .fc-page .fc-data { padding-top: 8px; padding-bottom: 10px; }
+  .fc-page .fc-data-live { --bc-row-pad: 0.1rem; }
+  .fc-page .bc-box { padding: 0.55rem 0.75rem; }
+  .fc-page .bc-box-head { margin-bottom: 0.3rem; }
+  .fc-page .bc-readings-groups { gap: 0.4rem; }
+  .fc-page .bc-errors { margin-bottom: 0.4rem; }
+  .fc-page .bc-raw > summary { padding-block: 0.4rem; }
+}
+
+/* Tablets and phones: panel 2 stacks into one column and scrolls. */
+@media (max-width: 820px) {
+  .fc-page .fc-data { overflow-y: auto; overscroll-behavior: contain; }
+  .fc-page .fc-data-live,
+  .fc-page .fc-data-replay { height: auto; display: flex; flex-direction: column; gap: 10px; }
+  .fc-page .fc-data-side { overflow: visible; }
+  .fc-page .bc-graph-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .fc-page .bc-graph-canvas { flex: none; height: 132px; }
+  .fc-page .fc-data-about { overflow: visible; }
+  .fc-page .fc-log-list { max-height: 340px; }
+}
+
+/* Narrow windows: Cesium's credits sit on their own line just above the
+   bottom left corner's controls (map-view.js keeps their height in
+   --fc-ctl-h), so the two never overlap. */
+@media (max-width: 860px) {
+  .fc-page .fc-globe-credits {
+    bottom: calc(max(12px, var(--fc-tl-space, 0px)) + var(--fc-ctl-h, 36px) + 6px);
+    max-width: calc(100% - 16px - var(--fc-tab-w, 0px));
+  }
+}
+
+/* Short windows (a laptop's browser, say): the readings and the timeline
+   get tighter, so the readings and their "More readings" toggle still fit
+   above the credits. */
+@media (min-width: 641px) and (max-height: 760px) {
+  .fc-page .fc-overlay { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .fc-page .fc-mission { padding-block: 0.45rem 0.5rem; }
+  .fc-page .fc-mission-clock { font-size: 1.8rem; }
+  .fc-page .fc-readings { padding-top: 0.45rem; }
+  .fc-page .fc-rd-head { margin-bottom: 0.15rem; }
+  .fc-page .fc-rd-big { font-size: 1.75rem; }
+  .fc-page .fc-rd-hero { padding-bottom: 0.3rem; }
+  .fc-page .fc-rd-list .fc-rd-row { padding: 0.22rem 0; }
+  .fc-page .fc-rd-more-toggle { min-height: 1.9rem; }
+  .fc-page .fc-tl { padding-block: 0.35rem 0.45rem; }
+  .fc-page .fc-tl-head { margin-bottom: 0.2rem; }
+  .fc-page .fc-tl-strip { height: 76px; }
+  .fc-page .fc-tl-controls { gap: 0.25rem; }
+  .fc-page .fc-tl-controls .fc-btn { min-height: 1.9rem; padding-block: 0.35rem; }
+}
+/* Very short windows: the whole readings panel scrolls, and "More
+   readings" opens in place under the main rows. */
+@media (min-width: 641px) and (max-height: 620px) {
+  .fc-page .fc-readings {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--fc-border) transparent;
+  }
+  .fc-page .fc-rd-more { flex: none; overflow: visible; }
+  .fc-page .fc-rd-more-toggle { position: static; background: none; }
+}
+
+/* Phones: everything over the 3D view in one column, compact. */
+@media (max-width: 640px) {
+  .fc-page .fc-console { --fc-tab-w: 26px; --fc-edge: 10px; }
+  .fc-page .fc-bar { flex-wrap: wrap; min-height: 48px; padding-block: 6px; gap: 6px 8px; }
+  .fc-page .fc-connect { min-width: 0; padding: 0.5rem 0.65rem; font-size: 0.78rem; gap: 0.45rem; }
+  .fc-page .fc-dd-button { padding: 0.5rem 0.6rem; font-size: 0.78rem; gap: 0.4rem; }
+  /* The replay's name takes its own row under the two buttons. */
+  .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; }
+  .fc-page .fc-replay-name { font-size: 0.95rem; }
+  .fc-page .fc-main a.fc-dd-item { grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-areas: "mark name name" ". date time"; row-gap: 0.15rem; }
+  .fc-page .fc-dd-mark { grid-area: mark; }
+  .fc-page .fc-dd-name { grid-area: name; }
+  .fc-page .fc-dd-date { grid-area: date; }
+  .fc-page .fc-dd-time { grid-area: time; min-width: 0; }
+
+  .fc-page .fc-flip { height: 60px; margin-top: -30px; }
+
+  .fc-page .fc-overlay {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "top" "rockets" "readings" "." "timeline";
+    gap: 6px;
+    padding: 8px 8px 8px 8px;
+  }
+  .fc-page .fc-ov-top { flex-direction: column; align-items: stretch; gap: 6px; }
+  .fc-page .fc-ov-phases { max-width: none; }
+  /* The clock, its caption and the labels on one short line. The flight's
+     name is already in the bar, so the rocket's name here is only read
+     out by screen readers. */
+  .fc-page .fc-mission { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.7rem; padding: 0.35rem 0.6rem; }
+  .fc-page .fc-mission-time { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+  .fc-page .fc-mission-clock { font-size: 1.3rem; }
+  .fc-page .fc-mission-caption { margin: 0; max-width: 9.5rem; font-size: 0.6rem; line-height: 1.25; }
+  .fc-page .fc-mission-id { margin: 0 0 0 auto; padding: 0; border: 0; justify-content: flex-end; }
+  .fc-page .fc-mission-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .fc-page .fc-mission .fc-pill { font-size: 0.62rem; padding: 0.1rem 0.35rem; }
+  /* The six phases in one short line. When each one started is in the
+     mission timeline in panel 2. */
+  .fc-page .fc-phase-list { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 0.4rem 0.5rem 0.35rem; }
+  .fc-page .fc-phase { gap: 0.25rem; }
+  .fc-page .fc-phase-name { font-size: 0.74rem; }
+  .fc-page .fc-phase-when { display: none; }
+  .fc-page .fc-main .fc-phase-list:focus-visible { outline-offset: -2px; }
+  .fc-page .fc-rocketbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .fc-page .fc-chip { flex: none; width: min(200px, 64vw); }
+
+  /* The readings: one compact grid of three columns (the altitude first),
+     with "More readings" scrolling inside. */
+  .fc-page .fc-ov-readings { max-height: 40vh; }
+  .fc-page .fc-readings { padding: 0.35rem 0.6rem 0; }
+  .fc-page .fc-rd-head { display: none; }
+  .fc-page .fc-rd-main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.3rem 0.6rem; }
+  .fc-page .fc-rd-list { display: contents; }
+  .fc-page .fc-rd-hero { border-bottom: 0; padding-bottom: 0; }
+  .fc-page .fc-rd-label { font-size: 0.6rem; line-height: 1.25; }
+  .fc-page .fc-rd-big { font-size: 1.3rem; }
+  .fc-page .fc-rd-hero .fc-rd-small { display: none; }
+  .fc-page .fc-rd-main .fc-rd-row { display: block; padding: 0; border-bottom: 0; }
+  .fc-page .fc-rd-main .fc-rd-row dd { margin: 0.1rem 0 0; text-align: left; }
+  .fc-page .fc-rd-main .fc-rd-row--wide { grid-column: span 2; }
+  .fc-page .fc-rd-main .fc-rd-value { font-size: 0.82rem; }
+  .fc-page .fc-rd-main .fc-rd-small { display: none; }
+  .fc-page .fc-rd-alert { margin-top: 0.3rem; padding: 0.3rem 0.45rem; font-size: 0.72rem; }
+  .fc-page .fc-rd-more-toggle { min-height: 1.6rem; padding: 0.15rem 0; font-size: 0.78rem; }
+
+  /* The 3D view's controls in one small row. */
+  .fc-page .fc-map-controls { gap: 4px; }
+  .fc-page .fc-map-controls .fc-btn--sm { font-size: 0.64rem; padding: 0.35rem 0.42rem; min-height: 1.85rem; }
+
+  /* The timeline: play, the speeds and the time in one row under a short
+     strip. Its heading is only read out by screen readers here, since the
+     strip shows what it is. */
+  .fc-page .fc-tl { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "strip" "controls"; padding: 0.35rem 0.5rem 0.4rem; }
+  .fc-page .fc-tl-head { margin: 0; }
+  .fc-page .fc-tl-head .fc-panel-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .fc-page .fc-tl-key:not([hidden]) { margin-bottom: 0.3rem; }
+  .fc-page .fc-tl-legend { display: none; }
+  .fc-page .fc-tl-strip { height: 52px; }
+  .fc-page .fc-tl-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; margin-top: 0.35rem; }
+  .fc-page .fc-tl-controls .fc-btn { min-height: 1.95rem; padding-block: 0.35rem; font-size: 0.74rem; }
+  .fc-page .fc-tl-play { width: auto; min-width: 5.6rem; }
+  .fc-page .fc-tl-controls .fc-seg .fc-btn { flex: none; min-width: 2.4rem; }
+  .fc-page .fc-tl-time { margin-left: auto; }
+
+  .fc-page .fc-map-topleft { left: 8px; }
+  .fc-page .fc-globe-credits { font-size: 0.62rem; }
+  .fc-page .fc-globe-credits img { max-height: 15px; }
+
+  .fc-page .fc-data { padding: 8px 10px 12px calc(var(--fc-tab-w) + 8px); }
+  .fc-page .fc-log-item { grid-template-columns: 1.4rem auto minmax(0, 1fr); grid-template-areas: "mark when now" "mark body body"; column-gap: 0.5rem; padding: 0 0.6rem 0 0.25rem; }
+  .fc-page .fc-log-item::before { margin: 0 -0.6rem var(--log-gap) -0.25rem; }
+  .fc-page .fc-log-time { justify-self: start; }
+  .fc-page .fc-log-now { justify-self: start; }
+  .fc-page .fc-log-body { padding-top: 0.05rem; }
+}
+/* Short phones (and phones turned sideways): the overlays would leave
+   almost nothing of the 3D view, so panel 1 stacks instead and scrolls
+   inside itself. The clock and phase strip on top, then the 3D view at a
+   fixed height, then the readings and the timeline. A drag on the 3D view
+   still turns its camera. Panel 2 scrolls too. */
+@media (max-width: 640px) and (max-height: 720px), (max-height: 520px) {
+  .fc-page .fc-stage {
+    --fc-tl-space: 0px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px calc(var(--fc-tab-w) + 6px) 10px 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .fc-page .fc-stage::before { display: none; }
+  .fc-page .fc-overlay { display: contents; }
+  /* Each part keeps its full height. The stage scrolls instead of
+     squeezing them. */
+  .fc-page .fc-ov-top,
+  .fc-page .fc-ov-rockets,
+  .fc-page .fc-ov-readings,
+  .fc-page .fc-ov-timeline { flex: none; }
+  .fc-page .fc-ov-top { order: 1; flex-direction: column; align-items: stretch; gap: 6px; }
+  .fc-page .fc-ov-phases { max-width: none; }
+  .fc-page .fc-mission { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.2rem 0.8rem; padding: 0.45rem 0.65rem; }
+  .fc-page .fc-mission-clock { font-size: 1.7rem; }
+  .fc-page .fc-mission-id { margin: 0; padding: 0; border: 0; justify-content: flex-end; }
+  .fc-page .fc-ov-rockets { order: 2; }
+  .fc-page .fc-stage-map { order: 3; position: relative; inset: auto; flex: none; height: max(260px, 58vh); }
+  .fc-page .fc-ov-readings { order: 4; max-height: none; }
+  .fc-page .fc-ov-timeline { order: 5; }
+  .fc-page .fc-rd-more { overflow: visible; }
+  .fc-page .fc-rd-more-toggle { position: static; background: none; }
+  /* The stage's own padding already keeps the 3D view clear of the arrow
+     tab, so its controls and credits can use the whole width. */
+  .fc-page .fc-map-topleft { max-width: calc(100% - 16px); }
+  .fc-page .fc-globe-credits { max-width: 100%; }
+  /* Idle, with no overlays, the 3D view takes the whole panel. */
+  .fc-page .fc-console[data-mode="idle"] .fc-stage { padding: 0; overflow: hidden; }
+  .fc-page .fc-console[data-mode="idle"] .fc-stage-map { height: 100%; }
+  .fc-page .fc-data { overflow-y: auto; overscroll-behavior: contain; }
+  .fc-page .fc-data-live,
+  .fc-page .fc-data-replay { height: auto; display: flex; flex-direction: column; gap: 10px; }
+  .fc-page .fc-data-side,
+  .fc-page .fc-data-about { overflow: visible; }
+  .fc-page .bc-graph-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .fc-page .bc-graph-canvas { flex: none; height: 132px; }
+  .fc-page .fc-log-list { max-height: 340px; }
+}
+
+/* Very narrow screens: the info list puts labels above their values. */
+@media (max-width: 420px) {
+  .fc-page .fc-info-list { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+  .fc-page .fc-info-list dd + dt { margin-top: 0.5rem; }
+  .fc-page .fc-dd-button > span { white-space: nowrap; }
+}
+
+/* ============================================================
+   Motion, only for viewers who haven't asked for less
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  /* The panels slide. */
+  .fc-page .fc-screens-track { transition: transform 0.5s cubic-bezier(0.22, 0.7, 0.2, 1); }
+  .fc-page .fc-dd-chevron { transition: transform 0.15s ease; }
+  .fc-page .fc-connect,
+  .fc-page .fc-btn,
+  .fc-page .fc-flip { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+  .fc-page .fc-phase-bar { transition: background-color 0.3s; }
+  .fc-page .fc-phase-name,
+  .fc-page .fc-phase-when { transition: color 0.3s; }
+  .fc-page .fc-rd-more-toggle .fc-ui-ico,
+  .fc-page .fc-debug > summary .fc-ui-ico { transition: transform 0.15s ease; }
+  .fc-page .fc-tl-mark .fc-basis { transition: transform 0.15s ease; }
+  /* A new mission timeline entry slides up into place during playback. */
+  .fc-page .fc-log-item--new { animation: fc-log-in 0.4s ease-out; }
+  .fc-page .fc-log-item::before { transition: background-color 0.5s ease, box-shadow 0.5s ease; }
+  /* The CONNECT square blinks slowly while the link is busy. */
+  .fc-page .fc-connect[aria-disabled="true"] .fc-connect-mark { animation: fc-blink 1s steps(2, jump-none) infinite; }
   @keyframes fc-log-in {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
+  }
+  @keyframes fc-blink {
+    from { background: transparent; }
+    to { background: currentColor; }
   }
 }
 

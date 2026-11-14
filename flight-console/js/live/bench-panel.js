@@ -1,8 +1,8 @@
 // bench-panel.js: the Bench Console's panels, moved here from its main.js
 // so the Flight Console can show them for a board on USB. It reads the
-// lines it's handed and keeps every panel up to date: the connection bar,
-// the errors box, the latest readings, the graphs, the raw output and Save
-// as CSV.
+// lines it's handed and keeps every part up to date: the CONNECT button in
+// the console's bar (it shows the link state on itself), the errors box,
+// the latest readings, the graphs, the raw output and Save as CSV.
 //
 // Data flow: text lines -> BlockParser (one status block per second) -> one
 // record per block (kept for the CSV) -> latest values and the 10-minute
@@ -19,15 +19,22 @@
 //   link onLink:  panel.setLink(state, text)
 //   link onNote:  panel.note(text, kind)
 //
-// It looks up the same bc-* element ids the Bench Console page used. The
-// Position trace (bc-track-canvas, bc-track-info, bc-track-osm) and the
-// connection controls (bc-connect, bc-disconnect, bc-link-dot,
-// bc-link-text, bc-link-note, bc-unsupported) are optional: if they're
-// missing, that part is skipped.
+// It looks up the bc-* element ids in the page. The Position trace
+// (bc-track-canvas, bc-track-info, bc-track-osm) and the connection parts
+// (bc-connect, bc-connect-text, bc-link-text, bc-link-note, bc-unsupported)
+// are optional: if they're missing, that part is skipped.
+//
+// One button connects and disconnects. Its words follow the link:
+// CONNECT, CONNECTING while the port picker is open or the port opens,
+// DISCONNECT while connected, DISCONNECTING. Its data-state is the link
+// state, and data-beat says whether the board's blocks are arriving on
+// time ('ok'), are late ('late'), or aren't expected ('none'). In a browser
+// without Web Serial, pressing it shows the Chrome or Edge warning
+// (bc-unsupported) instead.
 
-import { BANNER, FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '../bench/parse.js?v=3';
+import { FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '../bench/parse.js?v=3';
 import { buildCsv, csvFileName } from '../bench/csv.js?v=3';
-import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=3';
+import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=4';
 import { LINK_TEXT, serialSupported } from './serial-link.js';
 
 const WINDOW_MS = 10 * 60 * 1000;   // the graphs and the trace keep the last 10 minutes
@@ -36,6 +43,14 @@ const HEARTBEAT_LATE_MS = 3000;     // a block comes every second, so 3 s withou
 const STALE_MS = 3000;              // readings older than this are marked as old
 const RAW_LINES = 1000;             // lines kept in "Raw serial output", about 45 blocks
 const ERRORS_SHOWN = 50;
+
+// The readings' group headings for the board's section names. GPS is
+// spelled out here, its first use on the screen.
+const SECTION_TITLES = {
+  GPS: 'Global Positioning System (GPS)',
+  'GPS MOTION MODEL': 'GPS motion model',
+  RADIO: 'Radio',
+};
 
 // One entry per graph: its canvas, its series and how to show a value.
 const CHARTS = [
@@ -49,8 +64,8 @@ const CHARTS = [
 // options:
 //   onBlock(block)    each finished block, in order (see BlockParser.push in bench/parse.js)
 //   onRestart()       the board restarted (TIME RUNNING or the heartbeat number went back)
-//   onConnect()       Connect was pressed, if the page has a bc-connect button
-//   onDisconnect()    Disconnect was pressed, if the page has a bc-disconnect button
+//   onConnect()       CONNECT was pressed while not connected
+//   onDisconnect()    it was pressed while connected (it says DISCONNECT then)
 //   supported         whether the browser can open serial ports (default: it checks)
 //   root              where the graphs ([data-chart]) are looked for, and where
 //                     the --bc-* colors are read from (default: document.body)
@@ -58,18 +73,13 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   const $ = (id) => document.getElementById(id);
   const el = {
     connect: $('bc-connect'),
-    disconnect: $('bc-disconnect'),
+    connectText: $('bc-connect-text'),
     save: $('bc-save'),
     unsupported: $('bc-unsupported'),
-    linkDot: $('bc-link-dot'),
     linkText: $('bc-link-text'),
     linkNote: $('bc-link-note'),
-    beatDot: $('bc-beat-dot'),
-    beatText: $('bc-beat-text'),
-    beatNum: $('bc-beat-num'),
-    lostDot: $('bc-lost-dot'),
-    lost: $('bc-lost'),
-    count: $('bc-count'),
+    // The note's box, with its close button (or the note alone).
+    linkNoteBox: $('fc-link-note-box') ?? $('bc-link-note'),
     errors: $('bc-errors'),
     errorsList: $('bc-errors-list'),
     errorsCount: $('bc-errors-count'),
@@ -89,7 +99,6 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
 
   const state = {
     link: 'idle',
-    refocus: false,       // Connect or Disconnect had focus when it turned off (see setLink)
     savedBlocks: 0,       // blocks in the last CSV file saved
     parser: new BlockParser(),
     blocks: [],           // every block this visit, for the CSV
@@ -97,7 +106,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     latest: {},           // key -> newest value
     latestT: null,        // when the newest block finished arriving
     beat: null,           // { t, heartbeat } from the newest banner
-    lostBlocks: 0,        // heartbeat numbers skipped, this visit
+    lostBlocks: 0,        // heartbeat numbers skipped, this visit (not shown now)
     clock: null,          // { boardT, t }: the newest TIME RUNNING (ms) and when its banner arrived
     runStart: null,       // board time of the first block since the page loaded or the board restarted
     errors: [],           // { t, message, times }
@@ -112,35 +121,49 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   // Connection
   // ------------------------------------------------------------------
 
+  // The CONNECT button's words for each link state.
+  const BUTTON_TEXT = {
+    picking: 'CONNECTING',
+    opening: 'CONNECTING',
+    open: 'DISCONNECT',
+    closing: 'DISCONNECTING',
+  };
+  const isBusy = (link) => link === 'picking' || link === 'opening' || link === 'closing';
+
   // `text` is what the serial link says for this state (its LINK_TEXT).
+  // Screen readers hear it from the status line next to the button. The
+  // button never turns off, so keyboard focus stays on it. While the link
+  // is busy it says so (aria-disabled) and ignores presses.
   function setLink(link, text = LINK_TEXT[link] ?? link) {
     state.link = link;
     if (el.linkText) el.linkText.textContent = text;
-    if (el.linkDot) el.linkDot.dataset.state = link;
-    const busy = link === 'picking' || link === 'opening' || link === 'closing';
-    // Pressing Connect or Disconnect turns that button off. Keyboard focus
-    // would fall back to the page, so it goes to the other button instead
-    // once that one is on again.
-    const active = document.activeElement;
-    if (active && (active === el.connect || active === el.disconnect)) state.refocus = true;
-    if (el.connect) el.connect.disabled = !supported || busy || link === 'open';
-    if (el.disconnect) el.disconnect.disabled = link !== 'open';
-    if (state.refocus) {
-      const focused = document.activeElement;
-      const lost = !focused || focused === document.body || focused.disabled;
-      const next = [el.disconnect, el.connect].find((b) => b && !b.disabled);
-      if (lost && next) next.focus({ preventScroll: true });
-      // Done once the link settles, or if focus went somewhere else.
-      if (!busy || !lost) state.refocus = false;
+    if (el.connect) {
+      el.connect.dataset.state = link;
+      if (isBusy(link)) el.connect.setAttribute('aria-disabled', 'true');
+      else el.connect.removeAttribute('aria-disabled');
     }
+    if (el.connectText) el.connectText.textContent = BUTTON_TEXT[link] ?? 'CONNECT';
     scheduleRender();
+  }
+
+  // One press: connect, or disconnect while connected. A browser without
+  // Web Serial gets the Chrome or Edge warning instead.
+  function onConnectPress() {
+    if (isBusy(state.link)) return;
+    if (!supported) {
+      if (el.unsupported) el.unsupported.hidden = false;
+      return;
+    }
+    if (state.link === 'open') onDisconnect?.();
+    else onConnect?.();
   }
 
   function note(text, kind = 'info') {
     if (!el.linkNote) return;
     el.linkNote.textContent = text;
     el.linkNote.dataset.kind = kind;
-    el.linkNote.hidden = !text;
+    el.linkNoteBox.dataset.kind = kind;
+    el.linkNoteBox.hidden = !text;
   }
 
   // A new connection just opened.
@@ -186,8 +209,8 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     if (r.restarted) {
       clearSeries();
       note(hasTrack
-        ? 'The board restarted, so the graphs and the position trace started over. The CSV file still has every block.'
-        : 'The board restarted, so the graphs started over. The CSV file still has every block.');
+        ? 'The board restarted, so the graphs and the position trace started over. The comma-separated values (CSV) file still has every block.'
+        : 'The board restarted, so the graphs started over. The comma-separated values (CSV) file still has every block.');
       tell(onRestart);
     }
   }
@@ -312,7 +335,6 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     const { t0, t1 } = timeSpan(now);
     if (state.link === 'open') prune(t1);
 
-    el.count.textContent = state.blocks.length.toLocaleString();
     el.save.disabled = state.blocks.length === 0;
 
     renderHeartbeat(now);
@@ -323,20 +345,14 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     if (el.raw.open) renderRaw();
   }
 
+  // Whether the board's blocks are arriving on time, on the CONNECT
+  // button (data-beat). Only while connected: after a disconnect the last
+  // block is expected to be old.
   function renderHeartbeat(now) {
-    if (!state.beat) {
-      el.beatText.textContent = 'None yet';
-      el.beatDot.dataset.state = 'none';
-      el.beatNum.hidden = true;
-      el.lostDot.dataset.state = 'none';
-      return;
-    }
-    el.beatText.textContent = ago(state.beat.t, now);
-    el.beatDot.dataset.state = now - state.beat.t > HEARTBEAT_LATE_MS ? 'late' : 'ok';
-    el.beatNum.hidden = state.beat.heartbeat === null;
-    el.beatNum.textContent = `${BANNER.heartbeat} #${state.beat.heartbeat}`;
-    el.lost.textContent = state.lostBlocks.toLocaleString();
-    el.lostDot.dataset.state = state.lostBlocks ? 'late' : 'ok';
+    if (!el.connect) return;
+    let beat = 'none';
+    if (state.link === 'open' && state.beat) beat = now - state.beat.t > HEARTBEAT_LATE_MS ? 'late' : 'ok';
+    if (el.connect.dataset.beat !== beat) el.connect.dataset.beat = beat;
   }
 
   // A status word in its color: LOCKED, SEARCHING, GOOD, LOW, SILENT, ON.
@@ -358,7 +374,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   function showValue(dd, field, value) {
     dd.classList.toggle('is-empty', !value);
     if (!value) {
-      dd.textContent = 'No data yet';
+      dd.textContent = 'NO DATA';
       return;
     }
     const unit = value.unit || field.unit || '';
@@ -371,11 +387,12 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
       else if (!value.word) parts.push(value.text);
     } else if (field.kind === 'quality') {
       parts.push(numberText(value, unit));
-      if (value.hdopRaw) {
-        const sub = document.createElement('span');
-        sub.className = 'bc-dd-sub';
-        sub.textContent = `${field.hdop} ${value.hdopRaw}`;
-        parts.push(sub);
+      // The HDOP goes on its own line under the row (readingRow made it),
+      // spelled out, since this is its first use on the screen.
+      const note = dd.parentElement?.querySelector('.bc-reading-note');
+      if (note) {
+        note.textContent = value.hdopRaw ? `Horizontal dilution of precision (${field.hdop}) ${value.hdopRaw}` : '';
+        note.hidden = !value.hdopRaw;
       }
     } else {
       parts.push(numberText(value, unit));
@@ -391,12 +408,20 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     const dd = document.createElement('dd');
     dd.className = 'bc-num';
     row.append(dt, dd);
+    // Lock quality also has the HDOP, on a line of its own.
+    if (field.kind === 'quality') {
+      const note = document.createElement('dd');
+      note.className = 'bc-reading-note bc-num';
+      note.hidden = true;
+      row.append(note);
+    }
     return { row, dd };
   }
 
   // One group per section, in the board's order, built once at the start.
   // A section of ON and OFF fields (GPS MOTION MODEL) shows only the ones
-  // that are ON.
+  // that are ON. The headings are the board's section names, with GPS
+  // spelled out the first time it shows (SECTION_TITLES).
   function buildReadings() {
     const groups = SECTIONS.map((section) => {
       const fields = FIELDS.filter((f) => f.section === section);
@@ -404,7 +429,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
       group.className = 'bc-group';
       const title = document.createElement('h3');
       title.className = 'bc-group-title';
-      title.textContent = section;
+      title.textContent = SECTION_TITLES[section] ?? section;
       const dl = document.createElement('dl');
       dl.className = 'bc-readings-list';
       group.append(title, dl);
@@ -440,7 +465,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
       if (key === g.shown) continue;
       g.shown = key;
       if (!seen) {
-        g.dl.replaceChildren(emptyRow('No data yet'));
+        g.dl.replaceChildren(emptyRow('NO DATA'));
         continue;
       }
       // If none is ON, every field shows, so it's clear they're all OFF.
@@ -461,7 +486,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     }
   }
 
-  // A row with no label, for "No data yet" in a section that shows only what's ON.
+  // A row with no label, for NO DATA in a section that shows only what's ON.
   function emptyRow(text) {
     const row = document.createElement('div');
     row.className = 'bc-reading bc-reading--note';
@@ -498,9 +523,10 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   }
 
   // A graph point as text, in the board's own style: "17.3 m",
-  // "100 % (HDOP 0.99)", "GOOD 723 char/s".
+  // "100 % (HDOP 0.99)", "GOOD 723 char/s". Empty before any data (the
+  // graph itself says NO DATA).
   function chartValue(key, p, digits) {
-    if (!p) return 'No data';
+    if (!p) return '';
     const n = p.v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
     const unit = state.units[key] || FIELD[key].unit || '';
     if (key === 'quality') return `${n} ${unit}${p.hdop ? ` (${FIELD.quality.hdop} ${p.hdop})` : ''}`;
@@ -526,11 +552,14 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
         const p = hovering ? c.chart.pointAt(s.key, state.hoverT) : lastPoint(state.series[s.key]);
         const text = chartValue(s.key, p, c.def.digits);
         c.values[s.key].textContent = text;
-        summary.push(c.def.series.length > 1 ? `${s.name} ${text}` : text);
+        summary.push(c.def.series.length > 1 ? `${s.name} ${text || 'none'}` : text || 'none');
       }
+      const none = !hovering && c.def.series.every((s) => !lastPoint(state.series[s.key]));
       c.when.textContent = hovering ? `At ${formatRunning(state.hoverT)}` : 'Latest';
-      c.when.hidden = !hovering && c.def.series.every((s) => !lastPoint(state.series[s.key]));
-      c.canvas.setAttribute('aria-label', `${c.def.name} graph, last 10 minutes. ${hovering ? `At ${formatRunning(state.hoverT)} running,` : 'Latest'} ${summary.join(', ')}.`);
+      c.when.hidden = none;
+      c.canvas.setAttribute('aria-label', none
+        ? `${c.def.name} graph, no data yet.`
+        : `${c.def.name} graph, last 10 minutes. ${hovering ? `At ${formatRunning(state.hoverT)} running,` : 'Latest'} ${summary.join(', ')}.`);
     }
   }
 
@@ -633,7 +662,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   function start() {
     theme = readTheme(root);
     const colors = {
-      alt: theme.gold, sats: theme.gold, quality: theme.gold, gpsRate: theme.gold,
+      alt: theme.accent, sats: theme.accent, quality: theme.accent, gpsRate: theme.accent,
       radioSent: theme.sent, radioErrors: theme.err,
     };
 
@@ -659,11 +688,9 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     });
     if (hasTrack) track = new TrackPlot(el.trackCanvas, { theme });
 
-    if (!supported && el.unsupported) el.unsupported.hidden = false;
     setLink('idle');
 
-    if (el.connect && onConnect) el.connect.addEventListener('click', onConnect);
-    if (el.disconnect && onDisconnect) el.disconnect.addEventListener('click', onDisconnect);
+    el.connect?.addEventListener('click', onConnectPress);
     el.save.addEventListener('click', saveCsv);
     el.errorsClear.addEventListener('click', clearErrors);
     el.raw.addEventListener('toggle', onRawToggle);
@@ -684,8 +711,7 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     destroyed = true;
     clearInterval(timer);
     resize?.disconnect();
-    if (el.connect && onConnect) el.connect.removeEventListener('click', onConnect);
-    if (el.disconnect && onDisconnect) el.disconnect.removeEventListener('click', onDisconnect);
+    el.connect?.removeEventListener('click', onConnectPress);
     el.save.removeEventListener('click', saveCsv);
     el.errorsClear.removeEventListener('click', clearErrors);
     el.raw.removeEventListener('toggle', onRawToggle);
