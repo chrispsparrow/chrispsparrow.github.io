@@ -1792,6 +1792,12 @@ export function createMapView(root, ctx) {
 
   function drawFallback() {
     if (!nomapList) return;
+    // The panel keeps its text in the part of the view the HUD leaves free.
+    if (view === 'map' && body.isConnected && body.clientWidth > 0) {
+      const ins = freeInsets(body);
+      const pad = `${Math.round(ins.top)}px ${Math.round(ins.right)}px ${Math.round(ins.bottom)}px ${Math.round(ins.left)}px`;
+      if (body.style.padding !== pad) body.style.padding = pad;
+    }
     const gs = store.getGroundStation();
     const rockets = store.getRockets();
     const ids = rockets.map((r) => r.id).join('|');
