@@ -2116,6 +2116,7 @@ export function createMapView(root, ctx) {
       if (threeOverMap && three !== 'ready' && mode === 'leaflet') drawLeaflet();
     } else if (mode === 'leaflet') drawLeaflet();
     else if (mode === 'fallback') drawFallback();
+    watchCovers();
     placeCorner();
     placeLegend();
     checkCovers();
@@ -2170,32 +2171,51 @@ export function createMapView(root, ctx) {
   });
 
   // The HUD's blocks change size (MORE opens, the timeline appears), so the
-  // corner and FOLLOW BOARD look again when they do.
+  // corner, the KEY and FOLLOW BOARD look again when they do. main.js makes
+  // the HUD after this view, so its blocks are picked up as they appear
+  // (watchCovers runs on every draw and every check).
+  const watched = new WeakSet();
+  function watchCovers() {
+    if (!coverObserver) return;
+    for (const el of [...coverElements(), frame, corner]) {
+      if (watched.has(el)) continue;
+      watched.add(el);
+      coverObserver.observe(el);
+    }
+  }
   if ('ResizeObserver' in window) {
     coverObserver = new ResizeObserver(() => {
       coversChanged();
       scheduler.schedule();
     });
-    for (const el of coverElements()) coverObserver.observe(el);
-    coverObserver.observe(frame);
-    coverObserver.observe(corner);
+    watchCovers();
   }
-  // Some of them also move without changing size (in a short window, GPS,
+  // Some blocks also move without changing size (in a short window, GPS,
   // HDOP and PKT move up next to ALT when the flight lands, and the corner
-  // moves with them). So the covered areas are compared on every draw
-  // (checkCovers), and again in the frame after the console's state or
-  // mode changes, since that is what moves them.
-  const consoleEl = root.closest('.fc-console');
-  if (consoleEl && 'MutationObserver' in window) {
+  // moves with them), and some open while nothing is drawn (MORE on a
+  // paused replay). So the covered areas are compared on every draw
+  // (checkCovers), and also right after the console's state or mode
+  // changes and right after anything in the HUD layer is shown or hidden.
+  // That check runs before the next frame is painted, so the board never
+  // shows under the HUD for a frame, and once more in the next frame in
+  // case the HUD was still being redrawn.
+  const recheck = () => {
+    if (destroyed) return;
+    watchCovers();
+    placeCorner();
+    placeLegend();
+    checkCovers();
+    scheduler.schedule();
+  };
+  if ('MutationObserver' in window) {
     stateObserver = new MutationObserver(() => {
-      requestAnimationFrame(() => {
-        if (destroyed) return;
-        placeCorner();
-        checkCovers();
-        scheduler.schedule();
-      });
+      recheck();
+      requestAnimationFrame(recheck);
     });
-    stateObserver.observe(consoleEl, { attributes: true, attributeFilter: ['data-state', 'data-mode'] });
+    const consoleEl = root.closest('.fc-console');
+    if (consoleEl) stateObserver.observe(consoleEl, { attributes: true, attributeFilter: ['data-state', 'data-mode'] });
+    const overlay = root.closest('.fc-stage')?.querySelector('.fc-overlay');
+    if (overlay) stateObserver.observe(overlay, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
   }
 
   // A hook for the browser tests: where every point WHOLE FLIGHT frames is

@@ -281,8 +281,8 @@
 .fc-page .fc-map-legend.is-sheet::before {
   background: linear-gradient(to right,
     color-mix(in srgb, var(--fc-black) 0%, transparent),
-    color-mix(in srgb, var(--fc-black) 93%, transparent) 16px,
-    color-mix(in srgb, var(--fc-black) 93%, transparent) 78%,
+    color-mix(in srgb, var(--fc-black) 97%, transparent) 16px,
+    color-mix(in srgb, var(--fc-black) 97%, transparent) 84%,
     color-mix(in srgb, var(--fc-black) 0%, transparent));
 }
 .fc-page .fc-legend-list {
