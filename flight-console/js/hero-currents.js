@@ -245,6 +245,10 @@ const FISH_EDGE_SHARPEN = 1.5;
 // fishShade), so they come out longer but not much brighter. Below
 // FISH_BOOST_FROM the streaks inside keep the ocean's own speed.
 const FISH_SPEED_FLOOR = 170;
+// Boost (squared): how much of that dimming is let go by FISH_VISIBILITY 1,
+// where the fish may be a little brighter than the water so they are plain
+// to see in calm water too.
+const FISH_SHADE_EASE = 0.7;
 
 // ------------------------------------------------------------------
 // The flow, sized for a 1920 by 1080 window. Sizes are CSS px and speeds
@@ -364,6 +368,7 @@ export function startCurrents(canvas, options = {}) {
   let fishSpread = 1;   // how far to the side of its line a fish streak may sit, in gaps
   let fishFloor = 0;    // the fish's floor speed, times unit when used
   let edgeGain = 1;
+  let shadePow = 0.5;   // see fishShade
   function setFishLook(onPhone) {
     const v = fishVis > 0 ? Math.min(1, fishVis + (onPhone ? PHONE_FISH_VISIBILITY : 0)) : 0;
     fishSwap = Math.min(1, v * FISH_SWAP_GAIN);
@@ -371,6 +376,7 @@ export function startCurrents(canvas, options = {}) {
     fishSpread = 1 - FISH_LINE_GATHER * fishBoost;
     fishFloor = FISH_SPEED_FLOOR * fishBoost;
     edgeGain = 1 + FISH_EDGE_SHARPEN * fishBoost * fishBoost;
+    shadePow = 0.5 * (1 - FISH_SHADE_EASE * fishBoost * fishBoost);
   }
   // The anatomy weight (0 outside a fish, 1 well inside) turned into the
   // fish's pull: the share of the streaks there that are the fish's own.
@@ -1076,7 +1082,7 @@ export function startCurrents(canvas, options = {}) {
       fishShade = 1;
     } else {
       fishSpeed = floor;
-      fishShade = Math.sqrt(Math.max(fishOcean, floor * 0.1) / floor);
+      fishShade = Math.pow(Math.max(fishOcean, floor * 0.1) / floor, shadePow);
     }
     return (fishSpeed * k) / FLOW_STEP;
   }
