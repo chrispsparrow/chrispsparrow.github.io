@@ -43,7 +43,7 @@
   --fc-ink: var(--fc-black);               /* text on amber */
   --fc-float: color-mix(in srgb, var(--fc-black) 78%, transparent); /* the soft dark fade behind text over the map */
   /* A thin black outline for white text over bright terrain. */
-  --fc-text-outline: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.75);
+  --fc-text-outline: -1px 0 0 var(--fc-black-deep), 1px 0 0 var(--fc-black-deep), 0 -1px 0 var(--fc-black-deep), 0 1px 0 var(--fc-black-deep), 0 0 6px color-mix(in srgb, var(--fc-black-deep) 75%, transparent);
   --fc-radius: 0;
   --fc-radius-sm: 0;
   --fc-gap: clamp(0.6rem, 1.2vw, 0.85rem);
@@ -554,7 +554,9 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   inset: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  /* The side columns never get narrower than their longest line, so the
+     HUD never runs into the phase bar. The middle gives way instead. */
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, 1.5fr) minmax(min-content, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   grid-template-areas:
     "tl  top tr"
@@ -1087,6 +1089,25 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   white-space: nowrap;
 }
 .fc-page .fc-tl-time-total { color: var(--fc-text-2); }
+
+/* ============================================================
+   Narrow windows (a tablet, a small browser window): the phase bar takes
+   its own row at the top, with the HUD's two columns under it.
+   ============================================================ */
+@media (min-width: 641px) and (max-width: 960px) {
+  .fc-page .fc-overlay {
+    grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "top top"
+      "tl  tr"
+      "tl  more"
+      "bl  ."
+      "ctl ctl"
+      "tm  tm";
+  }
+  .fc-page .fc-ov-top { width: 100%; }
+}
 
 /* ============================================================
    Shorter windows (a laptop's browser): everything a little tighter, so

@@ -156,6 +156,12 @@ export function createHud(root, ctx) {
   const moreBody = h('div', { class: 'fc-hud-more-body' });
   const more = h('section', { class: 'fc-hud-more', id: moreId, 'data-fc-cover': '', 'aria-label': 'All readings', tabindex: '-1', hidden: true },
     moreBody);
+  // Escape inside the column closes it and puts focus back on MORE.
+  more.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    setMore(false);
+  });
 
   // ------------------------------------------------------------------
   // Bottom left: GPS, HDOP and PKT

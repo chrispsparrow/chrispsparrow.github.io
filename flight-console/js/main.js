@@ -519,7 +519,7 @@ function setFlightState(st, { quiet = false } = {}) {
   el.dataset.state = state;
   if (quiet || screen === 'loading') return;
   if (state === STATE.FLIGHT && before === STATE.PAD) announce('Liftoff detected. The flight readout is showing.');
-  else if (state === STATE.RECOVERY) announce('Landing detected. Where to find the board is at the top left.');
+  else if (state === STATE.RECOVERY) announce('Landing detected. The recovery details are at the top left.');
 }
 
 // ------------------------------------------------------------------
