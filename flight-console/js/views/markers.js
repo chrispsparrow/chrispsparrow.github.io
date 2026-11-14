@@ -1,57 +1,99 @@
 // markers.js
-// The markers the 3D view and the 2D map draw, as SVG markup strings:
-// the Dogtooth board, the start point (the launch point in a replay) and
-// the ground station's dish. The 3D view turns them into small canvases
-// for Cesium. The map puts them inside Leaflet markers, and the KEY shows
-// them with iconNode() from icons.js. None of them has a text label: the
-// readings panel says what the labels used to say.
+// The look of everything the 3D view and the 2D map draw on the map, in
+// one place, so the two views and the KEY always match:
+//   - the breadcrumbs: a small dot per received fix and the thin line that
+//     joins the good ones, with their sizes and outline
+//   - the Dogtooth board, the launch point and Manta's dish, as SVG markup
+//   - the event diamond (apogee, drogue, main, landed) and the recovery
+//     crosshair
+//   - the packet ring, the radio link and its traveling dot
+//   - small samples of each for the KEY
+// The 3D view turns the SVG markup into small canvases for Cesium. The map
+// puts it inside Leaflet markers, and the KEY shows it with iconNode()
+// from icons.js. The names next to the markers are drawn by map-labels.js.
 //
 // The board marker always stands upright and keeps one size on screen. No
-// board sends orientation data yet, so it never turns to suggest which
-// way the rocket points.
+// board sends orientation data yet, so it never turns to suggest which way
+// the rocket points.
 //
 // Used by: globe-view.js and map-view.js.
 
-import { HALO_COLOR, PAD_COLOR } from '../config.js';
+import { HALO_COLOR, PAD_COLOR, COLOR_WHITE } from '../config.js';
+import { TRACK_RAMP } from '../track.js';
 
 // The board's blue. #184590 is the soldermask as the 3D viewer on
 // projects/avionics-pcb.html renders it, sampled from
 // assets/flight-console/dogtooth-board-blue.png (a render with the
-// viewer's lighting). The model's raw material color (mat_29 in
-// avionics-pcb.min.glb, converted to sRGB) is #01306F, which is the same
-// blue before any light falls on it and reads almost black on a map.
+// viewer's lighting, where it is the most common color). The model's raw
+// material color (mat_29 in avionics-pcb.min.glb, converted to sRGB) is
+// #01306F, which is the same blue before any light falls on it and reads
+// almost black on a map.
 export const BOARD_BLUE = '#184590';
-const OFF_WHITE = PAD_COLOR;   // the theme's off-white, #E8EDF2
-const DIM = '#A0A3A9';         // the theme's dim off-white
-const NAVY = '#07060D';        // the theme's near-black background
-const HALO = HALO_COLOR;       // the dark outline, #07060D
+export const OFF_WHITE = PAD_COLOR;     // the theme's off-white, #E8EDF2
+export const WHITE = COLOR_WHITE;       // the theme's white, #FFFFFF
+export const DIM = '#A0A3A9';           // the theme's dim off-white
+export const NEAR_BLACK = HALO_COLOR;   // the theme's near-black, #07060D
+const HALO = HALO_COLOR;                // the dark outline
 
-// The trail behind each board marker, on the map and in 3D: a thin solid
-// line that fades out like a comet's tail. It shows the last TRAIL_WINDOW_S
-// seconds of good positions before the marker, and is TRAIL_WIDTH_PX wide
-// for the focused rocket (orange, TRACK_COLOR in config.js) and
-// TRAIL_OTHER_WIDTH_PX for the others (their own colors). A gap in the
-// positions is left as a break.
-export const TRAIL_WINDOW_S = 30;
-export const TRAIL_WIDTH_PX = 2;
-export const TRAIL_OTHER_WIDTH_PX = 1.5;
+// ------------------------------------------------------------------
+// Breadcrumbs: one dot per received fix, joined by a thin line.
+// ------------------------------------------------------------------
+// A good fix: a solid dot this wide (px) in its speed color, with a dark
+// outline this wide (px) around it.
+export const DOT_PX = 5;
+export const DOT_OUTLINE_PX = 1;
+// A weak fix (it failed the quality gate): a hollow grey ring this wide
+// (px), drawn in WEAK_COLOR with the same dark outline.
+export const WEAK_DOT_PX = 6;
+export const WEAK_LINE_PX = 1.25;
+export const WEAK_COLOR = DIM;
+// The line through the good fixes: this wide (px), in the speed colors,
+// with a dark outline this wide (px) on each side.
+export const LINE_PX = 2;
+export const LINE_OUTLINE_PX = 1;
+// Other rockets in a flight with several (not the focused one) get a
+// thinner line and smaller dots in their own grey, so the focused board's
+// speed colors stand out.
+export const OTHER_LINE_PX = 1.5;
+export const OTHER_DOT_PX = 4;
+// The ground shadow in 3D: the same line laid flat on the terrain under
+// the real one, this wide (px), in near-black at this opacity.
+export const SHADOW_PX = 3;
+export const SHADOW_ALPHA = 0.45;
 
-// The orange rings around a board with a good GPS fix pulse outward once
-// every RING_PULSE_MS, three rings a third of the way apart, as on the map
-// (its CSS animation, fc-sonar, takes the same 2.4 s). While they pulse, the
-// 3D view redraws at most RING_PULSE_FPS times a second. Viewers who ask
-// for less motion get three still rings and no redraws.
-export const RING_PULSE_MS = 2400;
-export const RING_PULSE_FPS = 30;
+// ------------------------------------------------------------------
+// The packet ring: one thin white ring that grows out of the board marker
+// and fades each time a packet arrives. It grows to RING_PX across over
+// RING_MS. A packet that comes while a ring is still running starts no
+// new one, so at fast playback it stays one ring at a time. Viewers who
+// ask for less motion get no ring.
+// ------------------------------------------------------------------
+export const RING_PX = 44;
+export const RING_MS = 900;
+export const RING_LINE_PX = 1.5;
+// Each ring starts at this share of its full size.
+export const RING_FROM_SCALE = 0.3;
+
+// ------------------------------------------------------------------
+// The radio link from the board to Manta: a thin, faint, dashed white
+// line. Each packet sends a small white dot along it from the board to
+// Manta, taking LINK_TRAVEL_MS (none with less motion asked for).
+// ------------------------------------------------------------------
+export const LINK_COLOR = WHITE;
+export const LINK_ALPHA = 0.5;
+export const LINK_PX = 1.25;
+export const LINK_DASH_PX = [6, 5];
+export const LINK_TRAVEL_MS = 700;
+export const LINK_DOT_PX = 5;
 
 // ------------------------------------------------------------------
 // The Dogtooth board: a plain rounded rectangle in the board's blue with a
 // thin off-white outline, upright like the real board (about 3 wide to 4
 // tall). The focused board is the larger size. With no GPS fix right now
-// it turns hollow: a solid navy middle and a dim outline (the map does the
-// same with CSS, through the .fc-brd-body class). The middle stays solid
-// so the start dot, which sits under a board on a desk, doesn't show
-// through it.
+// it turns hollow: a solid near-black middle and a dim outline (the map
+// does the same with CSS, through the .fc-brd-body class). The middle
+// stays solid so the launch point, which sits under a board on a desk,
+// doesn't show through it.
 // ------------------------------------------------------------------
 export const BOARD_FOCUSED = Object.freeze([18, 24]);
 export const BOARD_OTHER = Object.freeze([14, 18]);
@@ -62,13 +104,13 @@ export function boardSvg([w, h], { hollow = false } = {}) {
   const r = Math.round(Math.min(w, h) * 0.2 * 2) / 2;
   return `<svg class="fc-ico-board" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" focusable="false">` +
     `<rect class="fc-brd-body" x="${inset}" y="${inset}" width="${w - BOARD_LINE}" height="${h - BOARD_LINE}" rx="${r}"` +
-    ` fill="${hollow ? NAVY : BOARD_BLUE}" stroke="${hollow ? DIM : OFF_WHITE}" stroke-width="${BOARD_LINE}"/>` +
+    ` fill="${hollow ? NEAR_BLACK : BOARD_BLUE}" stroke="${hollow ? DIM : OFF_WHITE}" stroke-width="${BOARD_LINE}"/>` +
     '</svg>';
 }
 
 // ------------------------------------------------------------------
-// Start point (the launch point in a replay): a small off-white dot with a
-// thin dark ring. Its middle sits on the spot.
+// The launch point (where the board sat still before liftoff): a small
+// off-white dot with a thin dark ring. Its middle sits on the spot.
 // ------------------------------------------------------------------
 export const START_SIZE = 12;
 
@@ -79,10 +121,11 @@ export function startSvg() {
 }
 
 // ------------------------------------------------------------------
-// Ground station: a small satellite dish in an off-white outline, tilted
-// up on a short stand, about the size of the board marker. A dark line
-// under the drawing keeps it visible on bright ground. DISH_ANCHOR is the
-// middle of the stand's foot, which sits on the ground station's position.
+// Manta, the ground station: a small satellite dish in an off-white
+// outline, tilted up on a short stand, about the size of the board marker.
+// A dark line under the drawing keeps it visible on bright ground.
+// DISH_ANCHOR is the middle of the stand's foot, which sits on Manta's
+// position.
 // ------------------------------------------------------------------
 export const DISH_SIZE = Object.freeze([26, 29]);
 export const DISH_ANCHOR = Object.freeze([12, 26.5]);
@@ -102,4 +145,80 @@ export function dishSvg() {
     `<g fill="none" stroke="${OFF_WHITE}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${DISH_LINES}</g>` +
     `<circle cx="${FEED.cx}" cy="${FEED.cy}" r="1.4" fill="${OFF_WHITE}"/>` +
     '</svg>';
+}
+
+// ------------------------------------------------------------------
+// A flight event (apogee, drogue, main, landed): a small white diamond
+// with a thin dark outline, on the fix where it happened. Its middle sits
+// on the spot.
+// ------------------------------------------------------------------
+export const DIAMOND_SIZE = 12;
+
+export function diamondSvg() {
+  const c = DIAMOND_SIZE / 2;
+  const r = c - 1.4;
+  return `<svg class="fc-ico-diamond" viewBox="0 0 ${DIAMOND_SIZE} ${DIAMOND_SIZE}" width="${DIAMOND_SIZE}" height="${DIAMOND_SIZE}" aria-hidden="true" focusable="false">` +
+    `<path d="M${c} ${c - r}L${c + r} ${c}L${c} ${c + r}L${c - r} ${c}Z" fill="${WHITE}" stroke="${HALO}" stroke-width="1.4" stroke-linejoin="round"/>` +
+    '</svg>';
+}
+
+// ------------------------------------------------------------------
+// The recovery position (the average of the fixes after landing, the spot
+// OPEN IN MAPS goes to): a small white crosshair, a ring with four ticks,
+// so it can be told apart from the landed diamond. Its middle sits on the
+// spot.
+// ------------------------------------------------------------------
+export const CROSSHAIR_SIZE = 20;
+
+export function crosshairSvg() {
+  const c = CROSSHAIR_SIZE / 2;
+  const lines = `<circle cx="${c}" cy="${c}" r="4.5"/>` +
+    `<path d="M${c} 1.5V${c - 6}M${c} ${c + 6}V${CROSSHAIR_SIZE - 1.5}M1.5 ${c}H${c - 6}M${c + 6} ${c}H${CROSSHAIR_SIZE - 1.5}"/>`;
+  return `<svg class="fc-ico-cross" viewBox="0 0 ${CROSSHAIR_SIZE} ${CROSSHAIR_SIZE}" width="${CROSSHAIR_SIZE}" height="${CROSSHAIR_SIZE}" aria-hidden="true" focusable="false">` +
+    `<g fill="none" stroke="${HALO}" stroke-opacity="0.85" stroke-width="3.2" stroke-linecap="round">${lines}</g>` +
+    `<g fill="none" stroke="${WHITE}" stroke-width="1.4" stroke-linecap="round">${lines}</g>` +
+    '</svg>';
+}
+
+// ------------------------------------------------------------------
+// Samples for the KEY. Each is a small SVG, 28 by 14.
+// ------------------------------------------------------------------
+const KEY_W = 28;
+const KEY_H = 14;
+const keySvg = (body) => `<svg class="fc-ico-key" viewBox="0 0 ${KEY_W} ${KEY_H}" width="${KEY_W}" height="${KEY_H}" aria-hidden="true" focusable="false">${body}</svg>`;
+let keyGradients = 0;
+
+// The path: a short line through three dots, from the slow end of the
+// speed colors on the left to the fast end on the right.
+export function pathKeySvg() {
+  const id = `fc-key-ramp-${keyGradients += 1}`;
+  const stops = TRACK_RAMP.map((c, i) => `<stop offset="${(i / (TRACK_RAMP.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('');
+  const dot = (x, color) => `<circle cx="${x}" cy="7" r="${DOT_PX / 2}" fill="${color}" stroke="${HALO}" stroke-width="${DOT_OUTLINE_PX}"/>`;
+  return keySvg(
+    `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="3" x2="25" y1="7" y2="7">${stops}</linearGradient></defs>` +
+    `<line x1="3" y1="7" x2="25" y2="7" stroke="${HALO}" stroke-width="${LINE_PX + 2 * LINE_OUTLINE_PX}" stroke-linecap="round"/>` +
+    `<line x1="3" y1="7" x2="25" y2="7" stroke="url(#${id})" stroke-width="${LINE_PX}" stroke-linecap="round"/>` +
+    dot(4, TRACK_RAMP[0]) + dot(14, TRACK_RAMP[2]) + dot(24, TRACK_RAMP[TRACK_RAMP.length - 1]));
+}
+
+// A weak fix: one hollow grey ring.
+export function weakKeySvg() {
+  const r = WEAK_DOT_PX / 2;
+  return keySvg(
+    `<circle cx="14" cy="7" r="${r}" fill="none" stroke="${HALO}" stroke-width="${WEAK_LINE_PX + 2}"/>` +
+    `<circle cx="14" cy="7" r="${r}" fill="none" stroke="${WEAK_COLOR}" stroke-width="${WEAK_LINE_PX}"/>`);
+}
+
+// The ground shadow: a short soft dark band.
+export function shadowKeySvg() {
+  return keySvg(
+    `<line x1="3" y1="9" x2="25" y2="9" stroke="${OFF_WHITE}" stroke-opacity="0.18" stroke-width="${SHADOW_PX + 3}" stroke-linecap="round"/>` +
+    `<line x1="3" y1="9" x2="25" y2="9" stroke="${NEAR_BLACK}" stroke-opacity="0.9" stroke-width="${SHADOW_PX}" stroke-linecap="round"/>`);
+}
+
+// The radio link: the faint dashed line with its small dot.
+export function linkKeySvg() {
+  return keySvg(
+    `<line x1="2" y1="7" x2="26" y2="7" stroke="${LINK_COLOR}" stroke-opacity="${LINK_ALPHA + 0.2}" stroke-width="${LINK_PX}" stroke-dasharray="${LINK_DASH_PX[0] - 2} ${LINK_DASH_PX[1] - 2}"/>` +
+    `<circle cx="17" cy="7" r="${LINK_DOT_PX / 2}" fill="${WHITE}" stroke="${HALO}" stroke-width="1"/>`);
 }

@@ -1,22 +1,30 @@
 // globe-view.js
-// The 3D view: the same flight as the map, drawn on Cesium's globe with
-// real terrain and aerial imagery. It shows a board marker for every
-// rocket with pulse rings while its GPS fix is good, a thin orange trail
-// that fades out behind the marker like a comet's tail, the start point
-// (the launch point in a replay), the ground station's dish, and a marker in the sky
-// at the focused rocket's apogee, drogue, main and landing, and at any
-// event its board reported. Nothing in the view is text: the readings
-// panel says what the old labels said.
+// The 3D view: the flight drawn on Cesium's globe with real terrain and
+// aerial imagery. For each rocket it draws:
+//   - the breadcrumbs (rocket.crumbs, from track.js): one small dot per
+//     received fix, solid in its speed color when the fix is good and a
+//     hollow grey ring when it is weak, joined by a thin line through the
+//     good fixes' smoothed positions. The line breaks wherever packets were
+//     missed (gapBefore). Dots and line have a thin dark outline.
+//   - a faint ground shadow: the same line laid flat on the terrain
+//   - the board marker, with one thin white ring that grows out of it each
+//     time a packet arrives
+//   - the launch point
+// and for the focused rocket a small white diamond at apogee, drogue, main
+// and landing, a crosshair at the recovery position once it has landed,
+// and the radio link: a faint dashed line to Manta (the ground station)
+// with a small white dot that travels along it for each packet. The names
+// next to the markers are drawn by map-labels.js, which map-view.js shares
+// with this view.
 //
 // The same honesty rules as the map apply:
-//   - Only good GPS positions are drawn. A gap in them is left as a break
-//     in the trail, never bridged.
-//   - The marker moves from one real data point to the next. Nothing is
-//     smoothed or filled in between packets.
-//   - The board marker always stands upright. No board sends orientation
-//     data, so it never turns.
-//   - With no GPS fix the marker turns hollow at the last good position
-//     and its rings stop.
+//   - The dots are the raw fixes. Only the line is smoothed (a moving
+//     average of the last few good fixes, worked out in track.js).
+//   - A gap in the packets is left as a break in the line, never bridged.
+//   - The board marker sits on the newest good fix. It always stands
+//     upright, since no board sends orientation data.
+//   - With no GPS fix right now (or a newer fix that failed the quality
+//     gate) the marker turns hollow at its last good position.
 //   - Event markers only appear once playback has reached the event.
 //
 // Heights. Cesium places things by height above the ellipsoid (a smooth
@@ -24,19 +32,26 @@
 // differ by tens of meters, and this file never converts between them.
 // Instead it asks Cesium World Terrain for the ground height at the launch
 // pad, and draws every point at that height plus the detector's height
-// above ground for the point. So the pad sits on the terrain and the trail
-// rises from it by exactly the heights the readings panel shows. If a
-// pad's ground height can't be looked up, or the rocket has no pad, each
-// point goes at its GPS altitude instead. If Cesium World Terrain doesn't
-// load, the ground is flat and heights above ground are measured from it.
-// Either way a note says the heights are approximate. A rocket isn't drawn
-// until its launch pad and the ground height there are known, or liftoff
-// has come with no pad.
+// above ground for the point. So the pad sits on the terrain and the path
+// rises from it by exactly the heights the HUD shows. If a pad's ground
+// height can't be looked up, or the rocket has no pad, each point goes at
+// its GPS altitude instead. If Cesium World Terrain doesn't load, the
+// ground is flat and heights above ground are measured from it. Either way
+// a note says the heights are approximate. A rocket isn't drawn until its
+// launch pad and the ground height there are known, or liftoff has come
+// with no pad.
 //
 // No ground station. A store made with no ground station (a board on the
-// bench) has no dish and no line to it, so neither is drawn. Until there
-// is a position to look at, the camera then waits far out, looking down at
-// the whole Earth, instead of over a ground station.
+// bench) has no dish and no radio link, so neither is drawn. Until there
+// is a position to look at, the camera then waits far out, looking straight
+// down at the whole Earth, sized to fit the view (see idleCamera).
+//
+// A new source. map-view.js keeps one 3D view for the whole visit on
+// Track a Rocket and swaps the store behind it (store-switch.js). A store
+// change of type 'source' means: forget everything drawn and every ground
+// height looked up, then fly (never jump) to the new site. While a saved
+// flight is still downloading (ctx.session.loading), the camera flies
+// toward the flight's launch point from the library.
 //
 // Camera. Cesium's own mouse and touch controls are made for spinning a
 // whole globe, and up close they turn far too fast. They are switched off,
@@ -45,82 +60,92 @@
 // slide the view (see "Controls" near the end).
 //
 // Look. The view sits on the page with no frame: the space around the
-// Earth is the page's navy, there are no stars, sun or moon, and the glow of
-// the atmosphere is darkened and tinted toward the navy. Close to the
-// ground the glow is off, so the sky is the page's navy too and the horizon
-// meets the page. The globe fades into the page instead of sitting in a
-// box. The markers come from markers.js: the board in its own blue with an
-// off-white outline, an off-white start dot and an off-white dish. Orange
-// is kept for the focused rocket's trail, its rings and the event markers.
+// Earth is the page's near-black, there are no stars, sun or moon, and the
+// glow of the atmosphere is darkened and pulled toward grey. Close to the
+// ground the glow is off, so the sky is the page's near-black too and the
+// horizon fades into the page.
 //
 // Rendering. The scene only redraws when something changes (Cesium's
 // requestRenderMode), which saves battery. Every change here ends with
-// scene.requestRender(). The one exception is the pulse rings, which ask
-// for a frame at most RING_PULSE_FPS times a second while they show (see
-// "Pulse rings").
-//
-// Starting far out. With no ground station the camera first waits looking
-// at the whole Earth. When the first position comes in, it flies down to it
-// (or jumps there, for visitors who ask for less motion).
+// scene.requestRender(). The packet ring and the traveling dot ask for
+// frames only while they move (under a second after each packet).
 //
 // Used by: map-view.js, which loads Cesium first and owns the buttons.
 // Reads the store, never other views.
 
-import { createScheduler, prefersReducedMotion, eventMarkerKind } from './dom.js';
+import { createScheduler, prefersReducedMotion } from './dom.js';
 import { distanceM } from '../geo.js';
+import { speedColor } from '../track.js';
+import { eventCrumb, recoveryInfo } from '../flight-state.js';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
-  TRAIL_WINDOW_S, TRAIL_WIDTH_PX, TRAIL_OTHER_WIDTH_PX, RING_PULSE_MS, RING_PULSE_FPS,
+  diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE,
+  DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX,
+  OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, NEAR_BLACK, WHITE,
+  RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
+  LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js';
-import { FLIGHT_WORDS } from './hud-text.js?v=3';
+import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js';
 
-// The trail is this opaque right behind the marker. Toward its far end
-// (TRAIL_WINDOW_S in markers.js) it fades to nothing, along this power of
-// the share of the window left, so the tail thins out quickly.
-const TRAIL_ALPHA = 0.95;
-const TRAIL_FADE_POWER = 1.6;
-// Event marker size (px).
-const EVENT_MARK_PX = 14;
-// Pulse ring sizes (px) around a board with a good fix, as on the map.
-const RING_FOCUSED_PX = 76;
-const RING_PX = 46;
-// Each pulse starts at this share of the ring's full size.
-const RING_FROM_SCALE = 0.3;
-// The three still rings for viewers who ask for less motion, as on the
-// map: [share of full size, opacity].
-const RING_STILL = [[0.5, 0.95], [0.76, 0.6], [1, 0.3]];
-// The events that get a marker in the sky, besides any event the board
-// reported itself. Liftoff has none, since the start point marks it.
-const EVENT_TYPES = new Set(['apogee', 'drogue', 'main', 'landed']);
+// The events that get a diamond. Liftoff has none, since the launch point
+// marks it.
+const EVENT_TYPES = ['apogee', 'drogue', 'main', 'landed'];
+// The line is built in chunks of at most this many points. A finished
+// chunk is never built again, so a long flight only rebuilds its newest
+// chunk when a fix comes in.
+const CHUNK_POINTS = 100;
+// The newest chunk's ground shadow is laid again at most this often (ms).
+// Laying a line on the terrain costs more than drawing it in the air.
+const SHADOW_TAIL_MS = 1000;
+// After a seek, every shadow is laid again once the data has been still
+// for this long (ms), so dragging the timeline stays smooth.
+const SHADOW_SETTLE_MS = 300;
 // A ground station whose GPS position wanders keeps the ground height it
 // had while it stays within this far (m) of where that height was looked
 // up. A real move (from the demo position to its own) waits for its own.
 const STATION_KEEP_M = 100;
-// With no ground station, the camera waits here before the first position:
-// looking straight down from this far (m) above this spot, which shows the
-// whole Earth.
+// The radio link ends this far (m) above the dish's foot, so it doesn't
+// dip into the ground right at the dish.
+const LINK_DISH_RISE_M = 3;
+// With no ground station and nothing to look at, the camera looks straight
+// down at this spot from far enough out to fit the whole Earth in the view
+// (see idleCamera), leaving IDLE_MARGIN of the view's smaller side free.
 const WAIT_FAR_LAT = 25;
 const WAIT_FAR_LON = -40;
-const WAIT_FAR_RANGE_M = 20000000;
-// How long (s) the camera takes to fly down from there to the first
-// position.
+const IDLE_MARGIN = 0.1;
+// How long (s) the camera takes to fly from far away to a site.
 const FLY_IN_S = 2.6;
+// A new site closer than this (m) to where the camera looks gets a short
+// glide instead of a flight.
+const GLIDE_MAX_M = 30000;
+// While a saved flight downloads, the camera flies toward its launch point
+// from this far (m), looking down this steeply (degrees).
+const LOADING_RANGE_M = 6000;
+const LOADING_PITCH_DEG = -30;
+// WHOLE FLIGHT keeps this much room (px) between the flight and the edge
+// of the part of the view nothing covers. It checks its fit by projecting
+// the points to the screen, up to this many times.
+const WHOLE_FIT_STEPS = 10;
+// At most this many points are projected for that check (the rest are
+// skipped evenly).
+const WHOLE_FIT_SAMPLE = 600;
 // The atmosphere's glow around the Earth, seen from far away, pulled
-// toward the page's navy: the same blue with much less light, so the rim
-// stays a thin dark blue. Each is a shift from -1 to 1. Below
-// SKY_GLOW_MIN_M (m above the ground) the glow is off, so the sky over the
-// ground is the page's own navy and the horizon meets the page.
-const SKY_SATURATION_SHIFT = 0.05;
-const SKY_BRIGHTNESS_SHIFT = -0.66;
+// toward a dark grey so it stays a thin, dim rim against the page's
+// near-black. Each is a shift from -1 to 1. Below SKY_GLOW_MIN_M (m above
+// the ground) the glow is off, so the sky over the ground is the page's
+// own near-black and the horizon meets the page.
+const SKY_SATURATION_SHIFT = -0.55;
+const SKY_BRIGHTNESS_SHIFT = -0.7;
 const SKY_HUE_SHIFT = 0;
 const SKY_GLOW_MIN_M = 100000;
 // The haze over the ground far away, darker and greyer, so distant ground
-// fades toward the navy.
-const GROUND_HAZE_SATURATION_SHIFT = -0.2;
-const GROUND_HAZE_BRIGHTNESS_SHIFT = -0.5;
-// Close to the ground, the ground fades into the page's navy toward the
-// horizon. On screen the fade starts this share of the view's height below
-// the horizon, and the ground is solid navy from the second share on.
+// fades toward the near-black.
+const GROUND_HAZE_SATURATION_SHIFT = -0.35;
+const GROUND_HAZE_BRIGHTNESS_SHIFT = -0.55;
+// Close to the ground, the ground fades into the page's near-black toward
+// the horizon. On screen the fade starts this share of the view's height
+// below the horizon, and the ground is solid near-black from the second
+// share on.
 const HORIZON_FADE_FROM = 0.11;
 const HORIZON_FADE_TO = 0.006;
 // Far ground usually sits higher than sea level, so it shows closer to the
@@ -128,20 +153,25 @@ const HORIZON_FADE_TO = 0.006;
 // than these shares of the distance to the horizon.
 const HORIZON_FADE_FROM_MAX = 0.1;
 const HORIZON_FADE_TO_MAX = 0.38;
+// Labels fade out once one screen pixel covers more than this many meters
+// where the camera looks (zoomed far out).
+const LABEL_FAR_M_PER_PX = 60;
 
 export function createGlobeView(container, ctx, options) {
-  const { Cesium: C, credits, dialogs, covers, onReady, onChange, onFail, onFollowOff } = options;
+  const { Cesium: C, credits, dialogs, covers, freeInsets, labels, onScale, onReady, onChange, onFail, onFollowOff } = options;
   const { store, config } = ctx;
-  // What to call the thing being tracked (a rocket, or a board on a desk).
-  const words = ctx.words ?? FLIGHT_WORDS;
-  const prescan = ctx.prescan instanceof Map ? ctx.prescan : new Map();
+  // What is on screen (live or a replay, and the replay's pre-scan). Read
+  // fresh every time, since main.js changes it while this view lives on.
+  const session = () => ctx.session ?? {};
+  const prescan = () => {
+    const scan = session().prescan ?? ctx.prescan;
+    return scan instanceof Map ? scan : new Map();
+  };
 
   // ------------------------------------------------------------------
-  // Colors from the Flight Console theme (css/flight-console-theme.css):
-  // the page's navy around the Earth. Each color is worked out by the
-  // browser (a theme shade can be a color-mix()) and handed to Cesium as
-  // plain rgba(). The markers' own colors are in markers.js, and the
-  // lines' and rings' in config.js and markers.js.
+  // Colors. The page's near-black comes from the theme
+  // (css/flight-console-theme.css), worked out by the browser and handed
+  // to Cesium as plain rgba(). The markers' colors are in markers.js.
   // ------------------------------------------------------------------
   const rgba = (css, alpha = 1) => C.Color.fromCssColorString(css).withAlpha(alpha);
   const color = (name, fallback) => cssColor(container, name, fallback);
@@ -195,7 +225,7 @@ export function createGlobeView(container, ctx, options) {
       baseLayer: imagery,
       creditContainer: credits,
       // Cesium's "Data attribution" dialog opens in this box, which
-      // map-view.js stacks above the panels floating over the view.
+      // map-view.js stacks above the HUD floating over the view.
       creditViewport: dialogs,
       // Redraw only when something changes, never just because time passed.
       requestRenderMode: true,
@@ -223,32 +253,32 @@ export function createGlobeView(container, ctx, options) {
   // Sharp on high-resolution screens, up to GLOBE_MAX_PIXEL_RATIO.
   viewer.useBrowserRecommendedResolution = false;
   viewer.resolutionScale = pixelRatio / (window.devicePixelRatio || 1);
-  // Terrain hides what is behind or under it, the trails and the ground
-  // station line included. Markers are never hidden (see ALWAYS).
+  // Terrain hides what is behind or under it (the radio link included).
+  // The breadcrumbs and markers are never hidden (see ALWAYS and NO_DEPTH).
   scene.globe.depthTestAgainstTerrain = true;
-  // The ground's color where there is no imagery: the theme's raised navy.
+  // The ground's color where there is no imagery: the theme's raised near-black.
   scene.globe.baseColor = rgba(color('--fc-black-raised', '#1E1D24'));
-  // The page's navy all around the Earth, with no stars, sun or moon.
+  // The page's near-black all around the Earth, with no stars, sun or moon.
   scene.backgroundColor = rgba(PAGE);
   if (scene.skyBox) scene.skyBox.show = false;
   if (scene.sun) scene.sun.show = false;
   if (scene.moon) scene.moon.show = false;
   // The atmosphere's glow (the ring around the Earth from far away),
-  // darkened and tinted toward the navy. Close to the ground it is off, so
-  // the sky is the page's navy and the view has no edge against the page.
+  // darkened and greyed. Close to the ground it is off, so the sky is the
+  // page's near-black and the view has no edge against the page.
   const sky = scene.skyAtmosphere;
   if (sky) {
     sky.hueShift = SKY_HUE_SHIFT;
     sky.saturationShift = SKY_SATURATION_SHIFT;
     sky.brightnessShift = SKY_BRIGHTNESS_SHIFT;
   }
-  // Close to the ground the sky is the page's navy, so the far edge of the
-  // ground would end in a hard, straight line. Instead the ground fades to
-  // the navy with distance, so it melts into the page at the horizon, far
-  // mountains included. The distances are worked out before every frame
-  // from where they show on screen (HORIZON_FADE_FROM and _TO). It is a
-  // material on the ground only, so the markers and the trails stay as
-  // they are. Far out, with the glow on, there is no fade.
+  // Close to the ground the sky is the page's near-black, so the far edge
+  // of the ground would end in a hard, straight line. Instead the ground
+  // fades to near-black with distance, so it melts into the page at the
+  // horizon, far mountains included. The distances are worked out before
+  // every frame from where they show on screen (HORIZON_FADE_FROM and
+  // _TO). It is a material on the ground only, so the markers and the path
+  // stay as they are. Far out, with the glow on, there is no fade.
   const horizonFade = new C.Material({
     fabric: {
       type: 'FcHorizonFade',
@@ -269,8 +299,8 @@ export function createGlobeView(container, ctx, options) {
   function updateHorizonFade(high) {
     const globe = scene.globe;
     if (fog && Number.isFinite(fogLook)) {
-      const look = high ? fogLook : 0;
-      if (fog.visualDensityScalar !== look) fog.visualDensityScalar = look;
+      const lookValue = high ? fogLook : 0;
+      if (fog.visualDensityScalar !== lookValue) fog.visualDensityScalar = lookValue;
     }
     if (high) {
       if (globe.material) globe.material = undefined;
@@ -286,20 +316,21 @@ export function createGlobeView(container, ctx, options) {
     // d² - 2Rk·d + 2Rh = 0, with k = sqrt(2h/R) + a. (fovy is the view's
     // height in radians.)
     const R = globe.ellipsoid.maximumRadius;
-    const h = Math.max(1, camera.positionCartographic.height);
+    const hgt = Math.max(1, camera.positionCartographic.height);
     const pxPerRadian = (viewH / 2) / Math.tan(fovy / 2);
     const distanceAt = (px) => {
-      const k = Math.sqrt(2 * h / R) + px / pxPerRadian;
-      return R * k - Math.sqrt(Math.max(0, (R * k) ** 2 - 2 * R * h));
+      const k = Math.sqrt(2 * hgt / R) + px / pxPerRadian;
+      return R * k - Math.sqrt(Math.max(0, (R * k) ** 2 - 2 * R * hgt));
     };
-    const horizon = Math.sqrt(2 * R * h + h * h);
+    const horizon = Math.sqrt(2 * R * hgt + hgt * hgt);
     horizonFade.uniforms.fadeFrom = Math.min(distanceAt(viewH * HORIZON_FADE_FROM), horizon * HORIZON_FADE_FROM_MAX);
     horizonFade.uniforms.fadeTo = Math.min(distanceAt(viewH * HORIZON_FADE_TO), horizon * HORIZON_FADE_TO_MAX);
   }
-  const stopSkySwitch = scene.preRender.addEventListener(() => {
+  const stopPreRender = scene.preRender.addEventListener(() => {
     const high = camera.positionCartographic.height > SKY_GLOW_MIN_M;
     if (sky && sky.show !== high) sky.show = high;
     updateHorizonFade(high);
+    hideBehindEarth();
   });
   // The same for the haze over the ground far away.
   const haze = scene.atmosphere;
@@ -329,30 +360,45 @@ export function createGlobeView(container, ctx, options) {
   scene.canvas.addEventListener('webglcontextlost', onContextLost);
 
   // ------------------------------------------------------------------
-  // What is drawn. Lines first, then markers. Within the markers, whatever
-  // was added last is drawn on top.
+  // What is drawn, in drawing order. Whatever is added later is drawn on
+  // top. The ground shadows are ground primitives, laid on the terrain.
   // ------------------------------------------------------------------
-  const trails = scene.primitives.add(new C.PolylineCollection());     // the fading trails
+  // The breadcrumb lines are drawn without the depth test, like the
+  // markers, so terrain never cuts them and the dark outline (drawn first)
+  // always sits under the colored line (drawn after it).
+  const NO_DEPTH = { depthTest: { enabled: false }, depthMask: false };
   const blend = { blendOption: C.BlendOption.TRANSLUCENT };
-  // The pulse rings fade out as they grow, so most of their pixels are see
-  // through. A TRANSLUCENT collection draws in Cesium's opaque pass and
-  // writes depth for every pixel it draws, faint ones included, and every
-  // marker sits on the near plane (see ALWAYS). The trail draws later, in
-  // the translucent pass, so it would vanish under each ring and leave
-  // holes right behind the board. With OPAQUE_AND_TRANSLUCENT only the
-  // solid ring pixels write depth (and they cover the trail anyway). The
-  // faint ones blend with the trail and leave it whole.
-  const ringBlend = { blendOption: C.BlendOption.OPAQUE_AND_TRANSLUCENT };
-  const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // start points and the ground station
-  const eventIcons = scene.primitives.add(new C.BillboardCollection(blend));
-  const ringIcons = scene.primitives.add(new C.BillboardCollection(ringBlend)); // the pulse rings, under the boards
+  const linkLines = scene.primitives.add(new C.PrimitiveCollection());    // the radio link
+  const haloLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines' dark outlines
+  const lineLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines in their speed colors
+  const dotLayer = scene.primitives.add(new C.PrimitiveCollection());     // one billboard collection of dots per rocket
+  const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // launch points and Manta's dish
+  const eventIcons = scene.primitives.add(new C.BillboardCollection({ ...blend, scene })); // diamonds and the recovery crosshair
+  const ringIcons = scene.primitives.add(new C.BillboardCollection(blend)); // the packet rings, under the boards
+  const travelDots = scene.primitives.add(new C.PointPrimitiveCollection()); // the dot on the radio link
   const rocketIcons = scene.primitives.add(new C.BillboardCollection(blend));
   const focusIcons = scene.primitives.add(new C.BillboardCollection(blend));  // the focused board, on top
+  // Everything above but the shadows, so it can all be hidden at once when
+  // the site is on the far side of the Earth (see hideBehindEarth).
+  const siteLayers = [linkLines, haloLayer, lineLayer, dotLayer, groundIcons, eventIcons, ringIcons, travelDots, rocketIcons, focusIcons];
 
   // Markers keep one size on screen at any distance, always stand upright
   // (a billboard faces the screen and never turns), and are never hidden
   // behind terrain.
   const ALWAYS = { disableDepthTestDistance: Number.POSITIVE_INFINITY };
+
+  // The ground shadow needs Cesium's ground lines, which need a little
+  // setup first and a graphics card that can do them. Until then, or
+  // without them, there is no shadow.
+  let shadowsReady = false;
+  if (C.GroundPolylinePrimitive.isSupported(scene)) {
+    C.GroundPolylinePrimitive.initializeTerrainHeights().then(() => {
+      if (destroyed) return;
+      shadowsReady = true;
+      for (const parts of drawn.values()) markShadows(parts);
+      scheduler.schedule();
+    }, (err) => console.warn('Flight Console: the ground shadow could not start', err));
+  }
 
   // In requestRenderMode a new icon image only shows a frame or two after
   // it was asked for, so a few extra frames are requested then.
@@ -411,55 +457,60 @@ export function createGlobeView(container, ctx, options) {
     return svgIcon(id, markup, size, { width, height, x: width / 2 - anchor[0], y: height / 2 - anchor[1] });
   }
 
-  // One pulse ring at its full size: an orange circle with a faint dark
-  // edge on each side, like the map's rings. Each ring on screen is a
-  // copy that grows and fades (see "Pulse rings").
+  // The packet ring at its full size: a thin white circle with a faint
+  // dark edge on each side. On screen it grows and fades (see "Packet
+  // ring and radio dot").
   function ringIcon(id, size) {
     const canvas = document.createElement('canvas');
     canvas.width = size * iconScale;
     canvas.height = size * iconScale;
     const g = canvas.getContext('2d');
     g.scale(iconScale, iconScale);
-    const lineWidth = 2.5;
     const c = size / 2;
     g.beginPath();
-    g.arc(c, c, c - lineWidth / 2 - 1.5, 0, Math.PI * 2);
-    g.lineWidth = lineWidth + 3;
-    g.strokeStyle = rgba(config.HALO_COLOR, 0.5).toCssColorString();
+    g.arc(c, c, c - RING_LINE_PX / 2 - 1.5, 0, Math.PI * 2);
+    g.lineWidth = RING_LINE_PX + 2.5;
+    g.strokeStyle = rgba(NEAR_BLACK, 0.45).toCssColorString();
     g.stroke();
-    g.lineWidth = lineWidth;
-    g.strokeStyle = config.TRACK_COLOR;
+    g.lineWidth = RING_LINE_PX;
+    g.strokeStyle = WHITE;
     g.stroke();
     icons.set(id, { canvas, width: size, height: size });
   }
 
-  // Event markers, drawn the way the altitude timeline draws them: a
-  // filled dot for reported, an orange ring for detected, a dashed ring for
-  // inferred or estimated.
-  function eventIcon(kind) {
-    const size = EVENT_MARK_PX + 4; // room for the dark edge
-    const canvas = document.createElement('canvas');
-    canvas.width = size * iconScale;
-    canvas.height = size * iconScale;
-    const g = canvas.getContext('2d');
-    g.scale(iconScale, iconScale);
-    const c = size / 2;
-    const r = EVENT_MARK_PX / 2;
-    g.beginPath();
-    g.arc(c, c, r + 1, 0, Math.PI * 2);
-    g.fillStyle = config.HALO_COLOR;
-    g.globalAlpha = config.HALO_OPACITY;
-    g.fill();
-    g.globalAlpha = 1;
-    g.beginPath();
-    g.arc(c, c, r - 1.25, 0, Math.PI * 2);
-    g.fillStyle = kind === 'reported' ? config.TRACK_COLOR : PAGE;
-    g.fill();
-    if (kind === 'inferred') g.setLineDash([3, 2.4]);
-    g.lineWidth = kind === 'detected' ? 2.5 : 2;
-    g.strokeStyle = config.TRACK_COLOR;
-    g.stroke();
-    icons.set(`event-${kind}`, { canvas, width: size, height: size });
+  // The breadcrumb dots: a white disc with a thin dark outline, tinted to
+  // its speed color when drawn (dot, and dot-other for other rockets), and
+  // a hollow grey ring for a weak fix (dot-weak).
+  function dotIcons() {
+    const make = (id, diameter, paint) => {
+      const size = Math.ceil(diameter + 2 * DOT_OUTLINE_PX + 2);
+      const canvas = document.createElement('canvas');
+      canvas.width = size * iconScale;
+      canvas.height = size * iconScale;
+      const g = canvas.getContext('2d');
+      g.scale(iconScale, iconScale);
+      g.beginPath();
+      g.arc(size / 2, size / 2, diameter / 2, 0, Math.PI * 2);
+      paint(g);
+      icons.set(id, { canvas, width: size, height: size });
+    };
+    const solid = (g) => {
+      g.fillStyle = WHITE;
+      g.fill();
+      g.lineWidth = DOT_OUTLINE_PX;
+      g.strokeStyle = NEAR_BLACK;
+      g.stroke();
+    };
+    make('dot', DOT_PX, solid);
+    make('dot-other', OTHER_DOT_PX, solid);
+    make('dot-weak', WEAK_DOT_PX, (g) => {
+      g.lineWidth = WEAK_LINE_PX + 2;
+      g.strokeStyle = NEAR_BLACK;
+      g.stroke();
+      g.lineWidth = WEAK_LINE_PX;
+      g.strokeStyle = WEAK_COLOR;
+      g.stroke();
+    });
   }
 
   const iconsReady = Promise.all([
@@ -469,10 +520,11 @@ export function createGlobeView(container, ctx, options) {
     svgIcon('board-hollow', boardSvg(BOARD_OTHER, { hollow: true }), BOARD_OTHER),
     svgIcon('start', startSvg(), [START_SIZE, START_SIZE]),
     anchoredIcon('dish', dishSvg(), DISH_SIZE, DISH_ANCHOR),
+    svgIcon('diamond', diamondSvg(), [DIAMOND_SIZE, DIAMOND_SIZE]),
+    svgIcon('crosshair', crosshairSvg(), [CROSSHAIR_SIZE, CROSSHAIR_SIZE]),
   ]).then(() => {
-    ['reported', 'detected', 'inferred'].forEach(eventIcon);
-    ringIcon('ring-focus', RING_FOCUSED_PX);
     ringIcon('ring', RING_PX);
+    dotIcons();
   });
 
   let assetsReady = false;
@@ -486,9 +538,9 @@ export function createGlobeView(container, ctx, options) {
 
   const imageOf = new WeakMap(); // billboard -> the id of the image it shows
 
-  function addIcon(collection, id, position) {
+  function addIcon(collection, id, position, extra = {}) {
     const icon = icons.get(id);
-    const billboard = collection.add({ position, image: icon.canvas, imageId: id, width: icon.width, height: icon.height, ...ALWAYS });
+    const billboard = collection.add({ position, image: icon.canvas, imageId: id, width: icon.width, height: icon.height, ...ALWAYS, ...extra });
     imageOf.set(billboard, id);
     // A new image shows a frame or two after it is first asked for.
     pump();
@@ -507,10 +559,10 @@ export function createGlobeView(container, ctx, options) {
 
   // ------------------------------------------------------------------
   // Ground heights. One lookup per spot (a launch pad, the ground
-  // station), kept for the whole flight, seeks included.
+  // station), kept until the source changes, seeks included.
   // ------------------------------------------------------------------
   let terrain = null;
-  const spots = []; // { lat, lon, state: 'pending' | 'ok' | 'failed', height }
+  let spots = []; // { lat, lon, state: 'pending' | 'ok' | 'failed', height }
 
   // No terrain at all: the ground is drawn flat, and heights are measured
   // from it (see heightModel). Nothing waits on a ground height any more.
@@ -553,12 +605,14 @@ export function createGlobeView(container, ctx, options) {
       spot = { lat, lon, state: 'pending', height: null };
       spots.push(spot);
       if (terrain) lookUp(spot);
+      else if (view.terrain === 'failed') spot.state = 'failed';
     }
     return spot;
   }
 
   function lookUp(spot) {
     spot.state = 'pending';
+    const list = spots;
     // Starts as "not a number", so a lookup that quietly finds nothing
     // can't be mistaken for a height of 0.
     const point = C.Cartographic.fromDegrees(spot.lon, spot.lat, NaN);
@@ -574,7 +628,8 @@ export function createGlobeView(container, ctx, options) {
       console.warn('Flight Console: the ground height lookup failed', err);
       spot.state = 'failed';
     }).then(() => {
-      if (!destroyed) refresh();
+      // A lookup from before a source change belongs to nobody now.
+      if (!destroyed && list === spots) refresh();
     });
   }
 
@@ -582,7 +637,7 @@ export function createGlobeView(container, ctx, options) {
   //   { kind: 'wait' }            not known yet, so nothing is drawn
   //   { kind: 'ground', base }    the pad's ground height plus height above ground
   //   { kind: 'gps' }             approximate: each point's own GPS altitude
-  // approx marks heights the note under the controls owns up to.
+  // approx marks heights the map's notes own up to.
   function heightModel(rocket, parts) {
     const d = rocket.derived;
     const pad = rocket.padPosition;
@@ -611,14 +666,15 @@ export function createGlobeView(container, ctx, options) {
     if (noPad) return { kind: 'gps', approx: true };
     // Still waiting to see a pad. Its ground height is looked up now, from
     // where the rocket is sitting, so it is ready when the pad is confirmed.
-    const first = rocket.track[0];
+    const first = rocket.crumbs?.[0];
     if (first) groundAt(first.lat, first.lon);
     return { kind: 'wait' };
   }
 
-  // Height above ground of one track point, the way the detector measures
-  // it: the altitude it used at that moment minus its ground level. null
-  // if the detector had no altitude then.
+  // Height above ground of one point (a crumb, or a crumb's smoothed line
+  // position with the crumb's time), the way the detector measures it: the
+  // altitude it used at that moment minus its ground level. null if the
+  // detector had no altitude then.
   function aglOf(rocket, p) {
     const d = rocket.derived;
     const ground = d?.groundRef;
@@ -650,7 +706,7 @@ export function createGlobeView(container, ctx, options) {
 
   // The altitude reading the detector had at time t: the last one at or
   // before it, if it is no older than ALTITUDE_STALE_S. Never a later one,
-  // so a trail comes out the same whether it grew point by point or was
+  // so the path comes out the same whether it grew point by point or was
   // built again in one go after a seek.
   function altitudeAt(series, t) {
     let lo = 0;
@@ -664,6 +720,7 @@ export function createGlobeView(container, ctx, options) {
     return before && before.alt !== null && t - before.t <= config.ALTITUDE_STALE_S ? before.alt : null;
   }
 
+  // A point's place in 3D, or null when it has no height.
   function pointPosition(rocket, model, p) {
     let height;
     if (model.kind === 'gps') height = p.altMsl;
@@ -678,22 +735,36 @@ export function createGlobeView(container, ctx, options) {
   // Drawing: one rocket
   // ------------------------------------------------------------------
   const drawn = new Map(); // rocketId -> everything drawn for that rocket
+  const haloColor = rgba(NEAR_BLACK);
+  const shadowColor = rgba(NEAR_BLACK, SHADOW_ALPHA);
+  const clearColor = new C.Color(0, 0, 0, 0);
+  const colorCache = new Map(); // css -> C.Color
+  const cesiumColor = (css) => {
+    let c = colorCache.get(css);
+    if (!c) {
+      c = rgba(css);
+      colorCache.set(css, c);
+    }
+    return c;
+  };
 
   function partsFor(rocket) {
     let parts = drawn.get(rocket.id);
     if (!parts) {
       parts = {
-        track: null,      // the store's track array the positions were worked out from
-        key: '',          // the height model, ground level and focus they were worked out with
-        count: 0,         // track points looked at so far
-        positions: [],    // one 3D position per track point, null if it has no height
-        last: -1,         // index of the last point that has a position
-        tail: [],         // the trail's lines, one per unbroken stretch in its window
-        tailKey: '',      // what the trail was last built for
+        crumbs: null,     // the crumbs array the drawing was worked out from
+        key: '',          // the height model, ground level and focus it was worked out with
+        count: 0,         // crumbs looked at so far
+        dotAt: [],        // one 3D position per crumb (null: not drawn)
+        dots: null,       // the point collection with one dot per drawn crumb
+        verts: [],        // the line's points: { position, color, breakBefore }
+        chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowAt }
+        lastGood: -1,     // index of the newest good crumb that has a position
         focused: null,
-        icon: null, iconHome: null, rings: [], ringStrength: 1, pad: null, padAt: null,
+        icon: null, iconHome: null, ring: null, ringStart: null,
+        pad: null, padAt: null,
         ground: null,     // the last ground height looked up for this rocket's pad
-        old: false,       // the marker sits at an older point than the newest good position
+        lastPacketT: null, // the newest packet time seen, to spot new packets
         approx: false, waiting: false,
       };
       drawn.set(rocket.id, parts);
@@ -701,182 +772,279 @@ export function createGlobeView(container, ctx, options) {
     return parts;
   }
 
-  function clearTrail(parts) {
-    for (const line of parts.tail) trails.remove(line);
-    parts.tail = [];
-    parts.tailKey = '';
-    parts.positions = [];
+  // Removes the breadcrumbs (the dots, the line and its shadow).
+  function clearCrumbs(parts) {
+    for (const chunk of parts.chunks) removeChunk(chunk);
+    parts.chunks = [];
+    parts.verts = [];
+    parts.dotAt = [];
+    parts.lineBroken = false;
+    if (parts.dots) dotLayer.remove(parts.dots);
+    parts.dots = null;
     parts.count = 0;
-    parts.last = -1;
+    parts.lastGood = -1;
   }
 
   function removeRocket(parts) {
-    clearTrail(parts);
+    clearCrumbs(parts);
     if (parts.icon) parts.iconHome.remove(parts.icon);
-    for (const ring of parts.rings) ringIcons.remove(ring);
+    if (parts.ring) ringIcons.remove(parts.ring);
     if (parts.pad) groundIcons.remove(parts.pad);
     parts.icon = null;
-    parts.rings = [];
+    parts.ring = null;
+    parts.ringStart = null;
     parts.pad = null;
     parts.padAt = null;
-  }
-
-  // The trail's look: one color whose opacity follows the line, from
-  // fadeFrom at its first point to fadeTo at its last. Both are shares of
-  // the trail's window (0 at its far end, 1 at the marker), so the tail
-  // fades out behind the marker like a comet's. Cesium hands a polyline's
-  // material its place along the line in st.s: 0 at the first point and 1
-  // at the last, in equal steps from point to point. A board sends at a
-  // steady rate, so that is close to time.
-  function trailMaterial(css) {
-    return new C.Material({
-      fabric: {
-        uniforms: { trailColor: rgba(css, TRAIL_ALPHA), fadeFrom: 0, fadeTo: 1, fadePower: TRAIL_FADE_POWER },
-        source: `czm_material czm_getMaterial(czm_materialInput materialInput) {
-          czm_material material = czm_getDefaultMaterial(materialInput);
-          float share = clamp(mix(fadeFrom, fadeTo, materialInput.st.s), 0.0, 1.0);
-          material.diffuse = trailColor.rgb;
-          material.alpha = trailColor.a * pow(share, fadePower);
-          return material;
-        }`,
-      },
-      translucent: true,
-    });
   }
 
   function drawRocket(rocket, isFocused) {
     const parts = partsFor(rocket);
     const model = heightModel(rocket, parts);
     const ground = rocket.derived?.groundRef;
-    // Anything that changes where points go, or how the trail looks, means
-    // working the positions out again: a seek (the store hands out a new
-    // track), a different height model, a ground level that moved (it
-    // settles while the rocket sits on the pad and is frozen at liftoff),
-    // or a new focus.
+    const crumbs = rocket.crumbs ?? [];
+    // Anything that changes where points go, or how they look, means
+    // working everything out again: a seek (the store hands out a new
+    // crumbs list), a different height model, a ground level that moved
+    // (it settles while the rocket sits on the pad and is frozen at
+    // liftoff), or a new focus.
     const key = [model.kind, model.base ?? '', model.kind === 'ground' && Number.isFinite(ground) ? ground : '', isFocused].join('|');
-    if (parts.track !== rocket.track || parts.key !== key || parts.count > rocket.track.length) {
+    if (parts.crumbs !== crumbs || parts.key !== key || parts.count > crumbs.length) {
       if (parts.focused !== null && parts.focused !== isFocused) removeRocket(parts);
-      else clearTrail(parts);
-      parts.track = rocket.track;
+      else clearCrumbs(parts);
+      parts.crumbs = crumbs;
       parts.key = key;
+      // A whole new set of points: the shadows wait until things settle.
+      parts.shadowWait = performance.now() + SHADOW_SETTLE_MS;
     }
     parts.focused = isFocused;
     parts.approx = model.kind !== 'wait' && model.approx;
-    parts.waiting = model.kind === 'wait' && Boolean(rocket.lastGoodFix);
+    parts.waiting = model.kind === 'wait' && crumbs.some((c) => c.quality === 'good');
 
-    // Positions for the new points since the last draw. A point with no
-    // height known gets none, which breaks the trail there.
-    if (model.kind !== 'wait') {
-      const track = rocket.track;
-      for (let i = parts.count; i < track.length; i++) {
-        const position = pointPosition(rocket, model, track[i]);
-        parts.positions.push(position);
-        if (position) parts.last = i;
-      }
-      parts.count = track.length;
-    }
-
-    drawTrail(rocket, parts, isFocused);
+    if (model.kind !== 'wait') addCrumbs(rocket, parts, model, isFocused);
+    syncLine(parts);
+    syncShadows(parts);
     drawPad(rocket, parts, model);
     drawRocketIcon(rocket, parts, isFocused);
   }
 
-  // The trail: the positions from the last TRAIL_WINDOW_S seconds up to
-  // the marker, as thin solid lines that fade out toward the far end. It
-  // breaks wherever the positions do, as on the map: the GPS had no fix
-  // (gapBefore), no position came for longer than LINK_STALE_S, or a point
-  // has no height. Nobody measured the path across a break, so nothing is
-  // drawn there.
-  function drawTrail(rocket, parts, isFocused) {
-    const tailKey = `${parts.last}|${parts.count}`;
-    if (tailKey === parts.tailKey) return;
-    parts.tailKey = tailKey;
-    const track = rocket.track;
-    const end = parts.last;
-    const runs = [];
-    const span = TRAIL_WINDOW_S;
-    const tEnd = end >= 0 ? track[end].t : 0;
-    if (end >= 0) {
-      let first = end;
-      while (first > 0 && track[first - 1].t >= tEnd - span) first -= 1;
-      let run = null;
-      for (let i = first; i <= end; i++) {
-        const p = track[i];
-        const position = parts.positions[i];
-        if (!position) {
-          run = null;
-          continue;
-        }
-        if (run && (p.gapBefore || p.t - run.lastT > config.LINK_STALE_S)) run = null;
-        if (!run) {
-          run = { positions: [], firstT: p.t, lastT: p.t };
-          runs.push(run);
-        }
-        run.positions.push(position);
-        run.lastT = p.t;
-      }
-    }
-    const share = (t) => Math.min(1, Math.max(0, 1 - (tEnd - t) / span));
-    const shown = runs.filter((run) => run.positions.length >= 2);
-    shown.forEach((run, k) => {
-      let line = parts.tail[k];
-      if (!line) {
-        line = trails.add({
-          positions: run.positions,
-          width: isFocused ? TRAIL_WIDTH_PX : TRAIL_OTHER_WIDTH_PX,
-          material: trailMaterial(isFocused ? config.TRACK_COLOR : rocket.profile.color),
-        });
-        parts.tail.push(line);
-      } else {
-        line.positions = run.positions;
-        line.show = true;
-      }
-      line.material.uniforms.fadeFrom = share(run.firstT);
-      line.material.uniforms.fadeTo = share(run.lastT);
-    });
-    for (let k = shown.length; k < parts.tail.length; k++) parts.tail[k].show = false;
+  // One breadcrumb dot. The dots are billboards like the markers, so they
+  // stack in drawing order with them (the board always sits on top of its
+  // own dots). Each one shows a small canvas image (see dotIcons), tinted
+  // by color when it has one.
+  function addDot(collection, id, position, tint) {
+    const icon = icons.get(id);
+    collection.add({ position, image: icon.canvas, imageId: id, width: icon.width, height: icon.height, color: tint ?? undefined, ...ALWAYS });
   }
 
-  // The board marker at the last trail point that has a height. That is
-  // usually its last good position: the board's blue with pulse rings
-  // while the fix is good, hollow with no rings when there is no fix right
-  // now or the newest position has no height yet (a barometer that went
-  // quiet). It is a billboard with no rotation and no scaling, so it always
-  // stands upright and keeps one size on screen.
-  function drawRocketIcon(rocket, parts, isFocused) {
-    const position = parts.last >= 0 ? parts.positions[parts.last] : null;
-    if (!position) {
-      if (parts.icon) parts.icon.show = false;
-      for (const ring of parts.rings) ring.show = false;
+  // The dots and the line's points for the crumbs since the last draw.
+  // Dots use the raw fix. The line uses the smoothed position and only
+  // takes good fixes. A crumb with no height breaks the line.
+  function addCrumbs(rocket, parts, model, isFocused) {
+    const crumbs = parts.crumbs;
+    if (parts.count >= crumbs.length) return;
+    if (!parts.dots) parts.dots = dotLayer.add(new C.BillboardCollection(blend));
+    const otherColor = cesiumColor(rocket.profile?.color ?? WHITE);
+    const dotId = isFocused ? 'dot' : 'dot-other';
+    // True when the next line point must start a new piece: the first
+    // point, or the one after a good fix with no height.
+    let lineBroken = parts.verts.length === 0 || parts.lineBroken;
+    for (let i = parts.count; i < crumbs.length; i++) {
+      const c = crumbs[i];
+      if (c.quality === 'outlier') {
+        parts.dotAt.push(null);
+        continue;
+      }
+      const position = pointPosition(rocket, model, c);
+      parts.dotAt.push(position);
+      if (c.quality === 'good') {
+        if (position) {
+          // The white dot image, tinted to the speed color (its dark
+          // outline stays dark).
+          addDot(parts.dots, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
+          parts.lastGood = i;
+        }
+        const linePos = c.line ? pointPosition(rocket, model, { t: c.t, lat: c.line.lat, lon: c.line.lon, altMsl: c.line.altMsl }) : null;
+        if (linePos) {
+          parts.verts.push({
+            position: linePos,
+            color: isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor,
+            breakBefore: lineBroken || c.gapBefore,
+          });
+          lineBroken = false;
+        } else {
+          lineBroken = true;
+        }
+      } else if (position) {
+        // A weak fix: a hollow grey ring.
+        addDot(parts.dots, 'dot-weak', position, null);
+      }
+    }
+    // Kept for the next draw, so a break at the end of this batch isn't
+    // bridged by the first point of the next one.
+    parts.lineBroken = lineBroken;
+    parts.count = crumbs.length;
+  }
+
+  // The line, in chunks of at most CHUNK_POINTS points. A chunk ends where
+  // the line breaks, or when it is full (the next one then starts on its
+  // last point, so the two join). Only chunks that got new points are
+  // built again.
+  function syncLine(parts) {
+    const verts = parts.verts;
+    let chunk = parts.chunks[parts.chunks.length - 1] ?? null;
+    let i = chunk ? chunk.end : 0;
+    const dirty = new Set();
+    for (; i < verts.length; i++) {
+      const v = verts[i];
+      if (!chunk || chunk.final || v.breakBefore) {
+        if (chunk && !chunk.final) {
+          chunk.final = true;
+          dirty.add(chunk);
+        }
+        const start = !chunk || v.breakBefore ? i : i - 1;
+        chunk = { start, end: i + 1, final: false, halo: null, line: null, shadow: null, shadowAt: 0 };
+        parts.chunks.push(chunk);
+      } else {
+        chunk.end = i + 1;
+        if (chunk.end - chunk.start >= CHUNK_POINTS) chunk.final = true;
+      }
+      dirty.add(chunk);
+    }
+    for (const c of dirty) buildChunk(parts, c);
+  }
+
+  // The positions and colors of one chunk, with points that sit on top of
+  // the one before left out (Cesium can't draw a line of zero length).
+  function chunkPoints(parts, chunk) {
+    const positions = [];
+    const colors = [];
+    for (let i = chunk.start; i < chunk.end; i++) {
+      const v = parts.verts[i];
+      const last = positions[positions.length - 1];
+      if (last && C.Cartesian3.distanceSquared(last, v.position) < 0.01) continue;
+      positions.push(v.position);
+      colors.push(v.color);
+    }
+    return { positions, colors };
+  }
+
+  function buildChunk(parts, chunk) {
+    removeChunk(chunk, { keepShadow: true });
+    const { positions, colors } = chunkPoints(parts, chunk);
+    if (positions.length < 2) return;
+    const width = parts.focused ? LINE_PX : OTHER_LINE_PX;
+    chunk.halo = haloLayer.add(linePrimitive(positions, positions.map(() => haloColor), width + 2 * LINE_OUTLINE_PX));
+    chunk.line = lineLayer.add(linePrimitive(positions, colors, width));
+    chunk.shadowDirty = true;
+  }
+
+  function linePrimitive(positions, colors, width) {
+    return new C.Primitive({
+      geometryInstances: new C.GeometryInstance({
+        geometry: new C.PolylineGeometry({ positions, colors, colorsPerVertex: true, width, arcType: C.ArcType.NONE }),
+      }),
+      appearance: new C.PolylineColorAppearance({ translucent: false, renderState: NO_DEPTH }),
+      asynchronous: false,
+    });
+  }
+
+  function removeChunk(chunk, { keepShadow = false } = {}) {
+    if (chunk.halo) haloLayer.remove(chunk.halo);
+    if (chunk.line) lineLayer.remove(chunk.line);
+    chunk.halo = null;
+    chunk.line = null;
+    if (!keepShadow && chunk.shadow) {
+      scene.groundPrimitives.remove(chunk.shadow);
+      chunk.shadow = null;
+    }
+  }
+
+  // The ground shadow: each chunk's line laid flat on the terrain. A
+  // finished chunk is laid once. The newest one is laid again at most
+  // every SHADOW_TAIL_MS, and none is laid while a seek is still settling.
+  function syncShadows(parts) {
+    if (!shadowsReady) return;
+    const now = performance.now();
+    if (now < (parts.shadowWait ?? 0)) {
+      later(parts.shadowWait - now + 20);
       return;
     }
-    parts.old = parts.last !== rocket.track.length - 1;
-    const live = store.hasFixNow(rocket) && !parts.old;
+    for (const chunk of parts.chunks) {
+      if (!chunk.shadowDirty) continue;
+      if (!chunk.final && now - chunk.shadowAt < SHADOW_TAIL_MS) {
+        later(SHADOW_TAIL_MS - (now - chunk.shadowAt) + 20);
+        continue;
+      }
+      chunk.shadowDirty = false;
+      chunk.shadowAt = now;
+      if (chunk.shadow) scene.groundPrimitives.remove(chunk.shadow);
+      chunk.shadow = null;
+      const { positions } = chunkPoints(parts, chunk);
+      if (positions.length < 2) continue;
+      try {
+        chunk.shadow = scene.groundPrimitives.add(new C.GroundPolylinePrimitive({
+          geometryInstances: new C.GeometryInstance({
+            geometry: new C.GroundPolylineGeometry({ positions, width: SHADOW_PX }),
+            attributes: { color: C.ColorGeometryInstanceAttribute.fromColor(shadowColor) },
+          }),
+          appearance: new C.PolylineColorAppearance(),
+          asynchronous: false,
+        }));
+      } catch (err) {
+        // A shadow that can't be laid is left out. The path itself is fine.
+        console.warn('Flight Console: a ground shadow could not be drawn', err);
+      }
+    }
+  }
+
+  function markShadows(parts) {
+    for (const chunk of parts.chunks) chunk.shadowDirty = true;
+  }
+
+  // Asks for one more draw after ms (for the shadows' waits).
+  let laterTimer = 0;
+  function later(ms) {
+    if (laterTimer) return;
+    laterTimer = setTimeout(() => {
+      laterTimer = 0;
+      scheduler.schedule();
+    }, Math.max(0, ms));
+  }
+
+  // The board marker at the newest good fix that has a position: the
+  // board's blue while the fix is good right now, hollow when there is no
+  // fix now or a newer fix failed the quality gate or has no height. It is
+  // a billboard with no rotation and no scaling, so it always stands
+  // upright and keeps one size on screen.
+  function drawRocketIcon(rocket, parts, isFocused) {
+    const position = parts.lastGood >= 0 ? parts.dotAt[parts.lastGood] : null;
+    if (!position) {
+      if (parts.icon) parts.icon.show = false;
+      if (parts.ring) parts.ring.show = false;
+      return;
+    }
+    const newest = parts.lastGood === parts.crumbs.length - 1;
+    const live = store.hasFixNow(rocket) && newest;
     const id = `board${isFocused ? '-focus' : ''}${live ? '' : '-hollow'}`;
     if (!parts.icon) {
       parts.iconHome = isFocused ? focusIcons : rocketIcons;
       parts.icon = addIcon(parts.iconHome, id, position);
-      const ringId = isFocused ? 'ring-focus' : 'ring';
-      parts.rings = [0, 1, 2].map(() => addIcon(ringIcons, ringId, position));
-      // Other rockets' rings are half as strong, as on the map.
-      parts.ringStrength = isFocused ? 1 : 0.5;
+      parts.ring = addIcon(ringIcons, 'ring', position, { show: false });
     }
     parts.icon.show = true;
     parts.icon.position = position;
+    parts.ring.position = position;
     setIcon(parts.icon, id);
-    for (const ring of parts.rings) {
-      ring.show = live;
-      ring.position = position;
-    }
   }
 
-  // The start point (the launch point in a replay): the last good position
-  // before liftoff, as a small dot on the ground height looked up for it.
+  // The launch point: the last good position before liftoff, as a small
+  // dot on the ground height looked up for it.
   function drawPad(rocket, parts, model) {
     const pad = rocket.padPosition;
     const height = !pad || model.kind === 'wait' ? null : model.kind === 'ground' ? model.base : pad.altMsl;
     if (!Number.isFinite(height)) {
       if (parts.pad) parts.pad.show = false;
+      parts.padAt = null;
       return;
     }
     const position = C.Cartesian3.fromDegrees(pad.lon, pad.lat, height);
@@ -887,78 +1055,40 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // ------------------------------------------------------------------
-  // Pulse rings. Three orange rings around each board with a good fix
-  // grow and fade outward, a third of a pulse apart, like the map's. The
-  // scene only redraws when something changes, so while rings show, a
-  // loop asks for a frame at most RING_PULSE_FPS times a second. It rests
-  // while the view is off screen or paused behind the map, and stops when
-  // no ring shows. Viewers who ask for less motion get three still rings
-  // and no loop.
-  // ------------------------------------------------------------------
-  let pulseFrame = 0;
-  let pulseDrawn = -Infinity;
-  const ringColor = new C.Color(1, 1, 1, 1);
-
-  function ringsShowing() {
-    for (const parts of drawn.values()) if (parts.rings[0]?.show) return true;
-    return false;
-  }
-
-  function setRings(now) {
-    const still = prefersReducedMotion();
-    for (const parts of drawn.values()) {
-      if (!parts.rings[0]?.show) continue;
-      parts.rings.forEach((ring, k) => {
-        let scale;
-        let alpha;
-        if (still) [scale, alpha] = RING_STILL[k];
-        else {
-          // Where this ring is in its pulse, 0 to 1, with ring k a third
-          // of a pulse behind ring k - 1. Fast at first and slow at the
-          // end, close to the map's cubic-bezier(0.25, 0.6, 0.4, 1).
-          const u = (((now / RING_PULSE_MS - k / 3) % 1) + 1) % 1;
-          const eased = 1 - (1 - u) ** 2.4;
-          scale = RING_FROM_SCALE + (1 - RING_FROM_SCALE) * eased;
-          alpha = 1 - eased;
-        }
-        ring.scale = scale;
-        ringColor.alpha = alpha * parts.ringStrength;
-        ring.color = ringColor;
-      });
-    }
-  }
-
-  // True when some of the view is on screen (the console's other panel
-  // slides it out of sight).
-  function onScreen() {
-    const r = scene.canvas.getBoundingClientRect();
-    return r.width > 0 && r.right > 0 && r.left < window.innerWidth && r.bottom > 0 && r.top < window.innerHeight;
-  }
-
-  function pulse(now) {
-    pulseFrame = 0;
-    if (destroyed || !active || prefersReducedMotion() || !ringsShowing()) return;
-    pulseFrame = window.requestAnimationFrame(pulse);
-    if (now - pulseDrawn < 1000 / RING_PULSE_FPS - 4 || !onScreen()) return;
-    pulseDrawn = now;
-    setRings(now);
-    scene.requestRender();
-  }
-
-  // Runs after every draw: sets the rings for this moment, and starts the
-  // loop if it isn't running.
-  function startPulse() {
-    setRings(performance.now());
-    if (!pulseFrame && !destroyed && active && !prefersReducedMotion() && ringsShowing()) {
-      pulseFrame = window.requestAnimationFrame(pulse);
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // Drawing: the ground station, its line to the focused rocket and the
-  // event markers
+  // Drawing: Manta (the ground station) and the radio link to the focused
+  // board
   // ------------------------------------------------------------------
   const station = { icon: null, position: null, ground: null, groundSpot: null, approx: false };
+  // The radio link's two ends ([board, Manta]) while it shows, else null.
+  // It is drawn without the depth test, like the path, so the ground
+  // between a landed board and Manta never hides it. It is built again
+  // only when an end moves.
+  let linkEnds = null;
+  let linkPrim = null;
+
+  function setLink(from, to) {
+    const same = linkEnds && from && to && C.Cartesian3.equals(linkEnds[0], from) && C.Cartesian3.equals(linkEnds[1], to);
+    if (same || (!linkEnds && !(from && to))) return;
+    if (linkPrim) linkLines.remove(linkPrim);
+    linkPrim = null;
+    linkEnds = from && to ? [C.Cartesian3.clone(from), C.Cartesian3.clone(to)] : null;
+    if (!linkEnds || C.Cartesian3.distanceSquared(from, to) < 1) return;
+    linkPrim = linkLines.add(new C.Primitive({
+      geometryInstances: new C.GeometryInstance({
+        geometry: new C.PolylineGeometry({ positions: linkEnds, width: LINK_PX, arcType: C.ArcType.NONE, vertexFormat: C.PolylineMaterialAppearance.VERTEX_FORMAT }),
+      }),
+      appearance: new C.PolylineMaterialAppearance({
+        material: C.Material.fromType('PolylineDash', {
+          color: rgba(LINK_COLOR, LINK_ALPHA),
+          gapColor: clearColor,
+          dashLength: LINK_DASH_PX[0] + LINK_DASH_PX[1],
+        }),
+        translucent: true,
+        renderState: NO_DEPTH,
+      }),
+      asynchronous: false,
+    }));
+  }
 
   function drawStation() {
     const gs = store.getGroundStation();
@@ -988,66 +1118,237 @@ export function createGlobeView(container, ctx, options) {
     }
     if (height === null) {
       station.position = null;
+      station.linkEnd = null;
       if (station.icon) station.icon.show = false;
       return;
     }
     // The dish. While the ground station is the demo placeholder, the KEY
-    // and the readings panel say so.
+    // says so.
     const position = C.Cartesian3.fromDegrees(gs.lon, gs.lat, height);
     station.position = position;
+    station.linkEnd = C.Cartesian3.fromDegrees(gs.lon, gs.lat, height + LINK_DISH_RISE_M);
     if (!station.icon) station.icon = addIcon(groundIcons, 'dish', position);
     station.icon.show = true;
     station.icon.position = position;
   }
 
-  // Event markers in the sky, for the focused rocket: one at the trail
-  // point of its apogee, drogue, main and landing, and of each event its
-  // board reported, drawn by how the event was found. They come from the
-  // live store, so a marker only exists once playback has reached its
-  // event. An event with no good position at its time (a GPS gap) gets no
-  // marker, since there is no real place to put it.
-  let marks = [];
+  // The radio link: a faint dashed line from the focused board to Manta.
+  function drawLink(focused) {
+    const parts = focused ? drawn.get(focused.id) : null;
+    const from = parts?.icon?.show ? parts.icon.position : null;
+    setLink(from, station.linkEnd);
+  }
+
+  // ------------------------------------------------------------------
+  // Drawing: the focused rocket's event diamonds and its recovery
+  // crosshair
+  // ------------------------------------------------------------------
+  let marks = [];     // { icon, type, aglM, position }
   let marksKey = '';
+  let cross = null;   // the recovery crosshair billboard
 
   function drawEvents(focused) {
     const parts = focused ? drawn.get(focused.id) : null;
-    const events = focused && parts ? focused.events.filter((e) => EVENT_TYPES.has(e.type) || e.type === 'reported') : [];
-    // Rebuilt when the list of events changes, or the positions under them
-    // were worked out again (parts.key). A board's own event is logged the
-    // moment it arrives, and a closer GPS point can come in just after it,
-    // so the markers are also placed again on each new point until the
-    // trail is ALTITUDE_STALE_S past every event.
-    const newest = focused?.track[focused.track.length - 1];
-    const settling = events.some((e) => !newest || newest.t <= e.t + config.ALTITUDE_STALE_S) ? focused.track.length : 'settled';
-    const key = `${focused?.id ?? ''}|${parts?.key ?? ''}|${events.length}|${parts?.track === focused?.track}|${settling}`;
-    if (key !== marksKey || marks.some((m) => m.track !== focused?.track)) {
+    const model = parts && !parts.waiting ? heightModel(focused, parts) : null;
+    const events = focused && model && model.kind !== 'wait'
+      ? EVENT_TYPES.map((type) => focused.events.find((e) => e.type === type)).filter(Boolean)
+      : [];
+    // Rebuilt when the events change, the positions under them were worked
+    // out again (parts.key), or a closer fix came in after an event.
+    const spotsList = events.map((e) => {
+      const c = eventCrumb(focused, e);
+      return c ? { e, c } : null;
+    }).filter(Boolean);
+    const key = `${focused?.id ?? ''}|${parts?.key ?? ''}|${spotsList.map(({ e, c }) => `${e.type}@${c.t}`).join(',')}|${parts?.crumbs === focused?.crumbs}`;
+    if (key !== marksKey) {
       marksKey = key;
       for (const m of marks) eventIcons.remove(m.icon);
       marks = [];
-      for (const e of events) {
-        // The marker goes on a real trail point, never between two.
-        const i = nearestPoint(focused.track, parts.positions, e.t);
-        if (i < 0) continue;
-        const kind = eventMarkerKind(e, focused.derived);
-        const icon = addIcon(eventIcons, `event-${kind === 'estimated' ? 'inferred' : kind}`, parts.positions[i]);
-        marks.push({ icon, track: focused.track });
+      for (const { e, c } of spotsList) {
+        const position = pointPosition(focused, model, c);
+        if (!position) continue;
+        marks.push({ icon: addIcon(eventIcons, 'diamond', position), type: e.type, aglM: e.aglM, position });
       }
+    }
+    // The recovery position: the average of the fixes after landing, on
+    // the ground.
+    const info = focused ? recoveryInfo(store, focused) : null;
+    const where = info?.position;
+    if (!where) {
+      if (cross) cross.show = false;
+      return;
+    }
+    const position = C.Cartesian3.fromDegrees(where.lon, where.lat, 0);
+    if (!cross) cross = addIcon(eventIcons, 'crosshair', position, { heightReference: C.HeightReference.CLAMP_TO_GROUND });
+    cross.show = true;
+    cross.position = position;
+  }
+
+  // ------------------------------------------------------------------
+  // Packet ring and radio dot. Each time a packet arrives for a board,
+  // one thin white ring grows out of its marker and fades, and (for the
+  // focused board, when there is a ground station) a small white dot runs
+  // along the radio link from the board to Manta. A packet that comes
+  // while they are still moving starts nothing new. While something
+  // moves, a loop asks for one frame per screen refresh, and it stops as
+  // soon as everything has finished. Viewers who ask for less motion get
+  // neither.
+  // ------------------------------------------------------------------
+  const travel = travelDots.add({
+    show: false,
+    position: C.Cartesian3.ZERO,
+    pixelSize: LINK_DOT_PX,
+    color: rgba(WHITE),
+    outlineColor: haloColor,
+    outlineWidth: 1,
+    ...ALWAYS,
+  });
+  let travelRun = null; // { from, to, start }
+  let animFrame = 0;
+  const ringColor = new C.Color(1, 1, 1, 1);
+
+  // Packets that came in while this view watched (for the tests).
+  let packetsSeen = 0;
+
+  // A packet for this rocket arrived: start its ring and the radio dot.
+  function packetArrived(rocket, parts, isFocused) {
+    packetsSeen += 1;
+    if (prefersReducedMotion() || !active) return;
+    const now = performance.now();
+    if (parts.ring && parts.icon?.show && (parts.ringStart === null || now - parts.ringStart >= RING_MS)) {
+      parts.ringStart = now;
+    }
+    if (isFocused && linkEnds && (!travelRun || now - travelRun.start >= LINK_TRAVEL_MS)) {
+      const [from, to] = linkEnds;
+      travelRun = { from: C.Cartesian3.clone(from), to: C.Cartesian3.clone(to), start: now };
+    }
+    if (!animFrame) animFrame = window.requestAnimationFrame(animate);
+  }
+
+  function animate(now) {
+    animFrame = 0;
+    if (destroyed) return;
+    let moving = false;
+    for (const parts of drawn.values()) {
+      if (!parts.ring || parts.ringStart === null) continue;
+      const u = (now - parts.ringStart) / RING_MS;
+      if (u >= 1 || !parts.icon?.show) {
+        parts.ring.show = false;
+        parts.ringStart = null;
+        continue;
+      }
+      // Fast at first and slow at the end.
+      const eased = 1 - (1 - Math.max(0, u)) ** 2.4;
+      parts.ring.show = true;
+      parts.ring.scale = RING_FROM_SCALE + (1 - RING_FROM_SCALE) * eased;
+      ringColor.alpha = 1 - eased;
+      parts.ring.color = ringColor;
+      moving = true;
+    }
+    if (travelRun) {
+      const u = (now - travelRun.start) / LINK_TRAVEL_MS;
+      if (u >= 1 || !linkEnds) {
+        travel.show = false;
+        travelRun = null;
+      } else {
+        travel.show = true;
+        travel.position = C.Cartesian3.lerp(travelRun.from, travelRun.to, Math.max(0, u), new C.Cartesian3());
+        moving = true;
+      }
+    }
+    scene.requestRender();
+    if (moving) animFrame = window.requestAnimationFrame(animate);
+  }
+
+  function stopAnimations() {
+    window.cancelAnimationFrame(animFrame);
+    animFrame = 0;
+    for (const parts of drawn.values()) {
+      if (parts.ring) parts.ring.show = false;
+      parts.ringStart = null;
+    }
+    travel.show = false;
+    travelRun = null;
+  }
+
+  // ------------------------------------------------------------------
+  // Labels: "DOGTOOTH", "MANTA", "LAUNCH POINT" and "APOGEE 3,012 M", drawn
+  // by the label layer map-view.js shares. Their screen spots are worked
+  // out after every frame, so they follow the camera.
+  // ------------------------------------------------------------------
+  const scratch2 = new C.Cartesian2();
+  function screenOf(position) {
+    if (!position) return null;
+    const occluder = new C.EllipsoidalOccluder(C.Ellipsoid.WGS84, camera.positionWC);
+    if (!occluder.isPointVisible(position)) return null;
+    const p = scene.cartesianToCanvasCoordinates(position, scratch2);
+    return p ? { x: p.x, y: p.y } : null;
+  }
+
+  // Meters one screen pixel covers where the camera looks.
+  function metersPerPx() {
+    const height = scene.canvas.clientHeight;
+    const dist = C.Cartesian3.distance(camera.positionWC, look.pivot);
+    return height > 0 ? (2 * dist * Math.tan(camera.frustum.fovy / 2)) / height : null;
+  }
+
+  function updateLabels() {
+    if (!labels || !active) return;
+    if (siteHidden || !assetsReady) {
+      labels.update([]);
+      return;
+    }
+    const items = [];
+    const focused = store.getFocused();
+    const parts = focused ? drawn.get(focused.id) : null;
+    if (parts?.icon?.show) {
+      const p = screenOf(parts.icon.position);
+      if (p) items.push({ id: 'board', text: LABEL_NAMES.board, x: p.x, y: p.y, r: BOARD_FOCUSED[1] / 2 + 2, priority: LABEL_PRIORITY.board });
+    }
+    if (station.icon?.show) {
+      const p = screenOf(station.position);
+      // The dish stands above its foot, so the label points at its bowl.
+      if (p) items.push({ id: 'station', text: LABEL_NAMES.station, x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
+    }
+    if (parts?.pad?.show) {
+      const p = screenOf(parts.padAt);
+      if (p) items.push({ id: 'pad', text: LABEL_NAMES.pad, x: p.x, y: p.y, r: START_SIZE / 2, priority: LABEL_PRIORITY.pad });
+    }
+    const apogee = marks.find((m) => m.type === 'apogee');
+    if (apogee) {
+      const p = screenOf(apogee.position);
+      if (p) items.push({ id: 'apogee', text: apogeeLabel(apogee.aglM), x: p.x, y: p.y, r: DIAMOND_SIZE / 2, priority: LABEL_PRIORITY.apogee });
+    }
+    const mpp = metersPerPx();
+    labels.update(items, { far: !(mpp < LABEL_FAR_M_PER_PX), avoid: covers() });
+  }
+
+  // When the site is on the far side of the Earth (a far view, or a flight
+  // to another site), the breadcrumbs and markers would show through the
+  // globe, since terrain never hides them. So they are hidden then.
+  let siteHidden = false;
+  function hideBehindEarth() {
+    const focused = store.getFocused();
+    const parts = focused ? drawn.get(focused.id) : null;
+    const anchor = parts?.icon?.show ? parts.icon.position : parts?.padAt ?? station.position;
+    let hidden = false;
+    if (anchor) {
+      const occluder = new C.EllipsoidalOccluder(C.Ellipsoid.WGS84, camera.positionWC);
+      hidden = !occluder.isPointVisible(anchor);
+    }
+    if (hidden === siteHidden) return;
+    siteHidden = hidden;
+    for (const layer of siteLayers) layer.show = !hidden;
+    for (const parts2 of drawn.values()) {
+      for (const chunk of parts2.chunks) if (chunk.shadow) chunk.shadow.show = !hidden;
     }
   }
 
-  // Index of the drawn track point closest in time to t, no further away
-  // than ALTITUDE_STALE_S (a board that times events from its barometer
-  // sends GPS positions at other moments). -1 if there is none.
-  function nearestPoint(track, positions, t) {
-    let best = -1;
-    let bestGap = config.ALTITUDE_STALE_S + 1e-6;
-    for (let i = 0; i < track.length && i < positions.length; i++) {
-      const gap = Math.abs(track[i].t - t);
-      if (positions[i] && gap < bestGap) { best = i; bestGap = gap; }
-      if (track[i].t > t + config.ALTITUDE_STALE_S) break;
-    }
-    return best;
-  }
+  const stopPostRender = scene.postRender.addEventListener(() => {
+    updateLabels();
+    const mpp = metersPerPx();
+    onScale?.(Number.isFinite(mpp) ? mpp : null);
+  });
 
   // ------------------------------------------------------------------
   // Camera. It always looks at one point (the pivot) from a heading, a
@@ -1055,28 +1356,30 @@ export function createGlobeView(container, ctx, options) {
   // four values in `look` and calls aim().
   //
   // Three ways the pivot is chosen:
-  //   'follow'  the focused rocket. The camera steps with it, one data
-  //             point at a time, and keeps the viewer's angle and distance.
-  //   'whole'   the middle of everything drawn so far, from far enough
-  //             back to fit it all. It is framed again as the trail grows,
-  //             until the viewer zooms or slides the view.
+  //   'follow'  the focused board. The camera steps with it, one fix at a
+  //             time, and keeps the viewer's angle and distance.
+  //   'whole'   framed so every point drawn so far fits the part of the
+  //             view the HUD leaves free. It is framed again as the path
+  //             grows, until the viewer zooms or slides the view.
   //   'free'    wherever the viewer left it.
   // ------------------------------------------------------------------
-  let cameraMode = options.follow ? 'follow' : 'free';
+  let followOn = Boolean(options.follow);
+  let cameraMode = followOn ? 'follow' : 'free';
   let started = false;         // the starting view has been set on real data
   let framed = null;           // what 'whole' last framed: { center, radius }
   let glide = null;            // a camera move in progress: { to, frame }
-  let flying = false;          // the fly-in from the far view is running
+  let flying = false;          // a Cesium flight (to a new site) is running
   const frameOf = (position) => C.Transforms.eastNorthUpToFixedFrame(position);
   const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
   const PITCH_MIN = C.Math.toRadians(config.GLOBE_PITCH_MIN_DEG);
   const PITCH_MAX = C.Math.toRadians(config.GLOBE_PITCH_MAX_DEG);
+  const STRAIGHT_DOWN = -C.Math.PI_OVER_TWO;
 
   // The flight's highest point above ground (m), from the pre-scan (the
   // same number the timeline uses for its scale). 0 if there is none.
   function flightTop() {
     let top = 0;
-    for (const [, scan] of prescan) top = Math.max(top, scan.state?.maxAgl ?? 0);
+    for (const [, scan] of prescan()) top = Math.max(top, scan.state?.maxAgl ?? 0);
     return top;
   }
 
@@ -1098,18 +1401,100 @@ export function createGlobeView(container, ctx, options) {
     return C.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + flightTop() / 2);
   }
 
+  // The idle camera: far out over the middle of the Atlantic, looking
+  // down at the whole Earth with north up. It is as far out as it takes
+  // for the Earth to fit the free part of the view (the view minus the
+  // band the controls and credits take at the bottom, from
+  // options.idleBottom) with IDLE_MARGIN to spare, and it looks a touch
+  // south of straight down, so the Earth's middle lands in the middle of
+  // that free part.
+  //   Cesium's field of view (frustum.fov) spans the view's wider side. A
+  //   pixel at the middle of the view is 1 / f radians, with f worked out
+  //   from the view's height and its vertical field of view. The Earth's
+  //   outline is f * tan(a) px across its middle from distance d, where
+  //   sin(a) = R / d. So for an outline radius r px, a = atan(r / f) and
+  //   d = R / sin(a). Tilting the camera b = atan(s / f) moves the Earth's
+  //   middle s px up the screen.
+  function idleCamera() {
+    const w = scene.canvas.clientWidth;
+    const hgt = scene.canvas.clientHeight;
+    const R = C.Ellipsoid.WGS84.maximumRadius;
+    const surface = C.Cartesian3.fromDegrees(WAIT_FAR_LON, WAIT_FAR_LAT, 0);
+    const up = C.Ellipsoid.WGS84.geodeticSurfaceNormal(surface, new C.Cartesian3());
+    const east = C.Cartesian3.normalize(C.Cartesian3.cross(C.Cartesian3.UNIT_Z, up, new C.Cartesian3()), new C.Cartesian3());
+    const north = C.Cartesian3.cross(up, east, new C.Cartesian3());
+    let distance = 20000000 + R;
+    let tilt = 0;
+    if (w > 0 && hgt > 0) {
+      const bottom = Math.min(hgt * 0.4, Math.max(0, options.idleBottom?.() ?? 0));
+      const freeH = hgt - bottom;
+      const fov = camera.frustum.fov ?? C.Math.toRadians(60);
+      const fovy = w > hgt ? 2 * Math.atan(Math.tan(fov / 2) * hgt / w) : fov;
+      const f = (hgt / 2) / Math.tan(fovy / 2);
+      const radius = (Math.min(w, freeH) / 2) * (1 - IDLE_MARGIN);
+      distance = R / Math.sin(Math.atan(radius / f));
+      tilt = Math.atan((hgt / 2 - freeH / 2) / f);
+    }
+    const along = (v, k) => C.Cartesian3.multiplyByScalar(v, k, new C.Cartesian3());
+    const plus = (a, b) => C.Cartesian3.add(a, b, new C.Cartesian3());
+    return {
+      destination: plus(surface, along(up, distance - R)),
+      direction: C.Cartesian3.normalize(plus(along(up, -Math.cos(tilt)), along(north, -Math.sin(tilt))), new C.Cartesian3()),
+      up: C.Cartesian3.normalize(plus(along(north, Math.cos(tilt)), along(up, -Math.sin(tilt))), new C.Cartesian3()),
+      look: { pivot: surface, heading: 0, pitch: STRAIGHT_DOWN, range: distance - R },
+    };
+  }
+
+  // The idle look (for the camera's sums, like the scale bar).
+  function idleLook() {
+    return idleCamera().look;
+  }
+
+  // Puts the camera in the idle view at once.
+  function aimIdle() {
+    const v = idleCamera();
+    Object.assign(look, v.look);
+    camera.lookAtTransform(C.Matrix4.IDENTITY);
+    camera.setView({ destination: v.destination, orientation: { direction: v.direction, up: v.up } });
+    scene.requestRender();
+  }
+
+  // The view size and bottom band the idle view was last fitted to.
+  let idleKey = '';
+
+  // Flies out to the idle view (back to live with nothing connected).
+  function flyOut() {
+    stopGlide();
+    const v = idleCamera();
+    Object.assign(look, v.look);
+    if (prefersReducedMotion() || !active) {
+      aimIdle();
+      return;
+    }
+    const landed = () => {
+      if (!flying) return;
+      flying = false;
+      if (!destroyed) aim();
+    };
+    camera.lookAtTransform(C.Matrix4.IDENTITY);
+    flying = true;
+    camera.flyTo({ destination: v.destination, orientation: { direction: v.direction, up: v.up }, duration: FLY_IN_S, complete: landed, cancel: landed });
+    scene.requestRender();
+  }
+
   // Where the camera looks from: { pivot, heading, pitch, range }. Until
   // there is real data to look at, it waits over the ground station, so
   // the ground there starts loading. With no ground station it waits far
-  // out over the Atlantic, looking straight down at the whole Earth, and
-  // the zoom limit lets it stay that far out until the first real view
-  // (see aim).
-  const waitFar = !store.getGroundStation();
-  const look = (() => {
-    const gs = store.getGroundStation();
-    if (!gs) return { pivot: C.Cartesian3.fromDegrees(WAIT_FAR_LON, WAIT_FAR_LAT, 0), heading: 0, pitch: PITCH_MIN, range: WAIT_FAR_RANGE_M };
+  // out, looking straight down at the whole Earth (idle).
+  let waitFar = !store.getGroundStation();
+  const look = waitFar ? idleLook() : stationLook(store.getGroundStation());
+
+  function stationLook(gs) {
     return { pivot: C.Cartesian3.fromDegrees(gs.lon, gs.lat, Number.isFinite(gs.altMsl) ? gs.altMsl : 0), ...startOrbit() };
-  })();
+  }
+
+  // True while the camera should sit in the idle view.
+  const idle = () => waitFar && !started;
 
   // Where the camera itself is, for a pivot, heading, pitch and distance.
   // (Heading 0 looks north, so the camera is south of the pivot. A
@@ -1143,11 +1528,20 @@ export function createGlobeView(container, ctx, options) {
     }
   }
 
-  // Points the camera where `look` says.
+  // Points the camera where `look` says, within the zoom and tilt limits.
+  // The idle view has its own camera (aimIdle).
   function aim() {
-    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, waitFar && !started ? WAIT_FAR_RANGE_M : config.GLOBE_ZOOM_MAX_M);
+    if (idle() && !glide && !flying) {
+      aimIdle();
+      return;
+    }
+    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
     look.pitch = clamp(look.pitch, PITCH_MIN, PITCH_MAX);
     keepAboveGround();
+    aimNow();
+  }
+
+  function aimNow() {
     camera.lookAtTransform(frameOf(look.pivot), new C.HeadingPitchRange(look.heading, look.pitch, look.range));
     scene.requestRender();
   }
@@ -1173,9 +1567,13 @@ export function createGlobeView(container, ctx, options) {
       look.heading = from.heading + turn * eased;
       look.pitch = from.pitch + (glide.to.pitch - from.pitch) * eased;
       look.range = Math.exp(Math.log(from.range) + (Math.log(glide.to.range) - Math.log(from.range)) * eased);
-      aim();
-      if (u < 1) glide.frame = window.requestAnimationFrame(step);
-      else glide = null;
+      if (u < 1) {
+        aim();
+        glide.frame = window.requestAnimationFrame(step);
+      } else {
+        glide = null;
+        aim();
+      }
     };
     glide = { to, frame: window.requestAnimationFrame(step) };
   }
@@ -1186,16 +1584,17 @@ export function createGlobeView(container, ctx, options) {
     if (flying) camera.cancelFlight();
   }
 
-  // The first position after the far view: Cesium's own flight down to it,
-  // ending exactly where `to` looks from. Anything the viewer does with the
-  // camera on the way ends the flight at its goal.
+  // A flight to a new site, or out to the idle view: Cesium's own flight,
+  // ending exactly where `to` looks from. Anything the viewer does with
+  // the camera on the way ends the flight at its goal. With less motion
+  // asked for, the camera jumps there.
   function flyIn(to) {
     stopGlide();
     Object.assign(look, to);
     look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
     look.pitch = clamp(look.pitch, PITCH_MIN, PITCH_MAX);
-    if (prefersReducedMotion()) {
-      aim();
+    if (prefersReducedMotion() || !active) {
+      aimNow();
       return;
     }
     const landed = () => {
@@ -1215,9 +1614,17 @@ export function createGlobeView(container, ctx, options) {
     scene.requestRender();
   }
 
-  // Ends a glide at its goal (the view is about to be hidden).
+  // Goes to a new look: a short glide when it is near what the camera
+  // looks at now, a flight when it is far.
+  function goTo(to) {
+    const near = !idle() && C.Cartesian3.distance(to.pivot, look.pivot) < GLIDE_MAX_M && look.pitch !== STRAIGHT_DOWN;
+    if (near) moveTo(to, { animate: true });
+    else flyIn(to);
+  }
+
+  // Ends a glide or a flight at its goal (the view is about to be hidden).
   function finishGlide() {
-    // A fly-in ends at its goal when it is cancelled.
+    // A flight ends at its goal when it is cancelled.
     if (flying) camera.cancelFlight();
     if (!glide) return;
     const { to } = glide;
@@ -1228,7 +1635,7 @@ export function createGlobeView(container, ctx, options) {
 
   const focusedTarget = () => {
     const parts = drawn.get(store.getFocusedId());
-    return parts && parts.last >= 0 ? parts.positions[parts.last] : null;
+    return parts?.icon?.show ? parts.icon.position : null;
   };
   const firstPad = () => {
     const focusedParts = drawn.get(store.getFocusedId());
@@ -1237,80 +1644,146 @@ export function createGlobeView(container, ctx, options) {
     return null;
   };
 
-  // Every point worth framing: the trails, the pads and the ground station.
+  // Every point worth framing: every dot and line point, the pads, the
+  // event markers and the ground station.
   function everything() {
     const points = [];
     for (const parts of drawn.values()) {
-      for (const p of parts.positions) if (p) points.push(p);
+      for (const p of parts.dotAt) if (p) points.push(p);
+      for (const v of parts.verts) points.push(v.position);
       if (parts.pad?.show) points.push(parts.padAt);
     }
+    for (const m of marks) points.push(m.position);
     if (station.position) points.push(station.position);
     return points;
   }
 
+  // The box (canvas px) of the points on screen with the camera where
+  // `look` says right now, or null when one of them is behind the camera.
+  function projectedBox(points) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of points) {
+      const s = scene.cartesianToCanvasCoordinates(p, scratch2);
+      if (!s || !Number.isFinite(s.x) || !Number.isFinite(s.y)) return null;
+      x0 = Math.min(x0, s.x);
+      x1 = Math.max(x1, s.x);
+      y0 = Math.min(y0, s.y);
+      y1 = Math.max(y1, s.y);
+    }
+    return { x0, x1, y0, y1 };
+  }
+
+  // WHOLE FLIGHT. The camera keeps its heading and a tilt that shows the
+  // ground, and is placed so every point drawn so far lands inside the
+  // free part of the view (freeInsets() from map-view.js: the view minus
+  // the HUD, the controls, the timeline and some room). The fit is worked
+  // out by trying: point the camera, project the points to the screen,
+  // then move closer or farther and slide the view until the points' box
+  // sits in the middle of the free part and just fits.
   function frameEverything({ animate }) {
-    const points = everything();
-    // Nothing to frame yet, or no view to measure (hidden behind the map).
-    // updateCamera() frames as soon as there is.
-    if (!points.length || scene.canvas.clientWidth < 1 || scene.canvas.clientHeight < 1) return;
-    const sphere = C.BoundingSphere.fromPoints(points);
-    sphere.radius = Math.max(sphere.radius, 150);
-    // Keep the side the viewer is looking from, never flatter than the
-    // starting tilt, so the ground stays in view.
-    const pitch = Math.min(C.Math.toRadians(config.GLOBE_START_PITCH_DEG), Math.max(C.Math.toRadians(-70), look.pitch));
-    // Fit it in the part of the view between the tall panels that float
-    // over it (like the readings panel on the right),
-    // not under them.
+    const all = everything();
     const width = scene.canvas.clientWidth;
     const height = scene.canvas.clientHeight;
-    let leftInset = 0;
-    let rightInset = 0;
-    for (const c of covers()) {
-      if (c.bottom - c.top < height / 3) continue;
-      if (c.left < width * 0.25) leftInset = Math.max(leftInset, c.right);
-      else if (c.right > width * 0.75) rightInset = Math.max(rightInset, width - c.left);
+    // Nothing to frame yet, or no view to measure (hidden behind the map).
+    // updateCamera() frames as soon as there is.
+    if (!all.length || width < 1 || height < 1) return;
+    const step = Math.max(1, Math.ceil(all.length / WHOLE_FIT_SAMPLE));
+    const points = all.filter((_, i) => i % step === 0 || i === all.length - 1);
+    // The extreme points always count, whatever the sampling skipped.
+    const sphere = C.BoundingSphere.fromPoints(all);
+    sphere.radius = Math.max(sphere.radius, 150);
+    const ins = freeInsets?.() ?? { top: 24, right: 24, bottom: 24, left: 24 };
+    const free = { x0: ins.left, x1: width - ins.right, y0: ins.top, y1: height - ins.bottom };
+    if (free.x1 - free.x0 < 40 || free.y1 - free.y0 < 40) {
+      free.x0 = 0; free.x1 = width; free.y0 = 0; free.y1 = height;
     }
-    const free = Math.max(0.3, (width - leftInset - rightInset) / Math.max(1, width));
+    const freeW = free.x1 - free.x0;
+    const freeH = free.y1 - free.y0;
+    const pitch = Math.min(C.Math.toRadians(config.GLOBE_START_PITCH_DEG), Math.max(C.Math.toRadians(-70), look.pitch));
     const tanV = Math.tan(camera.frustum.fovy / 2);
-    const tanH = tanV * camera.frustum.aspectRatio;
-    const range = (sphere.radius / Math.min(tanV, tanH * free)) * config.GLOBE_FIT_MARGIN;
+    const to = {
+      pivot: C.Cartesian3.clone(sphere.center),
+      heading: look.heading,
+      pitch,
+      range: clamp((sphere.radius / tanV) * 1.2, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M),
+    };
+    const saved = { pivot: C.Cartesian3.clone(look.pivot), heading: look.heading, pitch: look.pitch, range: look.range };
+    const extreme = all.length > points.length ? [...points, ...extremes(all)] : points;
+    for (let i = 0; i < WHOLE_FIT_STEPS; i++) {
+      Object.assign(look, to);
+      aimNow();
+      const box = projectedBox(extreme);
+      if (!box) {
+        to.range = clamp(to.range * 1.6, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+        continue;
+      }
+      const scale = Math.max((box.x1 - box.x0) / freeW, (box.y1 - box.y0) / freeH, 0.05);
+      const dx = (box.x0 + box.x1) / 2 - (free.x0 + free.x1) / 2;
+      const dy = (box.y0 + box.y1) / 2 - (free.y0 + free.y1) / 2;
+      const done = Math.abs(scale - 1) < 0.02 && Math.abs(dx) < 3 && Math.abs(dy) < 3 && box.x0 >= free.x0 - 1 && box.x1 <= free.x1 + 1 && box.y0 >= free.y0 - 1 && box.y1 <= free.y1 + 1;
+      if (done) break;
+      // Slide the pivot across the screen so the box's middle lands on the
+      // free part's middle, then move closer or farther to fit.
+      const mpp = (2 * C.Cartesian3.distance(camera.positionWC, to.pivot) * tanV) / height;
+      const right = C.Cartesian3.multiplyByScalar(camera.rightWC, dx * mpp, new C.Cartesian3());
+      const up = C.Cartesian3.multiplyByScalar(camera.upWC, -dy * mpp, new C.Cartesian3());
+      to.pivot = C.Cartesian3.add(C.Cartesian3.add(to.pivot, right, new C.Cartesian3()), up, new C.Cartesian3());
+      to.range = clamp(to.range * clamp(scale * 1.01, 0.4, 2.5), config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+    }
+    Object.assign(look, saved);
+    aimNow();
     framed = { center: C.Cartesian3.clone(sphere.center), radius: sphere.radius };
-    // The camera aims a little to one side of the middle, so the middle
-    // of what is framed lands in the middle of the free part.
-    const metersPerPx = (2 * range * tanH) / Math.max(1, width);
-    const shift = ((rightInset - leftInset) / 2) * metersPerPx;
-    const local = new C.Cartesian3(Math.cos(look.heading) * shift, -Math.sin(look.heading) * shift, 0);
-    const pivot = C.Matrix4.multiplyByPoint(frameOf(sphere.center), local, new C.Cartesian3());
-    moveTo({ pivot, heading: look.heading, pitch, range }, { animate });
+    moveTo(to, { animate });
+  }
+
+  // The points furthest out in each direction of the Earth-centered axes,
+  // so a sampled fit check never misses the ends of the path.
+  function extremes(points) {
+    const out = [];
+    for (const axis of ['x', 'y', 'z']) {
+      let lo = points[0];
+      let hi = points[0];
+      for (const p of points) {
+        if (p[axis] < lo[axis]) lo = p;
+        if (p[axis] > hi[axis]) hi = p;
+      }
+      out.push(lo, hi);
+    }
+    return out;
   }
 
   // Runs after every draw: keeps the camera on what its mode says.
   function updateCamera() {
     const target = focusedTarget();
     if (!started) {
-      // The first real position to look at: the focused rocket, or a pad.
+      // The first real position to look at: the focused board, or a pad.
       const first = target ?? firstPad();
       if (!first) return;
       started = true;
       const pad = firstPad();
       const pivot = cameraMode === 'follow' && target ? target : pad ? abovePad(pad) : first;
-      // From the far view it flies down. Over a ground station it is
-      // already close, so it starts there.
-      if (waitFar && cameraMode !== 'whole') flyIn({ pivot, ...startOrbit() });
-      else moveTo({ pivot, ...startOrbit() }, { animate: false });
-      // "Whole flight" was chosen before there was anything to frame.
-      if (cameraMode === 'whole') frameEverything({ animate: false });
+      // From far away it flies there. Near the site it glides (or starts
+      // there, the first time the view opens over a ground station).
+      if (cameraMode === 'whole') {
+        moveTo({ pivot, ...startOrbit() }, { animate: false });
+        frameEverything({ animate: false });
+      } else if (fresh) {
+        moveTo({ pivot, ...startOrbit() }, { animate: false });
+      } else {
+        goTo({ pivot, ...startOrbit() });
+      }
+      fresh = false;
       return;
     }
-    // The fly-in ends on the newest point.
+    // A flight ends on the newest point.
     if (flying) {
       if (cameraMode === 'follow' && target) look.pivot = target;
       return;
     }
     if (cameraMode === 'follow' && target) {
-      // The camera steps with the rocket, one data point at a time, and
-      // keeps the viewer's angle and distance. A glide on its way to the
-      // rocket ends on the new point.
+      // The camera steps with the board, one fix at a time, and keeps the
+      // viewer's angle and distance. A glide on its way to the board ends
+      // on the new point.
       if (glide) glide.to.pivot = target;
       else if (!C.Cartesian3.equals(target, look.pivot)) {
         look.pivot = target;
@@ -1326,9 +1799,13 @@ export function createGlobeView(container, ctx, options) {
       if (!points.length) return;
       const sphere = C.BoundingSphere.fromPoints(points);
       const reach = C.Cartesian3.distance(sphere.center, framed.center) + sphere.radius;
-      if (reach > framed.radius * (1 + (config.GLOBE_FIT_MARGIN - 1) * 0.7)) frameEverything({ animate: true });
+      if (reach > framed.radius * 1.1) frameEverything({ animate: true });
     }
   }
+  // True until the first view is set on the view's first store. That one
+  // starts in place over the ground station (or flies down from the idle
+  // view). Later sources always fly or glide.
+  let fresh = !waitFar;
 
   // Zooming or sliding the view in 'whole' means the viewer took over.
   // (Orbiting doesn't: everything stays framed from any side.)
@@ -1340,15 +1817,64 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // ------------------------------------------------------------------
+  // A new source (store-switch.js): forget everything from the old store
+  // and head for the new one's site.
+  // ------------------------------------------------------------------
+  function newSource() {
+    stopAnimations();
+    for (const parts of drawn.values()) removeRocket(parts);
+    drawn.clear();
+    for (const m of marks) eventIcons.remove(m.icon);
+    marks = [];
+    marksKey = '';
+    if (cross) eventIcons.remove(cross);
+    cross = null;
+    if (station.icon) groundIcons.remove(station.icon);
+    Object.assign(station, { icon: null, position: null, linkEnd: null, ground: null, groundSpot: null, approx: false });
+    setLink(null, null);
+    spots = [];
+    labels?.update([]);
+    notesText = '';
+    started = false;
+    framed = null;
+    fresh = false;
+    cameraMode = followOn ? 'follow' : 'free';
+    const gs = store.getGroundStation();
+    const s = session();
+    const padPoint = s.loading ? s.entry?.summary?.padPoint : null;
+    waitFar = !gs;
+    if (Array.isArray(padPoint) && Number.isFinite(padPoint[0]) && Number.isFinite(padPoint[1])) {
+      // A saved flight is downloading: head for its launch point now.
+      const ground = scene.globe.getHeight(C.Cartographic.fromDegrees(padPoint[1], padPoint[0])) ?? 0;
+      waitFar = false;
+      goTo({
+        pivot: C.Cartesian3.fromDegrees(padPoint[1], padPoint[0], Number.isFinite(ground) ? ground : 0),
+        heading: C.Math.toRadians(config.GLOBE_START_HEADING_DEG),
+        pitch: C.Math.toRadians(LOADING_PITCH_DEG),
+        range: LOADING_RANGE_M,
+      });
+    } else if (gs) {
+      goTo(stationLook(gs));
+    } else if (!store.getRockets().some((r) => r.crumbs?.length)) {
+      // Nothing to look at (live, nothing connected): back out to the
+      // whole Earth.
+      flyOut();
+    }
+    scheduler.schedule();
+    onChange();
+  }
+
+  // ------------------------------------------------------------------
   // Controls. One finger, or the left mouse button, orbits the camera
   // around the pivot. The wheel or a pinch zooms. Two fingers twisting
   // turn the view. The right mouse button, Shift with a drag, or two
   // fingers dragging slide the view over the ground. Sliding stops
-  // following the rocket. With the mouse it does so at once. With two
-  // fingers it only slides once "Follow rocket" is off, so a pinch can't
+  // following the board. With the mouse it does so at once. With two
+  // fingers it only slides once FOLLOW BOARD is off, so a pinch can't
   // switch following off by accident. The arrow keys move the camera
   // around the pivot, and + and - zoom. Nothing keeps moving after the
-  // hand lets go.
+  // hand lets go. In the idle view (the whole Earth, nothing to look at)
+  // the camera stays put.
   // ------------------------------------------------------------------
   const canvas = scene.canvas;
   const DRAG_RATE = C.Math.toRadians(config.GLOBE_ORBIT_DEG_PER_PX);
@@ -1359,6 +1885,7 @@ export function createGlobeView(container, ctx, options) {
   // A drag to the right pulls the near side of the scene to the right. A
   // drag down pulls it down, so the camera rises.
   function orbitBy(dx, dy) {
+    if (idle()) return;
     stopGlide();
     look.heading += dx * DRAG_RATE;
     look.pitch -= dy * DRAG_RATE;
@@ -1366,6 +1893,7 @@ export function createGlobeView(container, ctx, options) {
   }
 
   function zoomBy(factor) {
+    if (idle()) return;
     stopGlide();
     look.range *= factor;
     leaveWhole();
@@ -1375,16 +1903,17 @@ export function createGlobeView(container, ctx, options) {
   // Slides the pivot over the ground, so the ground under the pointer
   // moves with it.
   function slideBy(dx, dy) {
+    if (idle()) return;
     stopGlide();
     if (cameraMode === 'follow') {
       cameraMode = 'free';
       onFollowOff();
     }
     leaveWhole();
-    const metersPerPx = (2 * look.range * Math.tan(camera.frustum.fovy / 2)) / Math.max(1, canvas.clientHeight);
-    const sideways = -dx * metersPerPx;
+    const mpp = (2 * look.range * Math.tan(camera.frustum.fovy / 2)) / Math.max(1, canvas.clientHeight);
+    const sideways = -dx * mpp;
     // A drag toward the viewer covers more ground the flatter the camera looks.
-    const ahead = (dy * metersPerPx) / Math.max(0.35, Math.sin(Math.abs(look.pitch)));
+    const ahead = (dy * mpp) / Math.max(0.35, Math.sin(Math.abs(look.pitch)));
     const local = new C.Cartesian3(
       Math.cos(look.heading) * sideways + Math.sin(look.heading) * ahead,
       -Math.sin(look.heading) * sideways + Math.cos(look.heading) * ahead,
@@ -1432,9 +1961,9 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // Two fingers: the gap between them zooms, their twist turns the view,
-  // and (with "Follow rocket" off) their shared movement slides it.
+  // and (with FOLLOW BOARD off) their shared movement slides it.
   function twoFingers() {
-    if (destroyed || fingers.size !== 2) return;
+    if (destroyed || fingers.size !== 2 || idle()) return;
     const now = measurePair();
     const last = pair;
     pair = now;
@@ -1467,7 +1996,7 @@ export function createGlobeView(container, ctx, options) {
   }
 
   function onKeyDown(e) {
-    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || idle()) return;
     const turn = C.Math.toRadians(config.GLOBE_KEY_TURN_DEG);
     if (e.key === 'ArrowLeft') look.heading += turn;
     else if (e.key === 'ArrowRight') look.heading -= turn;
@@ -1491,6 +2020,23 @@ export function createGlobeView(container, ctx, options) {
   container.addEventListener('keydown', onKeyDown);
   aim();
 
+  // A new view size (a turned phone, a resized window) fits the idle
+  // Earth again.
+  const resizeObserver = 'ResizeObserver' in window
+    ? new ResizeObserver(() => {
+      if (destroyed || !active) return;
+      if (idle() && !flying) {
+        // Cesium updates the field of view on its next frame. The fit is
+        // worked out after that.
+        scene.requestRender();
+        window.requestAnimationFrame(() => {
+          if (!destroyed && idle() && !flying) aim();
+        });
+      }
+    })
+    : null;
+  resizeObserver?.observe(container);
+
   // ------------------------------------------------------------------
   // One pass over everything
   // ------------------------------------------------------------------
@@ -1509,7 +2055,18 @@ export function createGlobeView(container, ctx, options) {
     drawStation();
     for (const rocket of rockets) drawRocket(rocket, focused?.id === rocket.id);
     drawEvents(focused);
-    startPulse();
+    drawLink(focused);
+    // New packets: a ring for each board that got one, and the radio dot.
+    for (const rocket of rockets) {
+      const parts = drawn.get(rocket.id);
+      if (!parts) continue;
+      const t = rocket.lastPacketT;
+      if (pendingPackets && Number.isFinite(t) && parts.lastPacketT !== null && t > parts.lastPacketT) {
+        packetArrived(rocket, parts, focused?.id === rocket.id);
+      }
+      parts.lastPacketT = Number.isFinite(t) ? t : null;
+    }
+    pendingPackets = false;
     updateCamera();
 
     const text = notes().join('|');
@@ -1520,21 +2077,21 @@ export function createGlobeView(container, ctx, options) {
     scene.requestRender();
   }
 
-  // The notes shown under the map controls while the 3D view is on.
+  // The notes the map shows while the 3D view is on.
   let notesText = '';
   function notes() {
     const out = [];
     const parts = [...drawn.values()];
-    if (parts.some((p) => p.waiting)) out.push(words.waiting);
+    if (parts.some((p) => p.waiting)) out.push('The board shows in 3D once the ground height at its launch point is known.');
     if (parts.some((p) => p.approx) || station.approx || view.terrain === 'failed') out.push('3D ground height is approximate.');
     if (view.imageryFailed) out.push('The 3D imagery didn\'t load, so the ground is plain.');
     return out;
   }
 
-  // Tells map-view.js when the first picture is in, so its "Loading"
-  // panel can go: the icons and terrain are loaded, no ground
-  // height is still being looked up, and the ground in view has drawn. If
-  // that takes too long, the view shows as it is.
+  // Tells map-view.js when the first picture is in, so its loading message
+  // can go: the icons and terrain are loaded, no ground height is still
+  // being looked up, and the ground in view has drawn. If that takes too
+  // long, the view shows as it is.
   let announced = false;
   function announceReady() {
     if (announced || destroyed) return;
@@ -1555,34 +2112,49 @@ export function createGlobeView(container, ctx, options) {
     onChange();
   }
 
+  // Packets that came since the last draw (a 'samples' change that isn't
+  // quiet). A seek's changes are quiet, so a seek starts no rings.
+  let pendingPackets = false;
   const scheduler = createScheduler(draw, { maxFps: config.MAP_MAX_FPS });
-  const unsubscribe = store.subscribe(() => scheduler.schedule());
+  const unsubscribe = store.subscribe((change) => {
+    if (change?.type === 'source') {
+      newSource();
+      return;
+    }
+    if (change?.type === 'samples' && !change.quiet) pendingPackets = true;
+    scheduler.schedule();
+  });
   scheduler.schedule();
 
   return {
-    // The shared "Follow rocket" setting.
+    // The shared FOLLOW BOARD setting.
     setFollow(on) {
       if (destroyed) return;
-      if (on) {
+      followOn = Boolean(on);
+      if (on && cameraMode === 'follow') {
+        // Already following: nothing to move.
+      } else if (on) {
         cameraMode = 'follow';
         framed = null;
-        // Glide over to the rocket, keeping the viewer's angle and distance.
+        // Glide over to the board, keeping the viewer's angle and distance.
         const target = focusedTarget();
-        if (target && started) moveTo({ pivot: target, heading: look.heading, pitch: look.pitch, range: look.range }, { animate: true });
+        if (target && started && !flying) moveTo({ pivot: target, heading: look.heading, pitch: look.pitch, range: look.range }, { animate: true });
       } else if (cameraMode === 'follow') {
-        // The camera stays where it is, around the rocket's last point.
+        // The camera stays where it is, around the board's last point.
         cameraMode = 'free';
       }
       scene.requestRender();
     },
-    // "Whole flight": frame the trails, the pads and the ground station.
+    // WHOLE FLIGHT: frame every point drawn so far, the pads and Manta.
     showWholeFlight() {
       if (destroyed) return;
+      followOn = false;
       cameraMode = 'whole';
+      if (flying) camera.cancelFlight();
       frameEverything({ animate: true });
       scene.requestRender();
     },
-    // "Reset view": back to the starting angle and distance, on the rocket
+    // RESET VIEW: back to the starting angle and distance, on the board
     // while following it, otherwise above the launch pad.
     resetView() {
       if (destroyed) return;
@@ -1599,12 +2171,59 @@ export function createGlobeView(container, ctx, options) {
     },
     cameraMode: () => cameraMode,
     notes,
+    // The HUD around the view changed size: the idle Earth fits itself to
+    // the free part again.
+    relayout() {
+      if (destroyed || !active || !idle() || flying || glide) return;
+      const key = `${scene.canvas.clientWidth}x${scene.canvas.clientHeight}|${Math.round(options.idleBottom?.() ?? 0)}`;
+      if (key === idleKey) return;
+      idleKey = key;
+      aimIdle();
+    },
+    // For the tests: every point WHOLE FLIGHT frames, on screen right now
+    // (canvas px), and the free part of the view it aims for.
+    debugFit() {
+      const all = everything();
+      return {
+        points: all.map((p) => screenOf(p) ?? scene.cartesianToCanvasCoordinates(p) ?? null).map((p) => (p ? { x: p.x, y: p.y } : null)),
+        insets: freeInsets?.() ?? null,
+        width: scene.canvas.clientWidth,
+        height: scene.canvas.clientHeight,
+        moving: Boolean(glide || flying),
+      };
+    },
+    // For the tests: how many things are drawn, so a test can check that a
+    // new source leaves nothing behind.
+    debugCounts() {
+      let dots = 0;
+      let chunks = 0;
+      let breaks = 0;
+      for (const parts of drawn.values()) {
+        dots += parts.dots?.length ?? 0;
+        chunks += parts.chunks.length;
+        // Places the line starts again after a gap (the first point not counted).
+        breaks += parts.verts.filter((v, i) => i > 0 && v.breakBefore).length;
+      }
+      return {
+        rockets: drawn.size, dots, chunks, breaks,
+        halos: haloLayer.length, lines: lineLayer.length, dotSets: dotLayer.length,
+        shadows: scene.groundPrimitives.length, links: linkLines.length,
+        groundIcons: groundIcons.length, eventIcons: eventIcons.length, boards: rocketIcons.length + focusIcons.length,
+        spots: spots.length, cameraMode, started,
+        packets: packetsSeen,
+        ringsMoving: [...drawn.values()].filter((p) => p.ringStart !== null).length,
+        travelMoving: Boolean(travelRun),
+      };
+    },
     // Paused while the map is showing instead: nothing is drawn and
     // Cesium's own loop stops. Coming back catches up from the store.
     setActive(on) {
       if (destroyed || active === on) return;
       active = on;
-      if (!on) finishGlide();
+      if (!on) {
+        finishGlide();
+        stopAnimations();
+      }
       viewer.useDefaultRenderLoop = on;
       if (on) scheduler.flush();
     },
@@ -1615,11 +2234,14 @@ export function createGlobeView(container, ctx, options) {
       scheduler.cancel();
       clearTimeout(readyTimer);
       clearTimeout(terrainTimer);
+      clearTimeout(laterTimer);
+      resizeObserver?.disconnect();
       stopWatchingReady();
-      stopSkySwitch();
+      stopPreRender();
+      stopPostRender();
       stopGlide();
+      stopAnimations();
       window.cancelAnimationFrame(pairFrame);
-      window.cancelAnimationFrame(pulseFrame);
       scene.canvas.removeEventListener('webglcontextlost', onContextLost);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
@@ -1642,7 +2264,7 @@ export function createGlobeView(container, ctx, options) {
         credits.replaceChildren();
         drawn.clear();
         icons.clear();
-        spots.length = 0;
+        spots = [];
       }
     },
   };

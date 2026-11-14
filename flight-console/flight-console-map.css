@@ -1,21 +1,28 @@
 /* ============================================================
    flight-console-map.css
-   Track a Rocket's map: the 3D view's frame (js/views/map-view.js),
-   the 3D view (js/views/globe-view.js) and the 2D map (Leaflet), with
-   their controls, KEY, markers and notes. Loaded by
+   Track a Rocket's map: the frame (js/views/map-view.js), the 3D view
+   (js/views/globe-view.js) and the 2D map (Leaflet), with the controls
+   row, the KEY, the labels (js/views/map-labels.js), the markers, the
+   scale bar, the credits and the map's notes. Loaded by
    flight-console/index.html after flight-console.css, which holds the
    shared tokens. Scoped under .fc-page like the rest.
+
+   The controls row is built here but placed by the HUD: map-view.js puts
+   it in #fc-map-controls, and flight-console.css decides where that sits.
+   This file only styles what is inside it.
+
+   No boxes over the map: white Share Tech Mono with a thin dark outline
+   (--fc-text-outline), and a soft dark fade where text needs one.
    ============================================================ */
 
 /* ============================================================
-   The 3D view's frame (map-view.js) and the 3D view itself
-   (globe-view.js). No frame, border or box around it: the space around
-   the Earth is the page's near-black.
+   The frame and the 3D view. No border or box around it: the space
+   around the Earth is the page's near-black.
    ============================================================ */
 .fc-page .fc-mapbox { position: relative; height: 100%; isolation: isolate; }
 .fc-page .fc-map-frame { position: absolute; inset: 0; overflow: hidden; background: var(--fc-bg); }
 .fc-page .fc-map-canvas { position: absolute; inset: 0; z-index: 0; }
-.fc-page .fc-main .fc-map-canvas:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: -2px; }
+.fc-page .fc-main .fc-map-canvas:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: -3px; }
 .fc-page .fc-map-wait {
   position: absolute;
   inset: 0;
@@ -28,88 +35,10 @@
   text-align: center;
 }
 
-/* The frame's own controls and notes, in the bottom left corner just above
-   the altitude timeline. The notes sit above the controls. */
-.fc-page .fc-map-topleft {
-  position: absolute;
-  left: 12px;
-  bottom: max(12px, var(--fc-tl-space, 0px));
-  z-index: 800;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-start;
-  gap: 6px;
-  max-width: calc(100% - 24px - var(--fc-tab-w, 0px));
-  pointer-events: none;
-}
-.fc-page .fc-map-topleft > * { pointer-events: auto; }
-.fc-page .fc-map-controls { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
-.fc-page .fc-map-controls .fc-btn--sm { background: var(--fc-float); }
-.fc-page .fc-map-controls .fc-btn--sm[aria-pressed="true"] { background: color-mix(in srgb, var(--fc-black) 78%, var(--fc-offwhite)); }
-.fc-page .fc-layer-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-/* "Labels" and "Follow rocket" on the 2D map: checkboxes. */
-.fc-page .fc-map-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 1.95rem;
-  padding: 0 0.6rem;
-  font-family: var(--fc-font-mono);
-  font-size: 0.75rem;
-  line-height: 1.2;
-  color: var(--fc-text);
-  background: var(--fc-float);
-  border: 1px solid var(--fc-border);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.fc-page .fc-map-check input { width: 0.9rem; height: 0.9rem; margin: 0; accent-color: var(--fc-accent); cursor: pointer; }
-/* KEY: the legend behind a small toggle. It opens upward, lined up with
-   the left end of the controls. */
-.fc-page .fc-map-key { position: static; }
-.fc-page .fc-map-key-toggle { list-style: none; background: var(--fc-float); }
-.fc-page .fc-map-key-toggle::-webkit-details-marker { display: none; }
-.fc-page .fc-map-key[open] > .fc-map-key-toggle { border-color: var(--fc-text); background: color-mix(in srgb, var(--fc-black) 78%, var(--fc-offwhite)); }
-.fc-page .fc-map-legend {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 6px);
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  width: max-content;
-  max-width: min(22rem, calc(100vw - 48px));
-  padding: 0.55rem 0.7rem 0.55rem 0.55rem;
-  font-size: 0.78rem;
-  line-height: 1.25;
-  color: var(--fc-text);
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-}
-.fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
-.fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 18px; }
-.fc-page .fc-legend-key svg { display: block; }
-.fc-page .fc-legend-key .fc-ico-board { width: 13px; height: 18px; }
-.fc-page .fc-legend-key .fc-ico-start { width: 12px; height: 12px; }
-.fc-page .fc-legend-key .fc-ico-dish { width: 16px; height: 18px; }
-.fc-page .fc-legend-key .fc-basis { --basis-size: 12px; }
-/* Notes like "3D ground height is approximate". The empty note keeps no
-   box, but stays in the page so screen readers still hear new notes. */
-.fc-page .fc-map-status {
-  margin: 0;
-  max-width: 420px;
-  padding: 0.4rem 0.65rem;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  color: var(--fc-text);
-  background: var(--fc-float);
-  border: 1px solid var(--fc-divider);
-  border-left: 2px solid var(--fc-warn);
-}
-.fc-page .fc-map-status:empty { padding: 0; border: 0; background: none; }
-
-/* The 3D view fills the frame. */
+/* The 3D view fills the frame. While it loads it is in the page (so
+   Cesium has a size to draw at) but out of sight. */
 .fc-page .fc-globe { position: absolute; inset: 0; z-index: 1; background: var(--fc-bg); }
+.fc-page .fc-globe.is-waiting { visibility: hidden; }
 .fc-page .fc-globe-canvas { position: absolute; inset: 0; }
 /* Cesium's own stylesheet sizes its canvas and stops touches on it from
    scrolling. Both are repeated here, so the view still fits and a drag
@@ -125,22 +54,115 @@
 .fc-page .fc-globe-canvas .cesium-widget canvas { display: block; touch-action: none; cursor: grab; }
 /* Keyboard focus on the 3D view (the arrow keys move its camera): a thin
    amber line just inside its edge. */
-.fc-page .fc-main .fc-globe-canvas:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: -2px; }
-/* Cesium's logo and credits. They are required, so they always show, in
-   the bottom right corner just above the altitude timeline. */
-.fc-page .fc-globe-credits {
+.fc-page .fc-main .fc-globe-canvas:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: -3px; }
+/* Cesium's "Data attribution" dialog opens in this box, which lies over
+   the whole panel above the HUD. The box lets clicks through. Only the
+   open dialog takes them. */
+.fc-page .fc-globe-dialogs { position: absolute; inset: 0; z-index: 950; pointer-events: none; }
+.fc-page .fc-globe-dialogs .cesium-credit-lightbox-overlay { pointer-events: auto; }
+
+/* "3D VIEWER LOADING..." with the blinking cursor, and later the
+   connection hint with [ BACK TO THE MAP ]. It sits over whatever the
+   frame shows, a little above the middle, so the HUD doesn't cover it. */
+.fc-page .fc-globe-panel {
   position: absolute;
-  right: 0;
-  bottom: var(--fc-tl-space, 0px);
-  z-index: 2;
-  max-width: calc(100% - 24px);
-  padding: 3px 8px;
-  font-size: 0.68rem;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.25rem 6rem;
+  pointer-events: none;
+}
+.fc-page .fc-globe-msgbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 34rem;
+  padding: 0.9rem 1.4rem;
+  text-align: center;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--fc-black) 70%, transparent), transparent);
+  pointer-events: auto;
+}
+.fc-page .fc-main .fc-globe-msg {
+  margin: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--fc-white);
+  text-shadow: var(--fc-text-outline);
+}
+.fc-page .fc-globe-msgbox .fc-bkt { text-shadow: var(--fc-text-outline); }
+
+/* ============================================================
+   Bottom right: the map's notes, the scale bar and the credits, kept
+   above the timeline (map-view.js sets the corner's bottom).
+   ============================================================ */
+.fc-page .fc-map-corner {
+  position: absolute;
+  right: calc(var(--fc-tab-w, 0px) + 12px);
+  bottom: calc(var(--fc-tl-space, 0px) + 8px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  max-width: min(30rem, calc(100% - 24px - var(--fc-tab-w, 0px)));
+  pointer-events: none;
+}
+.fc-page .fc-map-corner > * { pointer-events: auto; }
+/* Notes like "3D ground height is approximate". The empty note keeps no
+   room, but stays in the page so screen readers still hear new notes. */
+.fc-page .fc-main .fc-map-status {
+  margin: 0;
+  max-width: 24rem;
+  font-family: var(--fc-font-sentence);
+  font-size: 0.95rem;
+  line-height: 1.3;
+  text-align: right;
+  color: var(--fc-amber);
+  text-shadow: var(--fc-text-outline);
+}
+.fc-page .fc-map-status:empty { display: none; }
+
+/* The scale bar: the distance in mono over a thin bar with end ticks. */
+.fc-page .fc-scale {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-family: var(--fc-font-mono);
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--fc-white);
+  text-shadow: var(--fc-text-outline);
+  pointer-events: none;
+}
+.fc-page .fc-scale-bar {
+  display: block;
+  height: 5px;
+  min-width: 10px;
+  border: 1px solid var(--fc-white);
+  border-top: 0;
+  box-shadow: 0 1px 0 var(--fc-black-deep), -1px 0 0 var(--fc-black-deep), 1px 0 0 var(--fc-black-deep);
+}
+
+/* The credits: Cesium's logo and data credits in 3D, Leaflet's credit
+   line on the map. They are required, so they always show, small and
+   quiet. */
+.fc-page .fc-globe-credits,
+.fc-page .fc-map-credits {
+  max-width: 100%;
+  font-family: var(--fc-font-mono);
+  font-size: 0.64rem;
   line-height: 1.3;
   color: var(--fc-text-2);
-  background: color-mix(in srgb, var(--fc-bg) 80%, transparent);
+  text-shadow: var(--fc-text-outline);
 }
-.fc-page .fc-globe-credits:empty { display: none; }
+.fc-page .fc-globe-credits:empty,
+.fc-page .fc-map-credits:empty { display: none; }
 .fc-page .fc-globe-credits .cesium-widget-credits {
   position: static;
   display: flex;
@@ -151,134 +173,188 @@
   padding: 0;
   font: inherit;
   color: inherit;
-  text-shadow: none;
+  text-shadow: inherit;
 }
-.fc-page .fc-globe-credits img { display: block; max-height: 18px; width: auto; }
-.fc-page .fc-main .fc-globe-credits a { color: var(--fc-text-2); text-underline-offset: 2px; }
-.fc-page .fc-main .fc-globe-credits a:hover { color: var(--fc-text); }
-/* Cesium's "Data attribution" dialog opens in this box, which lies over
-   the whole panel above the overlays. The box lets clicks through. Only
-   the open dialog takes them. */
-.fc-page .fc-globe-dialogs { position: absolute; inset: 0; z-index: 950; pointer-events: none; }
-.fc-page .fc-globe-dialogs .cesium-credit-lightbox-overlay { pointer-events: auto; }
-/* While the 3D view isn't running: "Loading", or why there is no 3D view. */
-.fc-page .fc-globe-panel {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  padding: 5rem 1.25rem 1.25rem;
-  background: var(--fc-bg);
+.fc-page .fc-globe-credits img { display: block; max-height: 16px; width: auto; }
+.fc-page .fc-main .fc-globe-credits a,
+.fc-page .fc-main .fc-map-credits a { color: var(--fc-text-2); text-underline-offset: 2px; }
+.fc-page .fc-main .fc-globe-credits a:hover,
+.fc-page .fc-main .fc-map-credits a:hover { color: var(--fc-amber); }
+/* Leaflet's credit line, moved into the corner. The satellite credits are
+   long, so it is cut to one line and opens in full on hover, keyboard
+   focus or a tap. */
+.fc-page .fc-map-credits .leaflet-control-attribution {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: right;
+  background: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.fc-page .fc-globe-wait { margin: 0; color: var(--fc-text-2); font-family: var(--fc-font-mono); font-size: 0.85rem; text-align: center; }
-.fc-page .fc-globe-card {
-  max-width: 30rem;
-  padding: 0.85rem 1rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-divider);
-  border-left: 2px solid var(--fc-text-2);
-}
-.fc-page .fc-globe-card--warn { border-left-color: var(--fc-warn); }
-.fc-page .fc-globe-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.fc-page .fc-map-credits .leaflet-control-attribution:hover,
+.fc-page .fc-map-credits .leaflet-control-attribution:focus-within,
+.fc-page .fc-map-credits .leaflet-control-attribution.fc-credit-open { white-space: normal; }
+.fc-page .fc-map-credits .leaflet-attribution-flag { display: none !important; }
 
-/* ------------------------------------------------------------
-   The 2D map, if the 3D view can't run (Leaflet on the near-black page)
-   ------------------------------------------------------------ */
-.fc-page .leaflet-container { background: var(--fc-well); font-family: var(--fc-font-text); }
+/* ============================================================
+   The controls row (inside #fc-map-controls):
+   [ SATELLITE ] [ DARK MAP ] [ 3D ]  [x] FOLLOW BOARD  [ KEY ]
+   [ WHOLE FLIGHT ] [ RESET VIEW ]. It wraps onto a second line on a
+   phone. The active view is amber (the theme's aria-pressed rule).
+   ============================================================ */
+.fc-page .fc-map-ctl {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  text-shadow: var(--fc-text-outline);
+}
+.fc-page .fc-map-ctl-group { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.fc-page .fc-map-ctl .fc-bkt-check { font-size: 0.8rem; }
+/* Without a mount in the HUD, the row sits in the frame's own bottom
+   left corner, above the timeline. */
+.fc-page .fc-map-ctl-own {
+  position: absolute;
+  left: 12px;
+  bottom: calc(var(--fc-tl-space, 0px) + 8px);
+  z-index: 6;
+  max-width: calc(100% - 24px - var(--fc-tab-w, 0px));
+}
+/* KEY: the legend behind a bracket toggle. It opens upward from the row,
+   lined up with its left end. */
+.fc-page .fc-map-key { position: static; }
+.fc-page .fc-map-key-toggle { list-style: none; }
+.fc-page .fc-map-key-toggle::-webkit-details-marker { display: none; }
+.fc-page .fc-map-key[open] > .fc-map-key-toggle { color: var(--fc-amber); }
+.fc-page .fc-map-legend {
+  position: absolute;
+  left: -10px;
+  bottom: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 32px));
+  padding: 0.7rem 1.4rem 0.7rem 0.6rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  color: var(--fc-white);
+  text-shadow: none;
+  background: linear-gradient(to right, color-mix(in srgb, var(--fc-black) 92%, transparent) 70%, color-mix(in srgb, var(--fc-black) 0%, transparent));
+}
+.fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.65rem; white-space: nowrap; }
+.fc-page .fc-legend-text { white-space: normal; }
+.fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 20px; }
+.fc-page .fc-legend-key svg { display: block; max-width: none; }
+.fc-page .fc-legend-key .fc-ico-board { width: 12px; height: 16px; }
+.fc-page .fc-legend-key .fc-ico-start { width: 12px; height: 12px; }
+.fc-page .fc-legend-key .fc-ico-dish { width: 16px; height: 18px; }
+.fc-page .fc-legend-key .fc-ico-cross { width: 16px; height: 16px; }
+
+/* ============================================================
+   Labels (map-labels.js): small mono text with a thin dark outline and
+   a short leader line, over both views. They never take clicks.
+   ============================================================ */
+.fc-page .fc-map-labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.fc-page .fc-lbls { position: absolute; inset: 0; pointer-events: none; }
+.fc-page .fc-lbl-lines { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; overflow: visible; }
+.fc-page .fc-lbl-lead,
+.fc-page .fc-lbl-lead-halo { opacity: 0; stroke-linecap: round; }
+.fc-page .fc-lbl-lead { stroke: var(--fc-white); stroke-width: 1; }
+.fc-page .fc-lbl-lead-halo { stroke: var(--fc-black-deep); stroke-opacity: 0.75; stroke-width: 3; }
+.fc-page .fc-lbl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--fc-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--fc-white);
+  text-shadow: var(--fc-text-outline);
+  opacity: 0;
+  will-change: transform;
+}
+.fc-page .fc-lbl.is-shown,
+.fc-page .fc-lbl-lead.is-shown,
+.fc-page .fc-lbl-lead-halo.is-shown { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-lbl,
+  .fc-page .fc-lbl-lead,
+  .fc-page .fc-lbl-lead-halo { transition: opacity 0.25s ease; }
+}
+
+/* ============================================================
+   The 2D map (Leaflet on the near-black page)
+   ============================================================ */
+.fc-page .leaflet-container { background: var(--fc-well); font-family: var(--fc-font-mono); }
 /* The site's "svg { max-width: 100% }" squeezes the drawing layer of any
    map pane except Leaflet's own overlay pane, so every pane gets the same
    exemption. Icons inside markers keep their own size. */
 .fc-page .leaflet-pane > svg,
+.fc-page .leaflet-pane > canvas,
 .fc-page .leaflet-marker-icon svg { max-width: none; max-height: none; }
 /* On high-resolution screens the photos can show a thin seam where two
    tiles meet. Each photo is drawn half a pixel bigger so it overlaps its
    neighbor, with normal blending. */
 .fc-page .fc-sat-tiles img.leaflet-tile { mix-blend-mode: normal; width: 256.5px !important; height: 256.5px !important; }
-.fc-page .leaflet-container a { color: var(--fc-text-2); }
-.fc-page .leaflet-control-attribution {
-  background: color-mix(in srgb, var(--fc-bg) 85%, transparent);
-  color: var(--fc-text-2);
-  /* The satellite credits are long, so the line is cut to fit and opens in
-     full on hover, keyboard focus or a tap. */
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.fc-page .leaflet-control-attribution:hover,
-.fc-page .leaflet-control-attribution:focus-within,
-.fc-page .leaflet-control-attribution.fc-credit-open { white-space: normal; }
-.fc-page .leaflet-control-zoom a {
-  font-family: var(--fc-font-text);
-  background: var(--fc-float);
-  color: var(--fc-text);
-  border-color: var(--fc-border);
-  border-radius: 0 !important;
-}
-.fc-page .leaflet-control-zoom a:hover { background: var(--fc-panel); color: var(--fc-text); }
-.fc-page .leaflet-control-zoom { border: 1px solid var(--fc-border) !important; border-radius: 0 !important; }
-.fc-page .leaflet-control-scale-line {
-  background: color-mix(in srgb, var(--fc-bg) 85%, transparent);
-  color: var(--fc-text);
-  border-color: var(--fc-text-2);
-  font-family: var(--fc-font-mono);
-}
 .fc-page .leaflet-div-icon { background: none; border: none; }
-/* Leaflet's corners sit above the altitude timeline, and its distance
-   scale above this frame's own controls in the bottom left corner. */
-.fc-page .fc-mapbox .leaflet-bottom { bottom: var(--fc-tl-space, 0px); }
-.fc-page .fc-mapbox .leaflet-bottom.leaflet-left { bottom: calc(max(12px, var(--fc-tl-space, 0px)) + 40px); }
-.fc-page .fc-mapbox .leaflet-control-scale { margin: 0 0 0 12px; }
-.fc-page .fc-mapbox .leaflet-control-zoom { margin: 0 12px 10px 0; }
-.fc-page .fc-mapbox .leaflet-control-zoom a { width: 32px; height: 32px; line-height: 30px; }
-.fc-page .fc-mapbox .leaflet-control-attribution { padding: 1px 8px; }
 .fc-page .fc-mk { background: none; border: 0; }
 .fc-page .fc-mk svg { display: block; }
 
 /* The board marker. Its marker box has no size: (0, 0) is the board's
-   position. There are no labels on the map: the readings panel says what
-   they used to say. */
-.fc-page .fc-rkt { position: absolute; left: 0; top: 0; --w: 14px; --h: 18px; --ring: 46px; --ring-color: var(--fc-accent); }
-.fc-page .fc-rkt--focus { --ring: 76px; }
+   position. The packet ring sits under it, still and out of sight until
+   map-view.js grows it once per packet. */
+.fc-page .fc-rkt { position: absolute; left: 0; top: 0; --w: 14px; --h: 18px; --ring: 44px; }
 .fc-page .fc-rkt-icon { position: absolute; z-index: 1; left: calc(var(--w) / -2); top: calc(var(--h) / -2); width: var(--w); height: var(--h); }
-/* Amber pulse rings around a board with a good fix. Three still rings,
-   which only pulse outward when motion is welcome. */
-.fc-page .fc-rkt-rings { position: absolute; left: 0; top: 0; z-index: 0; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-rings { opacity: 0.5; }
-.fc-page .fc-rkt-rings i {
+.fc-page .fc-rkt-ring {
   position: absolute;
   left: calc(var(--ring) / -2);
   top: calc(var(--ring) / -2);
   width: var(--ring);
   height: var(--ring);
   box-sizing: border-box;
-  border: 2.5px solid var(--ring-color);
+  border: 1.5px solid var(--fc-white);
   border-radius: 50%;
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--fc-black-deep) 50%, transparent), inset 0 0 0 1.5px color-mix(in srgb, var(--fc-black-deep) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fc-black-deep) 45%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--fc-black-deep) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
 }
-.fc-page .fc-rkt-rings i:nth-child(1) { transform: scale(0.5); opacity: 0.95; }
-.fc-page .fc-rkt-rings i:nth-child(2) { transform: scale(0.76); opacity: 0.6; }
-.fc-page .fc-rkt-rings i:nth-child(3) { transform: scale(1); opacity: 0.3; }
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-rkt-rings i { animation: fc-sonar 2.4s cubic-bezier(0.25, 0.6, 0.4, 1) infinite backwards; }
-  .fc-page .fc-rkt-rings i:nth-child(2) { animation-delay: 0.8s; }
-  .fc-page .fc-rkt-rings i:nth-child(3) { animation-delay: 1.6s; }
-}
-@keyframes fc-sonar {
-  from { transform: scale(0.3); opacity: 1; }
-  to { transform: scale(1); opacity: 0; }
-}
-/* No GPS fix right now: hollow at the last good position (a solid near-black
-   middle, so the start dot under it doesn't show through, and a dim
-   outline, as in the 3D view), and no rings. */
-.fc-page .fc-rkt--nofix .fc-rkt-rings { display: none; }
+/* No GPS fix right now: hollow at the last good position (a solid
+   near-black middle, so the launch point under it doesn't show through,
+   and a dim outline, as in the 3D view). */
 .fc-page .fc-rkt--nofix .fc-brd-body { fill: var(--fc-bg); fill-opacity: 1; stroke: var(--fc-text-dim); }
-/* Start point and ground station dish. */
+/* The dot that runs along the radio link for each packet. */
+.fc-page .fc-travel-dot {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fc-white);
+  box-shadow: 0 0 0 1px var(--fc-black-deep);
+}
+/* The launch point, Manta's dish, the event diamonds and the recovery
+   crosshair. */
 .fc-page .fc-pad,
-.fc-page .fc-gs { position: relative; width: 100%; height: 100%; }
-/* No map at all: each rocket's position, distance and bearing. */
+.fc-page .fc-gs,
+.fc-page .fc-event,
+.fc-page .fc-cross { position: relative; width: 100%; height: 100%; }
+
+/* ============================================================
+   No map at all: each rocket's position, distance and bearing.
+   ============================================================ */
 .fc-page .fc-nomap {
   position: absolute;
   inset: 0;
@@ -286,20 +362,10 @@
   padding: 1rem 1rem calc(1rem + var(--fc-tl-space, 0px));
   background: var(--fc-bg);
 }
-.fc-page .fc-nomap--controls .fc-nomap-head { margin-top: 0; }
-.fc-page .fc-nomap-head {
-  max-width: 40rem;
-  margin-bottom: 1rem;
-  padding: 0.8rem 1rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-divider);
-  border-left: 2px solid var(--fc-warn);
-}
-.fc-page .fc-nomap-title { font-family: var(--fc-font-mono); font-size: 1.15rem; font-weight: 600; line-height: 1.2; color: var(--fc-text); margin: 0 0 0.35rem; }
-.fc-page .fc-nomap-note { color: var(--fc-text-2); line-height: 1.5; margin: 0; }
-.fc-page .fc-nomap-retry { margin-top: 0.75rem; }
-.fc-page .fc-nomap-retry .fc-nomap-note { margin-bottom: 0.45rem; }
-.fc-page .fc-nomap-retry .fc-layer-pick { display: inline-flex; }
+.fc-page .fc-nomap-head { max-width: 40rem; margin-bottom: 1rem; padding: 0.4rem 0; }
+.fc-page .fc-nomap-title { font-family: var(--fc-font-mono); font-size: 1rem; font-weight: 400; letter-spacing: 0.04em; line-height: 1.2; color: var(--fc-amber); margin: 0 0 0.35rem; }
+.fc-page .fc-main .fc-nomap-note { color: var(--fc-text-2); line-height: 1.45; margin: 0; }
+.fc-page .fc-main .fc-nomap-head .fc-nomap-note + .fc-nomap-note { margin-top: 0.4rem; }
 .fc-page .fc-nomap-list {
   list-style: none;
   margin: 0;
@@ -313,48 +379,31 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.2rem 1rem;
-  padding: 0.8rem 1rem;
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-divider);
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--fc-divider);
 }
 .fc-page .fc-compass { width: 64px; height: 64px; grid-row: span 4; }
 .fc-page .fc-compass-ring { fill: var(--fc-bg); stroke: var(--fc-border); stroke-width: 2; }
 .fc-page .fc-compass-tick { stroke: var(--fc-muted); stroke-width: 1.5; stroke-linecap: round; }
 .fc-page .fc-compass-n { fill: var(--fc-text-2); font-family: var(--fc-font-mono); font-size: 9px; }
-.fc-page .fc-nomap-name { display: flex; align-items: center; gap: 0.5rem; font-family: var(--fc-font-mono); font-weight: 600; color: var(--fc-text); }
+.fc-page .fc-nomap-name { font-family: var(--fc-font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fc-text); }
 .fc-page .fc-nomap-line { color: var(--fc-text); font-family: var(--fc-font-mono); font-size: 0.85rem; line-height: 1.4; }
 .fc-page .fc-nomap-range { color: var(--fc-text-2); }
 .fc-page .fc-nomap-warn { color: var(--fc-warn); }
-.fc-page .fc-nomap-gs { grid-column: 1 / -1; color: var(--fc-text-2); font-size: 0.85rem; padding-top: 0.2rem; }
+.fc-page .fc-nomap-gs { grid-column: 1 / -1; color: var(--fc-text-2); font-family: var(--fc-font-sentence); font-size: 0.95rem; padding-top: 0.2rem; }
 
-/* Narrow windows: Cesium's credits sit on their own line just above the
-   bottom left corner's controls (map-view.js keeps their height in
-   --fc-ctl-h), so the two never overlap. */
-@media (max-width: 860px) {
-  .fc-page .fc-globe-credits {
-    bottom: calc(max(12px, var(--fc-tl-space, 0px)) + var(--fc-ctl-h, 36px) + 6px);
-    max-width: calc(100% - 16px - var(--fc-tab-w, 0px));
-  }
-}
-
-/* Phones: everything over the 3D view in one column, compact. */
+/* ============================================================
+   Phones: smaller text in the corner and the row, so both fit.
+   ============================================================ */
 @media (max-width: 640px) {
-  /* The 3D view's controls in one small row. */
-  .fc-page .fc-map-controls { gap: 4px; }
-  .fc-page .fc-map-controls .fc-btn--sm { font-size: 0.64rem; padding: 0.35rem 0.42rem; min-height: 1.85rem; }
-  .fc-page .fc-map-topleft { left: 8px; }
-  .fc-page .fc-globe-credits { font-size: 0.62rem; }
-  .fc-page .fc-globe-credits img { max-height: 15px; }
-}
-
-/* Short phones (and phones turned sideways): the overlays would leave
-   almost nothing of the 3D view, so panel 1 stacks instead and scrolls
-   inside itself. The clock and phase strip on top, then the 3D view at a
-   fixed height, then the readings and the timeline. A drag on the 3D view
-   still turns its camera. Panel 2 scrolls too. */
-@media (max-width: 640px) and (max-height: 720px), (max-height: 520px) {
-  /* The stage's own padding already keeps the 3D view clear of the arrow
-       tab, so its controls and credits can use the whole width. */
-  .fc-page .fc-map-topleft { max-width: calc(100% - 16px); }
-  .fc-page .fc-globe-credits { max-width: 100%; }
+  .fc-page .fc-map-ctl { gap: 0 10px; }
+  .fc-page .fc-map-ctl-group { gap: 0 6px; }
+  .fc-page .fc-map-ctl .fc-bkt.fc-bkt--sm,
+  .fc-page .fc-map-ctl .fc-bkt-check { font-size: 0.74rem; }
+  .fc-page .fc-map-corner { right: calc(var(--fc-tab-w, 0px) + 8px); }
+  .fc-page .fc-globe-credits,
+  .fc-page .fc-map-credits { font-size: 0.6rem; }
+  .fc-page .fc-globe-credits img { max-height: 14px; }
+  .fc-page .fc-main .fc-map-status { font-size: 0.88rem; }
+  .fc-page .fc-main .fc-globe-msg { font-size: 0.85rem; }
 }

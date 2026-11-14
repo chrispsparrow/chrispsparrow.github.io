@@ -1,104 +1,124 @@
 // map-view.js
-// The 3D view's frame, and the 2D map it falls back to.
+// The map's frame on Track a Rocket: the 3D view (globe-view.js) and the
+// 2D map it falls back to, with everything that belongs to the map.
 //
-// The console's first panel is the 3D view (globe-view.js), in every mode.
-// This file starts it, shows "Loading the 3D view..." until its first
-// picture is in, and owns its small controls in the bottom left corner:
-// the camera buttons (FOLLOW, WHOLE FLIGHT, RESET VIEW) and the KEY, which
-// opens a short legend for the markers and lines. If the 3D
-// view can't start (no WebGL, no internet, a lost context), it says why and
-// offers the 2D map below instead.
+// The controls. One row, the same in every view: [ SATELLITE ] [ DARK MAP ]
+// [ 3D ], [x] FOLLOW BOARD and [ KEY ], plus [ WHOLE FLIGHT ] and
+// [ RESET VIEW ] while a saved flight is on screen. The active view is
+// amber. This file builds the row and puts it in #fc-map-controls, the
+// mount in the HUD layer (main.js and the HUD's CSS decide where it sits).
+// If the page has no such mount, the row goes in the bottom left corner of
+// this frame instead. KEY opens a legend upward from the row.
 //
-// The 2D map: the same markers as the 3D view (markers.js). Each rocket
-// is a board marker with orange pulse rings while its GPS fix is good,
-// and a thin trail that fades out behind it like a comet's tail (the
-// focused rocket's in orange, the others thinner in their own colors).
-// The start point (the launch point in a replay) is a small off-white dot,
-// and the ground station a small off-white dish. Only good GPS positions
-// are ever drawn. A fix gap, or a stretch with no position at all, is left
-// as a break in the trail. There are no text labels on the map: the
-// readings panel says what they used to say.
+// The 3D view is where every visit starts (DEFAULT_VIEW in config.js).
+// While it loads, the frame says "3D VIEWER LOADING..." with a blinking
+// cursor. After THREE_SLOW_MS, or as soon as it fails, it adds "CHECK YOUR
+// INTERNET CONNECTION" and a [ BACK TO THE MAP ] button. If the 3D view
+// still turns up after that, it takes over. While it loads, the frame
+// keeps showing what it already showed (the 2D map, when the viewer came
+// from it).
 //
-// A store with no ground station (a board on the bench) has no dish and
-// no line to it: the map leaves both out, and the KEY drops their rows.
+// The 2D map (Leaflet) has the same things on it as the 3D view, minus
+// the ground shadow (the 2D path is already flat): the breadcrumbs (a dot
+// per fix in its speed color, a hollow grey ring for a weak fix, and a thin
+// line through the good fixes that breaks where packets were missed), the
+// board marker with its packet ring, the launch point, Manta's dish, the
+// radio link with its traveling dot, the event diamonds and the recovery
+// crosshair. The breadcrumbs are painted on one canvas, so a long flight
+// stays quick. Two backgrounds: Esri satellite imagery (with Esri's place
+// labels on top) and CARTO's dark map. The browser remembers the viewer's
+// choice. If Esri turns the key down or the imagery keeps failing, the map
+// shows the dark map and says so. The key check is shared by every map in
+// the visit (esri.js).
 //
-// With no GPS fix (or no recent packets at all), the board marker turns
-// hollow at its last good position and its rings stop, and the line to
-// the ground station dims. The marker always stands upright: no board
-// sends orientation data, so it never turns.
+// The names next to the markers ("DOGTOOTH", "MANTA", "LAUNCH POINT",
+// "APOGEE 3,012 M") are drawn by one label layer (map-labels.js) that both
+// views feed.
 //
-// Two map backgrounds: Esri satellite imagery (the default, with Esri's
-// labels on top unless "Labels" is unchecked) and CARTO's dark map. The
-// browser remembers the viewer's choice. If Esri turns the key down or the
-// imagery keeps failing, the map shows the dark map and says so. The key
-// check is shared by every map in the visit (esri.js), so a yes from Esri
-// counts for the whole visit.
+// Bottom right belongs to this frame: the map's notes, the scale bar and
+// the map credits (Cesium's or Leaflet's, both required), kept above the
+// timeline and anything else the HUD puts down there.
 //
-// The console's overlays (the replay's clock and phase strip, the readings
-// panel and the altitude timeline, from other views) float over the frame,
-// and so do this frame's own controls. Anything in the stage marked
-// data-fc-cover counts as covered, and the first view and Follow keep
-// the markers clear of covered areas.
+// One view for the whole visit. main.js can make this view once and keep
+// it while the page moves between live data and saved flights, with a
+// store switch (store-switch.js) as ctx.store. A store change of type
+// 'source' means: forget everything drawn for the old store and draw the
+// new one from scratch, flying to its site. ctx.session (live or replay,
+// still loading or not) is read fresh on every draw for the same reason.
+// A view made per screen on a plain store works too.
+//
+// The HUD's blocks are marked data-fc-cover. They count as covered parts
+// of the view: WHOLE FLIGHT frames the path in what they leave free, and
+// FOLLOW BOARD keeps the board clear of them.
 //
 // If Leaflet didn't load, or the map tiles keep failing, the map is
 // replaced by a "No map" panel with each rocket's position, distance and
-// bearing, and an arrow. Tracking keeps working either way. After a tile
-// failure the panel offers both backgrounds to try again. If Leaflet shows
-// up late (slow connection), the real map takes over.
-//
-// The frame opens on DEFAULT_VIEW (config.js), which is the 3D view, so
-// Cesium downloads then (cesium-loader.js). While the 3D view shows, the
-// map's own buttons (Satellite, Dark map) stay out of sight. They only show
-// on the 2D map, next to a "3D" button to try the 3D view again. After the
-// viewer goes to the map, later screens in the same visit open on it. The
-// map stays alive underneath while 3D is showing, so switching back is
-// instant, and following the rocket is one setting shared by both.
+// bearing, and an arrow. Tracking keeps working either way.
 //
 // Used by: main.js. Reads the store, and the 3D view it starts (for its
 // notes and camera mode). Never other views.
 
-import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion, markerClass } from './dom.js';
+import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';
 import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js';
 import { iconNode } from './icons.js?v=2';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
-  TRAIL_WINDOW_S, TRAIL_WIDTH_PX, TRAIL_OTHER_WIDTH_PX,
+  diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE, pathKeySvg, weakKeySvg, shadowKeySvg, linkKeySvg,
+  DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
+  NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
 } from './markers.js';
 import { checkEsriKey } from './esri.js';
-import { FLIGHT_WORDS } from './hud-text.js?v=3';
 import { loadCesium } from './cesium-loader.js';
+import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js';
+import { speedColor } from '../track.js';
+import { flightState, eventCrumb, recoveryInfo, STATE } from '../flight-state.js';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
-
-// The trail fades in this many steps of opacity (one line each), from
-// nothing at its far end to TRAIL_ALPHA at the marker, along this power of
-// the share of the window left, as in the 3D view.
-const TRAIL_STEPS = 10;
-const TRAIL_ALPHA = 0.95;
-const TRAIL_FADE_POWER = 1.6;
-// The start point's dot sits with its middle on the spot.
+// How long (ms) the 3D view gets before the loading message adds "CHECK
+// YOUR INTERNET CONNECTION" and the way back to the map.
+const THREE_SLOW_MS = 10000;
+// After the 3D view failed to download, it is tried again this often (ms)
+// while the viewer stays on it, so it takes over once the internet is back.
+const THREE_RETRY_MS = 15000;
+// The events that get a diamond. Liftoff has none, since the launch point
+// marks it.
+const EVENT_TYPES = ['apogee', 'drogue', 'main', 'landed'];
+// The launch point's dot sits with its middle on the spot.
 const START_ANCHOR = [START_SIZE / 2, START_SIZE / 2];
 // Room (px) the first view keeps between a marker and the map's edge or a
 // covered area, when FIT_PADDING_PX doesn't fit.
 const FIT_ROOM_PX = 12;
 // The first view zooms out at most to here.
 const FIT_MIN_ZOOM = 3;
-// When no part of the map leaves FOLLOW_EDGE_PX around the rocket, Follow
-// settles for this much room (px).
+// WHOLE FLIGHT keeps this much room (px) between the path and the edge of
+// the part of the view nothing covers, in both views, so the markers fit.
+const WHOLE_ROOM_PX = 28;
+// When no part of the map leaves FOLLOW_EDGE_PX around the board, FOLLOW
+// BOARD settles for this much room (px).
 const FOLLOW_TIGHT_PX = 8;
-// Each trail sample in a KEY gets its own gradient id.
-let trailKeyCount = 0;
 // Leaflet stacks markers by screen height plus this offset. These keep the
-// focused rocket on top, then the other rockets, the ground station and
-// the pads.
-const Z_OFFSET = { pad: 0, gs: 10000, rocket: 20000, focused: 30000 };
-// How long (ms) Follow waits after starting a pan before it checks again.
+// focused board on top, then the other boards, the event markers, Manta
+// and the launch points.
+const Z_OFFSET = { pad: 0, gs: 10000, event: 15000, rocket: 20000, travel: 25000, focused: 30000 };
+// How long (ms) FOLLOW BOARD waits after starting a pan before it checks again.
 const FOLLOW_PAN_MS = 600;
+// Leaflet starts an animated zoom a frame after it is asked for. A zoom
+// that starts this soon (ms) after the map moved itself counts as its own,
+// not the viewer's.
+const OWN_MOVE_MS = 1200;
 // Where the map waits before the first position when there is no ground
 // station to start on: most of the world, until the first view fits.
 const NO_STATION_CENTER = [20, 0];
 const NO_STATION_ZOOM = 2;
+// On the 2D map the labels fade out below this zoom (zoomed far out).
+const LABEL_FAR_ZOOM = 11;
+// The scale bar is at most this long (px), and as long as the roundest
+// distance that fits.
+const SCALE_MAX_PX = 96;
+// The breadcrumb canvas reaches this share of the view past each edge, so
+// a short drag shows no empty edge before it is painted again.
+const TRACK_PADDING = 0.5;
 
 const isLayer = (value) => value === 'satellite' || value === 'dark';
 
@@ -109,134 +129,107 @@ let chosenView = null;
 
 export function createMapView(root, ctx) {
   const { store, config, libs } = ctx;
-  // What to call the thing being tracked (a rocket, or a board on a desk).
-  const words = ctx.words ?? FLIGHT_WORDS;
+  // What is on screen. main.js changes it while this view lives on, so it
+  // is read fresh every time.
+  const session = () => ctx.session ?? {};
+  const isReplay = () => session().kind === 'replay';
 
   // ------------------------------------------------------------------
   // Page elements
   // ------------------------------------------------------------------
+  const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': 'Map of the board\'s path' });
+  const waitBox = h('div', { class: 'fc-map-wait' }, 'LOADING THE MAP...');
+
+  // The controls row. Satellite and Dark map are the two map backgrounds,
+  // and 3D swaps the map for the 3D view.
+  const satelliteBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'SATELLITE');
+  const darkBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'DARK MAP');
+  const threeBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectThree() }, '3D');
+  const viewPick = h('div', { class: 'fc-map-ctl-group', role: 'group', 'aria-label': 'Map view' }, satelliteBtn, darkBtn, threeBtn);
+  // FOLLOW BOARD: one setting for both views.
   const followBox = h('input', { type: 'checkbox', checked: true, onchange: () => { setFollow(followBox.checked); scheduler.schedule(); } });
-  const followLabel = h('label', { class: 'fc-map-check' }, followBox, words.follow);
-  const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': words.mapLabel });
-  const waitBox = h('div', { class: 'fc-map-wait' }, 'Loading the map...');
+  const followLabel = h('label', { class: 'fc-bkt-check' }, followBox, h('span', {}, 'FOLLOW BOARD'));
+  // The camera buttons, only while a saved flight is on screen.
+  const wholeBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => showWholeFlight() }, 'WHOLE FLIGHT');
+  const resetBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => resetView() }, 'RESET VIEW');
+  const cameraPick = h('div', { class: 'fc-map-ctl-group', role: 'group', 'aria-label': 'Camera', hidden: true }, wholeBtn, resetBtn);
 
-  // Map background and view: Satellite and Dark map are the two map
-  // backgrounds, and 3D swaps the map for the 3D view. A labels switch
-  // shows while Satellite is on. "Map" only stands in for the two
-  // backgrounds while the map library is missing, as the way back from 3D.
-  const satelliteBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'SATELLITE');
-  const darkBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'DARK MAP');
-  const mapBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectMap() }, 'MAP');
-  const threeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => selectThree() }, '3D');
-  const labelsBox = h('input', { type: 'checkbox', checked: true, onchange: () => setLabels(labelsBox.checked) });
-  const labelsLabel = h('label', { class: 'fc-map-check' }, labelsBox, 'Labels');
-  const layerSeg = h('div', { class: 'fc-seg' }, satelliteBtn, darkBtn, threeBtn);
-  const layerPick = h('div', { class: 'fc-layer-pick', role: 'group', 'aria-label': 'Map background and view' },
-    layerSeg, labelsLabel);
-
-  // The 3D camera buttons, in place of the "Follow rocket" checkbox while
-  // the 3D view is showing. Button labels are written in capitals.
-  const followBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'true', onclick: () => setFollow(!follow) }, words.follow.toUpperCase());
-  const wholeBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', 'aria-pressed': 'false', onclick: () => { setFollow(false); globe?.showWholeFlight(); updateCameraButtons(); } }, (words.whole ?? '').toUpperCase());
-  const resetBtn = h('button', { type: 'button', class: 'fc-btn fc-btn--sm', onclick: () => { globe?.resetView(); updateCameraButtons(); } }, 'RESET VIEW');
-  // A board on a desk has no flight to frame, so it gets no "Whole flight".
-  const cameraPick = h('div', { class: 'fc-seg fc-cam-pick', role: 'group', 'aria-label': '3D camera', hidden: true },
-    followBtn, words.whole ? wholeBtn : null, resetBtn);
-
-  // The legend, behind a small KEY toggle at the end of the controls.
-  // Closed at first. It shows the same markers and lines as the map and
-  // the 3D view, and says "(demo position)" while the ground station is
-  // the config placeholder.
-  const legendGsText = h('span', {}, 'Ground station');
-  // The ground station row hides while there is no ground station.
-  const legendGsRows = [
-    legendRow(iconNode(dishSvg()), legendGsText),
+  // The KEY: a legend for every marker and line, behind a toggle. Closed
+  // at first. It opens upward from the row.
+  const legendStationText = h('span', {}, LABEL_NAMES.station);
+  const legendShadowRow = legendRow(iconNode(shadowKeySvg()), 'GROUND SHADOW (3D)');
+  const legendStationRows = [
+    legendRow(iconNode(dishSvg()), legendStationText),
+    legendRow(iconNode(linkKeySvg()), 'RADIO LINK TO MANTA'),
   ];
-  // The 3D view marks apogee, the parachutes and landing in the sky with
-  // the altitude timeline's symbol. The 2D map doesn't, so this row only
-  // shows in 3D (see applyView). A board on a desk has none.
-  const legendEventRow = words.event
-    ? legendRow(h('span', { class: markerClass('detected') }), words.event)
-    : null;
   const legend = h('div', { class: 'fc-map-legend' },
-    legendRow(iconNode(boardSvg(BOARD_FOCUSED)), words.marker),
-    legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'No position fix right now'),
-    legendRow(trailKey(), `${words.track}, last ${TRAIL_WINDOW_S} seconds`),
-    legendRow(iconNode(startSvg()), words.pad),
-    ...legendGsRows,
-    legendEventRow);
-  const keyBox = h('details', { class: 'fc-map-key', hidden: true },
-    h('summary', { class: 'fc-btn fc-btn--sm fc-map-key-toggle' }, 'KEY'),
+    legendRow(iconNode(boardSvg(BOARD_FOCUSED)), 'DOGTOOTH BOARD'),
+    legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'NO FIX RIGHT NOW'),
+    legendRow(iconNode(pathKeySvg()), 'GOOD FIX AND PATH, SLOW TO FAST'),
+    legendRow(iconNode(weakKeySvg()), 'WEAK FIX, LEFT OFF THE PATH'),
+    legendShadowRow,
+    legendRow(iconNode(startSvg()), LABEL_NAMES.pad),
+    ...legendStationRows,
+    legendRow(iconNode(diamondSvg()), 'APOGEE, DROGUE, MAIN, LANDED'),
+    legendRow(iconNode(crosshairSvg()), 'RECOVERY POSITION'));
+  const keyBox = h('details', { class: 'fc-map-key' },
+    h('summary', { class: 'fc-bkt fc-bkt--sm fc-map-key-toggle' }, 'KEY'),
     legend);
 
-  // Bottom left corner: the controls, with the frame's notes above them.
-  const controls = h('div', { class: 'fc-map-controls' }, layerPick, followLabel, cameraPick, keyBox);
-  const status = h('p', { class: 'fc-map-status', role: 'status' });
-  const topLeft = h('div', { class: 'fc-map-topleft' }, controls, status);
+  const controls = h('div', { class: 'fc-map-ctl' }, viewPick, followLabel, keyBox, cameraPick);
+  // The row goes in the HUD layer's mount. Without one, it goes in the
+  // frame's own bottom left corner.
+  const mount = document.getElementById('fc-map-controls');
+  const ownCorner = mount ? null : h('div', { class: 'fc-map-ctl-own' });
+  (mount ?? ownCorner).append(controls);
 
   // The 3D view's box. It fills the same frame as the map. globeCanvas
-  // holds Cesium's own elements, globeCredits its logo and data credits,
-  // and globePanel the loading and failure messages.
-  // (It can take keyboard focus: the arrow keys move its camera.)
+  // holds Cesium's own elements. (It can take keyboard focus: the arrow
+  // keys move its camera.)
   const globeCanvas = h('div', {
     class: 'fc-globe-canvas',
     role: 'region',
     tabindex: '0',
-    'aria-label': `${words.globeLabel}. The arrow keys move the camera around, and plus and minus zoom.`,
+    'aria-label': '3D view of the board\'s path. The arrow keys move the camera around, and plus and minus zoom.',
   });
-  const globeCredits = h('div', { class: 'fc-globe-credits' });
-  const globePanel = h('div', { class: 'fc-globe-panel', hidden: true });
+  const globeBox = h('div', { class: 'fc-globe', hidden: true }, globeCanvas);
+  // The 3D view's loading and failure messages, over whatever the frame
+  // shows.
+  const threePanel = h('div', { class: 'fc-globe-panel', hidden: true });
   // Screen readers hear the 3D side's messages from this one line. It is
   // always in the page and only its words change, which is what they
   // announce reliably.
   const globeSay = h('p', { class: 'sr-only', role: 'status' });
-  const globeBox = h('div', { class: 'fc-globe', hidden: true }, globeCanvas, globeCredits, globePanel);
   // Cesium's "Data attribution" dialog opens in this box. It goes on the
-  // stage, above the overlays (the readings panel and the timeline), so they can't
-  // cover the data credits (see startThree).
+  // stage, above the HUD, so the HUD can't cover the data credits.
   const globeDialogs = h('div', { class: 'fc-globe-dialogs' });
 
-  controls.hidden = true;
+  // Bottom right: the notes, the scale bar and the credits.
+  const status = h('p', { class: 'fc-map-status', role: 'status' });
+  const scaleBar = h('span', { class: 'fc-scale-bar' });
+  const scaleText = h('span', { class: 'fc-scale-text' });
+  const scaleBox = h('div', { class: 'fc-scale', hidden: true, 'aria-hidden': 'true' }, scaleText, scaleBar);
+  const globeCredits = h('div', { class: 'fc-globe-credits' });
+  const mapCredits = h('div', { class: 'fc-map-credits' });
+  const corner = h('div', { class: 'fc-map-corner' }, status, scaleBox, globeCredits, mapCredits);
 
-  // The controls come first, so Tab reaches them before the map (and then
-  // Leaflet's zoom buttons and credits). They float above it either way.
-  const frame = h('div', { class: 'fc-map-frame' }, topLeft, canvas, waitBox, globeBox, globeSay);
+  // The labels sit over both views, under the messages and the corner.
+  const labelHost = h('div', { class: 'fc-map-labels' });
 
+  const frame = h('div', { class: 'fc-map-frame' }, canvas, waitBox, globeBox, labelHost, threePanel, corner, ownCorner, globeSay);
   setChildren(root, h('section', { class: 'fc-mapbox', 'aria-labelledby': 'fc-map-title' },
-    h('h2', { class: 'sr-only', id: 'fc-map-title' }, words.globeLabel),
+    h('h2', { class: 'sr-only', id: 'fc-map-title' }, 'Map and 3D view'),
     frame));
-
-  // On narrow screens Cesium's credits sit on their own line just above
-  // the bottom left corner's controls and notes (flight-console.css). The
-  // controls wrap to two rows on a small phone, so their height is kept in
-  // --fc-ctl-h on the frame.
-  const cornerObserver = 'ResizeObserver' in window
-    ? new ResizeObserver(() => frame.style.setProperty('--fc-ctl-h', `${Math.round(topLeft.offsetHeight)}px`))
-    : null;
-  cornerObserver?.observe(topLeft);
-
-  // A short sample of the trail for the legend: thin orange, fading out
-  // toward its far end (the left).
-  function trailKey() {
-    const id = `fc-trail-fade-${trailKeyCount += 1}`;
-    return svg('svg', { width: 28, height: 10, viewBox: '0 0 28 10', 'aria-hidden': 'true', focusable: 'false' },
-      // (In the line's own units: a flat line has no height, and a gradient
-      // sized to that draws nothing.)
-      svg('defs', {}, svg('linearGradient', { id, gradientUnits: 'userSpaceOnUse', x1: 2, x2: 26, y1: 5, y2: 5 },
-        svg('stop', { offset: 0, 'stop-color': config.TRACK_COLOR, 'stop-opacity': 0 }),
-        svg('stop', { offset: 0.6, 'stop-color': config.TRACK_COLOR, 'stop-opacity': 0.42 }),
-        svg('stop', { offset: 1, 'stop-color': config.TRACK_COLOR, 'stop-opacity': TRAIL_ALPHA }))),
-      svg('line', { x1: 2, y1: 5, x2: 26, y2: 5, stroke: `url(#${id})`, 'stroke-width': TRAIL_WIDTH_PX }));
-  }
+  const labels = createLabelLayer(labelHost);
 
   function legendRow(key, text) {
-    return h('div', { class: 'fc-legend-row' }, h('span', { class: 'fc-legend-key' }, key), text);
+    return h('div', { class: 'fc-legend-row' }, h('span', { class: 'fc-legend-key' }, key), h('span', { class: 'fc-legend-text' }, text));
   }
 
   // ------------------------------------------------------------------
   // State
   // ------------------------------------------------------------------
-  let mode = 'loading';     // 'loading', 'leaflet' or 'fallback'
+  let mode = 'loading';     // the 2D side: 'loading', 'leaflet' or 'fallback'
   let fallbackReason = null; // 'library' or 'tiles' while in the fallback
   let follow = true;
   let followPanUntil = 0;
@@ -247,33 +240,48 @@ export function createMapView(root, ctx) {
   let fitPads = 0;          // launch pads on the map at the last first-view fit
   let viewTouched = false;  // the viewer has dragged or zoomed the map
   let ownMove = false;      // true while this view moves the map itself
+  let ownMoveUntil = 0;     // ...and until then, for a move Leaflet animates
+  let flyNext = false;      // the next first view flies there (a new source)
+  let whole2d = null;       // WHOLE FLIGHT on the map: { bounds } it framed, or null
+  let lastState = null;     // the flight state at the last draw (to spot liftoff)
   let resizeObserver = null;
   let coverObserver = null;
-  const rocketLayers = new Map(); // rocketId -> layers for that rocket
+  let trackRenderer = null; // the canvas the breadcrumbs are painted on
+  let linkRenderer = null;  // the radio link's own drawing layer
+  const rocketLayers = new Map(); // rocketId -> { marker, parts, lastPacketT }
   const padMarkers = new Map();   // rocketId -> { marker, parts }
   let gsMarker = null;
   let gsParts = null;
-  let cornerBR = null;            // Leaflet's bottom right corner (zoom and credits)
-  let cornerStyle = '';
+  let linkLine = null;
+  let travelMarker = null;
+  let travelRun = null;     // { from, to, start, frame }
+  let eventMarkers = [];    // { marker, type, aglM, ll }
+  let eventsKey = '';
+  let crossMarker = null;
+  let pendingPackets = false;
 
   // Map or 3D
-  let view = 'map';        // 'map' or '3d': which one the frame shows
-  let three = 'off';       // the 3D side: 'off', 'loading', 'ready' or 'failed'
-  let threeGen = 0;        // goes up on every start, so an answer meant for an old one is ignored
-  let globe = null;        // the 3D view once it is running (globe-view.js)
-  let body = canvas;       // what the 2D side shows: the map or the no-map panel
-  let retryBox = null;     // where the background buttons sit in the no-map panel
+  let view = 'map';         // 'map' or '3d': which one the frame shows
+  let three = 'off';        // the 3D side: 'off', 'loading', 'ready' or 'failed'
+  let threeKind = null;     // why it failed: 'load', 'start' or 'stopped'
+  let threeSlow = false;    // the loading took longer than THREE_SLOW_MS
+  let threeOverMap = false; // the 2D map stays in sight while the 3D view loads
+  let threeGen = 0;         // goes up on every start, so an answer meant for an old one is ignored
+  let slowTimer = 0;
+  let retryTimer = 0;
+  let globe = null;         // the 3D view once it is running (globe-view.js)
+  let body = canvas;        // what the 2D side shows: the map or the no-map panel
+  let retryBox = null;      // where the background buttons' note sits in the no-map panel
 
   // Map background
   let chosenLayer = readSavedLayer() ?? (isLayer(config.DEFAULT_MAP_LAYER) ? config.DEFAULT_MAP_LAYER : 'satellite');
-  let shownLayer = null;   // 'satellite' or 'dark' while the map is up
-  let showLabels = true;
+  let shownLayer = null;    // 'satellite' or 'dark' while the map is up
   let baseTiles = null;
   let labelTiles = null;
   // Goes up every time the background changes or the map goes away, so
   // answers meant for an old background are ignored.
   let tileGen = 0;
-  let credit = null;       // the credit line now on the map
+  let credit = null;        // the credit line now on the map
   let satelliteNote = '';
   let labelsNote = '';
   let noTilesNote = '';
@@ -295,7 +303,7 @@ export function createMapView(root, ctx) {
     });
   });
 
-  // Puts the map (or the no-map panel) in the frame, after the controls.
+  // Puts the map (or the no-map panel) in the frame.
   function showBody(el) {
     waitBox.remove();
     if (el !== body) body.replaceWith(el);
@@ -308,11 +316,6 @@ export function createMapView(root, ctx) {
   // ------------------------------------------------------------------
   function startLeaflet(leaflet) {
     L = leaflet;
-    // The controls and the KEY show first, so the map starts at its real size.
-    controls.hidden = false;
-    keyBox.hidden = false;
-    layerPick.hidden = false;
-    followLabel.hidden = false;
     try {
       const gs = store.getGroundStation();
       // With less motion asked for, zooms, fades and drag throws happen at once.
@@ -336,43 +339,58 @@ export function createMapView(root, ctx) {
       // the first view has a position to fit.
       if (gs) map.setView([gs.lat, gs.lon], config.MAP_DEFAULT_ZOOM);
       else map.setView(NO_STATION_CENTER, NO_STATION_ZOOM);
-      // Zoom buttons in the bottom right corner, above the credits.
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-      // A distance scale, useful for recovery with or without tiles.
-      L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
-      cornerBR = canvas.querySelector('.leaflet-bottom.leaflet-right');
-      cornerStyle = '';
       // Esri's labels sit above the photos and below everything drawn here.
-      // The dark outlines get their own layer just under the lines.
       makePane('fc-labels', 300);
-      makePane('fc-halo', 390);
-      // The credit line shows one line until it is hovered, focused or tapped.
+      makePane('fc-track', 410);
+      makePane('fc-link', 420);
+      // The breadcrumbs: one canvas, painted by paintTrack() whenever
+      // Leaflet moves it (after a pan or zoom) and whenever the data
+      // changes. No shapes are ever added to it, so Leaflet itself only
+      // clears it.
+      trackRenderer = L.canvas({ pane: 'fc-track', padding: TRACK_PADDING });
+      map.addLayer(trackRenderer);
+      trackRenderer.on('update', paintTrack);
+      linkRenderer = L.svg({ pane: 'fc-link' });
+      map.addLayer(linkRenderer);
+      // The credit line goes in this frame's own corner, with the scale.
+      // It shows one line until it is hovered, focused or tapped.
       const creditBox = map.attributionControl.getContainer();
+      mapCredits.append(creditBox);
       creditBox.addEventListener('click', (e) => {
         if (!e.target.closest('a')) creditBox.classList.toggle('fc-credit-open');
       });
-      // After any pan or zoom (Follow's own pans included), Follow looks
+      // After any pan or zoom (FOLLOW BOARD's own pans included), look
       // again at the new view, even if playback is paused.
       map.on('moveend', () => scheduler.schedule());
+      // The labels and the scale follow the map as it moves. During a zoom
+      // the labels hide, since the markers glide while Leaflet animates.
+      map.on('move', () => { placeLabels2d(); updateScale2d(); });
+      map.on('zoomstart', () => labels.hide());
+      map.on('zoomend', () => { placeLabels2d(); updateScale2d(); });
       // Dragging the map means you want to look around: stop following.
       map.on('dragstart', () => {
         viewTouched = true;
+        whole2d = null;
+        updateCameraButtons();
         if (!follow) return;
         setFollow(false);
       });
       // Zooming by hand keeps the first view from fitting itself again.
       map.on('zoomstart', () => {
-        if (!ownMove) viewTouched = true;
+        if (ownMove || performance.now() < ownMoveUntil) return;
+        viewTouched = true;
+        whole2d = null;
+        updateCameraButtons();
       });
       if ('ResizeObserver' in window) {
         // A new map size (a turned phone, a resized window) fits the first
-        // view again, so nothing ends up cut off or under a panel, unless
+        // view again, so nothing ends up cut off or under the HUD, unless
         // the viewer has already moved the map themselves.
         let lastSize = null;
         resizeObserver = new ResizeObserver(() => {
           // Hidden behind the 3D view: there is no size to measure until
           // the map is back (showMap measures it again).
-          if (view === '3d') return;
+          if (view === '3d' && !threeOverMap) return;
           map?.invalidateSize();
           const size = `${canvas.clientWidth}x${canvas.clientHeight}`;
           if (lastSize !== null && size !== lastSize && !viewTouched) fitted = false;
@@ -380,10 +398,6 @@ export function createMapView(root, ctx) {
           scheduler.schedule();
         });
         resizeObserver.observe(canvas);
-        // The readings panel grows when "More readings" opens, so Follow
-        // looks again whenever a covering panel changes size.
-        coverObserver = new ResizeObserver(() => scheduler.schedule());
-        for (const el of coverElements()) coverObserver.observe(el);
       }
     } catch (err) {
       console.error('Flight Console: the map failed to start', err);
@@ -412,22 +426,28 @@ export function createMapView(root, ctx) {
     tileGen += 1;
     resizeObserver?.disconnect();
     resizeObserver = null;
-    coverObserver?.disconnect();
-    coverObserver = null;
+    stopTravel();
     if (map) {
       map.off();
       map.remove();
     }
     map = null;
+    trackRenderer = null;
+    linkRenderer = null;
     baseTiles = null;
     labelTiles = null;
     shownLayer = null;
     credit = null;
-    cornerBR = null;
+    mapCredits.replaceChildren();
     rocketLayers.clear();
     padMarkers.clear();
     gsMarker = null;
     gsParts = null;
+    linkLine = null;
+    travelMarker = null;
+    eventMarkers = [];
+    eventsKey = '';
+    crossMarker = null;
   }
 
   // ------------------------------------------------------------------
@@ -454,18 +474,21 @@ export function createMapView(root, ctx) {
     }
   }
 
-  // A click on "Satellite" or "Dark map". In the no-map panel it brings the
-  // map back to try again. From the 3D view it also goes back to the map.
+  // A click on SATELLITE or DARK MAP. From the 3D view it goes back to the
+  // map. In the no-map panel it tries the map again.
   function selectLayer(which) {
     chosenLayer = which;
     saveLayer(which);
     satelliteNote = '';
-    showMap();
+    keepFocus(() => showMap());
     if (mode === 'fallback' && fallbackReason === 'tiles') {
       retryMap();
       return;
     }
-    if (mode !== 'leaflet') return;
+    if (mode !== 'leaflet') {
+      updateLayerControls();
+      return;
+    }
     if (which !== shownLayer) showLayer(which);
     else scheduler.schedule();
   }
@@ -510,12 +533,13 @@ export function createMapView(root, ctx) {
       });
       watchTiles(baseTiles, () => satelliteFailed(gen));
       baseTiles.addTo(map);
-      if (showLabels) addLabels(gen);
+      addLabels(gen);
       updateCredit();
       scheduler.schedule();
     });
   }
 
+  // Esri's place and road names, over the photos.
   function addLabels(gen) {
     labelTiles = L.tileLayer(config.SATELLITE_LABELS_URL, {
       key: encodeURIComponent(config.ESRI_API_KEY),
@@ -532,26 +556,15 @@ export function createMapView(root, ctx) {
       if (gen !== tileGen || labelTiles !== tiles) return;
       tiles.remove();
       labelTiles = null;
-      labelsNote = 'The map labels didn\'t load.';
+      labelsNote = 'The map\'s place names didn\'t load.';
       updateCredit();
       scheduler.schedule();
     });
     tiles.addTo(map);
   }
 
-  function setLabels(on) {
-    showLabels = on;
-    if (mode !== 'leaflet' || shownLayer !== 'satellite' || !baseTiles) return;
-    labelTiles?.remove();
-    labelTiles = null;
-    labelsNote = '';
-    if (on) addLabels(tileGen);
-    updateCredit();
-    scheduler.schedule();
-  }
-
   // Esri turned the key down, or the photos keep failing: show the dark map
-  // instead. The viewer's choice stays "Satellite", so the next visit tries
+  // instead. The viewer's choice stays SATELLITE, so the next visit tries
   // again.
   function satelliteFailed(gen) {
     if (gen !== tileGen || mode !== 'leaflet' || shownLayer !== 'satellite') return;
@@ -578,8 +591,8 @@ export function createMapView(root, ctx) {
       }
       // No key: don't ask CARTO for tiles that would only say "API key required".
       noTilesNote = source === 'missing-local'
-        ? 'On this computer the dark map needs the local CARTO key in js/config.local.js, so tracks show on a plain background. Tracking still works.'
-        : 'The dark map needs a CARTO key that isn\'t set up yet, so tracks show on a plain background. Tracking still works.';
+        ? 'On this computer the dark map needs the local CARTO key in js/config.local.js, so the path shows on a plain background.'
+        : 'The dark map needs a CARTO key that isn\'t set up yet, so the path shows on a plain background.';
       scheduler.schedule();
     });
   }
@@ -616,22 +629,15 @@ export function createMapView(root, ctx) {
     credit = text;
   }
 
-  // The pressed button shows the background on the map now (the dark map
-  // after a satellite failure, with a note saying why), or 3D while the 3D
-  // view is showing.
+  // The pressed button is the view on screen: 3D, or the map background
+  // showing (the dark map after a satellite failure, with a note saying
+  // why). In the no-map panel the chosen background stays pressed.
   function updateLayerControls() {
     const in3d = view === '3d';
-    const shown = mode === 'leaflet' && !in3d ? shownLayer : null;
+    const shown = in3d ? null : (mode === 'leaflet' ? shownLayer : chosenLayer);
     satelliteBtn.setAttribute('aria-pressed', String(shown === 'satellite'));
     darkBtn.setAttribute('aria-pressed', String(shown === 'dark'));
-    mapBtn.setAttribute('aria-pressed', String(!in3d));
     threeBtn.setAttribute('aria-pressed', String(in3d));
-    // Without the map library there are no backgrounds to pick, so one
-    // "Map" button stands in for them.
-    const noLibrary = mode === 'fallback' && fallbackReason === 'library';
-    const wanted = noLibrary ? [mapBtn, threeBtn] : [satelliteBtn, darkBtn, threeBtn];
-    if (wanted.length !== layerSeg.children.length || wanted.some((b, i) => layerSeg.children[i] !== b)) setChildren(layerSeg, wanted);
-    labelsLabel.hidden = shown !== 'satellite';
   }
 
   // ------------------------------------------------------------------
@@ -644,75 +650,102 @@ export function createMapView(root, ctx) {
   // changes.
   function applyView() {
     const in3d = view === '3d';
-    const tilesFailed = mode === 'fallback' && fallbackReason === 'tiles';
-    body.hidden = in3d;
-    waitBox.hidden = in3d;
+    const ready = three === 'ready';
+    // The 3D view is in the page as soon as it starts, so Cesium has a size
+    // to draw at, but it stays out of sight until its first picture is in.
     globeBox.hidden = !in3d;
-    // The panel covers the 3D view until it is running. Cesium's credits
-    // show with the view, not under the panel, where their links could
-    // take keyboard focus unseen.
-    globePanel.hidden = three === 'ready';
-    globeCredits.hidden = three !== 'ready';
+    globeBox.classList.toggle('is-waiting', in3d && !ready);
+    // While the 3D view loads, the map stays in sight if the viewer came
+    // from it. Otherwise the frame shows the page's near-black and the
+    // loading message.
+    const mapUnder = in3d && !ready && threeOverMap;
+    body.hidden = in3d && !mapUnder;
+    waitBox.hidden = in3d && !mapUnder;
+    threePanel.hidden = !in3d || ready;
+    // Cesium's credits show with the 3D view, and Leaflet's with the map.
+    globeCredits.hidden = !(in3d && ready);
+    mapCredits.hidden = (in3d && !mapUnder) || mode !== 'leaflet';
     globeDialogs.hidden = !in3d;
-    // After a tile failure the background buttons sit in the no-map panel.
-    // In 3D they come back to the corner, since they are the way back.
-    if (in3d && layerPick.parentNode !== controls) controls.insertBefore(layerPick, followLabel);
-    else if (!in3d && tilesFailed && retryBox && layerPick.parentNode !== retryBox) retryBox.append(layerPick);
-    // The 3D view is the panel. The map's own buttons only show on the 2D
-    // map, the way back to 3D included.
-    layerPick.hidden = in3d;
-    controls.hidden = in3d ? three !== 'ready' : (mode === 'loading' || tilesFailed);
-    followLabel.hidden = in3d || mode !== 'leaflet';
-    cameraPick.hidden = !(in3d && three === 'ready');
-    keyBox.hidden = in3d ? three !== 'ready' : mode !== 'leaflet';
-    if (legendEventRow) legendEventRow.hidden = !in3d;
+    legendShadowRow.hidden = !in3d;
+    if (!in3d && mode !== 'leaflet') scaleBox.hidden = true;
+    if (in3d && !ready && !mapUnder) {
+      scaleBox.hidden = true;
+      labels.update([]);
+    }
     updateLayerControls();
     updateCameraButtons();
   }
 
-  // "Follow rocket" is one setting, shared by the map's checkbox and the
-  // 3D view's button.
+  // FOLLOW BOARD is one setting, shared by the map and the 3D view.
   function setFollow(on) {
     follow = Boolean(on);
     if (followBox.checked !== follow) followBox.checked = follow;
+    if (follow) whole2d = null;
     globe?.setFollow(follow);
     updateCameraButtons();
   }
 
+  // WHOLE FLIGHT and RESET VIEW show while a saved flight is on screen.
+  // WHOLE FLIGHT stays amber while the camera keeps the whole flight
+  // framed.
   function updateCameraButtons() {
-    followBtn.setAttribute('aria-pressed', String(follow));
-    wholeBtn.setAttribute('aria-pressed', String(!follow && globe?.cameraMode() === 'whole'));
+    const replay = isReplay();
+    if (cameraPick.hidden === replay) cameraPick.hidden = !replay;
+    const whole = view === '3d' ? globe?.cameraMode() === 'whole' : Boolean(whole2d);
+    wholeBtn.setAttribute('aria-pressed', String(!follow && whole));
+  }
+
+  function showWholeFlight() {
+    setFollow(false);
+    if (view === '3d') globe?.showWholeFlight();
+    else if (mode === 'leaflet') fitWhole2d({ animate: true });
+    updateCameraButtons();
+  }
+
+  function resetView() {
+    if (view === '3d') globe?.resetView();
+    else if (mode === 'leaflet') {
+      // Back to the first view: the launch points, the board and Manta.
+      whole2d = null;
+      fitted = false;
+      viewTouched = false;
+      flyNext = true;
+      scheduler.schedule();
+    }
+    updateCameraButtons();
   }
 
   // Runs a view change and, if keyboard focus was on a button that the
   // change removed, moves it to the button for the view now showing.
   function keepFocus(change) {
-    const lost = globePanel.contains(document.activeElement) || body.contains(document.activeElement);
+    const lost = threePanel.contains(document.activeElement) || body.contains(document.activeElement);
     change();
     // A button that was just hidden still counts as focused until the
     // browser catches up, so check that it can actually be seen.
     const now = document.activeElement;
     if (!lost || (frame.contains(now) && now.getClientRects().length > 0)) return;
-    const target = [threeBtn, satelliteBtn, darkBtn, mapBtn].find((b) => b.isConnected && b.getAttribute('aria-pressed') === 'true') ?? threeBtn;
+    const target = [threeBtn, satelliteBtn, darkBtn].find((b) => b.getAttribute('aria-pressed') === 'true') ?? threeBtn;
     target.focus({ preventScroll: true });
   }
 
-  // A click on "3D".
+  // A click on 3D.
   function selectThree() {
     chosenView = '3d';
     keepFocus(() => openThree());
   }
 
-  // The "Map" button and "Back to the map".
+  // BACK TO THE MAP.
   function selectMap() {
     keepFocus(() => showMap());
   }
 
   // Shows the 3D side and starts it if it isn't running. Cesium downloads
-  // here the first time, whether a flight opened on 3D or the viewer
-  // clicked "3D".
+  // here the first time, whether the page opened on 3D or the viewer
+  // clicked 3D.
   function openThree() {
     const was = view;
+    // Coming from a map that is showing, it stays in sight while 3D loads.
+    threeOverMap = was === 'map' && mode === 'leaflet' && Boolean(map) && !body.hidden && canvas.clientWidth > 0;
     view = '3d';
     if (globe) {
       // On screen first, so the view has a size to measure when it wakes up.
@@ -730,7 +763,9 @@ export function createMapView(root, ctx) {
     view = 'map';
     chosenView = 'map';
     globe?.setActive(false);
+    clearTimeout(retryTimer);
     setText(globeSay, '');
+    labels.update([]);
     applyView();
     if (mode === 'leaflet') {
       map.invalidateSize();
@@ -742,18 +777,31 @@ export function createMapView(root, ctx) {
   }
 
   // Downloads Cesium and the 3D view's own code, then starts the view. The
-  // "Loading" panel stays up until the view says its first picture is in
-  // (the ground, and the rocket if there is one to draw).
-  function startThree() {
+  // loading message stays up until the view says its first picture is in.
+  function startThree({ again = false } = {}) {
     const gen = ++threeGen;
     three = 'loading';
-    showThreePanel('loading');
+    threeKind = null;
+    if (!again) threeSlow = false;
+    clearTimeout(slowTimer);
+    clearTimeout(retryTimer);
+    // After THREE_SLOW_MS the message says to check the connection, and
+    // offers the way back to the map. The download carries on.
+    if (!threeSlow) {
+      slowTimer = setTimeout(() => {
+        if (destroyed || gen !== threeGen || three !== 'loading') return;
+        threeSlow = true;
+        showThreePanel();
+      }, THREE_SLOW_MS);
+    }
+    showThreePanel();
     Promise.all([loadCesium(), import('./globe-view.js?v=5')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
       if (view !== '3d') {
         three = 'off';
+        clearTimeout(slowTimer);
         return;
       }
       try {
@@ -763,16 +811,23 @@ export function createMapView(root, ctx) {
           credits: globeCredits,
           dialogs: globeDialogs,
           follow,
-          covers: () => rectsOver(globeCanvas, [...coverElements(), controls, status, globeCredits], []),
+          labels,
+          covers: () => rectsOver(globeCanvas, coverElements(), []),
+          freeInsets: () => freeInsets(globeCanvas),
+          idleBottom: () => bottomBand(globeCanvas),
+          onScale: (mpp) => { if (view === '3d' && three === 'ready') setScale(mpp); },
           onReady: () => {
             if (destroyed || gen !== threeGen) return;
             three = 'ready';
+            threeSlow = false;
+            threeOverMap = false;
+            clearTimeout(slowTimer);
             setText(globeSay, '');
             applyView();
             scheduler.schedule();
           },
           onChange: () => scheduler.schedule(),
-          // Sliding the 3D view away from the rocket stops following it,
+          // Sliding the 3D view away from the board stops following it,
           // as dragging the map does.
           onFollowOff: () => setFollow(false),
           onFail: (err) => {
@@ -788,20 +843,25 @@ export function createMapView(root, ctx) {
     });
   }
 
-  const THREE_PROBLEMS = {
-    load: 'The 3D view needs internet to load. The map view still works.',
-    start: 'The 3D view couldn\'t start in this browser. The map view still works.',
-    stopped: 'The 3D view stopped working. The map view still works.',
-  };
-
   function failThree(kind, err) {
     console.warn('Flight Console: the 3D view is not available', err);
     threeGen += 1;
+    clearTimeout(slowTimer);
     destroyGlobe();
     three = 'failed';
-    showThreePanel(kind);
+    threeKind = kind;
+    showThreePanel();
     applyView();
     scheduler.schedule();
+    // A download that failed is tried again now and then while the viewer
+    // stays on the 3D view, so it takes over when the internet is back.
+    if (kind === 'load') {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(function retry() {
+        if (destroyed || view !== '3d' || three !== 'failed' || threeKind !== 'load') return;
+        startThree({ again: true });
+      }, THREE_RETRY_MS);
+    }
   }
 
   function destroyGlobe() {
@@ -811,38 +871,51 @@ export function createMapView(root, ctx) {
       console.warn('Flight Console: error closing the 3D view', err);
     }
     globe = null;
+    labels.update([]);
     globeCanvas.replaceChildren();
     globeCredits.replaceChildren();
     globeDialogs.replaceChildren();
     globeDialogs.remove();
   }
 
-  // What the panel over the 3D view says: "Loading", or why there is no
-  // 3D view.
-  function showThreePanel(kind) {
-    if (kind === 'loading') {
-      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the 3D view...'));
-      setText(globeSay, 'Loading the 3D view...');
-      return;
+  // What the message over the 3D view says: "3D VIEWER LOADING..." with
+  // the blinking cursor, then the connection hint and the way back to the
+  // map, or why there is no 3D view.
+  function showThreePanel() {
+    const back = () => h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => selectMap() }, 'BACK TO THE MAP');
+    let line;
+    let say;
+    let action = null;
+    if (three === 'loading' && !threeSlow) {
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER LOADING...', h('span', { class: 'fc-cursor', 'aria-hidden': 'true' }, '_'));
+      say = '3D viewer loading.';
+    } else if (three === 'failed' && threeKind === 'start') {
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER CAN\'T RUN IN THIS BROWSER');
+      say = 'The 3D viewer can\'t run in this browser. The map still works.';
+      action = back();
+    } else if (three === 'failed' && threeKind === 'stopped') {
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER STOPPED. PRESS 3D TO START IT AGAIN');
+      say = 'The 3D viewer stopped. The map still works.';
+      action = back();
+    } else {
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER LOADING... CHECK YOUR INTERNET CONNECTION');
+      say = '3D viewer still loading. Check your internet connection. The map still works.';
+      action = back();
     }
-    const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'BACK TO THE MAP');
-    const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
-    setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
-      h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
-      h('p', { class: 'fc-nomap-note' }, problem),
-      h('div', { class: 'fc-globe-actions' }, back)));
-    setText(globeSay, `No 3D view. ${problem}`);
+    setChildren(threePanel, h('div', { class: 'fc-globe-msgbox' }, line, action));
+    setText(globeSay, say);
   }
 
   // ------------------------------------------------------------------
-  // Covered areas: the parts of the map hidden under the console's overlays
-  // (the clock, phase strip, readings panel and altitude timeline), its
-  // arrow tabs and this frame's own controls. Measured on every draw,
-  // because they change size.
+  // Covered areas: the parts of the view under the HUD (every element on
+  // the stage marked data-fc-cover, this file's controls row included) and
+  // the arrow tabs at the panel's edges. Measured on every draw, because
+  // they change size.
   // ------------------------------------------------------------------
   function coverElements() {
     const stage = root.closest('.fc-stage');
     const panels = stage ? [...stage.querySelectorAll('[data-fc-cover]')] : [];
+    if (ownCorner) panels.push(ownCorner);
     // The console's arrow tabs at the panel's edges cover a little of the
     // view too. (A hidden one has no size, so it doesn't count.)
     const tabs = [...(root.closest('.fc-screens')?.querySelectorAll('.fc-flip') ?? [])];
@@ -850,17 +923,14 @@ export function createMapView(root, ctx) {
   }
 
   // Rectangles in map pixels ({ left, top, right, bottom }) for everything
-  // that overlaps the map. Leaflet's zoom buttons, distance scale and credit
-  // line count too.
+  // that overlaps the map, this frame's own corner included.
   function coveredRects() {
     if (!map) return [];
-    const leafletBits = ['.leaflet-control-zoom', '.leaflet-control-scale', '.leaflet-control-attribution'].map((sel) => canvas.querySelector(sel));
     const panels = coverElements();
-    return rectsOver(canvas, [...panels, controls, status, ...leafletBits], panels);
+    return rectsOver(canvas, [...panels, corner], panels);
   }
 
-  // The parts of elements that overlap boxEl, in boxEl's own pixels. The 3D
-  // view uses the same measuring for WHOLE FLIGHT.
+  // The parts of elements that overlap boxEl, in boxEl's own pixels.
   function rectsOver(boxEl, elements, panels) {
     const box = boxEl.getBoundingClientRect();
     const out = [];
@@ -868,7 +938,8 @@ export function createMapView(root, ctx) {
       if (!el || !el.isConnected) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
-      // panel: one of the other views' panels (the readings panel, say).
+      // panel: one of the HUD's blocks (they can grow, like the readings
+      // column when MORE opens).
       const rect = { left: r.left - box.left, top: r.top - box.top, right: r.right - box.left, bottom: r.bottom - box.top, panel: panels.includes(el) };
       if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= box.width || rect.top >= box.height) continue;
       out.push(rect);
@@ -876,31 +947,30 @@ export function createMapView(root, ctx) {
     return out;
   }
 
-  // The room (px) to keep free on each side of the map so nothing ends up
-  // under a covered area. Each area can be cleared by keeping a band free
-  // along its nearest top or bottom edge, or along its nearest left or
-  // right edge. Every mix is tried, and score() picks the best one (the
-  // closest zoom for the first view, the largest free area for Follow).
-  // score() returns null for a mix that doesn't work at all. margin is the
-  // extra room past each area and the map's edge, the same on every side,
-  // or { top, right, bottom, left }. smallGap, if given, is the room past
-  // this map's own small controls instead. With sideways set, the other
-  // views' panels are only cleared sideways: the readings panel keeps its
-  // width but grows taller when "More readings" opens, so a view that only
-  // clears its bottom edge wouldn't last. If no mix works, the result is
-  // null, or with roomiest set the mix that leaves the largest free area
-  // (the covered areas still count, however little is left).
-  function clearInsets(covers, size, margin, score, { sideways = false, smallGap = null, roomiest = false } = {}) {
+  // The room (px) to keep free on each side of the view so nothing ends
+  // up under a covered area. Each area can be cleared by keeping a band
+  // free along its nearest top or bottom edge, or along its nearest left
+  // or right edge. Every mix is tried, and score() picks the best one (the
+  // closest zoom for the first view, the largest free area for FOLLOW
+  // BOARD and WHOLE FLIGHT). score() returns null for a mix that doesn't
+  // work at all. margin is the extra room past each area and the view's
+  // edge, the same on every side, or { top, right, bottom, left }. With
+  // sideways set, a HUD column (a block taller than it is wide, like the
+  // readings column on the right) is only cleared sideways: it keeps its
+  // width but grows taller when MORE opens, so a view that only clears its
+  // bottom edge wouldn't last. If no mix works, the result is null, or
+  // with roomiest set the mix that leaves the largest free area.
+  function clearInsets(covers, size, margin, score, { sideways = false, roomiest = false } = {}) {
     const m = typeof margin === 'number' ? { top: margin, right: margin, bottom: margin, left: margin } : margin;
     const options = covers.map((c) => {
-      const g = c.panel || smallGap === null ? m : { top: smallGap, right: smallGap, bottom: smallGap, left: smallGap };
-      const vertical = (c.top + c.bottom) / 2 < size.y / 2 ? { top: c.bottom + g.top } : { bottom: size.y - c.top + g.bottom };
-      const horizontal = (c.left + c.right) / 2 < size.x / 2 ? { left: c.right + g.left } : { right: size.x - c.left + g.right };
-      return [sideways && c.panel ? horizontal : vertical, horizontal];
+      const vertical = (c.top + c.bottom) / 2 < size.y / 2 ? { top: c.bottom + m.top } : { bottom: size.y - c.top + m.bottom };
+      const horizontal = (c.left + c.right) / 2 < size.x / 2 ? { left: c.right + m.left } : { right: size.x - c.left + m.right };
+      const column = c.panel && c.bottom - c.top > c.right - c.left;
+      return [sideways && column ? horizontal : vertical, horizontal];
     });
     let best = null;
     let widest = null;
-    const combos = 2 ** options.length;
+    const combos = 2 ** Math.min(options.length, 12);
     for (let bits = 0; bits < combos; bits++) {
       const ins = { ...m };
       options.forEach((pair, i) => {
@@ -922,144 +992,253 @@ export function createMapView(root, ctx) {
 
   const freeArea = (size) => (ins) => (size.x - ins.left - ins.right) * (size.y - ins.top - ins.bottom);
 
-  // Leaflet's bottom right corner holds the zoom buttons and the credits.
-  // It stops short of the controls and scale on the left, and moves left of
-  // the readings panel if that panel reaches down to it.
-  function placeCorner(size) {
-    if (!cornerBR) return;
-    const box = canvas.getBoundingClientRect();
-    let left = 0;
-    for (const el of [topLeft, canvas.querySelector('.leaflet-control-scale')]) {
-      if (!el || el.hidden) continue;
+  // The part of a view (boxEl: the map or the 3D view) WHOLE FLIGHT frames
+  // the path in, as insets from each edge: clear of every covered area,
+  // with WHOLE_ROOM_PX to spare, as large as it can be.
+  function freeInsets(boxEl) {
+    const size = { x: boxEl.clientWidth, y: boxEl.clientHeight };
+    const covers = rectsOver(boxEl, [...coverElements(), corner], []);
+    return clearInsets(covers, size, WHOLE_ROOM_PX, freeArea(size), { roomiest: true });
+  }
+
+  // The height (px) of the band the controls row and the corner take
+  // along the bottom of a view, so the idle Earth can sit above it.
+  // (The arrow tabs halfway up the sides don't count.)
+  function bottomBand(boxEl) {
+    const box = boxEl.getBoundingClientRect();
+    let band = 0;
+    for (const el of [...coverElements(), corner]) {
       const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.bottom <= box.top || r.top >= box.bottom || r.left >= box.right) continue;
-      left = Math.max(left, r.right - box.left + 8);
+      if (r.width < 1 || r.height < 1 || r.top < box.top + box.height * 0.6 || r.top >= box.bottom) continue;
+      band = Math.max(band, box.bottom - r.top);
     }
-    // Only a panel beside the corner at the right edge counts, not one
-    // above or below it (like the altitude timeline it sits on).
-    let right = 0;
-    const cornerBottom = cornerBR.getBoundingClientRect().bottom;
-    const cornerTop = cornerBottom - cornerBR.offsetHeight - 8;
+    return band;
+  }
+
+  // The bottom right corner (notes, scale and credits) sits just above
+  // whatever the HUD has under it: the timeline across the whole width,
+  // or the controls row when it reaches this far right on a phone.
+  let cornerLift = '';
+  function placeCorner() {
+    const box = frame.getBoundingClientRect();
+    if (box.height < 1) return;
+    const c = corner.getBoundingClientRect();
+    let lift = 8;
     for (const el of coverElements()) {
       const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.bottom <= cornerTop || r.top >= cornerBottom || r.right - box.left < size.x - 80) continue;
-      right = Math.max(right, size.x - (r.left - box.left) + 4);
+      if (r.width < 1 || r.height < 1) continue;
+      // Only things down in the bottom part, under the corner's width.
+      if (r.bottom < box.top + box.height * 0.65 || r.right <= c.left || r.left >= c.right) continue;
+      const need = box.bottom - r.top + 6;
+      if (need > box.height * 0.5) continue;
+      lift = Math.max(lift, need);
     }
-    const style = `${Math.round(left)}|${Math.round(right)}`;
-    if (style === cornerStyle) return;
-    cornerStyle = style;
-    cornerBR.style.left = `${Math.round(left)}px`;
-    cornerBR.style.right = `${Math.round(right)}px`;
+    const value = `${Math.round(lift)}px`;
+    if (value === cornerLift) return;
+    cornerLift = value;
+    corner.style.bottom = value;
   }
 
   // ------------------------------------------------------------------
-  // Drawing: lines
+  // The scale bar, in both views: the roundest distance that fits in
+  // SCALE_MAX_PX, worked out from how many meters a screen pixel covers.
+  // ------------------------------------------------------------------
+  let scaleShown = '';
+  function setScale(mpp) {
+    if (!Number.isFinite(mpp) || mpp <= 0) {
+      scaleBox.hidden = true;
+      scaleShown = '';
+      return;
+    }
+    const most = mpp * SCALE_MAX_PX;
+    const pow = 10 ** Math.floor(Math.log10(most));
+    const lead = most / pow;
+    const meters = (lead >= 5 ? 5 : lead >= 2 ? 2 : 1) * pow;
+    const px = Math.round(meters / mpp);
+    const text = meters >= 1000 ? `${formatNumber(meters / 1000, 0)} KM` : `${formatNumber(meters, 0)} M`;
+    const key = `${text}|${px}`;
+    if (scaleBox.hidden) scaleBox.hidden = false;
+    if (key === scaleShown) return;
+    scaleShown = key;
+    setText(scaleText, text);
+    scaleBar.style.width = `${px}px`;
+  }
+
+  function updateScale2d() {
+    if (!map || view !== 'map' || mode !== 'leaflet') return;
+    const size = map.getSize();
+    if (size.x < 100) return;
+    const y = size.y / 2;
+    const a = map.containerPointToLatLng([size.x / 2 - 50, y]);
+    const b = map.containerPointToLatLng([size.x / 2 + 50, y]);
+    setScale(map.distance(a, b) / 100);
+  }
+
+  // ------------------------------------------------------------------
+  // Drawing on the map: where each rocket is
   // ------------------------------------------------------------------
 
-  // A dark outline drawn just under a line, so it stands out on bright
-  // photos. weight is the width of the line it outlines.
-  function haloStyle(weight, extra = {}) {
+  // The newest good crumb of a rocket (where its marker goes), with its
+  // place in the list, or null.
+  function boardCrumb(rocket) {
+    const crumbs = rocket.crumbs ?? [];
+    for (let i = crumbs.length - 1; i >= 0; i--) {
+      if (crumbs[i].quality === 'good') return { crumb: crumbs[i], index: i, newest: i === crumbs.length - 1 };
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------------
+  // Drawing on the map: the breadcrumbs, painted on one canvas. The line
+  // goes through the good fixes' smoothed positions and breaks before any
+  // fix with gapBefore. It gets a dark outline first, then each piece in
+  // its speed colors (a gradient between its two ends, like the 3D view).
+  // Then the dots: good ones solid in their speed color with a dark
+  // outline, weak ones as hollow grey rings. Outliers aren't drawn.
+  // ------------------------------------------------------------------
+  function paintTrack() {
+    const r = trackRenderer;
+    // (_ctx and _container are the canvas renderer's own drawing surface in
+    // Leaflet 1.9.4. The map draws nothing else on this one.)
+    const g = r?._ctx;
+    if (!g || !map) return;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, r._container.width, r._container.height);
+    g.restore();
+    if (view === '3d' && !threeOverMap) return;
+    const focused = store.getFocused();
+    const rockets = store.getRockets().sort((a, b) => (a.id === focused?.id) - (b.id === focused?.id));
+    for (const rocket of rockets) paintCrumbs(g, rocket, rocket.id === focused?.id);
+  }
+
+  function paintCrumbs(g, rocket, isFocused) {
+    const crumbs = rocket.crumbs ?? [];
+    if (!crumbs.length) return;
+    const own = rocket.profile?.color ?? WHITE;
+    const colorOf = (c) => (isFocused ? speedColor(c.speedMps) : own);
+    const width = isFocused ? LINE_PX : OTHER_LINE_PX;
+    // The line's runs, split where packets were missed.
+    const runs = [];
+    let run = null;
+    for (const c of crumbs) {
+      if (c.quality !== 'good' || !c.line) continue;
+      const p = map.latLngToLayerPoint([c.line.lat, c.line.lon]);
+      if (!run || c.gapBefore) {
+        run = [];
+        runs.push(run);
+      }
+      run.push({ x: p.x, y: p.y, color: colorOf(c) });
+    }
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.strokeStyle = NEAR_BLACK;
+    g.lineWidth = width + 2 * LINE_OUTLINE_PX;
+    for (const pts of runs) {
+      if (pts.length < 2) continue;
+      g.beginPath();
+      g.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      g.stroke();
+    }
+    g.lineWidth = width;
+    for (const pts of runs) {
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        if (a.color === b.color) g.strokeStyle = b.color;
+        else {
+          const ramp = g.createLinearGradient(a.x, a.y, b.x, b.y);
+          ramp.addColorStop(0, a.color);
+          ramp.addColorStop(1, b.color);
+          g.strokeStyle = ramp;
+        }
+        g.beginPath();
+        g.moveTo(a.x, a.y);
+        g.lineTo(b.x, b.y);
+        g.stroke();
+      }
+    }
+    // The dots, raw positions.
+    const dotR = (isFocused ? DOT_PX : OTHER_DOT_PX) / 2;
+    const weakR = WEAK_DOT_PX / 2;
+    for (const c of crumbs) {
+      if (c.quality === 'outlier') continue;
+      const p = map.latLngToLayerPoint([c.lat, c.lon]);
+      g.beginPath();
+      if (c.quality === 'good') {
+        g.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+        g.fillStyle = colorOf(c);
+        g.fill();
+        g.lineWidth = DOT_OUTLINE_PX;
+        g.strokeStyle = NEAR_BLACK;
+        g.stroke();
+      } else {
+        g.arc(p.x, p.y, weakR, 0, Math.PI * 2);
+        g.lineWidth = WEAK_LINE_PX + 2;
+        g.strokeStyle = NEAR_BLACK;
+        g.stroke();
+        g.lineWidth = WEAK_LINE_PX;
+        g.strokeStyle = WEAK_COLOR;
+        g.stroke();
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Drawing on the map: markers. Each marker is built once and then only
+  // moved. Screen readers skip them: the HUD says the same things in words.
+  // ------------------------------------------------------------------
+  function markerOptions(parts, size, anchor, zIndexOffset) {
     return {
-      pane: 'fc-halo',
-      color: config.HALO_COLOR,
-      opacity: config.HALO_OPACITY,
-      weight: weight + 2 * config.HALO_WIDTH_PX,
-      fill: false,
+      icon: L.divIcon({ className: 'fc-mk', html: parts.el, iconSize: size, iconAnchor: anchor }),
       interactive: false,
-      ...extra,
+      keyboard: false,
+      zIndexOffset,
     };
   }
 
-  function layersFor(rocket) {
-    let layers = rocketLayers.get(rocket.id);
-    if (!layers) {
-      layers = { tail: [], tailKey: '', marker: null, parts: null };
-      rocketLayers.set(rocket.id, layers);
-    }
-    return layers;
+  // The board marker: the board, with its packet ring under it.
+  function buildRocketIcon(isFocused) {
+    const size = isFocused ? BOARD_FOCUSED : BOARD_OTHER;
+    const ring = h('span', { class: 'fc-rkt-ring' });
+    const iconBox = h('span', { class: 'fc-rkt-icon' }, iconNode(boardSvg(size)));
+    const el = h('div', { class: `fc-rkt${isFocused ? ' fc-rkt--focus' : ''}`, 'aria-hidden': 'true', style: { '--w': `${size[0]}px`, '--h': `${size[1]}px` } }, ring, iconBox);
+    return { el, ring, focused: isFocused, iconW: size[0], iconH: size[1], ringAnim: null };
   }
 
-  // True when a draw added a trail line, which lands on top of the others.
-  let linesAdded = false;
-
-  // The trail: the good positions from the last TRAIL_WINDOW_S seconds up
-  // to the marker, as a thin solid line that fades out toward its far end
-  // (TRAIL_STEPS lines, each a little stronger than the one before). It
-  // breaks wherever the positions do: the GPS had no fix (gapBefore), or no
-  // position came for longer than LINK_STALE_S. Nobody measured the path
-  // across a break, so nothing is drawn there. Returns true if it drew.
-  function drawTrail(rocket, layers, isFocused) {
-    const track = rocket.track;
-    const end = track.length - 1;
-    const key = `${end}|${isFocused}|${track[end]?.t}`;
-    if (key === layers.tailKey) return false;
-    layers.tailKey = key;
-    for (const line of layers.tail) line.remove();
-    layers.tail = [];
-    if (end < 1) return false;
-    const span = TRAIL_WINDOW_S;
-    const tEnd = track[end].t;
-    const look = {
-      color: isFocused ? config.TRACK_COLOR : rocket.profile.color,
-      weight: isFocused ? TRAIL_WIDTH_PX : TRAIL_OTHER_WIDTH_PX,
-      lineCap: 'butt',
-      interactive: false,
-    };
-    // Back from the marker, one segment at a time. Neighboring segments in
-    // the same step of opacity share one line.
-    let group = null;
-    const groups = [];
-    for (let i = end; i >= 1; i--) {
-      const a = track[i - 1];
-      const b = track[i];
-      if (tEnd - b.t >= span) break;
-      if (b.gapBefore || b.t - a.t > config.LINK_STALE_S) {
-        group = null;
-        continue;
-      }
-      const share = Math.min(1, Math.max(0, 1 - (tEnd - (a.t + b.t) / 2) / span));
-      const step = Math.min(TRAIL_STEPS - 1, Math.floor(share * TRAIL_STEPS));
-      if (group && group.step === step) group.points.push([a.lat, a.lon]);
-      else {
-        group = { step, points: [[b.lat, b.lon], [a.lat, a.lon]] };
-        groups.push(group);
-      }
-    }
-    for (const { step, points } of groups) {
-      const opacity = TRAIL_ALPHA * ((step + 0.5) / TRAIL_STEPS) ** TRAIL_FADE_POWER;
-      layers.tail.push(L.polyline(points, { ...look, opacity }).addTo(map));
-    }
-    return groups.length > 0;
-  }
-
-  // Removes every trail. Markers stay, so a seek doesn't restart the
-  // pulse rings.
-  function clearTracks() {
-    for (const layers of rocketLayers.values()) {
-      for (const line of layers.tail) line.remove();
-      layers.tail = [];
-      layers.tailKey = '';
-    }
+  function buildIcon(cls, markup) {
+    return { el: h('div', { class: cls, 'aria-hidden': 'true' }, iconNode(markup)) };
   }
 
   // Removes everything drawn for the rockets (a new flight, or a new map).
   function clearRocketLayers() {
-    clearTracks();
     for (const layers of rocketLayers.values()) layers.marker?.remove();
     rocketLayers.clear();
     for (const pad of padMarkers.values()) pad.marker.remove();
     padMarkers.clear();
+    for (const m of eventMarkers) m.marker.remove();
+    eventMarkers = [];
+    eventsKey = '';
+    crossMarker?.remove();
+    crossMarker = null;
+    linkLine?.remove();
+    linkLine = null;
+    stopTravel();
+    gsMarker?.remove();
+    gsMarker = null;
+    gsParts = null;
   }
 
-  // The KEY says "(demo position)" while the ground station is the config
-  // placeholder. The 3D view shows the same KEY, so this runs for both
-  // views.
+  // The KEY names Manta's demo position while the ground station is the
+  // config placeholder, and leaves out Manta and the radio link when there
+  // is no ground station. It runs for both views.
   function updateLegend() {
     const gs = store.getGroundStation();
-    for (const row of legendGsRows) {
+    for (const row of legendStationRows) {
       if (row.hidden !== !gs) row.hidden = !gs;
     }
-    if (gs) setText(legendGsText, gs.source === 'config' ? 'Ground station (demo position)' : 'Ground station');
+    if (gs) setText(legendStationText, gs.source === 'config' ? `${LABEL_NAMES.station}, DEMO POSITION` : LABEL_NAMES.station);
   }
 
   function redrawAll() {
@@ -1071,77 +1250,78 @@ export function createMapView(root, ctx) {
   }
 
   // ------------------------------------------------------------------
-  // Drawing: markers. Each marker is built once and then only its classes
-  // change, so the pulse rings keep running. Screen readers skip them: the
-  // readings panel says the same things in words.
+  // Packet ring and radio dot on the map. Each new packet for a board
+  // grows one thin white ring out of its marker, and (for the focused
+  // board with Manta on the map) sends a small white dot along the radio
+  // link. Nothing new starts while they still move. Nothing moves when the
+  // viewer asked for less motion.
   // ------------------------------------------------------------------
-  function markerOptions(parts, size, anchor, zIndexOffset) {
-    return {
-      icon: L.divIcon({ className: 'fc-mk', html: parts.el, iconSize: size, iconAnchor: anchor }),
-      interactive: false,
-      keyboard: false,
-      zIndexOffset,
-    };
+  function packetArrived2d(rocket, layers, isFocused) {
+    if (prefersReducedMotion()) return;
+    const parts = layers.parts;
+    if (parts && (!parts.ringAnim || parts.ringAnim.playState === 'finished') && typeof parts.ring.animate === 'function') {
+      parts.ringAnim = parts.ring.animate([
+        { transform: `scale(${RING_FROM_SCALE})`, opacity: 1 },
+        { transform: 'scale(1)', opacity: 0 },
+      ], { duration: RING_MS, easing: 'cubic-bezier(0.25, 0.6, 0.4, 1)' });
+    }
+    if (isFocused && linkLine && !travelRun) {
+      const [from, to] = linkLine.getLatLngs();
+      if (!travelMarker) {
+        travelMarker = L.marker(from, markerOptions({ el: h('span', { class: 'fc-travel-dot', 'aria-hidden': 'true' }) }, [0, 0], [0, 0], Z_OFFSET.travel));
+      }
+      travelMarker.setLatLng(from).addTo(map);
+      travelRun = { from, to, start: performance.now(), frame: 0 };
+      const step = (now) => {
+        if (!travelRun || destroyed || !map) return;
+        const u = Math.min(1, (now - travelRun.start) / LINK_TRAVEL_MS);
+        const at = L.latLng(
+          travelRun.from.lat + (travelRun.to.lat - travelRun.from.lat) * u,
+          travelRun.from.lng + (travelRun.to.lng - travelRun.from.lng) * u);
+        travelMarker.setLatLng(at);
+        if (u < 1) travelRun.frame = window.requestAnimationFrame(step);
+        else stopTravel();
+      };
+      travelRun.frame = window.requestAnimationFrame(step);
+    }
   }
 
-  function buildRocketIcon() {
-    const rings = h('span', { class: 'fc-rkt-rings' }, h('i'), h('i'), h('i'));
-    const iconBox = h('span', { class: 'fc-rkt-icon' });
-    const el = h('div', { class: 'fc-rkt', 'aria-hidden': 'true' }, rings, iconBox);
-    return { el, iconBox, size: null, iconW: 0, iconH: 0 };
-  }
-
-  // Sets the board marker's size (the focused rocket's is bigger).
-  function sizeRocketIcon(parts, size) {
-    if (parts.size === size) return;
-    parts.size = size;
-    [parts.iconW, parts.iconH] = size;
-    parts.iconBox.replaceChildren(iconNode(boardSvg(size)));
-    parts.el.style.setProperty('--w', `${size[0]}px`);
-    parts.el.style.setProperty('--h', `${size[1]}px`);
-  }
-
-  function buildPadIcon() {
-    return { el: h('div', { class: 'fc-pad', 'aria-hidden': 'true' }, iconNode(startSvg())) };
-  }
-
-  function buildGsIcon() {
-    return { el: h('div', { class: 'fc-gs', 'aria-hidden': 'true' }, iconNode(dishSvg())) };
+  function stopTravel() {
+    if (travelRun) window.cancelAnimationFrame(travelRun.frame);
+    travelRun = null;
+    travelMarker?.remove();
   }
 
   // ------------------------------------------------------------------
-  // Drawing: one pass over everything
+  // Drawing on the map: one pass over everything
   // ------------------------------------------------------------------
   function drawLeaflet() {
     const rockets = store.getRockets();
     const focused = store.getFocused();
     const gs = store.getGroundStation();
 
-    // Ground station (none at all for a board on the bench)
+    // Manta (none at all for a board on the bench)
     updateLegend();
     if (!gs) {
       gsMarker?.remove();
       gsMarker = null;
       gsParts = null;
+    } else if (!gsMarker) {
+      gsParts = buildIcon('fc-gs', dishSvg());
+      gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, DISH_SIZE, DISH_ANCHOR, Z_OFFSET.gs)).addTo(map);
     } else {
-      if (!gsMarker) {
-        gsParts = buildGsIcon();
-        gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, DISH_SIZE, DISH_ANCHOR, Z_OFFSET.gs)).addTo(map);
-      } else {
-        gsMarker.setLatLng([gs.lat, gs.lon]);
-      }
+      gsMarker.setLatLng([gs.lat, gs.lon]);
     }
 
+    let focusedBoard = null;
     for (const rocket of rockets) {
       const isFocused = focused?.id === rocket.id;
-      const layers = layersFor(rocket);
-
-      // Launch pad: the last good position before liftoff.
+      // The launch point: the last good position before liftoff.
       const pad = padMarkers.get(rocket.id);
       if (rocket.padPosition) {
         const ll = [rocket.padPosition.lat, rocket.padPosition.lon];
         if (!pad) {
-          const parts = buildPadIcon();
+          const parts = buildIcon('fc-pad', startSvg());
           padMarkers.set(rocket.id, { parts, marker: L.marker(ll, markerOptions(parts, [START_SIZE, START_SIZE], START_ANCHOR, Z_OFFSET.pad)).addTo(map) });
         } else {
           pad.marker.setLatLng(ll);
@@ -1151,83 +1331,129 @@ export function createMapView(root, ctx) {
         padMarkers.delete(rocket.id);
       }
 
-      if (drawTrail(rocket, layers, isFocused)) linesAdded = true;
-
-      // The board marker at its last good position: the board's blue with
-      // pulse rings while the fix is good, hollow without one.
-      const fix = rocket.lastGoodFix;
-      if (fix) {
-        const ll = [fix.lat, fix.lon];
-        // The icon's middle is the position, so the marker box has no size.
+      // The board marker at its newest good fix: the board's blue while
+      // the fix is good right now, hollow otherwise.
+      let layers = rocketLayers.get(rocket.id);
+      if (!layers) {
+        layers = { marker: null, parts: null, lastPacketT: null };
+        rocketLayers.set(rocket.id, layers);
+      }
+      const spot = boardCrumb(rocket);
+      if (spot) {
+        const ll = [spot.crumb.lat, spot.crumb.lon];
+        if (isFocused) focusedBoard = ll;
         const zIndex = isFocused ? Z_OFFSET.focused : Z_OFFSET.rocket;
+        if (layers.marker && layers.parts.focused !== isFocused) {
+          layers.marker.remove();
+          layers.marker = null;
+        }
         if (!layers.marker) {
-          layers.parts = buildRocketIcon();
+          layers.parts = buildRocketIcon(isFocused);
+          // The icon's middle is the position, so the marker box has no size.
           layers.marker = L.marker(ll, markerOptions(layers.parts, [0, 0], [0, 0], zIndex)).addTo(map);
         } else {
           layers.marker.setLatLng(ll);
-          if (layers.marker.options.zIndexOffset !== zIndex) layers.marker.setZIndexOffset(zIndex);
         }
-        const parts = layers.parts;
-        sizeRocketIcon(parts, isFocused ? BOARD_FOCUSED : BOARD_OTHER);
-        parts.el.classList.toggle('fc-rkt--focus', isFocused);
-        parts.el.classList.toggle('fc-rkt--nofix', !store.hasFixNow(rocket));
+        layers.parts.el.classList.toggle('fc-rkt--nofix', !(store.hasFixNow(rocket) && spot.newest));
       } else if (layers.marker) {
         layers.marker.remove();
         layers.marker = null;
         layers.parts = null;
       }
+      // New packets start the ring (and the radio dot, below).
+      const t = rocket.lastPacketT;
+      layers.newPacket = pendingPackets && Number.isFinite(t) && layers.lastPacketT !== null && t > layers.lastPacketT && Boolean(layers.marker);
+      layers.lastPacketT = Number.isFinite(t) ? t : null;
     }
 
-    // A new line lands on top, so the focused rocket's trail goes back above
-    // the others.
-    const focusedLayers = rocketLayers.get(focused?.id);
-    if (linesAdded && focusedLayers) {
-      for (const line of focusedLayers.tail) line.bringToFront();
+    // The radio link from the focused board to Manta.
+    if (gs && focusedBoard) {
+      const lls = [focusedBoard, [gs.lat, gs.lon]];
+      if (!linkLine) {
+        linkLine = L.polyline(lls, {
+          pane: 'fc-link',
+          renderer: linkRenderer,
+          color: LINK_COLOR,
+          opacity: LINK_ALPHA,
+          weight: LINK_PX,
+          dashArray: LINK_DASH_PX.join(' '),
+          lineCap: 'butt',
+          interactive: false,
+        }).addTo(map);
+      } else {
+        linkLine.setLatLngs(lls);
+      }
+    } else if (linkLine) {
+      linkLine.remove();
+      linkLine = null;
+      stopTravel();
     }
-    linesAdded = false;
+
+    for (const rocket of rockets) {
+      const layers = rocketLayers.get(rocket.id);
+      if (layers?.newPacket) packetArrived2d(rocket, layers, focused?.id === rocket.id);
+    }
+    pendingPackets = false;
+
+    drawEvents2d(focused);
+    paintTrack();
 
     // Everything below reads sizes and positions (after all the writes
     // above). The map's size is kept up to date by the ResizeObserver.
     const size = map.getSize();
     const covers = coveredRects();
-    const target = focused?.lastGoodFix;
-    const focusedParts = target ? focusedLayers?.parts ?? null : null;
+    const target = focusedBoard ? L.latLng(focusedBoard) : null;
+    const focusedParts = target ? rocketLayers.get(focused?.id)?.parts ?? null : null;
     // A map squeezed to almost nothing (hidden, or mid-layout) has no view
     // worth fitting or following yet.
     const usable = size.x >= 120 && size.y >= 120;
 
-    // First view: the pad(s), the focused rocket and the ground station,
-    // in the part of the map nothing covers
-    // (see firstView). With several rockets, their pads can show up one
-    // after another, so the view fits again for each new pad until the
-    // viewer drags or zooms the map. Follow waits for the next draw, and
-    // the first view keeps the focused rocket further from the edges than
-    // Follow's margin, so the view stays put until the rocket really heads
-    // off.
+    // First view: the pad(s), the focused board and Manta, in the part of
+    // the map nothing covers (see firstView). With several rockets, their
+    // pads can show up one after another, so the view fits again for each
+    // new pad until the viewer drags or zooms the map. FOLLOW BOARD waits
+    // for the next draw, and the first view keeps the focused board
+    // further from the edges than FOLLOW BOARD's margin, so the view stays
+    // put until the board really heads off.
     let justFitted = false;
-    if ((!fitted || (!viewTouched && padMarkers.size > fitPads)) && usable) {
-      const view = firstView(target, focusedParts, gs, size, covers);
-      if (view) {
+    if ((!fitted || (!viewTouched && padMarkers.size > fitPads)) && usable && !whole2d) {
+      const fit = firstView(target, focusedParts, gs, size, covers);
+      if (fit) {
+        const animate = flyNext && !prefersReducedMotion();
         ownMove = true;
-        if (view.bounds) {
-          map.fitBounds(view.bounds, { paddingTopLeft: view.paddingTopLeft, paddingBottomRight: view.paddingBottomRight, maxZoom: config.FIT_MAX_ZOOM, animate: false });
+        if (fit.bounds) {
+          const opts = { paddingTopLeft: fit.paddingTopLeft, paddingBottomRight: fit.paddingBottomRight, maxZoom: config.FIT_MAX_ZOOM };
+          if (animate) map.flyToBounds(fit.bounds, opts);
+          else map.fitBounds(fit.bounds, { ...opts, animate: false });
+        } else if (animate) {
+          map.flyTo(fit.center, fit.zoom);
         } else {
-          map.setView(view.center, view.zoom, { animate: false });
+          map.setView(fit.center, fit.zoom, { animate: false });
         }
         ownMove = false;
+        ownMoveUntil = performance.now() + OWN_MOVE_MS;
+        if (animate) followPanUntil = performance.now() + 1500;
+        flyNext = false;
         fitted = true;
         fitPads = padMarkers.size;
         justFitted = true;
       }
     }
 
-    // Follow: when the focused rocket gets near the edge of the map or a
-    // covered area, pan so it sits well inside the free part. Like the first view, it moves sideways
-    // away from the other views' panels, so a panel that is taller a moment
-    // later still doesn't cover the rocket. Where it moves them depends on
-    // what else stays in sight (see followShift).
+    // WHOLE FLIGHT keeps the whole path framed as it grows.
+    if (whole2d && !justFitted) {
+      const all = wholePoints();
+      if (all.length && !all.every((ll) => whole2d.bounds.contains(ll))) fitWhole2d({ animate: true });
+    }
+
+    // FOLLOW BOARD: when the focused board gets near the edge of the map
+    // or a covered area, pan so it sits well inside the free part. Like
+    // the first view, it moves sideways away from the HUD's blocks, so a
+    // block that is taller a moment later still doesn't cover the board.
+    // Where it moves them depends on what else stays in sight (see
+    // followShift).
     if (follow && target && usable && !justFitted && performance.now() > followPanUntil) {
-      const p = map.latLngToContainerPoint([target.lat, target.lon]);
+      const p = map.latLngToContainerPoint(target);
       const m = config.FOLLOW_EDGE_PX;
       const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
       if (tooClose(point, m, size, covers)) {
@@ -1236,35 +1462,131 @@ export function createMapView(root, ctx) {
           clearInsets(covers, size, FOLLOW_TIGHT_PX, area, { sideways: true, roomiest: true });
         const shift = followShift(point, ins, size, covers);
         // Already as centered as it gets (a free part too small for the
-        // rocket): no pan, so it doesn't pan on the spot.
+        // board): no pan, so it doesn't pan on the spot.
         if (Math.abs(shift.x) >= 2 || Math.abs(shift.y) >= 2) {
           const newCenter = map.containerPointToLatLng(size.divideBy(2).add(shift));
           const animate = !prefersReducedMotion();
           ownMove = true;
           map.panTo(newCenter, { animate, duration: 0.5 });
           ownMove = false;
+          ownMoveUntil = performance.now() + OWN_MOVE_MS;
           followPanUntil = animate ? performance.now() + FOLLOW_PAN_MS : 0;
         }
       }
     }
 
-    placeCorner(size);
-    setText(status, statusText(focused));
+    placeLabels2d();
+    updateScale2d();
+    setText(status, statusText());
+  }
+
+  // The focused rocket's event diamonds and its recovery crosshair.
+  function drawEvents2d(focused) {
+    const spots = focused
+      ? EVENT_TYPES.map((type) => focused.events.find((e) => e.type === type)).filter(Boolean)
+        .map((e) => ({ e, c: eventCrumb(focused, e) })).filter((s) => s.c)
+      : [];
+    const key = `${focused?.id ?? ''}|${spots.map(({ e, c }) => `${e.type}@${c.t}`).join(',')}`;
+    if (key !== eventsKey) {
+      eventsKey = key;
+      for (const m of eventMarkers) m.marker.remove();
+      eventMarkers = spots.map(({ e, c }) => {
+        const ll = L.latLng(c.lat, c.lon);
+        const parts = buildIcon('fc-event', diamondSvg());
+        const marker = L.marker(ll, markerOptions(parts, [DIAMOND_SIZE, DIAMOND_SIZE], [DIAMOND_SIZE / 2, DIAMOND_SIZE / 2], Z_OFFSET.event)).addTo(map);
+        return { marker, type: e.type, aglM: e.aglM, ll };
+      });
+    }
+    const where = focused ? recoveryInfo(store, focused)?.position : null;
+    if (!where) {
+      crossMarker?.remove();
+      crossMarker = null;
+    } else if (!crossMarker) {
+      const parts = buildIcon('fc-cross', crosshairSvg());
+      crossMarker = L.marker([where.lat, where.lon], markerOptions(parts, [CROSSHAIR_SIZE, CROSSHAIR_SIZE], [CROSSHAIR_SIZE / 2, CROSSHAIR_SIZE / 2], Z_OFFSET.event)).addTo(map);
+    } else {
+      crossMarker.setLatLng([where.lat, where.lon]);
+    }
+  }
+
+  // The labels on the map: the same names as in 3D, placed from Leaflet's
+  // own projection.
+  function placeLabels2d() {
+    // In 3D (even while it loads over the map) the 3D view feeds the labels.
+    if (!map || mode !== 'leaflet' || view === '3d') return;
+    const items = [];
+    const focused = store.getFocused();
+    const at = (ll) => map.latLngToContainerPoint(ll);
+    const board = focused ? rocketLayers.get(focused.id)?.marker : null;
+    if (board) {
+      const p = at(board.getLatLng());
+      items.push({ id: 'board', text: LABEL_NAMES.board, x: p.x, y: p.y, r: BOARD_FOCUSED[1] / 2 + 2, priority: LABEL_PRIORITY.board });
+    }
+    if (gsMarker) {
+      const p = at(gsMarker.getLatLng());
+      items.push({ id: 'station', text: LABEL_NAMES.station, x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
+    }
+    const pad = focused ? padMarkers.get(focused.id) : null;
+    if (pad) {
+      const p = at(pad.marker.getLatLng());
+      items.push({ id: 'pad', text: LABEL_NAMES.pad, x: p.x, y: p.y, r: START_SIZE / 2, priority: LABEL_PRIORITY.pad });
+    }
+    const apogee = eventMarkers.find((m) => m.type === 'apogee');
+    if (apogee) {
+      const p = at(apogee.ll);
+      items.push({ id: 'apogee', text: apogeeLabel(apogee.aglM), x: p.x, y: p.y, r: DIAMOND_SIZE / 2, priority: LABEL_PRIORITY.apogee });
+    }
+    labels.update(items, { far: map.getZoom() < LABEL_FAR_ZOOM, avoid: rectsOver(canvas, coverElements(), []) });
+  }
+
+  // Every spot WHOLE FLIGHT frames on the map: every fix drawn, the
+  // launch points, the event diamonds and Manta.
+  function wholePoints() {
+    const out = [];
+    for (const rocket of store.getRockets()) {
+      for (const c of rocket.crumbs ?? []) if (c.quality !== 'outlier') out.push(L.latLng(c.lat, c.lon));
+      if (rocket.padPosition) out.push(L.latLng(rocket.padPosition.lat, rocket.padPosition.lon));
+    }
+    for (const m of eventMarkers) out.push(m.ll);
+    const gs = store.getGroundStation();
+    if (gs) out.push(L.latLng(gs.lat, gs.lon));
+    return out;
+  }
+
+  // WHOLE FLIGHT on the map: the whole path in the part of the map the HUD
+  // leaves free, with WHOLE_ROOM_PX to spare for the markers.
+  function fitWhole2d({ animate }) {
+    if (!map) return;
+    const all = wholePoints();
+    if (!all.length) return;
+    const bounds = L.latLngBounds(all);
+    const ins = freeInsets(canvas);
+    ownMove = true;
+    map.fitBounds(bounds, {
+      paddingTopLeft: [ins.left, ins.top],
+      paddingBottomRight: [ins.right, ins.bottom],
+      maxZoom: config.FIT_MAX_ZOOM,
+      animate: animate && !prefersReducedMotion(),
+    });
+    ownMove = false;
+    ownMoveUntil = performance.now() + OWN_MOVE_MS;
+    whole2d = { bounds };
+    updateCameraButtons();
   }
 
   // ------------------------------------------------------------------
   // The first view. Each thing to show (the launch pads, the focused
-  // rocket, the ground station) is a point with the room its marker needs
-  // around it in px, plus a little air. The view is the closest zoom at
-  // which all of that fits inside the part of the map nothing covers.
-  // FIT_PADDING_PX of air is kept when that costs at most half a zoom step,
-  // otherwise less. Covered areas always count.
+  // board, Manta) is a point with the room its marker needs around it in
+  // px, plus a little air. The view is the closest zoom at which all of
+  // that fits inside the part of the map nothing covers. FIT_PADDING_PX of
+  // air is kept when that costs at most half a zoom step, otherwise less.
+  // Covered areas always count.
   // ------------------------------------------------------------------
   function firstView(target, rocketParts, gs, size, covers) {
     const pads = [...padMarkers.values()];
     if (!pads.length && !target) return null;
-    // The focused rocket stays further than Follow's edge margin from every
-    // edge, so Follow doesn't pan right after the first view.
+    // The focused board stays further than FOLLOW BOARD's edge margin from
+    // every edge, so it doesn't pan right after the first view.
     const keep = config.FOLLOW_EDGE_PX + 8;
     const items = (air) => {
       const out = [];
@@ -1277,7 +1599,7 @@ export function createMapView(root, ctx) {
       }
       if (target) {
         const half = Math.max(rocketParts?.iconW ?? 0, rocketParts?.iconH ?? 0) / 2 + air;
-        out.push({ ll: L.latLng(target.lat, target.lon), l: Math.max(keep, half), r: Math.max(keep, half), u: Math.max(keep, half), d: Math.max(keep, half) });
+        out.push({ ll: target, l: Math.max(keep, half), r: Math.max(keep, half), u: Math.max(keep, half), d: Math.max(keep, half) });
       }
       return out;
     };
@@ -1333,14 +1655,14 @@ export function createMapView(root, ctx) {
     return null;
   }
 
-  // How far (map px) Follow moves the view for the rocket (box), with ins
-  // the free part. The box always ends up inside the free
-  // part. Along the direction it was leaving, it goes about to the middle,
-  // and along the other direction it stays where it is. But when another
-  // shift keeps more of the ground station and the launch pads on the map
-  // and clear of covered areas, that one wins (never closer than a sixth of
-  // the way from an edge in the leaving direction, so Follow doesn't nudge
-  // the map on every frame).
+  // How far (map px) FOLLOW BOARD moves the view for the board (box), with
+  // ins the free part. The box always ends up inside the free part. Along
+  // the direction it was leaving, it goes about to the middle, and along
+  // the other direction it stays where it is. But when another shift keeps
+  // more of Manta and the launch pads on the map and clear of covered
+  // areas, that one wins (never closer than a sixth of the way from an
+  // edge in the leaving direction, so it doesn't nudge the map on every
+  // frame).
   function followShift(box, ins, size, covers) {
     const axis = (a0, a1, lo0, hi0) => {
       // Shifts that keep [a0, a1] inside [lo0, hi0].
@@ -1382,23 +1704,11 @@ export function createMapView(root, ctx) {
     return covers.some((c) => b.right > c.left - gap && b.left < c.right + gap && b.bottom > c.top - gap && b.top < c.bottom + gap);
   }
 
-  function statusText(focused) {
-    // Before any data at all (nothing connected yet), there is nothing to
-    // say about a fix.
-    const anyData = store.getRockets().some((r) => r.lastPacketT !== null);
-    const noFixAnywhere = anyData && store.getRockets().every((r) => !r.lastGoodFix);
-    let focusNote = '';
-    const where = view === '3d' ? 'in the 3D view' : 'on the map';
-    if (anyData && focused && !focused.lastGoodFix && !noFixAnywhere) {
-      if (focused.lastPacketT === null) focusNote = `${focused.profile.name} hasn't sent any data yet, so it isn't ${where}.`;
-      else if (focused.sensorGroups.has('gps')) focusNote = `${focused.profile.name} has no GPS fix yet, so it isn't ${where}.`;
-      else focusNote = `${focused.profile.name} has sent no GPS data, so it isn't ${where}.`;
-    }
-    // Each view adds its own notes: the map's backgrounds, or the 3D
-    // view's ground heights and imagery.
+  // The map's notes: its backgrounds on the map, the 3D view's ground
+  // heights and imagery in 3D.
+  function statusText() {
     const viewNotes = view === '3d' ? globe?.notes() ?? [] : [satelliteNote, labelsNote, noTilesNote];
-    return [noFixAnywhere ? words.noFix : '', focusNote, ...viewNotes]
-      .filter(Boolean).join(' ');
+    return viewNotes.filter(Boolean).join(' ');
   }
 
   // ------------------------------------------------------------------
@@ -1414,26 +1724,26 @@ export function createMapView(root, ctx) {
     removeMap();
     mode = 'fallback';
     fallbackReason = reason;
-    // Following and the legend mean nothing without a map, so they go away
-    // (applyView, through showBody below).
     nomapList = h('ul', { class: 'fc-nomap-list' });
     gsRow = h('li', { class: 'fc-nomap-gs' });
     fallbackRows.clear();
-    // After a tile failure, either background can be tried again. The
-    // buttons move here from the map's corner, and back when the map returns.
+    // After a tile failure, either background can be tried again with the
+    // row's own buttons.
     retryBox = reason === 'tiles'
-      ? h('div', { class: 'fc-nomap-retry' }, h('p', { class: 'fc-nomap-note' }, 'Try loading a map background again, or use the 3D view.'))
+      ? h('p', { class: 'fc-nomap-note' }, 'Press SATELLITE or DARK MAP to try the map again, or 3D for the 3D view.')
       : null;
-    // Without the map library, the "Map" and "3D" buttons float over the
-    // panel's top left corner, so the panel starts below them.
-    const panel = h('div', { class: reason === 'library' ? 'fc-nomap fc-nomap--controls' : 'fc-nomap' },
+    const panel = h('div', { class: 'fc-nomap' },
       h('div', { class: 'fc-nomap-head' },
-        h('h3', { class: 'fc-nomap-title' }, 'No map'),
+        h('h3', { class: 'fc-nomap-title' }, 'NO MAP'),
         h('p', { class: 'fc-nomap-note' }, `${message} Map tiles need internet. Tracking still works.`),
         retryBox),
       nomapList);
     showBody(panel);
-    if (view === 'map') setText(status, '');
+    if (view === 'map') {
+      setText(status, '');
+      labels.update([]);
+      scaleBox.hidden = true;
+    }
     updateLayerControls();
     drawFallback();
   }
@@ -1444,13 +1754,12 @@ export function createMapView(root, ctx) {
     mode = 'loading';
     fallbackReason = null;
     retryBox = null;
-    controls.insertBefore(layerPick, followLabel);
     showBody(canvas);
     startLeaflet(L);
   }
 
-  // A compass with north at the top and an arrow along the bearing from the
-  // ground station, in the rocket's color.
+  // A compass with north at the top and an arrow along the bearing from
+  // Manta, in the rocket's color.
   function compass(color) {
     const ticks = [90, 180, 270].map((deg) =>
       svg('line', { class: 'fc-compass-tick', x1: 0, y1: -27, x2: 0, y2: -22, transform: `rotate(${deg})` }));
@@ -1465,13 +1774,13 @@ export function createMapView(root, ctx) {
   }
 
   function fallbackRow(rocket) {
-    const { el, arrow } = compass(rocket.profile.color);
+    const { el, arrow } = compass(rocket.profile?.color ?? WHITE);
     const position = h('div', { class: 'fc-nomap-line' });
     const range = h('div', { class: 'fc-nomap-line fc-nomap-range' });
     const fixNote = h('div', { class: 'fc-nomap-line fc-nomap-warn' });
     const li = h('li', { class: 'fc-nomap-item' },
       el,
-      h('div', { class: 'fc-nomap-name' }, h('span', { class: 'fc-dot', style: { '--dot': rocket.profile.color }, 'aria-hidden': 'true' }), rocket.profile.name),
+      h('div', { class: 'fc-nomap-name' }, rocket.profile?.name ?? LABEL_NAMES.board),
       position, range, fixNote);
     return { li, arrow, position, range, fixNote };
   }
@@ -1491,12 +1800,12 @@ export function createMapView(root, ctx) {
       const row = fallbackRows.get(rocket.id);
       const fix = rocket.lastGoodFix;
       const rb = fix && gs ? rangeAndBearing(gs, fix) : null;
-      let position = words.noGpsData;
+      let position = 'NO GPS DATA';
       if (fix) position = `${formatNumber(fix.lat, 5)}, ${formatNumber(fix.lon, 5)}`;
-      else if (rocket.lastPacketT === null) position = words.noData;
-      else if (rocket.sensorGroups.has('gps')) position = 'No GPS fix yet';
+      else if (rocket.lastPacketT === null) position = 'NO DATA YET';
+      else if (rocket.sensorGroups.has('gps')) position = 'NO GPS FIX YET';
       setText(row.position, position);
-      setText(row.range, rb ? `${formatRangeBearing(rb)} from the ground station` : MISSING);
+      setText(row.range, rb ? `${formatRangeBearing(rb)} from Manta` : MISSING);
       if (row.range.hidden !== !gs) row.range.hidden = !gs;
       let note = '';
       if (fix && store.isSilent(rocket)) note = `No recent packets. Last good fix ${formatAge(store.ageOf(fix.t))}`;
@@ -1511,46 +1820,142 @@ export function createMapView(root, ctx) {
       row.arrow.style.display = rb ? '' : 'none';
     }
     gsRow.hidden = !gs;
-    if (gs) setText(gsRow, `Ground station at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
+    if (gs) setText(gsRow, `Manta at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
   }
 
   // ------------------------------------------------------------------
   // Updates
   // ------------------------------------------------------------------
+
+  // When the flight state turns to FLIGHT (liftoff), FOLLOW BOARD switches
+  // on by itself, so the camera follows the board up. The viewer can
+  // switch it off again.
+  function watchFlightState() {
+    const now = flightState(store, store.getFocused()).state;
+    if (now === STATE.FLIGHT && lastState !== STATE.FLIGHT && !follow) setFollow(true);
+    lastState = now;
+  }
+
   const scheduler = createScheduler(() => {
+    watchFlightState();
+    updateCameraButtons();
     if (view === '3d') {
       // The 3D view draws itself. Only the notes, the camera buttons and
       // the legend are drawn here.
-      setText(status, three === 'ready' ? statusText(store.getFocused()) : '');
-      updateCameraButtons();
+      setText(status, three === 'ready' ? statusText() : '');
       updateLegend();
+      if (threeOverMap && three !== 'ready' && mode === 'leaflet') drawLeaflet();
     } else if (mode === 'leaflet') drawLeaflet();
     else if (mode === 'fallback') drawFallback();
+    placeCorner();
+    if (view === '3d') globe?.relayout();
   }, { maxFps: config.MAP_MAX_FPS });
 
+  // A new source (store-switch.js): forget everything drawn for the old
+  // store, and draw the new one from scratch, flying to its site. The 3D
+  // view does the same with its own drawing when it hears the change.
+  function newSource() {
+    lastState = null;
+    whole2d = null;
+    pendingPackets = false;
+    labels.update([]);
+    if (keyBox.open) keyBox.open = false;
+    setFollow(true);
+    if (mode === 'leaflet') {
+      clearRocketLayers();
+      fitted = false;
+      fitPads = 0;
+      viewTouched = false;
+      flyNext = true;
+      // A saved flight still downloading: head for its launch point now.
+      const s = session();
+      const padPoint = s.loading ? s.entry?.summary?.padPoint : null;
+      if (Array.isArray(padPoint) && view === 'map') {
+        ownMove = true;
+        if (prefersReducedMotion()) map.setView(padPoint, config.MAP_DEFAULT_ZOOM, { animate: false });
+        else map.flyTo(padPoint, config.MAP_DEFAULT_ZOOM);
+        ownMove = false;
+        ownMoveUntil = performance.now() + OWN_MOVE_MS;
+      } else if (view === 'map' && !store.getGroundStation() && !store.getRockets().some((r) => r.crumbs?.length)) {
+        ownMove = true;
+        map.setView(NO_STATION_CENTER, NO_STATION_ZOOM, { animate: !prefersReducedMotion() });
+        ownMove = false;
+        ownMoveUntil = performance.now() + OWN_MOVE_MS;
+      }
+    }
+    if (mode === 'fallback' && nomapList) nomapList.dataset.ids = '';
+    updateCameraButtons();
+  }
+
   const unsubscribe = store.subscribe((change) => {
-    if (change.type === 'clear') {
+    const type = change?.type;
+    if (type === 'source') newSource();
+    else if (type === 'clear') {
       if (mode === 'leaflet') clearRocketLayers();
-    } else if (change.type === 'reset') {
-      // A seek: the tracks are drawn again from the start, the icons stay.
-      if (mode === 'leaflet') clearTracks();
+    } else if (type === 'samples' && !change.quiet) {
+      pendingPackets = true;
     }
     scheduler.schedule();
   });
 
+  // The HUD's blocks change size (MORE opens, the timeline appears), so the
+  // corner and FOLLOW BOARD look again when they do.
+  if ('ResizeObserver' in window) {
+    coverObserver = new ResizeObserver(() => scheduler.schedule());
+    for (const el of coverElements()) coverObserver.observe(el);
+    coverObserver.observe(frame);
+    coverObserver.observe(corner);
+  }
+
+  // A hook for the browser tests: where every point WHOLE FLIGHT frames is
+  // on screen right now, and the free part of the view it aims for. Not
+  // used by the page itself.
+  root.fcMapTest = {
+    fit() {
+      if (view === '3d') return globe ? { view, ...globe.debugFit() } : null;
+      if (!map) return null;
+      const size = map.getSize();
+      return {
+        view,
+        points: wholePoints().map((ll) => map.latLngToContainerPoint(ll)).map((p) => ({ x: p.x, y: p.y })),
+        insets: freeInsets(canvas),
+        width: size.x,
+        height: size.y,
+        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress),
+      };
+    },
+    // How many things each view has drawn right now.
+    counts() {
+      return {
+        view,
+        three,
+        globe: globe?.debugCounts() ?? null,
+        map: map ? { boards: [...rocketLayers.values()].filter((l) => l.marker).length, pads: padMarkers.size, events: eventMarkers.length, station: Boolean(gsMarker), link: Boolean(linkLine), cross: Boolean(crossMarker) } : null,
+        labels: labelHost.querySelectorAll('.fc-lbl').length,
+        labelsShown: [...labelHost.querySelectorAll('.fc-lbl.is-shown')].map((el) => el.textContent),
+      };
+    },
+  };
+
   // The frame opens on the view the viewer last picked in this visit, or
   // on DEFAULT_VIEW before they have picked one.
+  applyView();
   if ((chosenView ?? config.DEFAULT_VIEW) === '3d') openThree();
 
   return {
     destroy() {
       destroyed = true;
       threeGen += 1;
-      cornerObserver?.disconnect();
+      clearTimeout(slowTimer);
+      clearTimeout(retryTimer);
+      coverObserver?.disconnect();
       unsubscribe();
       scheduler.cancel();
       destroyGlobe();
       removeMap();
+      labels.destroy();
+      controls.remove();
+      delete root.fcMapTest;
     },
   };
 }
