@@ -3,8 +3,9 @@
 // pages of a monitor: the 3D view ('globe') and the graphs and readings
 // ('data'). One is on screen at a time.
 //
-//   - The arrow buttons at the left and right edges switch them. Only the
-//     one that points toward the other panel shows.
+//   - The bracket buttons at the edges switch them: [ GRAPHS ] at the
+//     right edge of the 3D view and [ MAP ] at the left edge of the graphs.
+//     Only the one toward the other panel shows.
 //   - The left and right arrow keys switch them too, unless keyboard focus
 //     is in something that uses those keys itself: the 3D view (its own
 //     camera keys), a graph (picks a time), the altitude timeline, the
@@ -49,7 +50,7 @@ export function createPanels(root, { onChange } = {}) {
       const off = name !== current;
       panels[name]?.toggleAttribute('inert', off);
     }
-    // Only the arrow toward the other panel shows.
+    // Only the switch toward the other panel shows.
     const i = ORDER.indexOf(current);
     if (prev) prev.hidden = i === 0;
     if (next) next.hidden = i === ORDER.length - 1;
@@ -59,13 +60,13 @@ export function createPanels(root, { onChange } = {}) {
   function show(name) {
     if (!ORDER.includes(name) || name === current) return;
     const active = document.activeElement;
-    const wasOnArrow = active === prev || active === next;
+    const wasOnSwitch = active === prev || active === next;
     const wasInOld = Boolean(panels[current]?.contains(active));
     current = name;
     apply();
-    // An arrow that just hid, or a control in the panel that just went
-    // inert, can't keep focus. It moves to the arrow that shows now.
-    if (wasOnArrow || wasInOld) [prev, next].find((b) => b && !b.hidden)?.focus({ preventScroll: true });
+    // A switch that just hid, or a control in the panel that just went
+    // inert, can't keep focus. It moves to the switch that shows now.
+    if (wasOnSwitch || wasInOld) [prev, next].find((b) => b && !b.hidden)?.focus({ preventScroll: true });
     onChange?.(current);
   }
 

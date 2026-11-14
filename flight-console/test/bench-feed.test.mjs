@@ -12,7 +12,25 @@ import { createStore } from '../js/store.js';
 import { createFleet } from '../js/fleet.js';
 import { GROUPS, channelsInGroup, hasGoodPosition } from '../js/schema.js';
 import * as config from '../js/config.js';
-import { rocketHudLine } from '../js/views/hud-text.js';
+import { hudAge } from '../js/views/hud-text.js';
+import { formatNumber } from '../js/geo.js';
+
+// What the HUD (js/views/hud.js) shows about a rocket's position and
+// altitude, worked out the same way: whether it has a fix now, whether the
+// packets or the GPS data went quiet, how old the last packet and the last
+// good fix are (as the HUD writes the ages), whether the altitude is old,
+// and the height above the pad.
+function hudFacts(store, rocket) {
+  return {
+    fixNow: store.hasFixNow(rocket),
+    silent: store.isSilent(rocket),
+    gpsQuiet: store.gpsIsQuiet(rocket),
+    packetAge: hudAge(store.ageOf(rocket.lastPacketT)),
+    fixAge: hudAge(store.ageOf(rocket.lastGoodFix?.t)),
+    altOld: store.altitudeIsOld(rocket),
+    agl: rocket.derived?.agl ?? null,
+  };
+}
 
 // "5.3 s", "1 min 5.3 s" or "1 h 2 min 5 s", the way the board writes it.
 function timeText(s) {
@@ -190,7 +208,11 @@ test('the store\'s clock keeps moving between blocks, so quiet data turns old', 
   feed.tick();
   assert.ok(Math.abs(store.getNow() - 75.3) < 1e-9);
   assert.equal(store.isSilent(rocket), true);
-  assert.equal(rocketHudLine(store, config, rocket).alt, 'NO RECENT PACKETS, 10 S');
+  // The HUD says the position is old because no packets came for 10 s.
+  const hud = hudFacts(store, rocket);
+  assert.equal(hud.fixNow, false);
+  assert.equal(hud.silent, true);
+  assert.equal(hud.packetAge, '10 S');
 });
 
 test('the feed starts its clock timer once, at the first block, and stops it', () => {
@@ -300,7 +322,7 @@ function deskRun(blocks = 180, { storeOptions, climb = () => 0 } = {}) {
     if (Number.isFinite(d?.vSpeed)) run.maxAbsV = Math.max(run.maxAbsV, Math.abs(d.vSpeed));
     if (Number.isFinite(d?.agl)) { run.aglMin = Math.min(run.aglMin, d.agl); run.aglMax = Math.max(run.aglMax, d.agl); }
     if (rocket.padPosition && run.padFromBlock === null) run.padFromBlock = i;
-    run.hud.push(rocketHudLine(store, config, rocket));
+    run.hud.push(hudFacts(store, rocket));
     // The clock ticks four times a second until the next block.
     for (let k = 1; k <= 3; k++) {
       clock.ms = arrive + k * 250;
@@ -335,23 +357,33 @@ test('a board on a desk shows a pad and fires no flight events', () => {
   assert.ok(run.maxAbsV < config.PAD_STILL_MAX_MPS, `vertical speed stays under ${config.PAD_STILL_MAX_MPS} m/s (max ${run.maxAbsV.toFixed(2)})`);
   assert.ok(run.aglMax < 5 && run.aglMin > -5, `height above the pad stays within 5 m (${run.aglMin.toFixed(1)} to ${run.aglMax.toFixed(1)})`);
 
-  // The label on the 3D view and the map.
-  assert.equal(run.hud[0].alt, 'NO GPS FIX, --', 'while searching');
-  const live = rocketHudLine(store, config, rocket);
-  assert.equal(live.altKey, 'AGL');
-  assert.equal(live.warn, false);
-  assert.match(live.alt, /^-?\d+ M$/);
+  // What the HUD shows. While searching: no fix (and none yet, so no age),
+  // with the packets and the GPS data still coming.
+  assert.deepEqual(
+    [run.hud[0].fixNow, run.hud[0].silent, run.hud[0].gpsQuiet, run.hud[0].fixAge],
+    [false, false, false, '--'],
+    'while searching');
+  // Locked: a current fix and a current height in whole meters.
+  const live = hudFacts(store, rocket);
+  assert.equal(live.fixNow, true);
+  assert.equal(live.altOld, false);
+  assert.match(formatNumber(live.agl, 0), /^-?\d+$/);
   assert.equal(run.oldTicks, 0, 'the altitude never shows as old between blocks');
 
   // Unplugged: no more blocks, and the clock keeps running.
   clock.ms = run.lastArrive + 2000;
   feed.tick();
-  assert.equal(rocketHudLine(store, config, rocket).altKey, 'LAST AGL', 'after 2 s the altitude is old');
+  const after2 = hudFacts(store, rocket);
+  assert.equal(after2.fixNow, true, 'after 2 s the fix still counts');
+  assert.equal(after2.altOld, true, 'after 2 s the altitude is old');
   clock.ms = run.lastArrive + 10000;
   feed.tick();
   assert.equal(store.isSilent(rocket), true);
   assert.equal(store.hasFixNow(rocket), false);
-  assert.deepEqual(rocketHudLine(store, config, rocket), { altKey: '', alt: 'NO RECENT PACKETS, 10 S', speed: '', warn: true });
+  // The HUD says the position is old because no packets came for 10 s.
+  const after10 = hudFacts(store, rocket);
+  assert.equal(after10.silent, true);
+  assert.equal(after10.packetAge, '10 S');
   assert.deepEqual(store.getEvents(), [], 'going quiet isn\'t an event');
   assert.equal(store.getGroundStation(), null, 'no ground station on the bench');
 });

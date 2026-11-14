@@ -45,6 +45,9 @@ const PAD_TOP_MIN = 4;
 // (px) it moves along its line while looking for a free spot.
 const MARK_CLEAR_PX = 9;
 const PEAK_STEP_PX = 6;
+// The gap (px) the peak's dashed line leaves on each side of its label, so
+// the dashes never run through the text.
+const PEAK_LINE_GAP_PX = 4;
 // Strips narrower than this (px) use the smaller side room and marker gap.
 const NARROW_PX = 520;
 // The height scale goes this much above the highest curve.
@@ -242,9 +245,13 @@ export function createTimeline(root, ctx) {
       if (d) others.push(svg('path', { d, stroke: r.profile.color }));
     }
 
-    // A dashed line at the focused rocket's highest point.
+    // A dashed line at the focused rocket's highest point, in two pieces:
+    // one each side of its label (set once the label has its spot).
     const peak = profile.reduce((m, p) => (Number.isFinite(p.agl) && p.agl > m ? p.agl : m), -Infinity);
     const peakY = Number.isFinite(peak) && peak > 0 ? y(peak) : null;
+    const peakLines = peakY !== null
+      ? [0, 1].map(() => svg('line', { class: 'fc-tl-peak', x1: left, x2: right, y1: r1(peakY), y2: r1(peakY) }))
+      : [];
 
     // Event markers, in time order, spread apart where they crowd.
     const placed = markerEvents(scan).map((e) => ({ e, x: x(e.t), y: y(Math.max(aglAt(profile, e.t, { interpolate: true }) ?? 0, yMin)) }));
@@ -266,7 +273,7 @@ export function createTimeline(root, ctx) {
           svg('stop', { offset: '1', class: 'fc-tl-fill-bottom' }))),
       svg('g', { class: 'fc-tl-grid' }, grid),
       svg('g', { class: 'fc-tl-gaps' }, gaps),
-      peakY !== null ? svg('line', { class: 'fc-tl-peak', x1: left, x2: right, y1: r1(peakY), y2: r1(peakY) }) : null,
+      peakLines,
       svg('g', { class: 'fc-tl-others' }, others),
       areaD ? svg('path', { class: 'fc-tl-area-rest', d: areaD }) : null,
       lineD ? svg('path', { class: 'fc-tl-line-rest', d: lineD }) : null,
@@ -291,11 +298,23 @@ export function createTimeline(root, ctx) {
     setChildren(marks, peakLabel, markers.map((m) => [m.button, m.label]));
     for (const m of markers) placeLabel(m, markers, W, bottom);
     if (peakLabel) placePeakLabel(peakLabel, markers, left, right);
-    // Where the peak label ended up, so the playhead can fade it while it
-    // passes behind it (measured once here, not every frame).
-    const peakBox = peakLabel && !peakLabel.hidden ? { el: peakLabel, left: peakLabel.offsetLeft, right: peakLabel.offsetLeft + peakLabel.offsetWidth, under: false } : null;
+    // The dashed line stops just before the label and starts again just
+    // after it. (With no room for the label, it runs the whole way.)
+    if (peakLines.length) {
+      const [before, after] = peakLines;
+      if (peakLabel && !peakLabel.hidden) {
+        const a = peakLabel.offsetLeft - PEAK_LINE_GAP_PX;
+        const b = peakLabel.offsetLeft + peakLabel.offsetWidth + PEAK_LINE_GAP_PX;
+        before.setAttribute('x2', r1(Math.max(left, a)));
+        before.setAttribute('visibility', a > left ? 'visible' : 'hidden');
+        after.setAttribute('x1', r1(Math.min(right, b)));
+        after.setAttribute('visibility', b < right ? 'visible' : 'hidden');
+      } else {
+        after.setAttribute('visibility', 'hidden');
+      }
+    }
 
-    geo = { t0: s.t0, tEnd: s.tEnd, W, H, left, right, x, y, yMin, profile, scan, clipRect, head, nowDot, hoverLine, markers, peakBox, timeAt: null };
+    geo = { t0: s.t0, tEnd: s.tEnd, W, H, left, right, x, y, yMin, profile, scan, clipRect, head, nowDot, hoverLine, markers, timeAt: null };
     geo.timeAt = (clientX) => {
       const box = track.getBoundingClientRect();
       const f = (clientX - box.left - left) / (right - left);
@@ -324,7 +343,7 @@ export function createTimeline(root, ctx) {
     // Height: the event's own, or the curve's there. A liftoff without its
     // own height is left out (its time is often estimated in a gap).
     const agl = Number.isFinite(e.aglM) ? e.aglM : e.type === 'liftoff' ? null : aglAt(profile, e.t, { interpolate: false });
-    const height = Number.isFinite(agl) ? `about ${formatRounded10(agl)} m above ground` : null;
+    const height = Number.isFinite(agl) ? `about ${formatRounded10(agl)} m AGL` : null;
 
     const accessible = ['Jump to ' + lowerFirst(name), how, when].filter(Boolean).join(', ');
     const descId = `fc-tl-mark-${n}-${index}`;
@@ -384,8 +403,8 @@ export function createTimeline(root, ctx) {
     m.label.style.top = `${r1(top)}px`;
   }
 
-  // The highest point's label sits on its dashed line, at the left end
-  // when nothing is in the way there. If a marker, a marker's label or the
+  // The highest point's label sits on its dashed line (the line stops on
+  // each side of it), at the left end when nothing is in the way there. If a marker, a marker's label or the
   // shapes key is in the way, it tries the right end, then every spot in
   // between from left to right (on narrow strips apogee sits close to the
   // left edge and the last marker close to the right). It hides when the
@@ -425,7 +444,7 @@ export function createTimeline(root, ctx) {
   function renderSummary(profile) {
     const peak = profile.reduce((m, p) => (Number.isFinite(p.agl) && p.agl > m ? p.agl : m), -Infinity);
     setText(summary, Number.isFinite(peak)
-      ? `The curve shows altitude above ground over the whole recording, up to about ${formatRounded10(peak)} m. The event buttons after it jump to each event.`
+      ? `The curve shows altitude AGL over the whole recording, up to about ${formatRounded10(peak)} m. The event buttons after it jump to each event.`
       : 'No altitude data for this rocket yet.');
   }
 
@@ -488,11 +507,6 @@ export function createTimeline(root, ctx) {
     } else {
       geo.nowDot.setAttribute('visibility', 'hidden');
     }
-    const pb = geo.peakBox;
-    if (pb) {
-      const under = px > pb.left - 6 && px < pb.right + 6;
-      if (under !== pb.under) { pb.under = under; pb.el.classList.toggle('is-under-head', under); }
-    }
     for (const m of geo.markers) {
       const reached = s.time >= m.reachedAt - 1e-6;
       if (reached === m.reached) continue;
@@ -502,7 +516,7 @@ export function createTimeline(root, ctx) {
     }
   }
 
-  // "1:29 of 4:05, T+57 s, 2,450 m above ground", from the live store so
+  // "1:29 of 4:05, T+57 s, 2,450 m AGL", from the live store so
   // it matches the rest of the console (no altitude when it is old).
   function valueText(s, elapsed, total) {
     const parts = [`${elapsed} of ${total}`];
@@ -510,7 +524,7 @@ export function createTimeline(root, ctx) {
     const d = rocket?.derived;
     if (d && Number.isFinite(d.liftoffT)) parts.push(formatFlightSeconds(s.time - d.liftoffT));
     else if (d?.phase === 'pad') parts.push('on the pad');
-    if (d && Number.isFinite(d.agl) && !store.altitudeIsOld(rocket)) parts.push(`${formatNumber(d.agl, 0)} m above ground`);
+    if (d && Number.isFinite(d.agl) && !store.altitudeIsOld(rocket)) parts.push(`${formatNumber(d.agl, 0)} m AGL`);
     return parts.join(', ');
   }
 

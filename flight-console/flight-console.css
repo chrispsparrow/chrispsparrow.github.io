@@ -2,7 +2,7 @@
    flight-console.css
    Styles for the Flight Console page (flight-console/index.html): the
    tokens and shared pieces every part uses, then Track a Rocket's frame
-   (the top bar, the status lines, the two panels and the arrows between
+   (the top bar, the status lines, the two panels and the switches between
    them) and everything over the map in panel 1: the overlay grid, the HUD
    (hud.js), the phase bar, the rocket chips and the altitude timeline.
 
@@ -93,8 +93,14 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
   padding: 0;
   min-height: 70vh;
 }
-/* Longer sentences read in Barlow Condensed. */
-.fc-page .fc-main p { font-family: var(--fc-font-sentence); }
+/* Longer sentences read in Barlow Condensed. Only real sentences get it:
+   the message screen, the status lines under the bar and the notes in the
+   saved flights list. Everything else on the console (labels, values,
+   buttons, the HUD and the timeline) stays in Share Tech Mono, even when
+   it sits in a <p>. The other parts of the page set the sentence font on
+   their own sentences (the MORE column's notes and the timeline's
+   tooltips below, the map's and panel 2's in their own files). */
+.fc-page .fc-main :is(.fc-message p:not(.fc-wait), .fc-noscript, .fc-status-text, .fc-dd-note) { font-family: var(--fc-font-sentence); }
 /* The message screen pads itself, starting under the fixed nav. (The
    console fills the window under the nav instead.) */
 .fc-page .fc-message {
@@ -285,8 +291,9 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
                     [ SAVED FLIGHTS ], all bracket style with no boxes
      .fc-status     short status lines, only while one has something to say
      .fc-screens    the two panels side by side in a sliding track, one on
-                    screen at a time, with an arrow tab at the edge toward
-                    the other one (js/views/panels.js)
+                    screen at a time, with a bracket button at the edge
+                    toward the other one, [ GRAPHS ] or [ MAP ]
+                    (js/views/panels.js)
    The console's attributes:
      data-panel     'globe' or 'data', the panel on screen
      data-mode      'idle', 'bench', 'flight' or 'replay', the source
@@ -299,7 +306,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 
 .fc-page .fc-console {
   --fc-edge: clamp(10px, 1.6vw, 18px);   /* room along the panel edges */
-  --fc-tab-w: 30px;                       /* the arrow tabs' width */
+  --fc-tab-w: 30px;                       /* the strip at the panel edges kept for [ GRAPHS ] and [ MAP ] */
   position: fixed;
   inset: var(--fc-nav-h) 0 0;
   z-index: 1;
@@ -361,7 +368,6 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   justify-content: center;
   gap: 0.2rem 1.1rem;
 }
-.fc-page .fc-replay-kind,
 .fc-page .fc-replay-wait {
   flex: none;
   font-family: var(--fc-font-mono);
@@ -485,7 +491,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-status-close { flex: none; }
 
 /* ------------------------------------------------------------
-   The two panels and the arrow tabs between them
+   The two panels and the switches between them
    ------------------------------------------------------------ */
 .fc-page .fc-screens {
   position: relative;
@@ -508,29 +514,26 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   overflow: hidden;
 }
 
-/* Monitor-style tabs at the panel edges: only the one toward the other
-   panel shows. A thin dark tab with a white arrow, amber on hover. */
-.fc-page .fc-flip {
+/* The panel switches at the edges: [ GRAPHS ] on the right of the 3D view
+   and [ MAP ] on the left of the graphs. Only the one toward the other
+   panel shows. They are the theme's bracket buttons (white, amber on hover
+   and keyboard focus, no box), written along the edge like a monitor's
+   tabs so they fit in the strip each panel keeps free for them
+   (--fc-tab-w). The right one reads top to bottom, the left one bottom to
+   top. They have the HUD's outline to read over bright terrain, and they
+   sit halfway down the panel in every state. */
+.fc-page .fc-bkt.fc-flip {
   position: absolute;
   top: 50%;
   z-index: 20;
-  display: grid;
-  place-items: center;
+  writing-mode: vertical-rl;
+  align-items: center;
   width: var(--fc-tab-w);
-  height: 76px;
-  margin-top: -38px;
-  padding: 0;
-  color: var(--fc-text);
-  background: color-mix(in srgb, var(--fc-black) 72%, transparent);
-  border: 0;
-  border-radius: 0;
-  cursor: pointer;
+  padding: 0.5em 0;
+  text-shadow: var(--fc-text-outline);
 }
-.fc-page .fc-flip--prev { left: 0; }
-.fc-page .fc-flip--next { right: 0; }
-.fc-page .fc-flip:hover,
-.fc-page .fc-flip:focus-visible { color: var(--fc-accent); }
-.fc-page .fc-flip svg { display: block; filter: drop-shadow(0 0 2px var(--fc-black-deep)); }
+.fc-page .fc-flip--prev { left: 0; transform: translateY(-50%) rotate(180deg); }
+.fc-page .fc-flip--next { right: 0; transform: translateY(-50%); }
 
 /* ============================================================
    Panel 1: the 3D view, filling the panel in every mode, with one overlay
@@ -618,6 +621,22 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-console:not([data-state="idle"]) .fc-overlay::after,
 .fc-page .fc-console[data-mode="replay"] .fc-overlay::after { opacity: 1; }
 
+/* A soft dark fade behind a whole HUD block, for reading over bright
+   terrain: a dark patch a little bigger than the block, blurred so its
+   edges fade out over about 40 px and no edge shows. The top left block
+   gets it (in the pad and recovery states it is tall) and so does the
+   open MORE column. It draws under the block's text and over the map. */
+.fc-page :is(.fc-hud-tl, .fc-hud-more) { position: relative; }
+.fc-page :is(.fc-hud-tl, .fc-hud-more)::before {
+  content: '';
+  position: absolute;
+  inset: -1.1rem -1.4rem;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--fc-black) 64%, transparent);
+  filter: blur(20px);
+}
+
 /* Where each part goes. */
 .fc-page .fc-hud { display: contents; }
 .fc-page .fc-hud-tl { grid-area: tl; align-self: start; justify-self: start; min-width: 0; }
@@ -647,8 +666,10 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 
 /* ------------------------------------------------------------
    The HUD (hud.js): white mono text with a thin black outline, straight
-   on the picture. Every value sits in a fixed-width field (the widths are
-   set in hud.js), so nothing moves when a value changes.
+   on the picture. Every value sits in a field with a fixed width in ch
+   (FIELD_CH in hud.js sets them), and every unit in one too, so no label
+   and no value column moves when a value changes, goes missing or turns
+   amber.
    ------------------------------------------------------------ */
 .fc-page :is(.fc-hud-tl, .fc-hud-tr, .fc-hud-bl, .fc-hud-more, .fc-ov-top) {
   color: var(--fc-text);
@@ -667,7 +688,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-hud-clock {
   display: flex;
   align-items: baseline;
-  gap: 1.4ch;
+  gap: 1ch;
   margin: 0;
   font-family: var(--fc-font-mono);
   font-size: 1.7rem;
@@ -735,14 +756,26 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   color: var(--fc-hud-2);
 }
 .fc-page .fc-hud-value { white-space: nowrap; }
-.fc-page .fc-hud-num { display: inline-block; text-align: right; }
-.fc-page .fc-hud-unit { font-size: 0.72em; letter-spacing: 0.04em; color: var(--fc-hud-2); }
+/* The number's and the unit's fields. Their widths come from hud.js. The
+   unit keeps its leading space (white-space: pre), and keeps its room
+   while a missing value shows no unit. */
+.fc-page .fc-hud-num { display: inline-block; text-align: right; white-space: pre; letter-spacing: 0; }
+.fc-page .fc-hud-unit { display: inline-block; text-align: left; white-space: pre; font-size: 0.72em; letter-spacing: 0; color: var(--fc-hud-2); }
 .fc-page .fc-hud-arrow { display: inline-block; width: 1.3ch; text-align: left; font-size: 0.75em; }
 .fc-page .fc-hud-alt { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
 .fc-page .fc-hud-big { font-size: 2.9rem; line-height: 1; }
-.fc-page .fc-hud-big .fc-hud-unit { font-size: 0.32em; margin-left: 0.4ch; }
+.fc-page .fc-hud-big .fc-hud-unit { font-size: 0.32em; }
+/* The line under ALT (the height in feet, or how old the altitude is). It
+   takes the width of the readout above it and never widens the block, so
+   a longer warning can't move anything. If it is too long for that room,
+   it ends in an ellipsis. */
 .fc-page .fc-main .fc-hud-note {
+  width: 0;
+  min-width: 100%;
   min-height: 1.3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
   margin: 0.1rem 0 0;
   font-family: var(--fc-font-mono);
   font-size: 0.76rem;
@@ -771,22 +804,49 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-hud-bl .fc-hud-row dt { font-size: 0.86em; letter-spacing: 0.08em; color: var(--fc-hud-2); }
 .fc-page .fc-hud-bl .fc-hud-num { text-align: left; }
 
-/* The MORE column: every reading, under the top right readout. It scrolls
-   inside itself and never grows past its part of the grid. A soft dark
-   backing keeps the small text readable. */
+/* The MORE column: every reading, under the top right readout, as plain
+   HUD text like the rest. No box and no border: it sits on the same soft
+   dark fade as the top left block (see "A soft dark fade" above), which
+   reaches past the text and fades out with no edge. The list inside
+   (.fc-hud-more-body) scrolls when it is taller than its part of the
+   grid. Where some of it is scrolled out of sight (hud.js adds
+   is-cut-bottom and is-cut-top), the lines at that edge fade out, so a
+   cut never shows half a line. */
 .fc-page .fc-hud-more {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   width: min(100%, 22rem);
   max-height: 100%;
+  min-height: 0;
+  pointer-events: auto;
+}
+.fc-page .fc-hud-more-body {
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--fc-border) transparent;
-  padding: 0.45rem 0.75rem 0.6rem;
-  background: linear-gradient(to left, color-mix(in srgb, var(--fc-black) 84%, transparent), color-mix(in srgb, var(--fc-black) 62%, transparent));
-  pointer-events: auto;
+  padding: 0.1rem 0.15rem 0.3rem 0;
 }
-.fc-page .fc-main .fc-hud-more:focus { outline: none; }
-.fc-page .fc-main .fc-hud-more:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: -1px; }
+.fc-page .fc-hud-more-body.is-cut-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.6rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.6rem), transparent);
+}
+.fc-page .fc-hud-more-body.is-cut-top {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.6rem);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.6rem);
+}
+.fc-page .fc-hud-more-body.is-cut-top.is-cut-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 2.6rem, #000 calc(100% - 2.6rem), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 2.6rem, #000 calc(100% - 2.6rem), transparent);
+}
+/* Keyboard focus moves into the list when the column opens. Instead of a
+   box around the whole column, the first heading turns amber. */
+.fc-page .fc-main .fc-hud-more-body:focus,
+.fc-page .fc-main .fc-hud-more-body:focus-visible { outline: none; }
+.fc-page .fc-hud-more-body:focus-visible .fc-hud-more-sec:first-child .fc-hud-more-title { color: var(--fc-accent); }
 .fc-page .fc-hud-more dl { margin: 0; }
 .fc-page .fc-hud-more-sec + .fc-hud-more-sec { margin-top: 0.7rem; }
 .fc-page .fc-hud-more-title {
@@ -1009,8 +1069,10 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   color: var(--fc-hud-2);
   text-shadow: var(--fc-text-outline);
 }
-.fc-page .fc-tl-peak-label { transform: translateY(-50%); padding: 0 0.35rem 0 0.15rem; }
-.fc-page .fc-tl-peak-label.is-under-head { opacity: 0.25; }
+/* The peak label reads like the time labels: the same color and outline.
+   Its dashed line stops on each side of it (timeline.js), and it sits
+   over the playhead, so it stays readable while the playhead passes. */
+.fc-page .fc-tl-peak-label { transform: translateY(-50%); padding: 0 0.1rem; }
 .fc-page .fc-tl-mark-label { padding: 0 0.2rem; }
 .fc-page .fc-tl-mark-label.is-reached { color: var(--fc-text); }
 .fc-page .fc-tl-mark {
@@ -1060,13 +1122,13 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   padding: 0.3rem 0.6rem;
   background: var(--fc-black);
   box-shadow: 0 6px 18px color-mix(in srgb, var(--fc-black-deep) 70%, transparent);
-  color: var(--fc-text-2);
-  font-family: var(--fc-font-sentence);
-  font-size: 0.92rem;
+  color: var(--fc-hud-2);
+  font-family: var(--fc-font-mono);
+  font-size: 0.76rem;
   line-height: 1.35;
   cursor: pointer;
 }
-.fc-page .fc-tl-tip strong { color: var(--fc-text); font-weight: 600; }
+.fc-page .fc-tl-tip strong { color: var(--fc-text); font-weight: 400; }
 .fc-page .fc-tl-empty {
   position: absolute;
   top: 50%;
@@ -1161,7 +1223,6 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   /* The replay's name takes its own row under the buttons. */
   .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 0 0.8rem; }
   .fc-page .fc-replay-name { font-size: 0.8rem; }
-  .fc-page .fc-replay-kind,
   .fc-page .fc-replay-wait { font-size: 0.66rem; }
   .fc-page .fc-status-text { font-size: 0.92rem; }
   .fc-page .fc-main a.fc-dd-item { grid-template-columns: 8px minmax(0, 1fr) auto; grid-template-areas: "mark name name" ". date time"; row-gap: 0.15rem; }
@@ -1169,7 +1230,7 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   .fc-page .fc-dd-name { grid-area: name; }
   .fc-page .fc-dd-date { grid-area: date; }
   .fc-page .fc-dd-time { grid-area: time; min-width: 0; }
-  .fc-page .fc-flip { height: 60px; margin-top: -30px; }
+  .fc-page .fc-bkt.fc-flip { font-size: 0.72rem; }
 
   /* While MORE is open, the empty row above the controls keeps room for
      the map's scale bar and credits (--fc-corner-h, set by main.js), so
