@@ -22,17 +22,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Flight Console | Dogtooth Systems</title>
-  <meta name="description" content="Live GPS tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta name="description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
   <meta property="og:site_name" content="Dogtooth Systems">
   <meta property="og:title" content="Flight Console | Dogtooth Systems">
-  <meta property="og:description" content="Live GPS tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta property="og:description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:description" content="Live GPS tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta name="twitter:description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
   <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
@@ -72,50 +72,33 @@
   <main id="fc-main" class="fc-main">
 
     <!-- ── LANDING: shown at /flight-console/ with nothing after it ──
-         The hero and two cards, nothing else. All of its text is here.
-         js/views/launcher.js only starts the moving sea floor. -->
+         One full-screen hero, nothing else. All of its text is here.
+         js/views/launcher.js only starts the moving currents. -->
     <section id="fc-landing" class="fc-landing" aria-labelledby="fc-landing-title" hidden>
 
       <header class="fc-hero">
-        <!-- The sea floor: contour lines drawn live from a slowly moving
-             height field, with a few thin gold currents drifting along
-             them (js/hero-seafloor.js). It pauses while hidden or off
-             screen and stays still with reduced motion. -->
-        <div class="fc-hero-seafloor" aria-hidden="true"><canvas class="fc-hero-seafloor-canvas"></canvas></div>
-        <!-- A soft dark band behind the text column, so the text reads
-             over the lines. It fades out to the right. -->
-        <div class="fc-hero-band" aria-hidden="true"></div>
+        <!-- The water: made-up ocean currents drawn live behind the whole
+             hero (js/hero-currents.js). It adds a speed color layer under
+             this canvas and the fish layer over it. It pauses while hidden
+             or off screen and shows one still frame with reduced motion. -->
+        <div class="fc-hero-water" aria-hidden="true"><canvas class="fc-hero-water-canvas"></canvas></div>
 
-        <div class="fc-hero-text">
-          <ul class="fc-hero-tags">
-            <li class="fc-tag">TELEMETRY SOFTWARE</li>
-            <li class="fc-tag">LIVE AND REPLAY</li>
-          </ul>
-          <h1 id="fc-landing-title" class="fc-hero-title">Flight Console</h1>
-          <p class="fc-hero-lede">Live GPS tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.</p>
+        <!-- Stacked and centered like the home page hero. Every size comes
+             from the title's width (see the landing part of flight-console.css). -->
+        <div class="fc-hero-stack">
+          <!-- The fish slot: an empty box the size of the tuna. The currents
+               script reads its box and makes the water flow around a fish
+               there, so this layout decides where the fish goes. -->
+          <div class="fc-hero-fish" aria-hidden="true"></div>
+          <h1 id="fc-landing-title" class="fc-hero-title">FLIGHT CONSOLE</h1>
           <div class="fc-hero-actions">
             <!-- data-fc-nav: a plain click opens the console in place
                  (js/main.js). The href still works in a new tab. -->
-            <a class="fc-hero-btn fc-hero-btn--gold" href="./?track" data-fc-nav="track">Track a Rocket</a>
-            <a class="fc-hero-btn fc-hero-btn--outline" href="../projects/flight-console.html">Project Overview</a>
+            <a class="fc-hero-btn" href="./?track" data-fc-nav="track">TRACK A ROCKET</a>
+            <a class="fc-hero-btn" href="../projects/flight-console.html">HOW IT WORKS</a>
           </div>
         </div>
       </header>
-
-      <!-- The two ways in, one card per hero button. The link's hit area
-           covers the whole card. -->
-      <div class="fc-paths">
-        <article class="fc-path fc-path--track" aria-labelledby="fc-path-track-title">
-          <h2 id="fc-path-track-title" class="fc-path-title">Track a Rocket</h2>
-          <p class="fc-path-text">Plug a Dogtooth board into this computer with a Universal Serial Bus (USB) cable and watch its readings live, with its position in 3D. Saved flights replay here too.</p>
-          <a class="fc-path-link" href="./?track" data-fc-nav="track">Open the console</a>
-        </article>
-        <article class="fc-path fc-path--overview" aria-labelledby="fc-path-overview-title">
-          <h2 id="fc-path-overview-title" class="fc-path-title">Project Overview</h2>
-          <p class="fc-path-text">How the board, the radio link, the ground station and this page fit together, and what I built.</p>
-          <a class="fc-path-link" href="../projects/flight-console.html">Read the overview</a>
-        </article>
-      </div>
     </section>
 
     <!-- ── CONSOLE: /flight-console/?track (live) and ?flight=<id> (replay) ──

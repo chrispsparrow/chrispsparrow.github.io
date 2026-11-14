@@ -244,200 +244,151 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 .fc-page .fc-noscript { max-width: 720px; margin: 2rem auto; color: var(--fc-text); }
 
 /* ============================================================
-   The landing at /flight-console/: the hero (the moving sea floor, a dark
-   band, the tags, the title, one sentence and two buttons) and the two
-   cards under it. Its text is in index.html, and js/views/launcher.js
-   starts the sea floor (js/hero-seafloor.js).
+   The landing at /flight-console/: one full-screen hero. Made-up ocean
+   currents fill the window behind the fixed nav, the Dogtooth tuna sits in
+   the middle as a dark shape the water flows around, and under it come
+   the title and two buttons. Its text is in index.html, and
+   js/views/launcher.js starts the currents (js/hero-currents.js).
    ============================================================ */
-.fc-page .fc-landing { max-width: 1180px; margin: 0 auto; }
+.fc-page .fc-landing { max-width: none; margin: 0; }
 
-/* ------------------------------------------------------------
-   Hero
-   ------------------------------------------------------------ */
+/* Every size in the stack comes from --fc-hero-w, the title's width: about
+   half the window on a desktop, the full width less the gutters on a
+   phone, and never so big that the stack doesn't fit under the nav.
+   8.007 is the title's width in ems in Saira Stencil One (its letters'
+   outer edges, without the space the font leaves on each side). */
 .fc-page .fc-hero {
+  --fc-hero-w: min(max(46vw, min(100vw - 2.5rem, 34rem)), (100vh - var(--fc-nav-h) - 5rem) * 1.25, 64rem);
+  --fc-title-size: calc(var(--fc-hero-w) / 8.007);
   position: relative;
   isolation: isolate;
   display: flex;
   align-items: center;
-  min-height: clamp(440px, 64vh, 640px);
+  justify-content: center;
+  min-height: 100vh;
+  padding: calc(var(--fc-nav-h) + 1rem) 1.25rem 2.5rem;
+  overflow: hidden;
+}
+@supports (height: 100svh) {
+  .fc-page .fc-hero {
+    --fc-hero-w: min(max(46vw, min(100vw - 2.5rem, 34rem)), (100svh - var(--fc-nav-h) - 5rem) * 1.25, 64rem);
+    min-height: 100svh;
+  }
 }
 
-/* The sea floor runs the full width of the page, from the nav down, and
-   fades out before the cards. Its colors and line weights are CSS
-   variables on the canvas, read by hero-seafloor.js. */
-.fc-page .fc-hero-seafloor {
+/* The water covers the whole hero, behind the nav. hero-currents.js draws
+   the speed colors and the streaks into the canvas, and adds the fish
+   layer after it, placed over the fish slot by the script itself. */
+.fc-page .fc-hero-water {
   position: absolute;
+  inset: 0;
   z-index: -1;
-  top: calc(-1 * clamp(1rem, 2.5vw, 2rem));
-  bottom: -3rem;
-  left: calc(50% - 50vw);
-  right: calc(50% - 50vw);
+  overflow: hidden;
+  isolation: isolate;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 98%);
-  mask-image: linear-gradient(to bottom, #000 50%, transparent 98%);
+  background: var(--fc-navy);
 }
-.fc-page .fc-hero-seafloor-canvas {
+.fc-page .fc-hero-water-canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  --seafloor-line: var(--fc-text-2);
-  --seafloor-line-alpha: 0.075;
-  --seafloor-index-alpha: 0.13;
-  --seafloor-current: var(--fc-gold);
-  --seafloor-current-alpha: 0.3;
 }
 
-/* A soft dark band behind the text column, from the left edge of the
-   window to a little past the text, fading out to the right and toward
-   the bottom. On phones it covers the full width. It sits over the sea
-   floor and under the text. */
-.fc-page .fc-hero-band {
-  --band: rgba(4, 13, 8, 0.74);
-  position: absolute;
-  z-index: -1;
-  top: calc(-1 * clamp(1rem, 2.5vw, 2rem));
-  bottom: -1.5rem;
-  left: calc(50% - 50vw);
-  width: calc(50vw - 50% + min(46rem, 85%));
-  pointer-events: none;
-  background: linear-gradient(to right, var(--band) 0%, var(--band) calc(100% - 24rem), rgba(4, 13, 8, 0.5) calc(100% - 13rem), rgba(4, 13, 8, 0.18) calc(100% - 5rem), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-}
-
-.fc-page .fc-hero-text {
-  position: relative;
-  max-width: 38rem;
-  padding-block: clamp(2rem, 6vh, 3.5rem);
-}
-
-/* Small outlined tags above the title. The words are typed in capitals
-   in the HTML, with normal letter spacing. */
-.fc-page .fc-hero-tags {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0 0 clamp(1rem, 2.4vh, 1.4rem);
-  padding: 0;
-}
-.fc-page .fc-tag {
-  font-family: var(--fc-font-text);
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--fc-text-2);
-  border: 1px solid rgba(200, 145, 58, 0.45);
-  border-radius: 2px;
-  padding: 0.32rem 0.65rem;
-}
-
-/* The same size and weight as the name on the home page hero. One word per
-   line. */
-.fc-page .fc-hero-title {
-  width: min-content;
-  margin: 0;
-  font-size: min(clamp(2.7rem, 9vw, 6.7rem), 9.5vh);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 0.9;
-  color: var(--fc-text);
-}
-.fc-page .fc-hero-lede {
-  max-width: 30rem;
-  margin: clamp(1.1rem, 2.6vh, 1.6rem) 0 0;
-  font-size: clamp(1.05rem, 1.45vw, 1.2rem);
-  line-height: 1.55;
-  color: var(--fc-text-2);
-}
-.fc-page .fc-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: clamp(1.5rem, 3.5vh, 2.2rem);
-}
-
-/* The two hero buttons, shaped like the home page hero's: square corners,
-   gold fill with black text, or a thin gold outline with gold text. In
-   the text font, at a readable size. */
-.fc-page .fc-main a.fc-hero-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.8rem 2.2rem;
-  font-family: var(--fc-font-text);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-decoration: none;
-  border: 1px solid transparent;
-  border-radius: 0;
-}
-.fc-page .fc-main a.fc-hero-btn--gold { background: var(--gold); border-color: var(--gold); color: #000; }
-.fc-page .fc-main a.fc-hero-btn--gold:hover { background: #b07a28; border-color: #b07a28; color: #000; }
-.fc-page .fc-main a.fc-hero-btn--outline { background: transparent; border-color: rgba(200, 145, 58, 0.45); color: var(--gold); }
-.fc-page .fc-main a.fc-hero-btn--outline:hover { background: rgba(200, 145, 58, 0.12); border-color: var(--gold); color: var(--gold); }
-@media (prefers-reduced-motion: no-preference) {
-  .fc-page .fc-main a.fc-hero-btn { transition: background-color 0.2s, border-color 0.2s, transform 0.2s; }
-  .fc-page .fc-main a.fc-hero-btn:hover { transform: translateY(-2px); }
-}
-
-/* ------------------------------------------------------------
-   The two cards under the hero, one per button. Each has one link, and
-   the link's hit area stretches over the whole card.
-   ------------------------------------------------------------ */
-.fc-page .fc-paths {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1rem, 2.5vw, 1.5rem);
-  margin-top: clamp(1.75rem, 4vw, 2.75rem);
-}
-.fc-page .fc-path {
-  position: relative;
+.fc-page .fc-hero-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  min-width: 0;
-  padding: clamp(1.25rem, 2.6vw, 1.75rem);
-  background: var(--fc-panel);
-  border: 1px solid var(--fc-border);
-  border-top: 3px solid var(--gold);
+  align-items: stretch;
+  width: var(--fc-hero-w);
+  max-width: 100%;
 }
-.fc-page .fc-path--overview { border-top-color: rgba(200, 145, 58, 0.45); }
-.fc-page .fc-path:hover { border-color: var(--fc-muted); border-top-color: var(--gold); }
-.fc-page .fc-path-title { margin: 0; font-size: clamp(1.3rem, 2.2vw, 1.6rem); line-height: 1.15; color: var(--fc-text); }
-.fc-page .fc-path-text { margin: 0; line-height: 1.6; color: var(--fc-text-2); }
-.fc-page .fc-main a.fc-path-link {
-  align-self: flex-start;
-  margin-top: auto;
-  padding-top: 0.35rem;
-  font-weight: 600;
-  color: var(--gold);
-}
-.fc-page .fc-main a.fc-path-link::after { content: ''; position: absolute; inset: 0; }
-.fc-page .fc-main a.fc-path-link:hover { color: #e6bd5c; }
 
-@media (max-width: 720px) {
-  .fc-page .fc-paths { grid-template-columns: minmax(0, 1fr); }
+/* The fish slot, the size of the tuna (its outline is 1251 by 524 in the
+   logo's SVG). The currents draw the fish here. Without them (no
+   JavaScript, or a start that failed) it shows the plain logo tuna
+   instead: the SVG is cropped to the tuna by its size and position. */
+.fc-page .fc-hero-fish {
+  width: 100%;
+  aspect-ratio: 1251 / 524;
+  background: url("../assets/dogtooth_kicad_silkscreen_files/01_primary_full_logo_kicad_white_tuna.svg") 73.36% 5.76% / 108.39% auto no-repeat;
+  opacity: 0.85;
 }
-/* Phones: the text column fills the width, the band covers all of it,
-   and the buttons take a row each. */
-@media (max-width: 760px) {
-  .fc-page .fc-hero { min-height: 0; }
-  .fc-page .fc-hero-text { padding-block: 1.75rem 1.25rem; }
-  .fc-page .fc-hero-band {
-    right: calc(50% - 50vw);
-    width: auto;
-    background: rgba(4, 13, 8, 0.55);
-  }
+.fc-page .fc-landing[data-currents] .fc-hero-fish { background: none; }
+
+/* FLIGHT CONSOLE, typed in capitals in the HTML. The negative left margin
+   takes off the space Saira Stencil One leaves before the F, so the
+   letters start exactly at the stack's left edge and end at its right
+   edge, where the buttons start and end. */
+.fc-page .fc-hero-title {
+  width: max-content;
+  margin: clamp(0.6rem, calc(var(--fc-title-size) * 0.32), 2.4rem) 0 0 -0.06em;
+  font-family: var(--fc-font-stencil);
+  font-size: var(--fc-title-size);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--fc-orange);
+  text-shadow:
+    0 0 0.08em var(--fc-navy),
+    0 0 0.3em color-mix(in srgb, var(--fc-navy) 80%, transparent),
+    0 0 0.7em color-mix(in srgb, var(--fc-navy) 55%, transparent);
 }
-@media (max-width: 640px) {
-  /* The title shrinks to its phone size at the same width as the home
-     page name does. */
-  .fc-page .fc-hero-title { font-size: clamp(2.3rem, 12vw, 3.4rem); }
+/* The page moves focus to the title when it switches to the landing. It
+   isn't a control, so it gets no focus ring. */
+.fc-page .fc-hero-title:focus { outline: none; }
+
+/* Two buttons side by side, each half the title's width less half the gap,
+   so together they line up with the title's ends. width 0 plus min-width
+   100% keeps the labels from ever widening the stack. */
+.fc-page .fc-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.6rem, calc(var(--fc-title-size) * 0.16), 1.1rem);
+  width: 0;
+  min-width: 100%;
+  margin-top: clamp(1rem, calc(var(--fc-title-size) * 0.36), 2.2rem);
 }
-@media (max-width: 480px) {
-  .fc-page .fc-main a.fc-hero-btn { flex: 1 1 100%; padding-inline: 1rem; }
+.fc-page .fc-main a.fc-hero-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 2.9rem;
+  padding: 0.85em 0.7em 0.8em;
+  font-family: var(--fc-font-stencil);
+  font-size: clamp(0.95rem, calc(var(--fc-title-size) * 0.19), 1.35rem);
+  font-weight: 400;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  color: var(--fc-offwhite);
+  text-shadow: 0 0 0.5em var(--fc-navy);
+  background: color-mix(in srgb, var(--fc-navy) 55%, transparent);
+  border: 1px solid var(--fc-orange);
+  border-radius: 0;
+}
+/* Filled orange on hover and focus. The label turns navy, since off-white
+   on orange is only about 2 to 1. */
+.fc-page .fc-main a.fc-hero-btn:hover,
+.fc-page .fc-main a.fc-hero-btn:focus-visible {
+  color: var(--fc-navy);
+  text-shadow: none;
+  background: var(--fc-orange);
+  border-color: var(--fc-orange);
+}
+.fc-page .fc-main a.fc-hero-btn:focus-visible {
+  outline: 2px solid var(--fc-offwhite);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-main a.fc-hero-btn { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* The narrowest phones: the buttons take a row each. */
+@media (max-width: 359px) {
+  .fc-page .fc-hero-actions { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ============================================================

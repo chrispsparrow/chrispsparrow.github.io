@@ -3,11 +3,12 @@
 //
 //   createLanding(root)
 //     The landing at /flight-console/ (no ?track or ?flight= in the
-//     address). index.html holds all of its text: the hero and the two
-//     cards under it. This only starts the moving sea floor behind the
-//     hero, once. hero-seafloor.js pauses it by itself while the landing is
-//     hidden, the tab is in the background or the hero is scrolled away,
-//     and keeps it still for visitors who ask for reduced motion.
+//     address). index.html holds all of its text: the title and the two
+//     buttons. This only starts the moving ocean currents behind the hero,
+//     once, with the fish where the fish slot is. hero-currents.js pauses
+//     them by itself while the landing is hidden, the tab is in the
+//     background or the hero is scrolled away, and shows one still frame
+//     for visitors who ask for reduced motion.
 //
 //   createSavedFlights(root, { hrefFor, onOpen })
 //     The "Saved flights" list inside the console (the pane under the live
@@ -24,7 +25,7 @@
 import { h, setChildren, formatDate } from './dom.js';
 import { uiIcon, iconNode } from './icons.js';
 import { formatNumber, MISSING } from '../geo.js';
-import { startSeafloor } from '../hero-seafloor.js';
+import { startCurrents } from '../hero-currents.js?v=1';
 
 // ------------------------------------------------------------------
 // Landing
@@ -32,21 +33,27 @@ import { startSeafloor } from '../hero-seafloor.js';
 
 // root is the landing <section>.
 export function createLanding(root) {
-  const canvas = root.querySelector('.fc-hero-seafloor-canvas');
+  const canvas = root.querySelector('.fc-hero-water-canvas');
+  const fishSlot = root.querySelector('.fc-hero-fish');
   // Started once and left running: it stops drawing on its own whenever
-  // there is nothing to see. A later real-data ocean currents animation can
-  // take its place by exporting the same start function shape.
-  let stopSeafloor = null;
+  // there is nothing to see. A real-data currents animation could take its
+  // place later by exporting the same start function shape.
+  let stopCurrents = null;
+  // data-currents tells the CSS the currents draw the fish, so the plain
+  // logo it shows in the fish slot without them (no JavaScript, or a
+  // failed start) goes away.
+  root.dataset.currents = 'on';
   try {
-    stopSeafloor = canvas ? startSeafloor(canvas) : null;
+    stopCurrents = canvas ? startCurrents(canvas, { fishSlot }) : null;
   } catch (err) {
     // A background that fails must never take the page down.
     console.error('Flight Console: the hero background failed to start', err);
   }
+  if (!stopCurrents) delete root.dataset.currents;
   return {
     destroy() {
-      stopSeafloor?.();
-      stopSeafloor = null;
+      stopCurrents?.();
+      stopCurrents = null;
     },
   };
 }
