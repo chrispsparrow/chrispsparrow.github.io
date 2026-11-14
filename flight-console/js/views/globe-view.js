@@ -21,8 +21,9 @@
 //   - The dots are the raw fixes. Only the line is smoothed (a moving
 //     average of the last few good fixes, worked out in track.js).
 //   - A gap in the packets is left as a break in the line, never bridged.
-//   - The board marker sits on the newest good fix. It always stands
-//     upright, since no board sends orientation data.
+//   - The board marker sits on the newest good fix (or, while no fix has
+//     passed the quality gate yet, hollow on the newest weak one). It
+//     always stands upright, since no board sends orientation data.
 //   - With no GPS fix right now (or a newer fix that failed the quality
 //     gate) the marker turns hollow at its last good position.
 //   - Event markers only appear once playback has reached the event.
@@ -57,7 +58,8 @@
 // whole globe, and up close they turn far too fast. They are switched off,
 // and this file has its own: drag to orbit around what the camera looks
 // at, the wheel or a pinch to zoom, and the right button or two fingers to
-// slide the view (see "Controls" near the end).
+// slide the view (see "Controls" near the end). FOLLOW BOARD moves the
+// camera like an operator on the ground (see "Follow camera").
 //
 // Look. The view sits on the page with no frame: the space around the
 // Earth is the page's near-black, there are no stars, sun or moon, and the
@@ -815,7 +817,7 @@ export function createGlobeView(container, ctx, options) {
         dots: null,       // the billboards with each drawn crumb's dot (its fill)
         edges: null,      // the billboards with each dot's dark edge, drawn first
         verts: [],        // the line's points: { position, color, breakBefore }
-        chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowAt }
+        chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowEdge, shadowAt }
         lastGood: -1,     // index of the newest good crumb that has a position
         focused: null,
         icon: null, iconHome: null, ring: null, ringStart: null,
@@ -933,8 +935,8 @@ export function createGlobeView(container, ctx, options) {
       parts.dotAt.push(position);
       if (c.quality === 'good') {
         if (position) {
-          // The white dot image, tinted to the speed color (its dark
-          // outline stays dark).
+          // The white dot image, tinted to the speed color, over its dark
+          // edge (see addDot).
           addDot(parts, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
           parts.lastGood = i;
         }
