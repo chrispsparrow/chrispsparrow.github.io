@@ -1,346 +1,442 @@
 /* ============================================================
-   FLIGHT CONSOLE OVERVIEW PAGE  (projects/flight-console.html)
-   The page loads css/avionics-pcb.css first, so it gets the same
-   black background, dark nav, slides, type, .parts list and
-   .quiet-link as the avionics page. This file only adds what this
-   page needs: the two-column slides, the buttons, the cover
-   picture with its credit, and the block diagram with the
-   board render.
+   FLIGHT CONSOLE PROJECT OVERVIEW  (projects/flight-console.html)
+   The colors and fonts come from css/flight-console-theme.css.
+   This file holds what only this page needs:
+     1. the scroll tour (a tall wrapper with a sticky stage, run by
+        js/flight-console-overview.js)
+     2. the same four steps as still pictures, for reduced motion
+     3. What I built, the two screenshots and the related links
    Everything is under body.fco, so none of it reaches other pages.
+   The script adds fco-anim (scroll tour) or fco-static (still
+   pictures) to <html>. With neither (no JavaScript), the four
+   sentences show as a plain list.
    ============================================================ */
 
-/* The avionics page lets the mouse through the slides to its 3D board.
-   There is no board here, so the slides take the pointer as usual. */
-.fco .slides,
-.fco .slide,
-.fco .slide-inner { pointer-events: auto; }
-
-/* Two columns: text on the left, a picture or a list on the right.
-   Same split and gap as the avionics page's .slide-split. */
-.fco .fco-cols {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: clamp(2rem, 5vw, 5rem);
-  align-items: center;
+.fco {
+  --fco-gut: clamp(1rem, 5vw, 5rem);         /* page side margin */
+  --fco-cap-w: clamp(220px, 30vw, 440px);    /* the sentence column beside the scene */
+  --fco-cap-gap: clamp(1rem, 2vw, 2rem);
+  --fco-fade: 48px;                          /* the soft edge where the scene meets the sentences */
+  /* The soft edge where the scene meets the nav: nothing shows under the nav, and
+     the scene fades in over the 24 px below its bottom edge */
+  --fco-top-fade: linear-gradient(180deg,
+    transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px));
 }
 
-/* ── Slide 1: title, opening paragraph and buttons ────────── */
-.fco .slide-intro h1 {
-  font-size: clamp(2.3rem, 1.4rem + 3vw, 3.6rem);
-  margin-bottom: 1.3rem;
-}
-.fco .slide-intro .slide-text { max-width: 540px; }
-.fco-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.9rem;
-}
-.fco .fco-actions a.fco-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 0.7rem 1.35rem;
-  border: 1px solid rgba(244,242,237,0.28);
-  border-radius: 2px;
-  font-family: var(--font-text);
-  font-size: 0.95rem;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--hero-text);
-  text-decoration: none;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
-}
-.fco .fco-actions a.fco-btn:hover { border-color: var(--gold); color: var(--gold); }
-.fco .fco-actions a.fco-btn-primary {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: #0b0b0b;                     /* ~7:1 on the gold */
-}
-.fco .fco-actions a.fco-btn-primary:hover { background: #d9a24a; border-color: #d9a24a; color: #0b0b0b; }
-.fco .fco-actions a.fco-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-.fco .slide p.fco-note {
-  margin-top: 1rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--av-dim);
+/* The phone menu. Once the page scrolls, the site nav gets a backdrop blur
+   (css/style.css), and a blur makes the nav the frame its fixed menu panel is
+   placed in. The panel then measures 0 px tall and its links end up off screen or
+   loose over the scene. This page is scrolled for the whole tour, so while the
+   menu is open the nav drops the blur and turns solid navy, and the panel fills
+   the screen under it again. */
+.fco #nav:has(.nav-links.open) {
+  -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+  background: var(--fc-navy);
 }
 
-/* The console's cover picture. The frame is the picture's own 5:6 shape, so when
-   the height cap bites it gets narrower instead of leaving space beside it. */
-.fco-shot {
-  --shot-max: 72svh;
-  margin: 0;
-  width: min(100%, calc(var(--shot-max) * 1400 / 1680));
-  justify-self: center;
+/* ── 1. The scroll tour ──────────────────────────────────── */
+.fco-tour { position: relative; }
+.fco-stage {
+  position: relative;
+  /* The script reads this to place the scene: "side" puts the sentences beside
+     the scene, "stacked" puts them under it */
+  --fco-layout: side;
 }
-.fco-shot-frame {
-  aspect-ratio: 1400 / 1680;
+
+/* No JavaScript, or still pictures: the scene itself is not shown */
+.fco-view { display: none; }
+
+html.fco-anim .fco-tour { height: 540vh; height: 540svh; }
+html.fco-anim .fco-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
   overflow: hidden;
-  border-radius: 4px;
-  background: #1a1a1a;
 }
-.fco-shot-frame img {
+html.fco-anim .fco-view {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.fco-shot-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.3rem 1rem;
-  margin-top: 0.7rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--av-dim);
-}
-/* The credit is required for the Cesium ion imagery and terrain. It shows as one
-   line and opens under the picture. */
-.fco-credit { max-width: 100%; }
-.fco-credit summary {
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: var(--av-dim);
-  transition: color 0.2s;
-}
-.fco-credit summary::marker { color: var(--gold); }
-.fco-credit summary:hover,
-.fco-credit[open] summary { color: var(--hero-text); }
-.fco-credit summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.fco-credit-body { margin-top: 0.5rem; }
-.fco .slide .fco-credit-body p {
-  max-width: none;
-  margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--av-dim);
-}
-.fco .slide .fco-credit-body p + p { margin-top: 0.35rem; }
-
-/* ── Slide 2: the block diagram ──────────────────────────── */
-.fco-chain-intro { max-width: 640px; margin-bottom: 2.4rem; }
-
-.fco-chain-figure { margin: 0; }
-/* Five columns: board, radio link, Manta, wire link, console. Each box spans two
-   rows (its picture, then its text) through a subgrid, so the pictures all line up
-   and each arrow sits on the pictures' middle line. */
-.fco-chain {
-  --link-w: clamp(104px, 11vw, 150px);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--link-w) minmax(0, 1fr) var(--link-w) minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  column-gap: clamp(0.6rem, 1.2vw, 1rem);
-}
-.fco-chain > :nth-child(1) { grid-column: 1; }
-.fco-chain > :nth-child(2) { grid-column: 2; }
-.fco-chain > :nth-child(3) { grid-column: 3; }
-.fco-chain > :nth-child(4) { grid-column: 4; }
-.fco-chain > :nth-child(5) { grid-column: 5; }
-
-.chain-node {
-  grid-row: 1 / span 2;
-  display: grid;
-  grid-template-rows: subgrid;
-  min-width: 0;
-}
-.chain-media {
-  aspect-ratio: 4 / 3;
-  border: 1px solid rgba(244,242,237,0.28);
-  border-radius: 4px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: calc(var(--fco-gut) + var(--fco-cap-w) + var(--fco-cap-gap) - var(--fco-fade));
   overflow: hidden;
-  background: var(--av-bg);
+  /* Things leave the scene through soft edges instead of hard cuts: on the left,
+     where the sentences are, and at the top, so the rocket fades out before it
+     passes under the see-through nav instead of being cut off at its edge */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade)), var(--fco-top-fade);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--fco-fade)), var(--fco-top-fade);
+  -webkit-mask-composite: source-in;
+          mask-composite: intersect;
 }
-.chain-node-todo .chain-media { border-style: dashed; border-color: rgba(165,161,153,0.6); }
-/* The board render has a see-through background and is about square, so it sits
-   whole inside the 4:3 box with a little room around it. */
-.chain-render img {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  padding: 4%;
-  object-fit: contain;
+
+/* The scene. Its children are placed in scene units (1 unit is 1 CSS px when the
+   camera's scale is 1). The script sets the transform (the camera) and --px, the
+   size of one screen pixel in scene units, so lines stay thin at any zoom.
+   There is no will-change here on purpose: the scene is redrawn at each new scale,
+   so the board and the lines stay sharp instead of being stretched from a small,
+   cached copy. */
+.fco-world {
+  --px: 1px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
 }
-.chain-art svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.chain-art svg * { vector-effect: non-scaling-stroke; }
-.art-line, .art-todo {
+/* Hidden until the script has framed it, so it never shows unplaced */
+html.fco-anim:not(.fco-ready) .fco-world { visibility: hidden; }
+.fco-world > * { position: absolute; }
+.fco-world svg,
+.fco-world img { max-width: none; }
+
+/* Lines. The three dots get their radius from the script. */
+.fco-lines {
+  left: 0;
+  top: 0;
+  overflow: visible;
   fill: none;
-  stroke: var(--hero-text);
+  stroke-linecap: round;
+}
+.ln-ground { stroke: var(--fc-line-strong); stroke-width: calc(var(--px) * 1); }
+.ln-trail { stroke: var(--fc-line); stroke-width: calc(var(--px) * 1.5); }
+.ln-link { stroke: var(--fc-text-dim); stroke-width: calc(var(--px) * 1.5); }
+.ln-pulse { fill: var(--fc-orange); }
+.ln-antenna { stroke: var(--fc-offwhite); stroke-width: calc(var(--px) * 1.5); }
+.ln-antenna-tip { fill: var(--fc-offwhite); }
+.ln-arc { stroke: var(--fc-orange); stroke-width: calc(var(--px) * 1.5); }
+.ln-signal {
+  stroke: var(--fc-orange);
+  stroke-width: calc(var(--px) * 2);
+  stroke-dasharray: calc(var(--px) * 7) calc(var(--px) * 7);
+  stroke-linecap: butt;
+}
+.ln-signal-head { fill: var(--fc-orange); }
+
+/* The rocket: a navy outline in off-white with orange fins */
+.fco-rocket {
+  left: -80px;
+  top: 0;
+  width: 160px;
+  height: 1000px;
+}
+.fco-rocket-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.r-body {
+  fill: var(--fc-navy-raised);
+  stroke: var(--fc-offwhite);
+  stroke-width: calc(var(--px) * 1.5);
+  stroke-linejoin: round;
+}
+.r-fin { fill: var(--fc-orange); }
+.r-detail {
+  fill: none;
+  stroke: var(--fc-line-strong);
+  stroke-width: calc(var(--px) * 1);
+}
+/* The window shows the page's own navy, so at the close-up the board sits on plain navy */
+.r-window {
+  fill: var(--fc-navy);
+  stroke: var(--fc-offwhite);
+  stroke-width: calc(var(--px) * 1.5);
+}
+/* The board fills the window: 30.4 wide, centered on (0, 258) in the rocket's frame,
+   which is (80, 258) from the rocket box's top left corner. Its height follows the
+   image (2400 by 2523). */
+.fco-board {
+  position: absolute;
+  left: 64.8px;
+  top: 242.02px;
+  width: 30.4px;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Manta: a plain block on the ground. The script sets its font size in scene units,
+   so its text is the same size on screen on every window. */
+.fco-manta {
+  margin: 0;
+  padding: 0.75em 1.05em 0.8em;
+  width: max-content;
+  border: calc(var(--px) * 1.5) dashed var(--fc-line-strong);
+  background: var(--fc-navy-raised);
+  font-family: var(--fc-font-readout);
+  line-height: 1.25;
+  color: var(--fc-offwhite);
+  white-space: nowrap;
+}
+.fco-manta p { margin: 0; }
+.fco-manta .fco-manta-status { margin-top: 0.35em; color: var(--fc-orange); }
+
+/* The laptop. The script sets its width and font size in scene units. */
+.fco-laptop { margin: 0; }
+.fco-laptop-name {
+  margin: 0 0 0.7em;
+  font-family: var(--fc-font-readout);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--fc-offwhite);
+  white-space: nowrap;
+}
+.fco-laptop-screen {
+  margin: 0 7%;
+  padding: 0.55em;
+  border: calc(var(--px) * 1.5) solid var(--fc-offwhite);
+  border-bottom-width: calc(var(--px) * 1);
+  background: var(--fc-navy-raised);
+}
+.fco-laptop-screen > .fco-placeholder,
+.fco-laptop-screen > img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+}
+.fco-laptop-screen > img { display: block; object-fit: cover; }
+.fco-laptop-base {
+  height: 0.8em;
+  border: calc(var(--px) * 1.5) solid var(--fc-offwhite);
+  background: var(--fc-navy-raised);
+  clip-path: polygon(0 100%, 2% 0, 98% 0, 100% 100%);
+}
+
+/* A placeholder frame, in the scene and in the screenshots below */
+.fco-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 1em;
+  border: calc(var(--px, 1px) * 1) dashed var(--fc-line-strong);
+  background: var(--fc-navy-deep);
+  font-family: var(--fc-font-readout);
+  font-size: 0.85em;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--fc-text-dim);
+}
+
+/* The hint to scroll, under the close-up. It fades as soon as the page moves. */
+.fco-cue {
+  position: absolute;
+  left: calc(50% + var(--fco-fade) / 2);
+  bottom: clamp(1rem, 3.5vh, 2rem);
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  pointer-events: none;
+}
+.fco-cue svg {
+  display: block;
+  fill: none;
+  stroke: var(--fc-text-dim);
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.art-line .art-faint { stroke: var(--av-dim); }
-.art-todo { stroke: var(--av-dim); stroke-dasharray: 4 4; }
-.art-gold { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; }
-.art-dot { fill: var(--gold); }
 
-.chain-text { padding-top: 1rem; min-width: 0; }
-.fco .chain-text h3 {
-  font-size: clamp(1.02rem, 1.3vw, 1.18rem);
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: var(--hero-text);
-}
-.chain-parts {
+/* The four sentences. With the tour running, they share one spot beside the scene
+   and the script fades between them. */
+.fco-steps {
   list-style: none;
-  margin: 0.55rem 0 0;
+  margin: 0;
   padding: 0;
-  display: grid;
-  gap: 0.25rem;
 }
-.chain-parts li,
-.fco .slide p.chain-status {
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: var(--av-text);
+.fco-step > p {
+  margin: 0;
+  max-width: 19em;
+  font-family: var(--fc-font-head);
+  font-weight: 500;
+  font-size: clamp(1.55rem, 0.95rem + 1.35vw, 2.45rem);
+  line-height: 1.16;
+  color: var(--fc-offwhite);
 }
-.fco .slide p.chain-status { margin-top: 0.55rem; color: var(--av-dim); }
-
-/* The links between the boxes: a label over a gold arrow. The radio link is dashed,
-   the wired one is solid. */
-.chain-link {
-  grid-row: 1;
-  align-self: center;
-  position: relative;
-  display: flex;
-  min-width: 0;
-}
-.chain-label {
+html.fco-anim .fco-steps {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 0.5rem);
-  font-size: 0.82rem;
-  line-height: 1.35;
-  text-align: center;
-  color: var(--av-dim);
+  left: var(--fco-gut);
+  width: var(--fco-cap-w);
+  top: calc(50% + var(--fc-nav-h) / 2);
+  transform: translateY(-50%);
+  display: grid;
 }
-.chain-arrow {
-  display: flex;
+html.fco-anim .fco-step { grid-area: 1 / 1; opacity: 0; }
+html.fco-anim .fco-step:first-child { opacity: 1; }
+
+/* Phones, and windows taller than they are wide: the scene on top, the sentence under it */
+@media (max-width: 600px), (max-aspect-ratio: 1/1) {
+  .fco-stage {
+    --fco-layout: stacked;
+    --fco-cap-h: clamp(8.5rem, 27svh, 14rem);
+  }
+  html.fco-anim .fco-view {
+    left: 0;
+    bottom: var(--fco-cap-h);
+    /* Soft edges at the top (the nav) and at the bottom (the sentence) */
+    -webkit-mask-image: linear-gradient(180deg,
+      transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px),
+      #000 calc(100% - 32px), transparent);
+            mask-image: linear-gradient(180deg,
+      transparent var(--fc-nav-h), #000 calc(var(--fc-nav-h) + 24px),
+      #000 calc(100% - 32px), transparent);
+  }
+  .fco-cue { left: 50%; }
+  html.fco-anim .fco-steps {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    top: auto;
+    bottom: 0;
+    height: var(--fco-cap-h);
+    transform: none;
+    align-content: start;
+    justify-items: center;
+    padding-top: 0.4rem;
+    text-align: center;
+  }
+  .fco-step > p { font-size: clamp(1.2rem, 0.85rem + 2vw, 1.75rem); line-height: 1.2; }
+}
+/* Short, wide windows (phones on their side) */
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .fco-step > p { font-size: clamp(1.1rem, 4.6vh, 1.55rem); }
+}
+
+/* ── 2. Still pictures (reduced motion), and the plain list ─ */
+html:not(.fco-anim) .fco-steps {
+  display: grid;
+  gap: clamp(2.5rem, 6vw, 4.5rem);
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: calc(var(--fc-nav-h) + clamp(1.5rem, 5vw, 3.5rem)) var(--fco-gut) 0;
+}
+html.fco-static .fco-step {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: clamp(1.25rem, 4vw, 3rem);
   align-items: center;
-  width: 100%;
 }
-.chain-line {
-  flex: 1;
-  height: 1.5px;
-  background: var(--gold);
+/* One copy of the scene per step, held at that step */
+html.fco-static .fco-step > .fco-view.fco-still {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--fc-line);
 }
-.chain-link-radio .chain-line {
-  background: repeating-linear-gradient(90deg, var(--gold) 0 6px, transparent 6px 11px);
-}
-.chain-arrow svg {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  margin-left: -10px;               /* the arrowhead's tip sits on the end of the line */
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.fco-still .fco-cue { display: none; }
+@media (max-width: 600px), (max-aspect-ratio: 1/1) {
+  html.fco-static .fco-step { grid-template-columns: minmax(0, 1fr); }
+  html.fco-static .fco-step > .fco-view.fco-still { aspect-ratio: 4 / 3; }
 }
 
-.fco-chain-figure figcaption {
-  margin-top: 2rem;
+/* ── 3. What I built, the screenshots and the related links ─ */
+.fco-after {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding-inline: var(--fco-gut);
+}
+.fco-built { padding-top: clamp(4.5rem, 12vw, 8rem); }
+.fco-built h2 {
+  margin: 0;
+  font-family: var(--fc-font-head);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 1.5rem + 2vw, 3.2rem);
+  line-height: 1.05;
+  color: var(--fc-offwhite);
+}
+.fco-built > p {
+  margin: 0.9rem 0 0;
+  font-family: var(--fc-font-body);
+  font-size: clamp(1.05rem, 1rem + 0.3vw, 1.25rem);
+  line-height: 1.55;
+  color: var(--fc-text-dim);
+}
+.fco-built > p a {
+  color: var(--fc-offwhite);
+  text-decoration: underline;
+  text-decoration-color: var(--fc-orange);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+  transition: color 0.2s;
+}
+.fco-built > p a:hover { color: var(--fc-orange); }
+.fco-built > p a:focus-visible { outline: 2px solid var(--fc-orange); outline-offset: 3px; }
+
+.fco-shots { margin: clamp(2rem, 5vw, 3rem) 0 0; }
+.fco-shots-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+.fco-shot { min-width: 0; }
+.fco-shot-label {
+  margin: 0 0 0.55rem;
+  font-family: var(--fc-font-readout);
   font-size: 0.85rem;
+  line-height: 1.3;
+  color: var(--fc-text-dim);
+}
+.fco-shot-frame {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--fc-line);
+  background: var(--fc-navy-deep);
+}
+.fco-shot-frame > .fco-placeholder,
+.fco-shot-frame > img {
+  width: 100%;
+  height: 100%;
+}
+.fco-shot-frame > img { display: block; object-fit: cover; }
+.fco-shot-frame > .fco-placeholder { border: 0; font-size: 0.9rem; }
+.fco-shots figcaption {
+  margin-top: 1rem;
+  font-family: var(--fc-font-body);
+  font-size: 0.95rem;
   line-height: 1.5;
-  color: var(--av-dim);
-  max-width: 640px;
+  color: var(--fc-text-dim);
 }
 
-/* ── Slide 3: what I built ───────────────────────────────── */
-.fco .slide-built .fco-cols { align-items: start; }
-.fco .slide-built .slide-text { max-width: 520px; }
-.fco .fco-features { margin: 0; gap: 1.15rem; }
-.fco .fco-features li { max-width: 34em; }
-
-/* ── Slide 4: what's next and the related pages ──────────── */
-.fco .slide-next .slide-text { max-width: 640px; }
 .fco-related {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem 2.2rem;
-  margin-top: 2.2rem;
+  gap: 0.75rem;
+  padding-top: clamp(3.5rem, 8vw, 5.5rem);
+  padding-bottom: clamp(4rem, 10vw, 7rem);
 }
-
-/* ── Phones and narrow windows ───────────────────────────── */
-@media (max-width: 860px) {
-  .fco .fco-cols { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
-  .fco .slide-intro .slide-text,
-  .fco .slide-built .slide-text { max-width: none; }
-  .fco-shot { --shot-max: 64svh; }
-
-  /* The diagram stacks: each box is its picture with the text beside it, and the
-     links become downward arrows under the pictures' middle, with the label beside. */
-  .fco-chain {
-    --pic-w: clamp(92px, 30vw, 150px);
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-    column-gap: 0;
-  }
-  .fco-chain > :nth-child(n) { grid-column: 1; }
-  .chain-node {
-    grid-row: auto;
-    grid-template-rows: none;
-    grid-template-columns: var(--pic-w) minmax(0, 1fr);
-    column-gap: 1rem;
-    align-items: center;
-  }
-  .chain-text { padding-top: 0; }
-  .chain-link {
-    grid-row: auto;
-    display: grid;
-    grid-template-columns: var(--pic-w) minmax(0, 1fr);
-    column-gap: 1rem;
-    align-items: center;
-    min-height: 76px;
-    padding: 0.35rem 0;
-  }
-  .chain-label {
-    position: static;
-    grid-column: 2;
-    grid-row: 1;
-    text-align: left;
-  }
-  .chain-arrow {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: center;
-    flex-direction: column;
-    width: 14px;
-    height: 100%;
-    min-height: 64px;
-  }
-  .chain-line { width: 1.5px; height: auto; }
-  .chain-link-radio .chain-line {
-    background: repeating-linear-gradient(180deg, var(--gold) 0 6px, transparent 6px 11px);
-  }
-  .chain-arrow svg { margin: -10px 0 0; transform: rotate(90deg); }
-  .fco-chain-figure figcaption { margin-top: 1.4rem; }
-  .fco-chain-intro { margin-bottom: 1.8rem; }
+/* Button labels use the stencil font, like the buttons on the Flight Console
+   pages, and are typed in capitals in the HTML */
+.fco-related a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0.75em 1.15em 0.7em;
+  border: 1px solid var(--fc-line-strong);
+  border-radius: 0;
+  font-family: var(--fc-font-stencil);
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  color: var(--fc-offwhite);
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
 }
+/* Filled orange on hover and focus, with a navy label (off-white on orange is
+   only about 2 to 1) */
+.fco-related a:hover,
+.fco-related a:focus-visible { color: var(--fc-navy); border-color: var(--fc-orange); background: var(--fc-orange); }
+.fco-related a:focus-visible { outline: 2px solid var(--fc-offwhite); outline-offset: 3px; }
 
-/* Short, wide windows (small laptops): a little tighter, like the avionics page */
-@media (max-height: 700px) and (min-width: 861px) {
-  .fco-shot { --shot-max: 66svh; }
-  .fco-chain-intro { margin-bottom: 1.6rem; }
-  .fco .fco-features { gap: 0.7rem; }
+@media (max-width: 640px) {
+  .fco-shots-row { grid-template-columns: minmax(0, 1fr); }
+  .fco-related { flex-direction: column; }
+  .fco-related a { justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fco .fco-actions a.fco-btn,
-  .fco-credit summary { transition: none; }
+  .fco-built > p a,
+  .fco-related a { transition: none; }
 }
