@@ -161,7 +161,7 @@ export function createMapView(root, ctx) {
   ];
   const legend = h('div', { class: 'fc-map-legend' },
     legendRow(iconNode(boardSvg(BOARD_FOCUSED)), 'DOGTOOTH BOARD'),
-    legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'NO FIX RIGHT NOW'),
+    legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'NO GOOD FIX RIGHT NOW'),
     legendRow(iconNode(pathKeySvg()), 'GOOD FIX AND PATH, SLOW TO FAST'),
     legendRow(iconNode(weakKeySvg()), 'WEAK FIX, LEFT OFF THE PATH'),
     legendShadowRow,
@@ -1088,14 +1088,18 @@ export function createMapView(root, ctx) {
   // Drawing on the map: where each rocket is
   // ------------------------------------------------------------------
 
-  // The newest good crumb of a rocket (where its marker goes), with its
-  // place in the list, or null.
+  // Where a rocket's marker goes: its newest good crumb, with its place in
+  // the list, or null. A board that has only sent weak fixes so far (too
+  // few satellites, as on a bench indoors) goes on its newest weak one
+  // (good: false), so it still shows, hollow, with its label and radio link.
   function boardCrumb(rocket) {
     const crumbs = rocket.crumbs ?? [];
+    let weak = null;
     for (let i = crumbs.length - 1; i >= 0; i--) {
-      if (crumbs[i].quality === 'good') return { crumb: crumbs[i], index: i, newest: i === crumbs.length - 1 };
+      if (crumbs[i].quality === 'good') return { crumb: crumbs[i], index: i, newest: i === crumbs.length - 1, good: true };
+      if (crumbs[i].quality === 'weak' && !weak) weak = { crumb: crumbs[i], index: i, newest: i === crumbs.length - 1, good: false };
     }
-    return null;
+    return weak;
   }
 
   // ------------------------------------------------------------------
@@ -1174,27 +1178,42 @@ export function createMapView(root, ctx) {
         g.stroke();
       }
     }
-    // The dots, raw positions.
+    // The dots, raw positions, in two passes: every dark edge first, then
+    // every fill on top. So a run of dots that overlap (a slow descent, or
+    // the map zoomed out) reads as its speed colors with one thin dark
+    // edge around the run, and dots far enough apart each keep their own
+    // dark ring.
     const dotR = (isFocused ? DOT_PX : OTHER_DOT_PX) / 2;
     const weakR = WEAK_DOT_PX / 2;
+    const spots = [];
     for (const c of crumbs) {
       if (c.quality === 'outlier') continue;
       const p = map.latLngToLayerPoint([c.lat, c.lon]);
+      spots.push({ x: p.x, y: p.y, good: c.quality === 'good', color: c.quality === 'good' ? colorOf(c) : null });
+    }
+    g.fillStyle = NEAR_BLACK;
+    g.strokeStyle = NEAR_BLACK;
+    g.lineWidth = WEAK_LINE_PX + 2 * DOT_OUTLINE_PX;
+    for (const s of spots) {
       g.beginPath();
-      if (c.quality === 'good') {
-        g.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-        g.fillStyle = colorOf(c);
+      if (s.good) {
+        g.arc(s.x, s.y, dotR + DOT_OUTLINE_PX, 0, Math.PI * 2);
         g.fill();
-        g.lineWidth = DOT_OUTLINE_PX;
-        g.strokeStyle = NEAR_BLACK;
-        g.stroke();
       } else {
-        g.arc(p.x, p.y, weakR, 0, Math.PI * 2);
-        g.lineWidth = WEAK_LINE_PX + 2;
-        g.strokeStyle = NEAR_BLACK;
+        g.arc(s.x, s.y, weakR, 0, Math.PI * 2);
         g.stroke();
-        g.lineWidth = WEAK_LINE_PX;
-        g.strokeStyle = WEAK_COLOR;
+      }
+    }
+    g.lineWidth = WEAK_LINE_PX;
+    g.strokeStyle = WEAK_COLOR;
+    for (const s of spots) {
+      g.beginPath();
+      if (s.good) {
+        g.arc(s.x, s.y, dotR, 0, Math.PI * 2);
+        g.fillStyle = s.color;
+        g.fill();
+      } else {
+        g.arc(s.x, s.y, weakR, 0, Math.PI * 2);
         g.stroke();
       }
     }
@@ -1346,8 +1365,9 @@ export function createMapView(root, ctx) {
         padMarkers.delete(rocket.id);
       }
 
-      // The board marker at its newest good fix: the board's blue while
-      // the fix is good right now, hollow otherwise.
+      // The board marker at its newest good fix (or newest weak one, if it
+      // has no good one yet): the board's blue while the fix is good right
+      // now, hollow otherwise.
       let layers = rocketLayers.get(rocket.id);
       if (!layers) {
         layers = { marker: null, parts: null, lastPacketT: null };
@@ -1369,7 +1389,7 @@ export function createMapView(root, ctx) {
         } else {
           layers.marker.setLatLng(ll);
         }
-        layers.parts.el.classList.toggle('fc-rkt--nofix', !(store.hasFixNow(rocket) && spot.newest));
+        layers.parts.el.classList.toggle('fc-rkt--nofix', !(store.hasFixNow(rocket) && spot.newest && spot.good));
       } else if (layers.marker) {
         layers.marker.remove();
         layers.marker = null;

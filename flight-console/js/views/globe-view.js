@@ -409,7 +409,7 @@ export function createGlobeView(container, ctx, options) {
   const linkLines = scene.primitives.add(new C.PrimitiveCollection());    // the radio link
   const haloLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines' dark outlines
   const lineLayer = scene.primitives.add(new C.PrimitiveCollection());    // the lines in their speed colors
-  const dotLayer = scene.primitives.add(new C.PrimitiveCollection());     // one billboard collection of dots per rocket
+  const dotLayer = scene.primitives.add(new C.PrimitiveCollection());     // two billboard collections per rocket: dot edges, then dot fills
   const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // launch points and Manta's dish
   const eventIcons = scene.primitives.add(new C.BillboardCollection({ ...blend, scene })); // diamonds and the recovery crosshair
   const ringIcons = scene.primitives.add(new C.BillboardCollection(blend)); // the packet rings, under the boards
@@ -516,11 +516,16 @@ export function createGlobeView(container, ctx, options) {
     icons.set(id, { canvas, width: size, height: size });
   }
 
-  // The breadcrumb dots: a white disc with a thin dark outline, tinted to
-  // its speed color when drawn (dot, and dot-other for other rockets), and
-  // a hollow grey ring for a weak fix (dot-weak).
+  // The breadcrumb dots, in two parts drawn in two passes (see addCrumbs):
+  //   - the fill: a white disc, tinted to its speed color when drawn (dot,
+  //     and dot-other for other rockets), or a grey ring for a weak fix
+  //     (dot-weak)
+  //   - the edge: the same shape in near-black, a little bigger, with a
+  //     hard edge (no soft pixels), so it can be drawn in the opaque pass
+  //     (dot-edge, dot-other-edge, dot-weak-edge)
+  const EDGE_GROWTH_PX = 1 / iconScale;
   function dotIcons() {
-    const make = (id, diameter, paint) => {
+    const make = (id, diameter, paint, { hard = false } = {}) => {
       const size = Math.ceil(diameter + 2 * DOT_OUTLINE_PX + 2);
       const canvas = document.createElement('canvas');
       canvas.width = size * iconScale;
@@ -530,25 +535,33 @@ export function createGlobeView(container, ctx, options) {
       g.beginPath();
       g.arc(size / 2, size / 2, diameter / 2, 0, Math.PI * 2);
       paint(g);
+      if (hard) {
+        // Every pixel fully on or fully off.
+        const img = g.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] >= 128 ? 255 : 0;
+        g.putImageData(img, 0, 0);
+      }
       icons.set(id, { canvas, width: size, height: size });
     };
-    const solid = (g) => {
-      g.fillStyle = WHITE;
+    const fill = (color) => (g) => {
+      g.fillStyle = color;
       g.fill();
-      g.lineWidth = DOT_OUTLINE_PX;
-      g.strokeStyle = NEAR_BLACK;
+    };
+    const ring = (color, width) => (g) => {
+      g.lineWidth = width;
+      g.strokeStyle = color;
       g.stroke();
     };
-    make('dot', DOT_PX, solid);
-    make('dot-other', OTHER_DOT_PX, solid);
-    make('dot-weak', WEAK_DOT_PX, (g) => {
-      g.lineWidth = WEAK_LINE_PX + 2;
-      g.strokeStyle = NEAR_BLACK;
-      g.stroke();
-      g.lineWidth = WEAK_LINE_PX;
-      g.strokeStyle = WEAK_COLOR;
-      g.stroke();
-    });
+    make('dot', DOT_PX, fill(WHITE));
+    make('dot-other', OTHER_DOT_PX, fill(WHITE));
+    make('dot-weak', WEAK_DOT_PX, ring(WEAK_COLOR, WEAK_LINE_PX));
+    // (The opaque pass draws every pixel the image touches at all, which
+    // makes a shape about EDGE_GROWTH_PX wider, so the edges are drawn
+    // that much smaller to end up DOT_OUTLINE_PX wide.)
+    const edge = 2 * DOT_OUTLINE_PX - EDGE_GROWTH_PX;
+    make('dot-edge', DOT_PX + edge, fill(NEAR_BLACK), { hard: true });
+    make('dot-other-edge', OTHER_DOT_PX + edge, fill(NEAR_BLACK), { hard: true });
+    make('dot-weak-edge', WEAK_DOT_PX, ring(NEAR_BLACK, WEAK_LINE_PX + edge), { hard: true });
   }
 
   const iconsReady = Promise.all([
@@ -794,7 +807,8 @@ export function createGlobeView(container, ctx, options) {
         key: '',          // the height model, ground level and focus it was worked out with
         count: 0,         // crumbs looked at so far
         dotAt: [],        // one 3D position per crumb (null: not drawn)
-        dots: null,       // the point collection with one dot per drawn crumb
+        dots: null,       // the billboards with each drawn crumb's dot (its fill)
+        edges: null,      // the billboards with each dot's dark edge, drawn first
         verts: [],        // the line's points: { position, color, breakBefore }
         chunks: [],       // the line's pieces: { start, end, final, halo, line, shadow, shadowAt }
         lastGood: -1,     // index of the newest good crumb that has a position
@@ -818,7 +832,9 @@ export function createGlobeView(container, ctx, options) {
     parts.dotAt = [];
     parts.lineBroken = false;
     if (parts.dots) dotLayer.remove(parts.dots);
+    if (parts.edges) dotLayer.remove(parts.edges);
     parts.dots = null;
+    parts.edges = null;
     parts.count = 0;
     parts.lastGood = -1;
   }
@@ -868,10 +884,12 @@ export function createGlobeView(container, ctx, options) {
   // One breadcrumb dot. The dots are billboards like the markers, so they
   // stack in drawing order with them (the board always sits on top of its
   // own dots). Each one shows a small canvas image (see dotIcons), tinted
-  // by color when it has one.
-  function addDot(collection, id, position, tint) {
-    const icon = icons.get(id);
-    collection.add({ position, image: icon.canvas, imageId: id, width: icon.width, height: icon.height, color: tint ?? undefined, ...ALWAYS });
+  // by color when it has one, over its dark edge in the other collection.
+  function addDot(parts, id, position, tint) {
+    for (const [collection, image] of [[parts.edges, `${id}-edge`], [parts.dots, id]]) {
+      const icon = icons.get(image);
+      collection.add({ position, image: icon.canvas, imageId: image, width: icon.width, height: icon.height, color: image === id ? tint ?? undefined : undefined, ...ALWAYS });
+    }
   }
 
   // The dots and the line's points for the crumbs since the last draw.
@@ -880,7 +898,17 @@ export function createGlobeView(container, ctx, options) {
   function addCrumbs(rocket, parts, model, isFocused) {
     const crumbs = parts.crumbs;
     if (parts.count >= crumbs.length) return;
-    if (!parts.dots) parts.dots = dotLayer.add(new C.BillboardCollection(blend));
+    // Two passes, so a run of dots that overlap on screen (a slow descent,
+    // or the view zoomed out) reads as its speed colors with one thin dark
+    // edge around the run, not as a dark band of outlines over fills. The
+    // edges are opaque, so Cesium draws all of them before anything
+    // see-through, and the fills (see-through at their soft rims) are
+    // drawn after every edge. Dots far enough apart each keep their own
+    // dark ring.
+    if (!parts.dots) {
+      parts.edges = dotLayer.add(new C.BillboardCollection({ blendOption: C.BlendOption.OPAQUE }));
+      parts.dots = dotLayer.add(new C.BillboardCollection(blend));
+    }
     const otherColor = cesiumColor(rocket.profile?.color ?? WHITE);
     const dotId = isFocused ? 'dot' : 'dot-other';
     // True when the next line point must start a new piece: the first
@@ -902,7 +930,7 @@ export function createGlobeView(container, ctx, options) {
         if (position) {
           // The white dot image, tinted to the speed color (its dark
           // outline stays dark).
-          addDot(parts.dots, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
+          addDot(parts, dotId, position, isFocused ? cesiumColor(speedColor(c.speedMps)) : otherColor);
           parts.lastGood = i;
         }
         const linePos = c.line ? pointPosition(rocket, model, { t: c.t, lat: c.line.lat, lon: c.line.lon, altMsl: c.line.altMsl }) : null;
@@ -918,7 +946,7 @@ export function createGlobeView(container, ctx, options) {
         }
       } else if (position) {
         // A weak fix: a hollow grey ring.
-        addDot(parts.dots, 'dot-weak', position, null);
+        addDot(parts, 'dot-weak', position, null);
       }
     }
     // Kept for the next draw, so a break at the end of this batch isn't
@@ -1055,18 +1083,26 @@ export function createGlobeView(container, ctx, options) {
 
   // The board marker at the newest good fix that has a position: the
   // board's blue while the fix is good right now, hollow when there is no
-  // fix now or a newer fix failed the quality gate or has no height. It is
-  // a billboard with no rotation and no scaling, so it always stands
-  // upright and keeps one size on screen.
+  // fix now or a newer fix failed the quality gate or has no height. A
+  // board that has only sent weak fixes so far (too few satellites, as on
+  // a bench indoors) still shows, hollow, at its newest weak fix, so its
+  // label and radio link show too. It is a billboard with no rotation and
+  // no scaling, so it always stands upright and keeps one size on screen.
   function drawRocketIcon(rocket, parts, isFocused) {
-    const position = parts.lastGood >= 0 ? parts.dotAt[parts.lastGood] : null;
+    let at = parts.lastGood;
+    if (at < 0) {
+      for (let i = parts.dotAt.length - 1; i >= 0; i--) {
+        if (parts.dotAt[i]) { at = i; break; }
+      }
+    }
+    const position = at >= 0 ? parts.dotAt[at] : null;
     if (!position) {
       if (parts.icon) parts.icon.show = false;
       if (parts.ring) parts.ring.show = false;
       return;
     }
-    const newest = parts.lastGood === parts.crumbs.length - 1;
-    const live = store.hasFixNow(rocket) && newest;
+    const newest = at === parts.crumbs.length - 1;
+    const live = store.hasFixNow(rocket) && newest && at === parts.lastGood;
     const id = `board${isFocused ? '-focus' : ''}${live ? '' : '-hollow'}`;
     if (!parts.icon) {
       parts.iconHome = isFocused ? focusIcons : rocketIcons;
