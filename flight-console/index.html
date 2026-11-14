@@ -221,82 +221,96 @@
           <!-- Panel 2: graphs and readings. -->
           <section id="fc-panel-data" class="fc-screen fc-data" data-screen="data" aria-label="Graphs and readings">
 
-            <!-- Live: the board's readings, graphs and raw output. -->
+            <!-- Panel 2 has the same layout live and in a replay (see
+                 flight-console-data.css): strips across the top that open
+                 when pressed, then the graphs and, on a wide screen, the
+                 readings in a column on their left. -->
+
+            <!-- Live: a board on USB. js/live/bench-panel.js finds these
+                 parts by their bc-* ids and fills them from the board's
+                 status blocks. -->
             <div class="fc-data-live">
-              <div class="fc-data-side">
-                <section class="bc-box bc-readings" aria-labelledby="bc-readings-title">
-                  <div class="bc-box-head">
-                    <h2 id="bc-readings-title" class="bc-box-title">Latest readings</h2>
+              <div class="fc-dp-strips">
+                <!-- Lines from the board that start with "Error:". -->
+                <section id="bc-errors" class="fc-strip bc-errors" aria-labelledby="bc-errors-title" hidden>
+                  <div class="fc-strip-row">
+                    <h2 id="bc-errors-title" class="bc-errors-title">Errors from the board <span id="bc-errors-count" class="bc-num"></span></h2>
+                    <div class="fc-strip-actions">
+                      <button id="bc-errors-clear" class="fc-bkt fc-bkt--sm" type="button">CLEAR</button>
+                    </div>
+                  </div>
+                  <ol id="bc-errors-list" class="bc-errors-list" aria-live="polite"></ol>
+                </section>
+              </div>
+
+              <div class="fc-dp">
+                <section class="fc-dp-graphs" aria-labelledby="bc-graphs-title">
+                  <div class="fc-dp-head">
+                    <h2 id="bc-graphs-title" class="bc-box-title">Graphs</h2>
+                    <span class="bc-box-sub">Last 10 minutes</span>
+                    <button id="bc-save" class="fc-bkt fc-bkt--sm fc-dp-head-action" type="button" disabled>SAVE AS CSV</button>
+                  </div>
+                  <div class="bc-graph-grid">
+                    <section class="bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
+                      <div class="bc-graph-head">
+                        <h3 id="bc-g-alt" class="bc-graph-title">ALT MSL</h3>
+                        <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="alt"></span></p>
+                      </div>
+                      <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="ALT MSL graph, no data yet."></canvas>
+                    </section>
+                    <section class="bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
+                      <div class="bc-graph-head">
+                        <h3 id="bc-g-sats" class="bc-graph-title">GPS SATS</h3>
+                        <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="sats"></span></p>
+                      </div>
+                      <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS SATS graph, no data yet."></canvas>
+                    </section>
+                    <section class="bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
+                      <div class="bc-graph-head">
+                        <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
+                        <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="quality"></span></p>
+                      </div>
+                      <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
+                    </section>
+                    <section class="bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
+                      <div class="bc-graph-head">
+                        <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
+                        <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="gpsRate"></span></p>
+                      </div>
+                      <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
+                    </section>
+                    <section class="bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
+                      <div class="bc-graph-head">
+                        <h3 id="bc-g-radio" class="bc-graph-title">Radio PKT</h3>
+                        <p class="bc-graph-read">
+                          <span class="bc-graph-when" data-when hidden>Latest</span>
+                          <span class="bc-key"><span class="bc-key-line bc-key-line--sent" aria-hidden="true"></span>Sent <span class="bc-graph-value bc-num" data-value="radioSent"></span></span>
+                          <span class="bc-key"><span class="bc-key-line bc-key-line--err" aria-hidden="true"></span>Errors <span class="bc-graph-value bc-num" data-value="radioErrors"></span></span>
+                        </p>
+                      </div>
+                      <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Radio PKT graph, no data yet."></canvas>
+                    </section>
+                  </div>
+                </section>
+
+                <section class="fc-dp-side" aria-labelledby="bc-readings-title">
+                  <div class="fc-dp-head">
+                    <h2 id="bc-readings-title" class="bc-box-title">Readings</h2>
                     <span id="bc-readings-age" class="bc-box-sub">No readings yet</span>
                   </div>
-                  <!-- Lines from the board that start with "Error:". -->
-                  <section id="bc-errors" class="bc-errors" aria-labelledby="bc-errors-title" hidden>
-                    <div class="bc-errors-head">
-                      <h3 id="bc-errors-title" class="bc-errors-title">Errors from the board <span id="bc-errors-count" class="bc-num"></span></h3>
-                      <button id="bc-errors-clear" class="fc-btn fc-btn--xs" type="button">CLEAR</button>
-                    </div>
-                    <ol id="bc-errors-list" class="bc-errors-list" aria-live="polite"></ol>
-                  </section>
                   <!-- One group per section of the board's block, built by
                        js/live/bench-panel.js. -->
                   <div id="bc-readings-groups" class="bc-readings-groups"></div>
+                  <details id="bc-raw" class="bc-raw">
+                    <summary>Raw serial output</summary>
+                    <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
+                  </details>
                 </section>
-                <details id="bc-raw" class="bc-raw">
-                  <summary>Raw serial output</summary>
-                  <pre id="bc-raw-log" class="bc-raw-log" tabindex="0">Nothing received yet.</pre>
-                </details>
               </div>
-
-              <section class="bc-graphs" aria-labelledby="bc-graphs-title">
-                <div class="bc-graphs-head">
-                  <h2 id="bc-graphs-title" class="bc-box-title">The last 10 minutes</h2>
-                  <button id="bc-save" class="fc-btn fc-btn--xs" type="button" disabled>SAVE AS CSV</button>
-                </div>
-                <div class="bc-graph-grid">
-                  <section class="bc-graph" data-chart="alt" aria-labelledby="bc-g-alt">
-                    <div class="bc-graph-head">
-                      <h3 id="bc-g-alt" class="bc-graph-title">Altitude</h3>
-                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="alt"></span></p>
-                    </div>
-                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Altitude graph, no data yet."></canvas>
-                  </section>
-                  <section class="bc-graph" data-chart="sats" aria-labelledby="bc-g-sats">
-                    <div class="bc-graph-head">
-                      <h3 id="bc-g-sats" class="bc-graph-title">Connected satellites</h3>
-                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="sats"></span></p>
-                    </div>
-                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Connected satellites graph, no data yet."></canvas>
-                  </section>
-                  <section class="bc-graph" data-chart="quality" aria-labelledby="bc-g-quality">
-                    <div class="bc-graph-head">
-                      <h3 id="bc-g-quality" class="bc-graph-title">Lock quality</h3>
-                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="quality"></span></p>
-                    </div>
-                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Lock quality graph, no data yet."></canvas>
-                  </section>
-                  <section class="bc-graph" data-chart="gpsRate" aria-labelledby="bc-g-rate">
-                    <div class="bc-graph-head">
-                      <h3 id="bc-g-rate" class="bc-graph-title">GPS data rate</h3>
-                      <p class="bc-graph-read"><span class="bc-graph-when" data-when hidden>Latest</span><span class="bc-graph-value bc-num" data-value="gpsRate"></span></p>
-                    </div>
-                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="GPS data rate graph, no data yet."></canvas>
-                  </section>
-                  <section class="bc-graph bc-graph--wide" data-chart="radio" aria-labelledby="bc-g-radio">
-                    <div class="bc-graph-head">
-                      <h3 id="bc-g-radio" class="bc-graph-title">Radio packets</h3>
-                      <p class="bc-graph-read">
-                        <span class="bc-graph-when" data-when hidden>Latest</span>
-                        <span class="bc-key"><span class="bc-key-line bc-key-line--sent" aria-hidden="true"></span>Sent <span class="bc-graph-value bc-num" data-value="radioSent"></span></span>
-                        <span class="bc-key"><span class="bc-key-line bc-key-line--err" aria-hidden="true"></span>Errors <span class="bc-graph-value bc-num" data-value="radioErrors"></span></span>
-                      </p>
-                    </div>
-                    <canvas class="bc-graph-canvas" tabindex="0" role="img" aria-label="Radio packets graph, no data yet."></canvas>
-                  </section>
-                </div>
-              </section>
             </div>
 
-            <!-- Replay: js/views/data-panel.js fills this in from the flight's data. -->
+            <!-- A saved flight: js/views/data-panel.js fills this in from
+                 the flight's data, in the same layout. -->
             <div id="fc-data-replay" class="fc-data-replay"></div>
           </section>
         </div>

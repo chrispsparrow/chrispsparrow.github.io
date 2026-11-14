@@ -1,25 +1,38 @@
 // flight-info.js
-// "About this flight": where the data on this page came from. It shows the
-// flight's title, whether it is simulated or real, its description, the
-// date and launch site, the board each rocket carried, and each data file
-// with how many readings it held and how many bad lines were skipped.
-// Anything the parser had to adjust while reading a file (a board restart,
-// say) is listed too, so the page always says where its data came from.
-// A COPY LINK button copies the replay's address, to share it. If the
-// browser blocks copying, the link shows in a field, selected and ready to
-// copy by hand.
-// Nothing else here changes while the flight plays, so it draws once.
-// It sits in the console's second panel while a replay is open.
-// Used by: main.js. Reads ctx.flight, never other views.
+// "About this flight": where the data on this page came from, as a
+// compact strip in panel 2, under the mission timeline.
+//
+// Closed, it is one line that still says where the data came from:
+// simulated or real, and the data file (or how many files). Open, it
+// shows the flight's title and description, the date and launch site, the
+// board each rocket carried, each data file with how many readings it
+// held and how many bad lines were skipped, and anything the parser had
+// to adjust while reading a file (a board restart, say). So the page
+// always says where its data came from.
+//
+// [ COPY LINK ] sits on the closed line and copies the replay's address,
+// to share it. If the browser blocks copying, the link shows in a field,
+// selected and ready to copy by hand.
+//
+// Nothing here changes while the flight plays, so it draws once.
+//
+//   createFlightInfo(root, ctx) -> { destroy() }
+//     ctx.flight   { entry, files, notes } for the saved flight
+//     ctx.link     the replay's address, for COPY LINK
+//
+// Used by: js/views/data-panel.js. Reads ctx.flight, never other views.
 
 import { h, setText, setChildren, formatDate, rocketDot } from './dom.js';
-import { uiIcon, iconNode } from './icons.js?v=2';
 import { formatNumber } from '../geo.js';
+
+let nextId = 0;
 
 export function createFlightInfo(root, ctx) {
   const { flight, store, config } = ctx;
   const entry = flight.entry;
   const real = entry.kind === 'real';
+  const id = `fc-info-${++nextId}`;
+  const files = flight.files ?? [];
 
   // One row of the details list. Rows with nothing to say are left out.
   const rows = [];
@@ -43,7 +56,6 @@ export function createFlightInfo(root, ctx) {
   }
 
   // Each data file with its reading count and bad lines.
-  const files = flight.files ?? [];
   if (files.length) {
     row(files.length === 1 ? 'Data file' : 'Data files', files.map((f) => {
       // Each part stays on one line, so a wrap only falls between parts.
@@ -58,25 +70,44 @@ export function createFlightInfo(root, ctx) {
   const notes = flight.notes ?? [];
   if (notes.length) row('Notes', notes.map((note) => h('span', { class: 'fc-info-line' }, note)));
 
-  // Copy link. The button keeps both labels stacked in the same spot and
-  // shows one, so it never changes width when LINK COPIED appears.
-  const copyButton = h('button', { type: 'button', class: 'fc-btn fc-btn--xs fc-copy', onclick: copyLink },
-    h('span', { class: 'fc-copy-face fc-copy-face--idle' }, iconNode(uiIcon('link', 15)), 'COPY LINK'),
-    h('span', { class: 'fc-copy-face fc-copy-face--done' }, iconNode(uiIcon('check', 15)), 'LINK COPIED'));
+  // The closed line: simulated or real, and the file.
+  const fileText = files.length === 1 ? files[0].file : files.length ? `${files.length} data files` : '';
+
+  // COPY LINK keeps both labels stacked in the same spot and shows one, so
+  // it never changes width when LINK COPIED appears.
+  const copyButton = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm fc-copy', onclick: copyLink },
+    h('span', { class: 'fc-copy-face fc-copy-face--idle' }, 'COPY LINK'),
+    h('span', { class: 'fc-copy-face fc-copy-face--done', 'aria-hidden': 'true' }, 'LINK COPIED'));
   // Always in the page (even when empty) so screen readers announce it.
   const copyStatus = h('span', { class: 'sr-only', role: 'status' });
   const copyFallback = h('div', { class: 'fc-copy-fallback', hidden: true });
 
-  setChildren(root, h('section', { class: 'fc-panel fc-info', 'aria-labelledby': 'fc-info-title' },
-    h('div', { class: 'fc-panel-head' },
-      h('h2', { class: 'fc-panel-title', id: 'fc-info-title' }, 'About this flight'),
-      h('div', { class: 'fc-info-actions' },
-        h('span', { class: `fc-pill ${real ? 'fc-pill--real' : 'fc-pill--sim'}` }, real ? 'Real flight' : 'Simulated flight'),
-        copyButton, copyStatus)),
-    copyFallback,
+  const toggle = h('button', {
+    type: 'button', class: 'fc-strip-toggle', 'aria-expanded': 'false', 'aria-controls': `${id}-body`,
+    onclick: () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'),
+  },
+  h('span', { class: 'fc-strip-caret', 'aria-hidden': 'true' }),
+  h('span', { class: 'fc-strip-name' }, 'About this flight'),
+  h('span', { class: 'fc-strip-latest' },
+    h('span', { class: `fc-info-kind${real ? ' fc-info-kind--real' : ''}` }, real ? 'Real flight' : 'Simulated flight'),
+    fileText ? h('span', { class: 'fc-strip-msg fc-info-file' }, fileText) : null));
+
+  const body = h('div', { class: 'fc-strip-body fc-info-body', id: `${id}-body`, hidden: true },
     h('h3', { class: 'fc-info-title' }, entry.title),
     entry.description ? h('p', { class: 'fc-info-desc' }, entry.description) : null,
-    rows.length ? h('dl', { class: 'fc-info-list' }, rows) : null));
+    rows.length ? h('dl', { class: 'fc-info-list' }, rows) : null);
+
+  const strip = h('section', { class: 'fc-strip fc-info', 'aria-label': 'About this flight' },
+    h('div', { class: 'fc-strip-row' }, toggle, h('div', { class: 'fc-strip-actions' }, copyButton, copyStatus)),
+    copyFallback,
+    body);
+  setChildren(root, strip);
+
+  function setOpen(open) {
+    toggle.setAttribute('aria-expanded', String(open));
+    body.hidden = !open;
+    strip.classList.toggle('is-open', open);
+  }
 
   let copyTimer = null;
   async function copyLink() {
@@ -103,7 +134,7 @@ export function createFlightInfo(root, ctx) {
       copyButton.classList.remove('fc-copy--done');
       setText(copyStatus, '');
       const field = h('input', {
-        id: 'fc-copy-field',
+        id: `${id}-field`,
         class: 'fc-copy-field',
         type: 'text',
         readOnly: true,
@@ -111,7 +142,7 @@ export function createFlightInfo(root, ctx) {
         onfocus: (e) => e.target.select(),
       });
       setChildren(copyFallback,
-        h('label', { class: 'fc-copy-field-label', for: 'fc-copy-field' }, 'Copying was blocked, so here is the link to copy.'),
+        h('label', { class: 'fc-copy-field-label', for: `${id}-field` }, 'Copying was blocked, so here is the link to copy.'),
         field);
       copyFallback.hidden = false;
       field.focus({ preventScroll: true });
