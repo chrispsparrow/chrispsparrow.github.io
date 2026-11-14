@@ -46,27 +46,27 @@
 // file that imports a module uses the same query, or the browser would
 // load it twice.
 import * as config from './config.js';
-import { loadManifest, loadFlight } from './library.js';
+import { loadManifest, loadFlight } from './library.js?v=2';
 import { createStore } from './store.js?v=2';
 import { createPlayer } from './player.js';
 import { createFleet } from './fleet.js';
 import { h, setChildren } from './views/dom.js';
-import { createLanding } from './views/launcher.js?v=3';
+import { createLanding } from './views/launcher.js?v=5';
 import { createSavedMenu } from './views/saved-menu.js';
 import { createPanels } from './views/panels.js';
 import { createMissionHeader } from './views/mission-header.js?v=3';
 import { createRocketBar } from './views/rocket-bar.js';
 import { createPhaseStrip } from './views/phase-strip.js';
-import { createMapView } from './views/map-view.js?v=3';
-import { createStatsPanel } from './views/stats-panel.js?v=3';
-import { createTimeline } from './views/timeline.js?v=2';
+import { createMapView } from './views/map-view.js?v=6';
+import { createStatsPanel } from './views/stats-panel.js?v=5';
+import { createTimeline } from './views/timeline.js?v=3';
 import { createEventLog } from './views/event-log.js?v=2';
-import { createFlightInfo } from './views/flight-info.js?v=2';
-import { createDebugPanel } from './views/debug-panel.js';
-import { BENCH_WORDS } from './views/hud-text.js?v=2';
+import { createFlightInfo } from './views/flight-info.js?v=3';
+import { createDebugPanel } from './views/debug-panel.js?v=2';
+import { BENCH_WORDS } from './views/hud-text.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
 import { createSourceDetector } from './live/sources.js';
-import { createBenchPanel } from './live/bench-panel.js?v=2';
+import { createBenchPanel } from './live/bench-panel.js?v=3';
 import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
@@ -353,8 +353,7 @@ async function showTrack(token) {
   openLiveViews();
   // The graphs were hidden, so they draw again at their new size.
   live?.panel?.render();
-  // An address ending in #fc-saved (the overview's "Saved flights" link)
-  // opens the SAVED FLIGHTS dropdown.
+  // An address ending in #fc-saved opens the SAVED FLIGHTS dropdown.
   const toSaved = window.location.hash === '#fc-saved';
   if (!toSaved) focusHeading($('fc-console-title'));
   else moveFocus = false;

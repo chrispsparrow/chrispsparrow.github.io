@@ -30,7 +30,7 @@
 //
 // No DOM here, so Node can run it too.
 
-import { readLock, readPosition } from '../bench/parse.js?v=3';
+import { readLock, readPosition } from '../bench/parse.js?v=4';
 import { GROUPS, channelsInGroup } from '../schema.js';
 import { KNOWN_ROCKETS } from '../fleet.js';
 import { DETECTOR_DEFAULTS } from '../config.js';

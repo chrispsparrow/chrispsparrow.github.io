@@ -2,32 +2,30 @@
 // The 3D view's frame, and the 2D map it falls back to.
 //
 // The console's first panel is the 3D view (globe-view.js), in every mode.
-// This file starts it, shows "Loading the 3D view..." until its first
+// This file starts it, shows "Loading the three-dimensional (3D) view..." until its first
 // picture is in, and owns its small controls in the bottom left corner:
 // the camera buttons (FOLLOW, WHOLE FLIGHT, RESET VIEW) and the KEY, which
-// opens a short legend for the lines, icons and label codes. If the 3D
+// opens a short legend for the markers and lines. If the 3D
 // view can't start (no WebGL, no internet, a lost context), it says why and
 // offers the 2D map below instead.
 //
-// The 2D map: every rocket's track (the focused rocket's in orange, the
-// others thinner in their own colors), a rocket icon for each rocket, the
-// launch rail on the pad, the ground station tower in dim off-white, and a
-// dashed line from the ground station to the focused rocket labeled with
-// distance and bearing. Only good GPS positions are ever drawn. Across a
-// fix gap, or a stretch with no position at all, the track is dashed.
-// Lines and icons get a thin dark outline so they stand out on bright
-// photos.
+// The 2D map: the same markers as the 3D view (markers.js). Each rocket
+// is a board marker with orange pulse rings while its GPS fix is good,
+// and a thin trail that fades out behind it like a comet's tail (the
+// focused rocket's in orange, the others thinner in their own colors).
+// The start point (the launch point in a replay) is a small off-white dot,
+// and the ground station a small off-white dish. Only good GPS positions
+// are ever drawn. A fix gap, or a stretch with no position at all, is left
+// as a break in the trail. There are no text labels on the map: the
+// readings panel says what they used to say.
 //
-// A store with no ground station (a board on the bench) has no tower, no
-// line to it and no distance: the map leaves all of them out, and the KEY
-// drops their rows.
+// A store with no ground station (a board on the bench) has no dish and
+// no line to it: the map leaves both out, and the KEY drops their rows.
 //
-// Each icon has an off-white HUD label next to it. The rocket's says its name,
-// height above ground and vertical speed. With no GPS fix (or no recent
-// packets at all), the rocket turns grey and hollow at its last good
-// position, its sonar rings stop, and the label says why and for how long.
-// The distance label then says "Last known" and the line dims. The rocket icon always points straight up: no board sends
-// orientation data, so it never turns.
+// With no GPS fix (or no recent packets at all), the board marker turns
+// hollow at its last good position and its rings stop, and the line to
+// the ground station dims. The marker always stands upright: no board
+// sends orientation data, so it never turns.
 //
 // Two map backgrounds: Esri satellite imagery (the default, with Esri's
 // labels on top unless "Labels" is unchecked) and CARTO's dark map. The
@@ -39,8 +37,8 @@
 // The console's overlays (the replay's clock and phase strip, the readings
 // panel and the altitude timeline, from other views) float over the frame,
 // and so do this frame's own controls. Anything in the stage marked
-// data-fc-cover counts as covered, and the first view, Follow and the
-// labels all keep clear of covered areas.
+// data-fc-cover counts as covered, and the first view and Follow keep
+// the markers clear of covered areas.
 //
 // If Leaflet didn't load, or the map tiles keep failing, the map is
 // replaced by a "No map" panel with each rocket's position, distance and
@@ -59,52 +57,38 @@
 // Used by: main.js. Reads the store, and the 3D view it starts (for its
 // notes and camera mode). Never other views.
 
-import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';
+import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion, markerClass } from './dom.js';
 import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js';
-import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR, iconNode } from './icons.js';
+import { iconNode } from './icons.js?v=2';
+import {
+  boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
+  TRAIL_WINDOW_S, TRAIL_WIDTH_PX, TRAIL_OTHER_WIDTH_PX,
+} from './markers.js';
 import { checkEsriKey } from './esri.js';
-import { rocketHudLine, FLIGHT_WORDS } from './hud-text.js?v=2';
+import { FLIGHT_WORDS } from './hud-text.js?v=3';
 import { loadCesium } from './cesium-loader.js';
-
-// The fix-gap line pattern: dash and space lengths in pixels.
-const GAP_DASH = '4 8';
-// The ground station line pattern.
-const GS_DASH = '7 6';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
 
-// Space (px) between an icon and its HUD label.
-const LABEL_GAP_PX = 8;
-// When neither side has room, a rocket's label goes under (or over) its
-// icon, this far (px) from the icon's edge.
-const ROCKET_LABEL_BELOW_PX = 4;
-// Launch pads closer than this on screen (px) share one "LAUNCH POINT"
-// label. Two labels that close would sit on top of each other anyway.
-const PAD_LABEL_MERGE_PX = 40;
-// The ground station's label, when neither side has room: centered, this
-// far (px) under the tower's base point.
-const GS_LABEL_BELOW_PX = 6;
-// When neither side has room, the launch point's label goes this far (px)
-// under the spot, clear of the pad ring and a rocket sitting there.
-const PAD_LABEL_BELOW_PX = 18;
-// Choosing a label's side: each px² of label off the map or under a
-// covered area counts this many times more than a px² on top of another
-// label or icon, so a label only leaves the map, or slides under a panel,
-// when every other place does too.
-const HIDDEN_LABEL_COST = 10;
-// Room (px) the first view keeps between a label (or icon) and the map's
-// edge or a covered area.
+// The trail fades in this many steps of opacity (one line each), from
+// nothing at its far end to TRAIL_ALPHA at the marker, along this power of
+// the share of the window left, as in the 3D view.
+const TRAIL_STEPS = 10;
+const TRAIL_ALPHA = 0.95;
+const TRAIL_FADE_POWER = 1.6;
+// The start point's dot sits with its middle on the spot.
+const START_ANCHOR = [START_SIZE / 2, START_SIZE / 2];
+// Room (px) the first view keeps between a marker and the map's edge or a
+// covered area, when FIT_PADDING_PX doesn't fit.
 const FIT_ROOM_PX = 12;
-// The first view zooms out at most to here to make room for the labels.
+// The first view zooms out at most to here.
 const FIT_MIN_ZOOM = 3;
-// Follow also pans once the focused rocket's label comes this close (px)
-// to the map's edge or a covered area, before it slides under a panel.
-const FOLLOW_LABEL_GAP_PX = 8;
-// The line to the ground station while the focused rocket has no fix
-// right now: dimmer, since it ends at an old position.
-const GS_LINE_OPACITY = 0.95;
-const GS_LINE_STALE_OPACITY = 0.4;
+// When no part of the map leaves FOLLOW_EDGE_PX around the rocket, Follow
+// settles for this much room (px).
+const FOLLOW_TIGHT_PX = 8;
+// Each trail sample in a KEY gets its own gradient id.
+let trailKeyCount = 0;
 // Leaflet stacks markers by screen height plus this offset. These keep the
 // focused rocket on top, then the other rockets, the ground station and
 // the pads.
@@ -160,23 +144,27 @@ export function createMapView(root, ctx) {
     followBtn, words.whole ? wholeBtn : null, resetBtn);
 
   // The legend, behind a small KEY toggle at the end of the controls.
-  // Closed at first. It says "(demo position)" while the ground station is
-  // the config placeholder. The dashed line covers both kinds of gap: no
-  // GPS fix, and no packets at all for a while.
+  // Closed at first. It shows the same markers and lines as the map and
+  // the 3D view, and says "(demo position)" while the ground station is
+  // the config placeholder.
   const legendGsText = h('span', {}, 'Ground station');
-  // The two ground station rows hide while there is no ground station.
+  // The ground station row hides while there is no ground station.
   const legendGsRows = [
-    legendRow(iconNode(towerSvg()), legendGsText),
-    legendRow(lineKey(config.GROUND_STATION_COLOR, 2, '5 3'), 'Distance to ground station'),
+    legendRow(iconNode(dishSvg()), legendGsText),
   ];
+  // The 3D view marks apogee, the parachutes and landing in the sky with
+  // the altitude timeline's symbol. The 2D map doesn't, so this row only
+  // shows in 3D (see applyView). A board on a desk has none.
+  const legendEventRow = words.event
+    ? legendRow(h('span', { class: markerClass('detected') }), words.event)
+    : null;
   const legend = h('div', { class: 'fc-map-legend' },
-    legendRow(lineKey(config.TRACK_COLOR, 3, null), words.track),
-    legendRow(lineKey(config.TRACK_COLOR, 2, '3 4'), 'No position fix'),
-    legendRow(iconNode(padSvg()), words.pad),
+    legendRow(iconNode(boardSvg(BOARD_FOCUSED)), words.marker),
+    legendRow(iconNode(boardSvg(BOARD_FOCUSED, { hollow: true })), 'No position fix right now'),
+    legendRow(trailKey(), `${words.track}, last ${TRAIL_WINDOW_S} seconds`),
+    legendRow(iconNode(startSvg()), words.pad),
     ...legendGsRows,
-    // The field codes on the labels, spelled out.
-    legendRow(h('span', { class: 'fc-legend-code' }, 'AGL'), 'Height above ground level'),
-    legendRow(h('span', { class: 'fc-legend-code' }, 'VS'), 'Vertical speed, ▲ up or ▼ down'));
+    legendEventRow);
   const keyBox = h('details', { class: 'fc-map-key', hidden: true },
     h('summary', { class: 'fc-btn fc-btn--sm fc-map-key-toggle' }, 'KEY'),
     legend);
@@ -227,13 +215,18 @@ export function createMapView(root, ctx) {
     : null;
   cornerObserver?.observe(topLeft);
 
-  // A short sample of a map line for the legend, with the same dark outline.
-  function lineKey(color, weight, dash) {
-    const line = (stroke, width) => svg('line', {
-      x1: 2, y1: 5, x2: 26, y2: 5, stroke, 'stroke-width': width, 'stroke-dasharray': dash, 'stroke-opacity': stroke === color ? 1 : config.HALO_OPACITY,
-    });
+  // A short sample of the trail for the legend: thin orange, fading out
+  // toward its far end (the left).
+  function trailKey() {
+    const id = `fc-trail-fade-${trailKeyCount += 1}`;
     return svg('svg', { width: 28, height: 10, viewBox: '0 0 28 10', 'aria-hidden': 'true', focusable: 'false' },
-      line(config.HALO_COLOR, weight + 2 * config.HALO_WIDTH_PX), line(color, weight));
+      // (In the line's own units: a flat line has no height, and a gradient
+      // sized to that draws nothing.)
+      svg('defs', {}, svg('linearGradient', { id, gradientUnits: 'userSpaceOnUse', x1: 2, x2: 26, y1: 5, y2: 5 },
+        svg('stop', { offset: 0, 'stop-color': config.TRACK_COLOR, 'stop-opacity': 0 }),
+        svg('stop', { offset: 0.6, 'stop-color': config.TRACK_COLOR, 'stop-opacity': 0.42 }),
+        svg('stop', { offset: 1, 'stop-color': config.TRACK_COLOR, 'stop-opacity': TRAIL_ALPHA }))),
+      svg('line', { x1: 2, y1: 5, x2: 26, y2: 5, stroke: `url(#${id})`, 'stroke-width': TRAIL_WIDTH_PX }));
   }
 
   function legendRow(key, text) {
@@ -260,10 +253,6 @@ export function createMapView(root, ctx) {
   const padMarkers = new Map();   // rocketId -> { marker, parts }
   let gsMarker = null;
   let gsParts = null;
-  let gsLine = null;
-  let gsLineHalo = null;
-  // What the distance label shows now, so it is only changed when needed.
-  let gsTip = { text: null, spot: null, stale: null };
   let cornerBR = null;            // Leaflet's bottom right corner (zoom and credits)
   let cornerStyle = '';
 
@@ -362,8 +351,8 @@ export function createMapView(root, ctx) {
       creditBox.addEventListener('click', (e) => {
         if (!e.target.closest('a')) creditBox.classList.toggle('fc-credit-open');
       });
-      // After any pan or zoom (Follow's own pans included), place the labels
-      // again for the new view, even if playback is paused.
+      // After any pan or zoom (Follow's own pans included), Follow looks
+      // again at the new view, even if playback is paused.
       map.on('moveend', () => scheduler.schedule());
       // Dragging the map means you want to look around: stop following.
       map.on('dragstart', () => {
@@ -391,8 +380,8 @@ export function createMapView(root, ctx) {
           scheduler.schedule();
         });
         resizeObserver.observe(canvas);
-        // The readings panel grows when "More readings" opens, so the
-        // labels and Follow look again whenever a covering panel changes size.
+        // The readings panel grows when "More readings" opens, so Follow
+        // looks again whenever a covering panel changes size.
         coverObserver = new ResizeObserver(() => scheduler.schedule());
         for (const el of coverElements()) coverObserver.observe(el);
       }
@@ -439,8 +428,6 @@ export function createMapView(root, ctx) {
     padMarkers.clear();
     gsMarker = null;
     gsParts = null;
-    gsLine = null;
-    gsLineHalo = null;
   }
 
   // ------------------------------------------------------------------
@@ -678,6 +665,7 @@ export function createMapView(root, ctx) {
     followLabel.hidden = in3d || mode !== 'leaflet';
     cameraPick.hidden = !(in3d && three === 'ready');
     keyBox.hidden = in3d ? three !== 'ready' : mode !== 'leaflet';
+    if (legendEventRow) legendEventRow.hidden = !in3d;
     updateLayerControls();
     updateCameraButtons();
   }
@@ -760,7 +748,7 @@ export function createMapView(root, ctx) {
     const gen = ++threeGen;
     three = 'loading';
     showThreePanel('loading');
-    Promise.all([loadCesium(), import('./globe-view.js?v=3')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=5')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -833,17 +821,17 @@ export function createMapView(root, ctx) {
   // 3D view.
   function showThreePanel(kind) {
     if (kind === 'loading') {
-      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the 3D view...'));
-      setText(globeSay, 'Loading the 3D view...');
+      setChildren(globePanel, h('p', { class: 'fc-globe-wait' }, 'Loading the three-dimensional (3D) view...'));
+      setText(globeSay, 'Loading the three-dimensional (3D) view...');
       return;
     }
     const back = h('button', { type: 'button', class: 'fc-btn', onclick: () => selectMap() }, 'BACK TO THE MAP');
     const problem = THREE_PROBLEMS[kind] ?? THREE_PROBLEMS.load;
     setChildren(globePanel, h('div', { class: 'fc-globe-card fc-globe-card--warn' },
-      h('h3', { class: 'fc-nomap-title' }, 'No 3D view'),
+      h('h3', { class: 'fc-nomap-title' }, 'No three-dimensional (3D) view'),
       h('p', { class: 'fc-nomap-note' }, problem),
       h('div', { class: 'fc-globe-actions' }, back)));
-    setText(globeSay, `No 3D view. ${problem}`);
+    setText(globeSay, `No three-dimensional (3D) view. ${problem}`);
   }
 
   // ------------------------------------------------------------------
@@ -872,7 +860,7 @@ export function createMapView(root, ctx) {
   }
 
   // The parts of elements that overlap boxEl, in boxEl's own pixels. The 3D
-  // view uses the same measuring for its labels.
+  // view uses the same measuring for WHOLE FLIGHT.
   function rectsOver(boxEl, elements, panels) {
     const box = boxEl.getBoundingClientRect();
     const out = [];
@@ -982,48 +970,75 @@ export function createMapView(root, ctx) {
     };
   }
 
-  // The look of a rocket's track: orange and thicker for the focused rocket,
-  // its own color and thinner for the others. Gap lines stay thin.
-  function trackStyle(rocket, isFocused, dashed) {
-    const weight = dashed || !isFocused ? config.TRACK_WEIGHT_PX : config.TRACK_WEIGHT_FOCUSED_PX;
-    return {
-      color: isFocused ? config.TRACK_COLOR : rocket.profile.color,
-      weight,
-      opacity: isFocused ? 0.95 : 0.8,
-    };
-  }
-
   function layersFor(rocket) {
     let layers = rocketLayers.get(rocket.id);
     if (!layers) {
-      layers = { drawn: 0, solid: null, solidHalo: null, lines: [], halos: [], marker: null, parts: null, focused: null };
+      layers = { tail: [], tailKey: '', marker: null, parts: null };
       rocketLayers.set(rocket.id, layers);
     }
     return layers;
   }
 
-  // Adds a track line and its outline. lines[i] and halos[i] go together.
+  // True when a draw added a trail line, which lands on top of the others.
   let linesAdded = false;
-  function addLine(layers, line, halo) {
-    halo.addTo(map);
-    line.addTo(map);
-    layers.lines.push(line);
-    layers.halos.push(halo);
-    linesAdded = true;
+
+  // The trail: the good positions from the last TRAIL_WINDOW_S seconds up
+  // to the marker, as a thin solid line that fades out toward its far end
+  // (TRAIL_STEPS lines, each a little stronger than the one before). It
+  // breaks wherever the positions do: the GPS had no fix (gapBefore), or no
+  // position came for longer than LINK_STALE_S. Nobody measured the path
+  // across a break, so nothing is drawn there. Returns true if it drew.
+  function drawTrail(rocket, layers, isFocused) {
+    const track = rocket.track;
+    const end = track.length - 1;
+    const key = `${end}|${isFocused}|${track[end]?.t}`;
+    if (key === layers.tailKey) return false;
+    layers.tailKey = key;
+    for (const line of layers.tail) line.remove();
+    layers.tail = [];
+    if (end < 1) return false;
+    const span = TRAIL_WINDOW_S;
+    const tEnd = track[end].t;
+    const look = {
+      color: isFocused ? config.TRACK_COLOR : rocket.profile.color,
+      weight: isFocused ? TRAIL_WIDTH_PX : TRAIL_OTHER_WIDTH_PX,
+      lineCap: 'butt',
+      interactive: false,
+    };
+    // Back from the marker, one segment at a time. Neighboring segments in
+    // the same step of opacity share one line.
+    let group = null;
+    const groups = [];
+    for (let i = end; i >= 1; i--) {
+      const a = track[i - 1];
+      const b = track[i];
+      if (tEnd - b.t >= span) break;
+      if (b.gapBefore || b.t - a.t > config.LINK_STALE_S) {
+        group = null;
+        continue;
+      }
+      const share = Math.min(1, Math.max(0, 1 - (tEnd - (a.t + b.t) / 2) / span));
+      const step = Math.min(TRAIL_STEPS - 1, Math.floor(share * TRAIL_STEPS));
+      if (group && group.step === step) group.points.push([a.lat, a.lon]);
+      else {
+        group = { step, points: [[b.lat, b.lon], [a.lat, a.lon]] };
+        groups.push(group);
+      }
+    }
+    for (const { step, points } of groups) {
+      const opacity = TRAIL_ALPHA * ((step + 0.5) / TRAIL_STEPS) ** TRAIL_FADE_POWER;
+      layers.tail.push(L.polyline(points, { ...look, opacity }).addTo(map));
+    }
+    return groups.length > 0;
   }
 
-  // Removes every track line. Markers stay, so a seek doesn't restart the
-  // sonar rings.
+  // Removes every trail. Markers stay, so a seek doesn't restart the
+  // pulse rings.
   function clearTracks() {
     for (const layers of rocketLayers.values()) {
-      for (const line of layers.lines) line.remove();
-      for (const halo of layers.halos) halo.remove();
-      layers.lines = [];
-      layers.halos = [];
-      layers.solid = null;
-      layers.solidHalo = null;
-      layers.drawn = 0;
-      layers.focused = null;
+      for (const line of layers.tail) line.remove();
+      layers.tail = [];
+      layers.tailKey = '';
     }
   }
 
@@ -1034,10 +1049,6 @@ export function createMapView(root, ctx) {
     rocketLayers.clear();
     for (const pad of padMarkers.values()) pad.marker.remove();
     padMarkers.clear();
-    gsLine?.remove();
-    gsLineHalo?.remove();
-    gsLine = null;
-    gsLineHalo = null;
   }
 
   // The KEY says "(demo position)" while the ground station is the config
@@ -1060,9 +1071,9 @@ export function createMapView(root, ctx) {
   }
 
   // ------------------------------------------------------------------
-  // Drawing: icons and HUD labels. Each icon is built once and then only
-  // its classes and text change, so the sonar rings keep running. Screen
-  // readers skip them: the readings panel says the same things in words.
+  // Drawing: markers. Each marker is built once and then only its classes
+  // change, so the pulse rings keep running. Screen readers skip them: the
+  // readings panel says the same things in words.
   // ------------------------------------------------------------------
   function markerOptions(parts, size, anchor, zIndexOffset) {
     return {
@@ -1073,46 +1084,29 @@ export function createMapView(root, ctx) {
     };
   }
 
-  function buildRocketIcon(rocket) {
+  function buildRocketIcon() {
     const rings = h('span', { class: 'fc-rkt-rings' }, h('i'), h('i'), h('i'));
     const iconBox = h('span', { class: 'fc-rkt-icon' });
-    const name = h('span', { class: 'fc-hud-name' }, rocket.profile.callsign);
-    // The data line: a dim field code before each value, like "AGL 264 M
-    // VS ▼6.0 M/S" on a military map display.
-    const altKey = h('span', { class: 'fc-hud-key' });
-    const alt = h('span', {});
-    const speedKey = h('span', { class: 'fc-hud-key' });
-    const speed = h('span', {});
-    const speedGroup = h('span', { class: 'fc-hud-speed' }, speedKey, speed);
-    const line2 = h('span', { class: 'fc-hud-line2' }, h('span', { class: 'fc-hud-alt' }, altKey, alt), speedGroup);
-    const label = h('span', { class: 'fc-hud fc-rkt-label' }, name, line2);
-    const el = h('div', { class: 'fc-rkt', 'aria-hidden': 'true' }, rings, iconBox, label);
-    return { el, iconBox, name, altKey, alt, speedKey, speed, speedGroup, label, iconPx: null, iconW: 0, iconH: 0, side: 'right' };
+    const el = h('div', { class: 'fc-rkt', 'aria-hidden': 'true' }, rings, iconBox);
+    return { el, iconBox, size: null, iconW: 0, iconH: 0 };
   }
 
-  // Sets the icon's size (the focused rocket is bigger).
-  function sizeRocketIcon(parts, px) {
-    if (parts.iconPx === px) return;
-    parts.iconPx = px;
-    const [w, hgt] = rocketBox(px);
-    parts.iconW = w;
-    parts.iconH = hgt;
-    parts.iconBox.replaceChildren(iconNode(rocketSvg(px)));
-    parts.el.style.setProperty('--w', `${w}px`);
-    parts.el.style.setProperty('--h', `${hgt}px`);
+  // Sets the board marker's size (the focused rocket's is bigger).
+  function sizeRocketIcon(parts, size) {
+    if (parts.size === size) return;
+    parts.size = size;
+    [parts.iconW, parts.iconH] = size;
+    parts.iconBox.replaceChildren(iconNode(boardSvg(size)));
+    parts.el.style.setProperty('--w', `${size[0]}px`);
+    parts.el.style.setProperty('--h', `${size[1]}px`);
   }
 
   function buildPadIcon() {
-    const label = h('span', { class: 'fc-hud fc-pad-label' }, h('span', { class: 'fc-hud-name' }, words.padTag));
-    const el = h('div', { class: 'fc-pad', 'aria-hidden': 'true' }, iconNode(padSvg()), label);
-    return { el, label, side: 'left', blocked: false };
+    return { el: h('div', { class: 'fc-pad', 'aria-hidden': 'true' }, iconNode(startSvg())) };
   }
 
   function buildGsIcon() {
-    const note = h('span', { class: 'fc-hud-line2' }, 'DEMO POSITION');
-    const label = h('span', { class: 'fc-hud fc-gs-label' }, h('span', { class: 'fc-hud-name' }, 'GND STATION'), note);
-    const el = h('div', { class: 'fc-gs', 'aria-hidden': 'true' }, iconNode(towerSvg()), label);
-    return { el, label, note, side: 'right' };
+    return { el: h('div', { class: 'fc-gs', 'aria-hidden': 'true' }, iconNode(dishSvg())) };
   }
 
   // ------------------------------------------------------------------
@@ -1132,13 +1126,10 @@ export function createMapView(root, ctx) {
     } else {
       if (!gsMarker) {
         gsParts = buildGsIcon();
-        gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, TOWER_SIZE, TOWER_ANCHOR, Z_OFFSET.gs)).addTo(map);
+        gsMarker = L.marker([gs.lat, gs.lon], markerOptions(gsParts, DISH_SIZE, DISH_ANCHOR, Z_OFFSET.gs)).addTo(map);
       } else {
         gsMarker.setLatLng([gs.lat, gs.lon]);
       }
-      // An honesty note: the tower sits at a made-up spot until the real
-      // ground station sends its own position.
-      gsParts.note.hidden = gs.source !== 'config';
     }
 
     for (const rocket of rockets) {
@@ -1151,7 +1142,7 @@ export function createMapView(root, ctx) {
         const ll = [rocket.padPosition.lat, rocket.padPosition.lon];
         if (!pad) {
           const parts = buildPadIcon();
-          padMarkers.set(rocket.id, { parts, marker: L.marker(ll, markerOptions(parts, PAD_SIZE, PAD_ANCHOR, Z_OFFSET.pad)).addTo(map) });
+          padMarkers.set(rocket.id, { parts, marker: L.marker(ll, markerOptions(parts, [START_SIZE, START_SIZE], START_ANCHOR, Z_OFFSET.pad)).addTo(map) });
         } else {
           pad.marker.setLatLng(ll);
         }
@@ -1160,89 +1151,38 @@ export function createMapView(root, ctx) {
         padMarkers.delete(rocket.id);
       }
 
-      // Track: new points since the last draw. A gap starts a dashed line
-      // from the last point before it to the first point after it. Two
-      // kinds of gap: the GPS had no fix (gapBefore), or no position arrived
-      // for longer than LINK_STALE_S (a radio silence). Either way nobody
-      // measured the path in between.
-      const track = rocket.track;
-      for (let i = layers.drawn; i < track.length; i++) {
-        const p = track[i];
-        const ll = [p.lat, p.lon];
-        const gap = i > 0 && (p.gapBefore || p.t - track[i - 1].t > config.LINK_STALE_S);
-        if (gap) {
-          const prev = track[i - 1];
-          const pts = [[prev.lat, prev.lon], ll];
-          addLine(layers,
-            L.polyline(pts, { ...trackStyle(rocket, isFocused, true), dashArray: GAP_DASH, interactive: false }),
-            L.polyline(pts, haloStyle(config.TRACK_WEIGHT_PX, { dashArray: GAP_DASH })));
-          layers.solid = null;
-          layers.solidHalo = null;
-        }
-        if (!layers.solid) {
-          const look = trackStyle(rocket, isFocused, false);
-          layers.solid = L.polyline([ll], { ...look, interactive: false });
-          layers.solidHalo = L.polyline([ll], haloStyle(look.weight));
-          addLine(layers, layers.solid, layers.solidHalo);
-        } else {
-          layers.solid.addLatLng(ll);
-          layers.solidHalo.addLatLng(ll);
-        }
-      }
-      layers.drawn = track.length;
+      if (drawTrail(rocket, layers, isFocused)) linesAdded = true;
 
-      // Focus changed: recolor this rocket's lines.
-      if (layers.focused !== isFocused) {
-        layers.lines.forEach((line, i) => {
-          const look = trackStyle(rocket, isFocused, Boolean(line.options.dashArray));
-          line.setStyle(look);
-          layers.halos[i].setStyle({ weight: look.weight + 2 * config.HALO_WIDTH_PX });
-        });
-        if (isFocused) {
-          for (const halo of layers.halos) halo.bringToFront();
-          for (const line of layers.lines) line.bringToFront();
-        }
-      }
-
-      // The rocket icon at its last good position: off-white with sonar
-      // rings while the fix is good, grey and hollow without one.
+      // The board marker at its last good position: the board's blue with
+      // pulse rings while the fix is good, hollow without one.
       const fix = rocket.lastGoodFix;
       if (fix) {
         const ll = [fix.lat, fix.lon];
         // The icon's middle is the position, so the marker box has no size.
         const zIndex = isFocused ? Z_OFFSET.focused : Z_OFFSET.rocket;
         if (!layers.marker) {
-          layers.parts = buildRocketIcon(rocket);
+          layers.parts = buildRocketIcon();
           layers.marker = L.marker(ll, markerOptions(layers.parts, [0, 0], [0, 0], zIndex)).addTo(map);
         } else {
           layers.marker.setLatLng(ll);
           if (layers.marker.options.zIndexOffset !== zIndex) layers.marker.setZIndexOffset(zIndex);
         }
         const parts = layers.parts;
-        // The label's second line (hud-text.js, shared with the 3D view).
-        const line2 = rocketHudLine(store, config, rocket);
-        sizeRocketIcon(parts, isFocused ? config.ROCKET_ICON_FOCUSED_PX : config.ROCKET_ICON_PX);
+        sizeRocketIcon(parts, isFocused ? BOARD_FOCUSED : BOARD_OTHER);
         parts.el.classList.toggle('fc-rkt--focus', isFocused);
-        parts.el.classList.toggle('fc-rkt--nofix', line2.warn);
-        setText(parts.name, rocket.profile.callsign);
-        setText(parts.altKey, line2.altKey);
-        setText(parts.alt, line2.alt);
-        setText(parts.speedKey, line2.speed ? 'VS' : '');
-        setText(parts.speed, line2.speed);
-        if (parts.speedGroup.hidden !== !line2.speed) parts.speedGroup.hidden = !line2.speed;
+        parts.el.classList.toggle('fc-rkt--nofix', !store.hasFixNow(rocket));
       } else if (layers.marker) {
         layers.marker.remove();
         layers.marker = null;
         layers.parts = null;
       }
-      layers.focused = isFocused;
     }
 
-    // A new line lands on top, so the focused rocket's track goes back above
+    // A new line lands on top, so the focused rocket's trail goes back above
     // the others.
     const focusedLayers = rocketLayers.get(focused?.id);
     if (linesAdded && focusedLayers) {
-      for (const line of focusedLayers.lines) line.bringToFront();
+      for (const line of focusedLayers.tail) line.bringToFront();
     }
     linesAdded = false;
 
@@ -1257,7 +1197,7 @@ export function createMapView(root, ctx) {
     const usable = size.x >= 120 && size.y >= 120;
 
     // First view: the pad(s), the focused rocket and the ground station,
-    // each with room for its label, in the part of the map nothing covers
+    // in the part of the map nothing covers
     // (see firstView). With several rockets, their pads can show up one
     // after another, so the view fits again for each new pad until the
     // viewer drags or zooms the map. Follow waits for the next draw, and
@@ -1282,8 +1222,7 @@ export function createMapView(root, ctx) {
     }
 
     // Follow: when the focused rocket gets near the edge of the map or a
-    // covered area, or its label does, pan so the rocket and its label sit
-    // well inside the free part. Like the first view, it moves sideways
+    // covered area, pan so it sits well inside the free part. Like the first view, it moves sideways
     // away from the other views' panels, so a panel that is taller a moment
     // later still doesn't cover the rocket. Where it moves them depends on
     // what else stays in sight (see followShift).
@@ -1291,14 +1230,13 @@ export function createMapView(root, ctx) {
       const p = map.latLngToContainerPoint([target.lat, target.lon]);
       const m = config.FOLLOW_EDGE_PX;
       const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
-      const labelBox = focusedParts ? rocketLabelBoxes(focusedParts, p)[focusedParts.side] : null;
-      if (tooClose(point, m, size, covers) || (labelBox && tooClose(labelBox, FOLLOW_LABEL_GAP_PX, size, covers))) {
+      if (tooClose(point, m, size, covers)) {
         const area = freeArea(size);
         const ins = clearInsets(covers, size, m, area, { sideways: true }) ??
-          clearInsets(covers, size, FOLLOW_LABEL_GAP_PX, area, { sideways: true, roomiest: true });
-        const shift = followShift(labelBox ? union(point, labelBox) : point, ins, size, covers);
+          clearInsets(covers, size, FOLLOW_TIGHT_PX, area, { sideways: true, roomiest: true });
+        const shift = followShift(point, ins, size, covers);
         // Already as centered as it gets (a free part too small for the
-        // rocket and its label): no pan, so it doesn't pan on the spot.
+        // rocket): no pan, so it doesn't pan on the spot.
         if (Math.abs(shift.x) >= 2 || Math.abs(shift.y) >= 2) {
           const newCenter = map.containerPointToLatLng(size.divideBy(2).add(shift));
           const animate = !prefersReducedMotion();
@@ -1310,83 +1248,17 @@ export function createMapView(root, ctx) {
       }
     }
 
-    // Labels next to the icons (after any pan above), then the distance
-    // label, which keeps clear of them.
-    const placed = placeLabels(rockets, focused, size, covers);
-
-    // Line from the ground station to the focused rocket.
-    if (target && gs) {
-      // Short, as in "1.24 km, bearing 58° (NE)". The legend and the ground
-      // station's own label say when its position is only a demo. With no
-      // fix right now the line ends at the last good position, so the line
-      // dims and the label says "Last known" in a muted style.
-      const stale = !store.hasFixNow(focused);
-      const label = `${stale ? 'Last known ' : ''}${formatRangeBearing(rangeAndBearing(gs, target))}`;
-      const pts = [[gs.lat, gs.lon], [target.lat, target.lon]];
-      const ends = pts.join('|');
-      if (!gsLine) {
-        gsLineHalo = L.polyline(pts, haloStyle(2, { dashArray: GS_DASH })).addTo(map);
-        gsLine = L.polyline(pts, { color: config.GROUND_STATION_COLOR, weight: 2, opacity: GS_LINE_OPACITY, dashArray: GS_DASH, interactive: false }).addTo(map);
-        gsLine.bindTooltip(label, { permanent: true, direction: 'center', className: 'fc-tip fc-tip--gs' });
-        gsTip = { text: label, spot: null, stale: null, ends };
-      } else if (label !== gsTip.text) {
-        gsLine.setTooltipContent(label);
-        gsTip.text = label;
-      }
-      const tip = gsLine.getTooltip();
-      const tipEl = tip?.getElement();
-      const restyle = stale !== gsTip.stale && tipEl;
-      if (restyle) tipEl.classList.toggle('fc-tip--stale', stale);
-      // The label's size, read before the lines change below, so the page
-      // only has to work out its layout again when the label's text or
-      // look just changed.
-      const tipSize = tipEl ? { w: tipEl.offsetWidth, h: tipEl.offsetHeight } : null;
-      if (ends !== gsTip.ends) {
-        gsLine.setLatLngs(pts);
-        gsLineHalo.setLatLngs(pts);
-        gsTip.ends = ends;
-      }
-      if (restyle) {
-        gsTip.stale = stale;
-        gsLine.setStyle({ opacity: stale ? GS_LINE_STALE_OPACITY : GS_LINE_OPACITY });
-        gsLineHalo.setStyle({ opacity: stale ? config.HALO_OPACITY * GS_LINE_STALE_OPACITY : config.HALO_OPACITY });
-      }
-      const spot = labelPoint(gs, target, covers, placed.all, placed.keepClear, tipSize);
-      if (spot && !(gsTip.spot && gsTip.spot.equals(spot))) {
-        tip?.setLatLng(spot);
-        gsTip.spot = spot;
-      }
-      tipEl?.classList.toggle('fc-tip--away', !spot);
-      // A launch point's label under the distance label steps aside.
-      if (spot && tipSize) {
-        const c = map.latLngToContainerPoint(spot);
-        const chip = { left: c.x - tipSize.w / 2, right: c.x + tipSize.w / 2, top: c.y - tipSize.h / 2, bottom: c.y + tipSize.h / 2 };
-        for (const { label, box } of placed.padLabels) {
-          if (box.right > chip.left && box.left < chip.right && box.bottom > chip.top && box.top < chip.bottom) label.classList.add('fc-hud--blocked');
-        }
-      }
-    } else if (gsLine) {
-      gsLine.remove();
-      gsLineHalo?.remove();
-      gsLine = null;
-      gsLineHalo = null;
-    }
-
     placeCorner(size);
     setText(status, statusText(focused));
   }
 
   // ------------------------------------------------------------------
   // The first view. Each thing to show (the launch pads, the focused
-  // rocket, the ground station) is a point with the room it needs around
-  // it in px: its icon, its label on its usual side (the launch point's on
-  // the left, the others on the right) and a little air. The view is the
-  // closest zoom at which all of that fits inside the part of the map
-  // nothing covers. FIT_PADDING_PX of air is kept when that costs at most
-  // half a zoom step, otherwise less. If even that can't fit (a narrow
-  // map), the pads and the ground station give up their label room (their
-  // labels can move to another side), then the rocket does too. Covered
-  // areas always count.
+  // rocket, the ground station) is a point with the room its marker needs
+  // around it in px, plus a little air. The view is the closest zoom at
+  // which all of that fits inside the part of the map nothing covers.
+  // FIT_PADDING_PX of air is kept when that costs at most half a zoom step,
+  // otherwise less. Covered areas always count.
   // ------------------------------------------------------------------
   function firstView(target, rocketParts, gs, size, covers) {
     const pads = [...padMarkers.values()];
@@ -1394,39 +1266,22 @@ export function createMapView(root, ctx) {
     // The focused rocket stays further than Follow's edge margin from every
     // edge, so Follow doesn't pan right after the first view.
     const keep = config.FOLLOW_EDGE_PX + 8;
-    const items = (air, labels) => {
+    const items = (air) => {
       const out = [];
       const add = (ll, left, right, up, down) => out.push({ ll, l: left + air, r: right + air, u: up + air, d: down + air });
-      // Each label's middle sits a little above its spot (10 px for the
-      // launch point, 14 px for the ground station, as in placeLabels).
       for (const pad of pads) {
-        const show = labels && !pad.parts.label.hidden;
-        const lw = show ? 5 + pad.parts.label.offsetWidth : 0;
-        const half = show ? pad.parts.label.offsetHeight / 2 : 0;
-        add(pad.marker.getLatLng(), PAD_ANCHOR[0] + lw, PAD_SIZE[0] - PAD_ANCHOR[0],
-          Math.max(PAD_ANCHOR[1], 10 + half), Math.max(PAD_SIZE[1] - PAD_ANCHOR[1], half - 10));
+        add(pad.marker.getLatLng(), START_ANCHOR[0], START_SIZE - START_ANCHOR[0], START_ANCHOR[1], START_SIZE - START_ANCHOR[1]);
       }
       if (gsParts) {
-        const lw = labels ? 4 + gsParts.label.offsetWidth : 0;
-        const half = labels ? gsParts.label.offsetHeight / 2 : 0;
-        add(L.latLng(gs.lat, gs.lon), TOWER_ANCHOR[0], TOWER_SIZE[0] - TOWER_ANCHOR[0] + lw,
-          Math.max(TOWER_ANCHOR[1], 14 + half), Math.max(TOWER_SIZE[1] - TOWER_ANCHOR[1], half - 14));
+        add(L.latLng(gs.lat, gs.lon), DISH_ANCHOR[0], DISH_SIZE[0] - DISH_ANCHOR[0], DISH_ANCHOR[1], DISH_SIZE[1] - DISH_ANCHOR[1]);
+      }
+      if (target) {
+        const half = Math.max(rocketParts?.iconW ?? 0, rocketParts?.iconH ?? 0) / 2 + air;
+        out.push({ ll: L.latLng(target.lat, target.lon), l: Math.max(keep, half), r: Math.max(keep, half), u: Math.max(keep, half), d: Math.max(keep, half) });
       }
       return out;
     };
-    const rocketItem = (air, label) => {
-      if (!target) return [];
-      const w = rocketParts?.iconW ?? 0;
-      const lw = label && rocketParts ? LABEL_GAP_PX + rocketParts.label.offsetWidth : 0;
-      const half = Math.max(rocketParts?.iconH ?? 0, rocketParts?.label.offsetHeight ?? 0) / 2 + air;
-      return [{ ll: L.latLng(target.lat, target.lon), l: Math.max(keep, w / 2 + air), r: Math.max(keep, w / 2 + lw + air), u: Math.max(keep, half), d: Math.max(keep, half) }];
-    };
-    const tiers = [
-      [...items(config.FIT_PADDING_PX, true), ...rocketItem(config.FIT_PADDING_PX, true)],
-      [...items(FIT_ROOM_PX, true), ...rocketItem(FIT_ROOM_PX, true)],
-      [...items(FIT_ROOM_PX, false), ...rocketItem(FIT_ROOM_PX, true)],
-      [...items(FIT_ROOM_PX, false), ...rocketItem(FIT_ROOM_PX, false)],
-    ];
+    const tiers = [items(config.FIT_PADDING_PX), items(FIT_ROOM_PX)];
     const area = freeArea(size);
     const views = tiers.map((list) => {
       const ins = clearInsets(covers, size, 0, (o) => {
@@ -1441,7 +1296,7 @@ export function createMapView(root, ctx) {
     if (found) return found;
     // Nothing fits at all: the points only, in the largest free part.
     const ins = clearInsets(covers, size, FIT_ROOM_PX, area, { sideways: true, roomiest: true });
-    const bounds = L.latLngBounds(tiers[3].map((it) => it.ll));
+    const bounds = L.latLngBounds(tiers[1].map((it) => it.ll));
     return { bounds, paddingTopLeft: [ins.left, ins.top], paddingBottomRight: [ins.right, ins.bottom] };
   }
 
@@ -1478,8 +1333,8 @@ export function createMapView(root, ctx) {
     return null;
   }
 
-  // How far (map px) Follow moves the view for the rocket and its label
-  // (box), with ins the free part. The box always ends up inside the free
+  // How far (map px) Follow moves the view for the rocket (box), with ins
+  // the free part. The box always ends up inside the free
   // part. Along the direction it was leaving, it goes about to the middle,
   // and along the other direction it stays where it is. But when another
   // shift keeps more of the ground station and the launch pads on the map
@@ -1502,8 +1357,8 @@ export function createMapView(root, ctx) {
     const xs = axis(box.left, box.right, ins.left, size.x - ins.right);
     const ys = axis(box.top, box.bottom, ins.top, size.y - ins.bottom);
     const others = [];
-    if (gsMarker) others.push(iconRect(map.latLngToContainerPoint(gsMarker.getLatLng()), TOWER_ANCHOR, TOWER_SIZE));
-    for (const pad of padMarkers.values()) others.push(iconRect(map.latLngToContainerPoint(pad.marker.getLatLng()), PAD_ANCHOR, PAD_SIZE));
+    if (gsMarker) others.push(iconRect(map.latLngToContainerPoint(gsMarker.getLatLng()), DISH_ANCHOR, DISH_SIZE));
+    for (const pad of padMarkers.values()) others.push(iconRect(map.latLngToContainerPoint(pad.marker.getLatLng()), START_ANCHOR, [START_SIZE, START_SIZE]));
     let best = null;
     for (const x of xs.list) {
       for (const y of ys.list) {
@@ -1525,179 +1380,6 @@ export function createMapView(root, ctx) {
   function tooClose(b, gap, size, covers) {
     if (b.left < gap || b.top < gap || b.right > size.x - gap || b.bottom > size.y - gap) return true;
     return covers.some((c) => b.right > c.left - gap && b.left < c.right + gap && b.bottom > c.top - gap && b.top < c.bottom + gap);
-  }
-
-  const union = (a, b) => ({ left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom) });
-
-  // ------------------------------------------------------------------
-  // Label sides. A label goes on its usual side unless that would run off
-  // the map, under a covered area or into another label, and another side
-  // wouldn't. If every side hits something, the one that hides least wins:
-  // running off the map or under a covered area counts HIDDEN_LABEL_COST
-  // times more than touching another label or icon. Rocket labels go first
-  // (focused rocket first), then the launch points and the ground station.
-  // A launch point's label that has no clear place at all stays out of
-  // sight until it has one (the legend still names the icon). Returns, for
-  // the distance label: every label and icon box (all), every icon plus
-  // the rocket and ground station labels (keepClear), and the launch point
-  // labels on show (padLabels).
-  // ------------------------------------------------------------------
-  function placeLabels(rockets, focused, size, covers) {
-    // The icons themselves count as taken, so no label sits on another icon.
-    const taken = [];
-    const iconBox = (p, left, top, w, hgt) => ({ left: p.x - left, top: p.y - top, right: p.x - left + w, bottom: p.y - top + hgt });
-    for (const layers of rocketLayers.values()) {
-      if (!layers.marker) continue;
-      const p = map.latLngToContainerPoint(layers.marker.getLatLng());
-      taken.push(iconBox(p, layers.parts.iconW / 2, layers.parts.iconH / 2, layers.parts.iconW, layers.parts.iconH));
-    }
-    for (const pad of padMarkers.values()) {
-      taken.push(iconRect(map.latLngToContainerPoint(pad.marker.getLatLng()), PAD_ANCHOR, PAD_SIZE));
-    }
-    if (gsMarker) taken.push(iconRect(map.latLngToContainerPoint(gsMarker.getLatLng()), TOWER_ANCHOR, TOWER_SIZE));
-    const keepClear = [...taken];
-
-    const ordered = [...rockets].sort((a, b) => (b.id === focused?.id) - (a.id === focused?.id));
-    for (const rocket of ordered) {
-      const layers = rocketLayers.get(rocket.id);
-      if (!layers?.marker) continue;
-      const parts = layers.parts;
-      const p = map.latLngToContainerPoint(layers.marker.getLatLng());
-      hideIfOff(parts.el, p, size);
-      const boxes = rocketLabelBoxes(parts, p);
-      parts.side = pickSide(parts.side, ['right', 'left', 'below', 'above'], boxes, covers, taken, size);
-      parts.el.classList.toggle('fc-rkt--left', parts.side === 'left');
-      parts.el.classList.toggle('fc-rkt--below', parts.side === 'below');
-      parts.el.classList.toggle('fc-rkt--above', parts.side === 'above');
-      taken.push(boxes[parts.side]);
-      keepClear.push(boxes[parts.side]);
-    }
-
-    // Launch points: one label per spot, even with several rockets on it.
-    // Usually on the left, so it stays clear of a rocket sitting on the pad.
-    const shown = [];
-    const padLabels = [];
-    for (const rocket of rockets) {
-      const pad = padMarkers.get(rocket.id);
-      if (!pad) continue;
-      const p = map.latLngToContainerPoint(pad.marker.getLatLng());
-      hideIfOff(pad.parts.el, p, size);
-      const duplicate = shown.some((q) => q.distanceTo(p) < PAD_LABEL_MERGE_PX);
-      pad.parts.label.hidden = duplicate;
-      if (duplicate) continue;
-      shown.push(p);
-      // Beside the rail, the label's middle is 10 px above the spot.
-      const boxes = labelBoxes(p, pad.parts.label, PAD_SIZE[0] / 2 + 5, PAD_ANCHOR[1] - 11, PAD_LABEL_BELOW_PX);
-      pad.parts.side = pickSide(pad.parts.side, ['left', 'right', 'below'], boxes, covers, taken, size);
-      pad.parts.el.classList.toggle('fc-pad--right', pad.parts.side === 'right');
-      pad.parts.el.classList.toggle('fc-pad--below', pad.parts.side === 'below');
-      // Out of sight once a tenth of it would be hidden or on top of
-      // something, back once less than a fiftieth would be (so it doesn't
-      // blink at the limit).
-      const box = boxes[pad.parts.side];
-      const share = labelCost(box, covers, taken, size, 1) / Math.max(1, (box.right - box.left) * (box.bottom - box.top));
-      pad.parts.blocked = share > (pad.parts.blocked ? 0.02 : 0.1);
-      pad.parts.label.classList.toggle('fc-hud--blocked', pad.parts.blocked);
-      if (pad.parts.blocked) continue;
-      taken.push(box);
-      padLabels.push({ label: pad.parts.label, box });
-    }
-
-    if (gsMarker) {
-      const p = map.latLngToContainerPoint(gsMarker.getLatLng());
-      hideIfOff(gsParts.el, p, size);
-      const boxes = labelBoxes(p, gsParts.label, TOWER_SIZE[0] / 2 + 4, TOWER_ANCHOR[1] - 16, GS_LABEL_BELOW_PX);
-      gsParts.side = pickSide(gsParts.side, ['right', 'left', 'below'], boxes, covers, taken, size);
-      gsParts.el.classList.toggle('fc-gs--left', gsParts.side === 'left');
-      gsParts.el.classList.toggle('fc-gs--below', gsParts.side === 'below');
-      taken.push(boxes[gsParts.side]);
-      keepClear.push(boxes[gsParts.side]);
-    }
-    return { all: taken, keepClear, padLabels };
-  }
-
-  // An icon outside the map keeps its label out of sight too, so no stray
-  // piece of text pokes in at the edge.
-  function hideIfOff(el, p, size) {
-    el.classList.toggle('fc-mk-off', p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y);
-  }
-
-  // Where a label would sit around an icon at point p. gap is the distance
-  // from p to the label's near edge, lift how far above p the label's
-  // middle sits, below (if given) how far under p a centered label's top
-  // would sit, and above (if given) how far over p its bottom would sit.
-  function labelBoxes(p, label, gap, lift, below = null, above = null) {
-    const w = label.offsetWidth;
-    const hgt = label.offsetHeight;
-    const top = p.y - lift - hgt / 2;
-    const bottom = top + hgt;
-    const boxes = {
-      right: { left: p.x + gap, right: p.x + gap + w, top, bottom },
-      left: { left: p.x - gap - w, right: p.x - gap, top, bottom },
-    };
-    if (below !== null) boxes.below = { left: p.x - w / 2, right: p.x + w / 2, top: p.y + below, bottom: p.y + below + hgt };
-    if (above !== null) boxes.above = { left: p.x - w / 2, right: p.x + w / 2, top: p.y - above - hgt, bottom: p.y - above };
-    return boxes;
-  }
-
-  // A rocket's label: right or left of the icon, level with its middle, or
-  // centered under or over it.
-  function rocketLabelBoxes(parts, p) {
-    const off = parts.iconH / 2 + ROCKET_LABEL_BELOW_PX;
-    return labelBoxes(p, parts.label, parts.iconW / 2 + LABEL_GAP_PX, 0, off, off);
-  }
-
-  // How much of label box b (px²) is off the map (closer than 4 px to its
-  // edge counts as off) or under a covered area, times hiddenCost, plus how
-  // much of it sits on another label or icon.
-  function labelCost(b, covers, taken, size, hiddenCost = HIDDEN_LABEL_COST) {
-    const overlap = (a, c) => Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left)) *
-      Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
-    const frame = { left: 4, top: 4, right: size.x - 4, bottom: size.y - 4 };
-    return hiddenCost * ((b.right - b.left) * (b.bottom - b.top) - overlap(b, frame) +
-      covers.reduce((sum, c) => sum + overlap(b, c), 0)) +
-      taken.reduce((sum, t) => sum + overlap(b, t), 0);
-  }
-
-  // sides lists the label's places, usual one first.
-  function pickSide(current, sides, boxes, covers, taken, size) {
-    const scores = Object.fromEntries(sides.map((side) => [side, labelCost(boxes[side], covers, taken, size)]));
-    if (scores[sides[0]] === 0) return sides[0];
-    if (scores[current] === 0) return current;
-    const best = sides.reduce((a, b) => (scores[b] < scores[a] ? b : a));
-    // A clearly better place only, so a label doesn't flicker between two
-    // bad ones.
-    return !(current in scores) || scores[best] < scores[current] * 0.8 ? best : current;
-  }
-
-  // Where the distance label sits on the ground station line: the middle,
-  // unless that is off screen, covered or on top of an icon or its label, in
-  // which case the visible point closest to the middle (searching toward
-  // both ends). If only covered spots are left, it may sit on a launch
-  // point's label (which then steps aside), but never on an icon, a
-  // rocket's label (the focused rocket's included) or the ground station's
-  // label. If no part of the line has room at all, it returns null and the
-  // label hides, rather than float away from its line.
-  // tipSize is the label's size in px ({ w, h }).
-  function labelPoint(gs, target, covers, labels, keepClear, tipSize) {
-    const at = (f) => L.latLng(target.lat + (gs.lat - target.lat) * f, target.lon + (gs.lon - target.lon) * f);
-    const size = map.getSize();
-    // Room for the whole label, which is centered on its point.
-    const halfW = (tipSize?.w ?? 140) / 2 + 6;
-    const halfH = (tipSize?.h ?? 24) / 2 + 6;
-    const fits = (p, boxes) => {
-      if (p.x <= halfW || p.x >= size.x - halfW || p.y <= halfH || p.y >= size.y - halfH) return false;
-      return !boxes.some((c) => p.x + halfW > c.left && p.x - halfW < c.right && p.y + halfH > c.top && p.y - halfH < c.bottom);
-    };
-    for (const boxes of [[...covers, ...labels], [...covers, ...keepClear]]) {
-      for (let step = 0; step <= 24; step++) {
-        for (const f of step === 0 ? [0.5] : [0.5 - step * 0.02, 0.5 + step * 0.02]) {
-          const ll = at(f);
-          if (fits(map.latLngToContainerPoint(ll), boxes)) return ll;
-        }
-      }
-    }
-    return null;
   }
 
   function statusText(focused) {
@@ -1838,7 +1520,7 @@ export function createMapView(root, ctx) {
   const scheduler = createScheduler(() => {
     if (view === '3d') {
       // The 3D view draws itself. Only the notes, the camera buttons and
-      // the legend's ground station line are drawn here.
+      // the legend are drawn here.
       setText(status, three === 'ready' ? statusText(store.getFocused()) : '');
       updateCameraButtons();
       updateLegend();

@@ -7,10 +7,11 @@
       /flight-console/              the landing: one full-screen hero
       /flight-console/?track        the console, live (Connect a board)
       /flight-console/?flight=<id>  the console, playing a saved flight
-    The landing's text is written here. The console is one CSS grid of
-    panes (data-pane), and its data-mode (idle, bench, flight or replay)
-    says which panes show (see the console part of flight-console.css).
-    The views in js/views/ and js/live/ fill the panes in.
+    The landing's text is written here. The console is a bar, short status
+    lines and two panels in a sliding track (the 3D view, and the graphs and
+    readings). Its data-mode (idle, bench, flight or replay) says what the
+    panels hold (see the console part of flight-console.css). The views in
+    js/views/ and js/live/ fill the panels in.
     Uses: ../css/style.css (site styles), flight-console.css (page styles),
     Leaflet from cdnjs (optional, the page works without it), the section's
     fonts and colors from ../css/flight-console-theme.css, Space Mono for the
@@ -22,17 +23,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Flight Console | Dogtooth Systems</title>
-  <meta name="description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta name="description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
   <meta property="og:site_name" content="Dogtooth Systems">
   <meta property="og:title" content="Flight Console | Dogtooth Systems">
-  <meta property="og:description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta property="og:description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.dogtoothsystems.com/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Dogtooth Systems logo, a dogtooth tuna, with Christopher Sparrow's name">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:description" content="Live Global Positioning System (GPS) tracking for my rocket avionics. Plug in a board or the ground station and follow the flight in 3D.">
+  <meta name="twitter:description" content="Plug one of my rocket avionics boards into a computer to see its Global Positioning System (GPS) position and readings live in a three-dimensional (3D) view, or play back a saved flight.">
   <link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48">
   <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="/favicon-192.png?v=2" type="image/png" sizes="192x192">
@@ -47,7 +48,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer">
   <!-- The colors and fonts shared by every Flight Console page -->
   <link rel="stylesheet" href="../css/flight-console-theme.css?v=1">
-  <link rel="stylesheet" href="flight-console.css?v=8">
+  <link rel="stylesheet" href="flight-console.css?v=10">
   <!-- With JavaScript off, hide the "Loading..." line (the noscript note
        explains) and show the landing, which is plain HTML. -->
   <noscript><style>.fc-page #fc-message { display: none; } .fc-page #fc-landing[hidden] { display: block !important; }</style></noscript>
@@ -182,7 +183,8 @@
         <div class="fc-screens-track">
 
           <!-- Panel 1: the 3D view, in every mode. The overlays are marked
-               data-fc-cover, so the 3D view keeps its labels clear of them. -->
+               data-fc-cover, so WHOLE FLIGHT frames the flight in the part
+               of the view they leave free. -->
           <section id="fc-panel-globe" class="fc-screen fc-stage" data-screen="globe" aria-label="3D view">
             <div id="fc-map" class="fc-stage-map"></div>
             <div class="fc-overlay">
@@ -345,7 +347,7 @@
           integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
           crossorigin="anonymous" referrerpolicy="no-referrer"
           onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
-  <script type="module" src="js/main.js?v=5" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
+  <script type="module" src="js/main.js?v=9" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
   <!-- If the page's code fails to download, or is still missing after 15 s,
        say so instead of leaving an empty page. -->
   <script>

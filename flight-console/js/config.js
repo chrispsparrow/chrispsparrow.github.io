@@ -255,13 +255,6 @@ export const TILE_FAIL_TIMEOUT_MS = 8000;
 export const LIBRARY_LOAD_TIMEOUT_MS = 10000;
 // Zoom level used when there is only one point to show.
 export const MAP_DEFAULT_ZOOM = 15;
-// Rocket icon height (px), for other rockets and the focused one.
-export const ROCKET_ICON_PX = 22;
-export const ROCKET_ICON_FOCUSED_PX = 30;
-// Track line width (px), for other rockets and the focused one. The focused
-// rocket's track is orange (TRACK_COLOR), the others use their own colors.
-export const TRACK_WEIGHT_PX = 2;
-export const TRACK_WEIGHT_FOCUSED_PX = 3.5;
 // The first view fits the pad(s) and ground station with this much room (px)
 // around them, on top of whatever the floating panels cover...
 export const FIT_PADDING_PX = 60;
@@ -355,15 +348,6 @@ export const GLOBE_MOVE_MS = 600;
 // "Whole flight" leaves this much room around everything it frames (1 is
 // a tight fit).
 export const GLOBE_FIT_MARGIN = 1.35;
-// Icons and labels keep their full size up to the first distance (m) and
-// shrink to the given fraction by the second, so a far view isn't crowded.
-export const GLOBE_ICON_NEAR_M = 20000;
-export const GLOBE_ICON_FAR_M = 400000;
-export const GLOBE_ICON_FAR_SCALE = 0.7;
-// The drop line from the focused rocket down to the ground: its color (the
-// theme's off-white) and its width (px), not counting the thin dark outline.
-export const DROP_LINE_COLOR = '#E8EDF2';
-export const DROP_LINE_WIDTH_PX = 2;
 
 // ------------------------------------------------------------------
 // Colors. The Flight Console has one palette, in
@@ -385,12 +369,14 @@ export const ROCKET_PALETTE = Object.freeze([
   '#636E7C', // slate (40% off-white, 60% navy)
   '#EED0BC', // pale orange (25% orange, 75% off-white)
 ]);
-// The focused rocket's track and its played curve on the altitude timeline
-// (the theme's orange: the rocket is the one thing always in orange).
+// The focused rocket's trail, the rings around its marker, and its played
+// curve on the altitude timeline (the theme's orange).
 export const TRACK_COLOR = '#FF7A1A';
-// Ground station icon and line (the theme's dim off-white).
+// The line from the ground station to the focused rocket (the theme's dim
+// off-white).
 export const GROUND_STATION_COLOR = '#A1A9B3';
-// Launch pad icon and the rocket's body (the theme's off-white).
+// The start point's dot, the ground station's dish and the board marker's
+// outline (the theme's off-white).
 export const PAD_COLOR = '#E8EDF2';
 
 // ------------------------------------------------------------------

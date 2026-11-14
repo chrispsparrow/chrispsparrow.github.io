@@ -1,22 +1,23 @@
 // globe-view.js
 // The 3D view: the same flight as the map, drawn on Cesium's globe with
-// real terrain and aerial imagery. It shows every rocket's trail, a thin
-// line from the focused rocket straight down to the ground, the launch
-// rail, the ground station, a dashed line from the ground station to the
-// focused rocket with the straight-line distance, and a marker in the sky
+// real terrain and aerial imagery. It shows a board marker for every
+// rocket with pulse rings while its GPS fix is good, a thin orange trail
+// that fades out behind the marker like a comet's tail, the start point
+// (the launch point in a replay), the ground station's dish, and a marker in the sky
 // at the focused rocket's apogee, drogue, main and landing, and at any
-// event its board reported.
+// event its board reported. Nothing in the view is text: the readings
+// panel says what the old labels said.
 //
 // The same honesty rules as the map apply:
-//   - Only good GPS positions are drawn. Across a gap the trail is dashed.
-//   - The rocket moves from one real data point to the next. Nothing is
+//   - Only good GPS positions are drawn. A gap in them is left as a break
+//     in the trail, never bridged.
+//   - The marker moves from one real data point to the next. Nothing is
 //     smoothed or filled in between packets.
-//   - The rocket icon always points straight up. No board sends
-//     orientation data, so it never turns.
-//   - With no GPS fix the icon turns grey and hollow at the last good
-//     position, and the label says why and for how long.
-//   - Event markers only appear once playback has reached the event, and
-//     their labels say how each one was found.
+//   - The board marker always stands upright. No board sends orientation
+//     data, so it never turns.
+//   - With no GPS fix the marker turns hollow at the last good position
+//     and its rings stop.
+//   - Event markers only appear once playback has reached the event.
 //
 // Heights. Cesium places things by height above the ellipsoid (a smooth
 // model of the Earth), and GPS reports height above mean sea level. The two
@@ -33,9 +34,9 @@
 // has come with no pad.
 //
 // No ground station. A store made with no ground station (a board on the
-// bench) has no tower, no line to it and no distance, so none are drawn.
-// Until there is a position to look at, the camera then waits far out,
-// looking down at the whole Earth, instead of over a ground station.
+// bench) has no dish and no line to it, so neither is drawn. Until there
+// is a position to look at, the camera then waits far out, looking down at
+// the whole Earth, instead of over a ground station.
 //
 // Camera. Cesium's own mouse and touch controls are made for spinning a
 // whole globe, and up close they turn far too fast. They are switched off,
@@ -47,13 +48,16 @@
 // Earth is the page's navy, there are no stars, sun or moon, and the glow of
 // the atmosphere is darkened and tinted toward the navy. Close to the
 // ground the glow is off, so the sky is the page's navy too and the horizon
-// meets the page. The globe fades into the page instead of sitting in a box. Labels are off-white and dim
-// off-white Share Tech Mono on a deep navy backing. Orange is kept for the
-// rocket and its trail, and for a label that warns (no GPS fix).
+// meets the page. The globe fades into the page instead of sitting in a
+// box. The markers come from markers.js: the board in its own blue with an
+// off-white outline, an off-white start dot and an off-white dish. Orange
+// is kept for the focused rocket's trail, its rings and the event markers.
 //
 // Rendering. The scene only redraws when something changes (Cesium's
 // requestRenderMode), which saves battery. Every change here ends with
-// scene.requestRender().
+// scene.requestRender(). The one exception is the pulse rings, which ask
+// for a frame at most RING_PULSE_FPS times a second while they show (see
+// "Pulse rings").
 //
 // Starting far out. With no ground station the camera first waits looking
 // at the whole Earth. When the first position comes in, it flies down to it
@@ -63,52 +67,31 @@
 // Reads the store, never other views.
 
 import { createScheduler, prefersReducedMotion, eventMarkerKind } from './dom.js';
-import { distanceM, formatDistance, formatRounded10 } from '../geo.js';
-import { rocketSvg, rocketBox, padSvg, PAD_SIZE, PAD_ANCHOR, towerSvg, TOWER_SIZE, TOWER_ANCHOR } from './icons.js';
-import { rocketHudLine, FLIGHT_WORDS } from './hud-text.js?v=2';
+import { distanceM } from '../geo.js';
+import {
+  boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
+  TRAIL_WINDOW_S, TRAIL_WIDTH_PX, TRAIL_OTHER_WIDTH_PX, RING_PULSE_MS, RING_PULSE_FPS,
+} from './markers.js';
+import { FLIGHT_WORDS } from './hud-text.js?v=3';
 
-// The fix-gap line: orange dashes on a dark line, so it reads as dashed
-// against the sky and the ground alike. The pattern is 16 bits spread over
-// DASH_PX screen pixels (a 1 is orange).
-const GAP_DASH_PX = 14;
-const GAP_DASH_BITS = 0b1111110000000000;
-// The ground station line: longer dim off-white dashes.
-const GS_DASH_PX = 14;
-const GS_DASH_BITS = 0b1111111110000000;
-const GS_LINE_OPACITY = 0.95;
-const GS_LINE_STALE_OPACITY = 0.4;
-// How dark the space between dashes is.
-const DASH_GAP_OPACITY = 0.5;
-// Space (px) between an icon and its label, and how far under or over an
-// icon a label sits when neither side has room.
-const LABEL_GAP_PX = 8;
-const LABEL_STACK_PX = 4;
-// Padding (px) inside a label's dark backing.
-const TAG_PAD_X = 6;
-const TAG_PAD_Y = 3;
-// Label outline width, in Cesium's own glyph units. 4 is about 1 px at
-// this text size, and the most it can draw cleanly is just under 6.
-const LABEL_OUTLINE = 4;
-// Choosing a label's side: each px² of label off the view or under a
-// panel counts this many times more than a px² on top of another label.
-const HIDDEN_LABEL_COST = 10;
-// A label that can't be shown without this share of it hidden or on top of
-// something stays out of sight until it has room (the icon stays).
-const LABEL_HIDE_SHARE = 0.25;
-// Launch pads closer than this on screen (px) share one label.
-const PAD_LABEL_MERGE_PX = 40;
+// The trail is this opaque right behind the marker. Toward its far end
+// (TRAIL_WINDOW_S in markers.js) it fades to nothing, along this power of
+// the share of the window left, so the tail thins out quickly.
+const TRAIL_ALPHA = 0.95;
+const TRAIL_FADE_POWER = 1.6;
 // Event marker size (px).
 const EVENT_MARK_PX = 14;
-// Sonar ring sizes (px) around a rocket with a good fix, as on the map.
+// Pulse ring sizes (px) around a board with a good fix, as on the map.
 const RING_FOCUSED_PX = 76;
 const RING_PX = 46;
-// The bottom of the drop line (m). It is well under any ground on Earth,
-// and the terrain hides the part below the surface.
-const DROP_BOTTOM_M = -1000;
-// What each event is called in its sky label.
-const EVENT_WORDS = { apogee: 'Apogee', drogue: 'Drogue', main: 'Main', landed: 'Landing' };
-// How long (ms) to wait for the label fonts before drawing without them.
-const FONT_WAIT_MS = 3000;
+// Each pulse starts at this share of the ring's full size.
+const RING_FROM_SCALE = 0.3;
+// The three still rings for viewers who ask for less motion, as on the
+// map: [share of full size, opacity].
+const RING_STILL = [[0.5, 0.95], [0.76, 0.6], [1, 0.3]];
+// The events that get a marker in the sky, besides any event the board
+// reported itself. Liftoff has none, since the start point marks it.
+const EVENT_TYPES = new Set(['apogee', 'drogue', 'main', 'landed']);
 // A ground station whose GPS position wanders keeps the ground height it
 // had while it stays within this far (m) of where that height was looked
 // up. A real move (from the demo position to its own) waits for its own.
@@ -154,26 +137,15 @@ export function createGlobeView(container, ctx, options) {
   const prescan = ctx.prescan instanceof Map ? ctx.prescan : new Map();
 
   // ------------------------------------------------------------------
-  // Colors and fonts, from the Flight Console theme
-  // (css/flight-console-theme.css): off-white and dim off-white text on a
-  // deep navy backing, orange for warnings, and the page's navy around the
-  // Earth. Each color is worked out by the browser (a theme shade can be a
-  // color-mix()) and handed to Cesium as plain rgba().
+  // Colors from the Flight Console theme (css/flight-console-theme.css):
+  // the page's navy around the Earth. Each color is worked out by the
+  // browser (a theme shade can be a color-mix()) and handed to Cesium as
+  // plain rgba(). The markers' own colors are in markers.js, and the
+  // lines' and rings' in config.js and markers.js.
   // ------------------------------------------------------------------
-  const styles = getComputedStyle(container);
-  const token = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
   const rgba = (css, alpha = 1) => C.Color.fromCssColorString(css).withAlpha(alpha);
   const color = (name, fallback) => cssColor(container, name, fallback);
-  const HUD = color('--fc-offwhite', '#E8EDF2');          // label text
-  const HUD_2 = color('--fc-text-dim', '#A1A9B3');        // a label's second line
-  const HUD_DARK = color('--fc-navy-deep', '#081221');    // the backing behind labels
-  const WARN = color('--fc-orange', '#FF7A1A');           // no GPS fix, and other warnings
-  const TEXT = HUD;
-  const MUTED = HUD_2;
   const PAGE = color('--fc-navy', '#0B1A2E');             // the space around the Earth
-  const hudFamily = token('--fc-font-readout', '"Share Tech Mono", monospace');
-  const hudFont = (px) => `${px}px ${hudFamily}`;
-  const textFont = hudFont(12);
 
   // ------------------------------------------------------------------
   // The viewer. Every built-in widget is off. Cesium's logo and data
@@ -251,8 +223,8 @@ export function createGlobeView(container, ctx, options) {
   // Sharp on high-resolution screens, up to GLOBE_MAX_PIXEL_RATIO.
   viewer.useBrowserRecommendedResolution = false;
   viewer.resolutionScale = pixelRatio / (window.devicePixelRatio || 1);
-  // Terrain hides what is behind or under it. The drop line relies on this
-  // to end at the ground. Icons and labels are never hidden (see ALWAYS).
+  // Terrain hides what is behind or under it, the trails and the ground
+  // station line included. Markers are never hidden (see ALWAYS).
   scene.globe.depthTestAgainstTerrain = true;
   // The ground's color where there is no imagery: the theme's raised navy.
   scene.globe.baseColor = rgba(color('--fc-navy-raised', '#1D2B3E'));
@@ -275,8 +247,8 @@ export function createGlobeView(container, ctx, options) {
   // the navy with distance, so it melts into the page at the horizon, far
   // mountains included. The distances are worked out before every frame
   // from where they show on screen (HORIZON_FADE_FROM and _TO). It is a
-  // material on the ground only, so the rocket, its track and every label
-  // stay as they are. Far out, with the glow on, there is no fade.
+  // material on the ground only, so the markers and the trails stay as
+  // they are. Far out, with the glow on, there is no fade.
   const horizonFade = new C.Material({
     fabric: {
       type: 'FcHorizonFade',
@@ -357,37 +329,33 @@ export function createGlobeView(container, ctx, options) {
   scene.canvas.addEventListener('webglcontextlost', onContextLost);
 
   // ------------------------------------------------------------------
-  // What is drawn. Lines first, then icons, then labels, so labels end up
-  // on top. Within the icons and labels, whatever was added last is drawn
-  // on top.
+  // What is drawn. Lines first, then markers. Within the markers, whatever
+  // was added last is drawn on top.
   // ------------------------------------------------------------------
-  const trails = scene.primitives.add(new C.PolylineCollection());     // rocket trails (they grow)
-  const lines = scene.primitives.add(new C.PolylineCollection());      // the drop line and the ground station line
+  const trails = scene.primitives.add(new C.PolylineCollection());     // the fading trails
   const blend = { blendOption: C.BlendOption.TRANSLUCENT };
-  const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // launch rails and the ground station
+  // The pulse rings fade out as they grow, so most of their pixels are see
+  // through. A TRANSLUCENT collection draws in Cesium's opaque pass and
+  // writes depth for every pixel it draws, faint ones included, and every
+  // marker sits on the near plane (see ALWAYS). The trail draws later, in
+  // the translucent pass, so it would vanish under each ring and leave
+  // holes right behind the board. With OPAQUE_AND_TRANSLUCENT only the
+  // solid ring pixels write depth (and they cover the trail anyway). The
+  // faint ones blend with the trail and leave it whole.
+  const ringBlend = { blendOption: C.BlendOption.OPAQUE_AND_TRANSLUCENT };
+  const groundIcons = scene.primitives.add(new C.BillboardCollection(blend)); // start points and the ground station
   const eventIcons = scene.primitives.add(new C.BillboardCollection(blend));
+  const ringIcons = scene.primitives.add(new C.BillboardCollection(ringBlend)); // the pulse rings, under the boards
   const rocketIcons = scene.primitives.add(new C.BillboardCollection(blend));
-  const focusIcons = scene.primitives.add(new C.BillboardCollection(blend));  // the focused rocket, on top
-  const labels = scene.primitives.add(new C.LabelCollection(blend));
+  const focusIcons = scene.primitives.add(new C.BillboardCollection(blend));  // the focused board, on top
 
-  // Icons and labels keep one size on screen, shrink a little from far
-  // away, and are never hidden behind terrain.
-  const farScale = new C.NearFarScalar(config.GLOBE_ICON_NEAR_M, 1, config.GLOBE_ICON_FAR_M, config.GLOBE_ICON_FAR_SCALE);
-  const ALWAYS = { scaleByDistance: farScale, disableDepthTestDistance: Number.POSITIVE_INFINITY };
+  // Markers keep one size on screen at any distance, always stand upright
+  // (a billboard faces the screen and never turns), and are never hidden
+  // behind terrain.
+  const ALWAYS = { disableDepthTestDistance: Number.POSITIVE_INFINITY };
 
-  // The size Cesium draws an icon or label at, for a point this far from
-  // the camera (the same math as its own scaleByDistance).
-  function distanceScale(position) {
-    const d2 = C.Cartesian3.distanceSquared(camera.positionWC, position);
-    const near2 = farScale.near * farScale.near;
-    const far2 = farScale.far * farScale.far;
-    const t = Math.min(1, Math.max(0, (d2 - near2) / (far2 - near2))) ** 0.2;
-    return farScale.nearValue + (farScale.farValue - farScale.nearValue) * t;
-  }
-
-  // In requestRenderMode a new icon image or a letter drawn for the first
-  // time only shows a frame or two after it was asked for, so a few extra
-  // frames are requested then.
+  // In requestRenderMode a new icon image only shows a frame or two after
+  // it was asked for, so a few extra frames are requested then.
   let pumpLeft = 0;
   function pump(frames = 3) {
     const running = pumpLeft > 0;
@@ -403,28 +371,21 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // ------------------------------------------------------------------
-  // Icons. The page's own SVG drawings (icons.js) are turned into small
-  // canvases once, since Cesium draws images, not SVG. Each canvas is
-  // drawn at the screen's pixel ratio so it stays sharp, with the spot
-  // that sits on the position (the anchor) in its middle.
+  // Icons. The SVG markers (markers.js) are turned into small canvases
+  // once, since Cesium draws images, not SVG. Each canvas is drawn at the
+  // screen's pixel ratio so it stays sharp, with the spot that sits on the
+  // position (the anchor) in its middle.
   // ------------------------------------------------------------------
   const iconScale = Math.ceil(pixelRatio);
   const icons = new Map(); // image id -> { canvas, width, height }
 
-  // The grey, hollow look of a rocket with no GPS fix (the same rules as
-  // the map's .fc-rkt--nofix styles).
-  const HOLLOW_STYLE = `<style>.fc-rkt-halo{fill:${PAGE};fill-opacity:.92;stroke-width:3.6}` +
-    `.fc-rkt-body{fill:none;stroke:${MUTED};stroke-width:1.5}.fc-rkt-fins,.fc-rkt-nozzle{display:none}` +
-    `.fc-rkt-window{fill:none;stroke:${MUTED};stroke-width:1.2}</style>`;
-
-  // Draws SVG markup into a canvas of w by h px, with the drawing's top
-  // left corner at (x, y). before(g) can draw under it first.
-  async function svgIcon(id, markup, [iconW, iconH], { width = iconW, height = iconH, x = 0, y = 0, style = '', before = null } = {}) {
+  // Draws SVG markup into a canvas of width by height px, with the
+  // drawing's top left corner at (x, y).
+  async function svgIcon(id, markup, [iconW, iconH], { width = iconW, height = iconH, x = 0, y = 0 } = {}) {
     // A standalone SVG image needs its namespace, and its size in screen pixels.
     const svgText = markup
       .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
-      .replace(/width="[\d.]+" height="[\d.]+"/, `width="${iconW * iconScale}" height="${iconH * iconScale}"`)
-      .replace('>', `>${style}`);
+      .replace(/width="[\d.]+" height="[\d.]+"/, `width="${iconW * iconScale}" height="${iconH * iconScale}"`);
     // (The load event is used, not image.decode(), which some browsers
     // refuse for SVG images.)
     const image = new Image();
@@ -438,38 +399,8 @@ export function createGlobeView(container, ctx, options) {
     canvas.height = height * iconScale;
     const g = canvas.getContext('2d');
     g.scale(iconScale, iconScale);
-    before?.(g);
     g.drawImage(image, x, y, iconW, iconH);
     icons.set(id, { canvas, width, height });
-  }
-
-  // Three still rings around a rocket with a good fix, like the map's
-  // resting rings (they don't pulse here: the scene only redraws on new data).
-  function drawRings(g, size, strength) {
-    const c = size / 2;
-    [[0.5, 0.95], [0.76, 0.6], [1, 0.3]].forEach(([scale, opacity]) => {
-      const lineWidth = 2.5 * scale;
-      const radius = (size / 2) * scale - lineWidth / 2;
-      g.beginPath();
-      g.arc(c, c, radius, 0, Math.PI * 2);
-      g.lineWidth = lineWidth + 3 * scale;
-      g.strokeStyle = `rgba(4, 8, 15, ${0.5 * opacity * strength})`;
-      g.stroke();
-      g.lineWidth = lineWidth;
-      g.globalAlpha = opacity * strength;
-      g.strokeStyle = config.TRACK_COLOR;
-      g.stroke();
-      g.globalAlpha = 1;
-    });
-  }
-
-  function rocketIcon(id, px, { hollow, ring, strength }) {
-    const box = rocketBox(px);
-    if (hollow) return svgIcon(id, rocketSvg(px), box, { style: HOLLOW_STYLE });
-    return svgIcon(id, rocketSvg(px), box, {
-      width: ring, height: ring, x: (ring - box[0]) / 2, y: (ring - box[1]) / 2,
-      before: (g) => drawRings(g, ring, strength),
-    });
   }
 
   // An icon whose anchor isn't its middle gets empty room on one side, so
@@ -478,6 +409,28 @@ export function createGlobeView(container, ctx, options) {
     const width = 2 * Math.max(anchor[0], size[0] - anchor[0]);
     const height = 2 * Math.max(anchor[1], size[1] - anchor[1]);
     return svgIcon(id, markup, size, { width, height, x: width / 2 - anchor[0], y: height / 2 - anchor[1] });
+  }
+
+  // One pulse ring at its full size: an orange circle with a faint dark
+  // edge on each side, like the map's rings. Each ring on screen is a
+  // copy that grows and fades (see "Pulse rings").
+  function ringIcon(id, size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size * iconScale;
+    canvas.height = size * iconScale;
+    const g = canvas.getContext('2d');
+    g.scale(iconScale, iconScale);
+    const lineWidth = 2.5;
+    const c = size / 2;
+    g.beginPath();
+    g.arc(c, c, c - lineWidth / 2 - 1.5, 0, Math.PI * 2);
+    g.lineWidth = lineWidth + 3;
+    g.strokeStyle = rgba(config.HALO_COLOR, 0.5).toCssColorString();
+    g.stroke();
+    g.lineWidth = lineWidth;
+    g.strokeStyle = config.TRACK_COLOR;
+    g.stroke();
+    icons.set(id, { canvas, width: size, height: size });
   }
 
   // Event markers, drawn the way the altitude timeline draws them: a
@@ -510,25 +463,20 @@ export function createGlobeView(container, ctx, options) {
   }
 
   const iconsReady = Promise.all([
-    rocketIcon('rocket-focus', config.ROCKET_ICON_FOCUSED_PX, { ring: RING_FOCUSED_PX, strength: 1 }),
-    rocketIcon('rocket-focus-hollow', config.ROCKET_ICON_FOCUSED_PX, { hollow: true }),
-    rocketIcon('rocket', config.ROCKET_ICON_PX, { ring: RING_PX, strength: 0.5 }),
-    rocketIcon('rocket-hollow', config.ROCKET_ICON_PX, { hollow: true }),
-    anchoredIcon('pad', padSvg(), PAD_SIZE, PAD_ANCHOR),
-    anchoredIcon('tower', towerSvg(), TOWER_SIZE, TOWER_ANCHOR),
-  ]).then(() => ['reported', 'detected', 'inferred'].forEach(eventIcon));
-
-  // Cesium draws each letter once and keeps it, so the label fonts have to
-  // be loaded before the first label is made.
-  const fontsReady = Promise.race([
-    Promise.all([
-      document.fonts?.load?.(`400 48px ${hudFamily}`),
-    ]),
-    new Promise((resolve) => { setTimeout(resolve, FONT_WAIT_MS); }),
-  ]).catch(() => null);
+    svgIcon('board-focus', boardSvg(BOARD_FOCUSED), BOARD_FOCUSED),
+    svgIcon('board-focus-hollow', boardSvg(BOARD_FOCUSED, { hollow: true }), BOARD_FOCUSED),
+    svgIcon('board', boardSvg(BOARD_OTHER), BOARD_OTHER),
+    svgIcon('board-hollow', boardSvg(BOARD_OTHER, { hollow: true }), BOARD_OTHER),
+    svgIcon('start', startSvg(), [START_SIZE, START_SIZE]),
+    anchoredIcon('dish', dishSvg(), DISH_SIZE, DISH_ANCHOR),
+  ]).then(() => {
+    ['reported', 'detected', 'inferred'].forEach(eventIcon);
+    ringIcon('ring-focus', RING_FOCUSED_PX);
+    ringIcon('ring', RING_PX);
+  });
 
   let assetsReady = false;
-  Promise.all([iconsReady, fontsReady]).then(() => {
+  iconsReady.then(() => {
     if (destroyed) return;
     assetsReady = true;
     scheduler.schedule();
@@ -556,253 +504,6 @@ export function createGlobeView(container, ctx, options) {
     imageOf.set(billboard, id);
     pump();
   }
-
-  // ------------------------------------------------------------------
-  // Labels. A tag is one or two lines of text on a dark backing, next to
-  // an icon. Cesium draws one color per label, so a two-line tag is two
-  // labels stacked: the first sits on top of the anchor line and the
-  // second hangs under it. Both are padded to the same width, so their
-  // backings read as one box.
-  // ------------------------------------------------------------------
-  const measureCanvas = document.createElement('canvas').getContext('2d');
-  const widthCache = new Map();
-  function textWidth(font, text) {
-    let total = 0;
-    measureCanvas.font = font;
-    for (const ch of text) {
-      const key = `${font}|${ch}`;
-      let w = widthCache.get(key);
-      if (w === undefined) {
-        w = measureCanvas.measureText(ch).width;
-        widthCache.set(key, w);
-      }
-      total += w;
-    }
-    return total;
-  }
-  const fontPx = (font) => Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] ?? 12);
-
-  // Cesium draws each letter once per font and per vertical anchor, and a
-  // letter drawn for the first time only shows a frame or two later. So a
-  // tag whose text has such a letter asks for those extra frames.
-  const drawnGlyphs = new Set();
-  function warmGlyphs(tag) {
-    tag.labels.forEach((label, i) => {
-      for (const ch of label.text) {
-        const key = `${tag.fonts[i]}|${label.verticalOrigin}|${ch}`;
-        if (drawnGlyphs.has(key)) continue;
-        drawnGlyphs.add(key);
-        pump();
-      }
-    });
-  }
-
-  const tags = new Set();
-
-  // Makes a tag. lines is [{ font, color, alpha }], one per line.
-  //   sides     where the tag may sit around its icon, usual side first
-  //   icon      the icon's reach from the position: { left, right, up, down } px
-  //   lift      how far (px) above the position the tag's middle sits beside the icon
-  //   optional  true if the tag may hide when it has no clear place
-  function makeTag(position, lines, { sides, icon, lift = 0, backing = HUD_DARK, optional = false, order = 0 }) {
-    const two = lines.length === 2;
-    const tag = {
-      position, sides, icon, lift, optional, order, two,
-      side: null, wanted: true, placed: true, shown: true, w: 0, texts: lines.map(() => ''),
-      labels: lines.map((line, i) => labels.add({
-        position,
-        text: '',
-        font: line.font,
-        fillColor: rgba(line.color, line.alpha ?? 1),
-        outlineColor: rgba(backing, line.alpha ?? 1),
-        outlineWidth: LABEL_OUTLINE,
-        style: C.LabelStyle.FILL_AND_OUTLINE,
-        showBackground: true,
-        backgroundColor: rgba(backing, 0.88 * (line.alpha ?? 1)),
-        backgroundPadding: new C.Cartesian2(TAG_PAD_X, TAG_PAD_Y),
-        horizontalOrigin: C.HorizontalOrigin.LEFT,
-        verticalOrigin: !two ? C.VerticalOrigin.CENTER : i === 0 ? C.VerticalOrigin.BOTTOM : C.VerticalOrigin.TOP,
-        ...ALWAYS,
-      })),
-      heights: lines.map((line) => Math.round(fontPx(line.font) * 1.05) + 2 * TAG_PAD_Y),
-      fonts: lines.map((line) => line.font),
-    };
-    tags.add(tag);
-    return tag;
-  }
-
-  // Sets a tag's text. Lines are padded with spaces to one width (the HUD
-  // font gives every letter the same width).
-  function setTagText(tag, texts) {
-    if (texts.every((t, i) => t === tag.texts[i])) return;
-    tag.texts = texts.slice();
-    const widths = texts.map((t, i) => textWidth(tag.fonts[i], t));
-    const widest = Math.max(...widths);
-    tag.labels.forEach((label, i) => {
-      const space = textWidth(tag.fonts[i], ' ');
-      const pad = space > 0 ? Math.round((widest - widths[i]) / space) : 0;
-      // A line with nothing to say stays empty, so it gets no backing.
-      label.text = texts[i] ? texts[i] + ' '.repeat(Math.max(0, pad)) : '';
-    });
-    tag.w = widest > 0 ? widest + 2 * TAG_PAD_X : 0;
-    warmGlyphs(tag);
-  }
-
-  // Shows a two-line tag as one line (its second line has nothing to say)
-  // or as two again.
-  function setTagLines(tag, two) {
-    if (tag.two === two) return;
-    tag.two = two;
-    tag.labels[0].verticalOrigin = two ? C.VerticalOrigin.BOTTOM : C.VerticalOrigin.CENTER;
-    tag.sideKey = null;
-    warmGlyphs(tag);
-  }
-
-  function setTagPosition(tag, position) {
-    tag.position = position;
-    for (const label of tag.labels) label.position = position;
-  }
-
-  function removeTag(tag) {
-    if (!tag) return;
-    for (const label of tag.labels) labels.remove(label);
-    tags.delete(tag);
-  }
-
-  // Where a tag's box would be on screen for each side, around screen
-  // point p, at scale f.
-  function tagBox(tag, side, p, f) {
-    const w = tag.w * f;
-    const h1 = tag.heights[0] * f;
-    const h = h1 + (tag.two ? tag.heights[1] * f : 0);
-    let left;
-    let top;
-    if (side === 'right' || side === 'left') {
-      left = side === 'right' ? p.x + tag.icon.right + LABEL_GAP_PX : p.x - tag.icon.left - LABEL_GAP_PX - w;
-      top = p.y - tag.lift - (tag.two ? h1 : h1 / 2);
-    } else {
-      left = p.x - w / 2;
-      top = side === 'below' ? p.y + tag.icon.down + LABEL_STACK_PX : p.y - tag.icon.up - LABEL_STACK_PX - h;
-    }
-    return { left, top, right: left + w, bottom: top + h };
-  }
-
-  // Moves a tag's labels to a side. Their anchor line is the tag's middle
-  // (one line) or the join between its two lines.
-  function applySide(tag, side, f) {
-    const HO = C.HorizontalOrigin;
-    const h1 = tag.heights[0] * f;
-    const h2 = tag.two ? tag.heights[1] * f : 0;
-    let origin;
-    let x;
-    let y;
-    if (side === 'right') { origin = HO.LEFT; x = tag.icon.right + LABEL_GAP_PX; y = -tag.lift; }
-    else if (side === 'left') { origin = HO.RIGHT; x = -tag.icon.left - LABEL_GAP_PX; y = -tag.lift; }
-    else if (side === 'below') { origin = HO.CENTER; x = 0; y = tag.icon.down + LABEL_STACK_PX + (tag.two ? h1 : h1 / 2); }
-    else { origin = HO.CENTER; x = 0; y = -(tag.icon.up + LABEL_STACK_PX + (tag.two ? h2 : h1 / 2)); }
-    const key = `${side}|${Math.round(x)}|${Math.round(y)}`;
-    if (tag.sideKey === key) return;
-    tag.sideKey = key;
-    tag.side = side;
-    for (const label of tag.labels) {
-      label.horizontalOrigin = origin;
-      label.pixelOffset = new C.Cartesian2(Math.round(x), Math.round(y));
-    }
-  }
-
-  function showTag(tag, show) {
-    tag.shown = show;
-    for (const label of tag.labels) if (label.show !== show) label.show = show;
-  }
-
-  // How much of box b (px²) is off the view (closer than 4 px to its edge
-  // counts as off) or under a panel, times hiddenCost, plus how much of it
-  // sits on another label or icon.
-  function labelCost(b, covered, taken, size, hiddenCost = HIDDEN_LABEL_COST) {
-    const overlap = (a, c) => Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left)) *
-      Math.max(0, Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top));
-    const frame = { left: 4, top: 4, right: size.x - 4, bottom: size.y - 4 };
-    return hiddenCost * ((b.right - b.left) * (b.bottom - b.top) - overlap(b, frame) +
-      covered.reduce((sum, c) => sum + overlap(b, c), 0)) +
-      taken.reduce((sum, t) => sum + overlap(b, t), 0);
-  }
-
-  // Runs before every drawn frame, once the camera is final for it: gives
-  // every tag a side where it can be read. A tag goes on its usual side
-  // unless that would run off the view, under a panel or into another tag
-  // or icon, and another side wouldn't. The focused rocket's tag goes
-  // first, then the other rockets, the ground station, the launch points,
-  // the event markers and the distance label. Only the focused rocket's
-  // tag always shows. Any other tag with no clear place stays out of sight
-  // until it has one.
-  let covered = [];
-  function placeTags() {
-    if (destroyed || !tags.size) return;
-    const size = { x: scene.canvas.clientWidth, y: scene.canvas.clientHeight };
-    if (size.x < 1 || size.y < 1) return;
-    // The panels and controls over the view, measured once for this frame.
-    covered = covers();
-    const taken = [];
-    const ordered = [...tags].sort((a, b) => a.order - b.order);
-    const at = new Map();
-
-    // The icons themselves count as taken, so no tag sits on another icon.
-    // (The distance label finds its own place along its line afterwards.)
-    for (const tag of ordered) {
-      if (tag.along) continue;
-      const p = tag.wanted ? C.SceneTransforms.worldToWindowCoordinates(scene, tag.position) : undefined;
-      at.set(tag, p);
-      if (!p) continue;
-      const f = distanceScale(tag.position);
-      taken.push({ left: p.x - tag.icon.left * f, right: p.x + tag.icon.right * f, top: p.y - tag.icon.up * f, bottom: p.y + tag.icon.down * f });
-    }
-
-    const padSpots = [];
-    for (const tag of ordered) {
-      if (tag.along) continue;
-      const p = at.get(tag);
-      // Behind the camera, off the view, or nothing to say.
-      if (!p || !tag.w || p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) {
-        showTag(tag, false);
-        continue;
-      }
-      // Launch pads close together share one label.
-      if (tag.pad) {
-        if (padSpots.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < PAD_LABEL_MERGE_PX)) {
-          showTag(tag, false);
-          continue;
-        }
-        padSpots.push(p);
-      }
-      const f = distanceScale(tag.position);
-      const boxes = Object.fromEntries(tag.sides.map((side) => [side, tagBox(tag, side, p, f)]));
-      const scores = Object.fromEntries(tag.sides.map((side) => [side, labelCost(boxes[side], covered, taken, size)]));
-      let side = tag.sides[0];
-      if (scores[side] !== 0) {
-        if (tag.side && scores[tag.side] === 0) side = tag.side;
-        else {
-          const best = tag.sides.reduce((a, b) => (scores[b] < scores[a] ? b : a));
-          // A clearly better place only, so a tag doesn't flicker between two bad ones.
-          side = !tag.side || !(tag.side in scores) || scores[best] < scores[tag.side] * 0.8 ? best : tag.side;
-        }
-      }
-      const box = boxes[side];
-      if (tag.optional) {
-        const share = labelCost(box, covered, taken, size, 1) / Math.max(1, (box.right - box.left) * (box.bottom - box.top));
-        // Out of sight once too much of it would be hidden, back once
-        // nearly all of it would show (so it doesn't blink at the limit).
-        tag.placed = share <= (tag.placed ? LABEL_HIDE_SHARE : 0.02);
-        if (!tag.placed) {
-          showTag(tag, false);
-          continue;
-        }
-      }
-      applySide(tag, side, f);
-      showTag(tag, true);
-      taken.push(box);
-    }
-  }
-  const stopPlacing = scene.preRender.addEventListener(placeTags);
 
   // ------------------------------------------------------------------
   // Ground heights. One lookup per spot (a launch pad, the ground
@@ -982,18 +683,17 @@ export function createGlobeView(container, ctx, options) {
     let parts = drawn.get(rocket.id);
     if (!parts) {
       parts = {
-        track: null,      // the store's track array this trail was built from
-        key: '',          // the height model, ground level and focus it was built with
+        track: null,      // the store's track array the positions were worked out from
+        key: '',          // the height model, ground level and focus they were worked out with
         count: 0,         // track points looked at so far
         positions: [],    // one 3D position per track point, null if it has no height
-        last: -1,         // index of the last point drawn
-        pendingGap: false,
-        run: null,        // the solid line being extended: { line, positions }
-        lines: [],        // every line of the trail
+        last: -1,         // index of the last point that has a position
+        tail: [],         // the trail's lines, one per unbroken stretch in its window
+        tailKey: '',      // what the trail was last built for
         focused: null,
-        icon: null, tag: null, pad: null, padTag: null,
+        icon: null, iconHome: null, rings: [], ringStrength: 1, pad: null, padAt: null,
         ground: null,     // the last ground height looked up for this rocket's pad
-        old: false,       // the icon sits at an older point than the newest good position
+        old: false,       // the marker sits at an older point than the newest good position
         approx: false, waiting: false,
       };
       drawn.set(rocket.id, parts);
@@ -1002,55 +702,45 @@ export function createGlobeView(container, ctx, options) {
   }
 
   function clearTrail(parts) {
-    for (const line of parts.lines) trails.remove(line);
-    parts.lines = [];
-    parts.run = null;
+    for (const line of parts.tail) trails.remove(line);
+    parts.tail = [];
+    parts.tailKey = '';
     parts.positions = [];
     parts.count = 0;
     parts.last = -1;
-    parts.pendingGap = false;
   }
 
   function removeRocket(parts) {
     clearTrail(parts);
     if (parts.icon) parts.iconHome.remove(parts.icon);
+    for (const ring of parts.rings) ringIcons.remove(ring);
     if (parts.pad) groundIcons.remove(parts.pad);
-    removeTag(parts.tag);
-    removeTag(parts.padTag);
     parts.icon = null;
+    parts.rings = [];
     parts.pad = null;
     parts.padAt = null;
-    parts.tag = null;
-    parts.padTag = null;
   }
 
-  // The look of a rocket's trail: orange and thicker for the focused rocket,
-  // its own color and thinner for the others, each with a dark outline.
-  // (The outline width counts both sides and comes out of the line's width.)
-  function trailLine(rocket, isFocused, positions) {
-    const halo = rgba(config.HALO_COLOR, config.HALO_OPACITY);
-    return trails.add({
-      positions,
-      width: isFocused ? 6 : 4,
-      material: C.Material.fromType('PolylineOutline', {
-        color: isFocused ? rgba(config.TRACK_COLOR, 0.95) : rgba(rocket.profile.color, 0.8),
-        outlineColor: halo,
-        outlineWidth: isFocused ? 2.5 : 2,
-      }),
-    });
-  }
-
-  // A dashed line across a gap: nobody measured the path in between.
-  function gapLine(rocket, isFocused, from, to) {
-    return trails.add({
-      positions: [from, to],
-      width: 2,
-      material: C.Material.fromType('PolylineDash', {
-        color: isFocused ? rgba(config.TRACK_COLOR, 0.95) : rgba(rocket.profile.color, 0.8),
-        gapColor: rgba(config.HALO_COLOR, DASH_GAP_OPACITY),
-        dashLength: GAP_DASH_PX,
-        dashPattern: GAP_DASH_BITS,
-      }),
+  // The trail's look: one color whose opacity follows the line, from
+  // fadeFrom at its first point to fadeTo at its last. Both are shares of
+  // the trail's window (0 at its far end, 1 at the marker), so the tail
+  // fades out behind the marker like a comet's. Cesium hands a polyline's
+  // material its place along the line in st.s: 0 at the first point and 1
+  // at the last, in equal steps from point to point. A board sends at a
+  // steady rate, so that is close to time.
+  function trailMaterial(css) {
+    return new C.Material({
+      fabric: {
+        uniforms: { trailColor: rgba(css, TRAIL_ALPHA), fadeFrom: 0, fadeTo: 1, fadePower: TRAIL_FADE_POWER },
+        source: `czm_material czm_getMaterial(czm_materialInput materialInput) {
+          czm_material material = czm_getDefaultMaterial(materialInput);
+          float share = clamp(mix(fadeFrom, fadeTo, materialInput.st.s), 0.0, 1.0);
+          material.diffuse = trailColor.rgb;
+          material.alpha = trailColor.a * pow(share, fadePower);
+          return material;
+        }`,
+      },
+      translucent: true,
     });
   }
 
@@ -1059,9 +749,10 @@ export function createGlobeView(container, ctx, options) {
     const model = heightModel(rocket, parts);
     const ground = rocket.derived?.groundRef;
     // Anything that changes where points go, or how the trail looks, means
-    // building the trail again: a seek (the store hands out a new track), a
-    // different height model, a ground level that moved (it settles while
-    // the rocket sits on the pad and is frozen at liftoff), or a new focus.
+    // working the positions out again: a seek (the store hands out a new
+    // track), a different height model, a ground level that moved (it
+    // settles while the rocket sits on the pad and is frozen at liftoff),
+    // or a new focus.
     const key = [model.kind, model.base ?? '', model.kind === 'ground' && Number.isFinite(ground) ? ground : '', isFocused].join('|');
     if (parts.track !== rocket.track || parts.key !== key || parts.count > rocket.track.length) {
       if (parts.focused !== null && parts.focused !== isFocused) removeRocket(parts);
@@ -1073,137 +764,201 @@ export function createGlobeView(container, ctx, options) {
     parts.approx = model.kind !== 'wait' && model.approx;
     parts.waiting = model.kind === 'wait' && Boolean(rocket.lastGoodFix);
 
-    // Trail: new points since the last draw. A gap starts a dashed line
-    // from the last point before it to the first point after it. As on
-    // the map there are two kinds: the GPS had no fix (gapBefore), or no
-    // position arrived for longer than LINK_STALE_S. A point with no
-    // height known is left out, which also makes a gap.
+    // Positions for the new points since the last draw. A point with no
+    // height known gets none, which breaks the trail there.
     if (model.kind !== 'wait') {
       const track = rocket.track;
-      // Hands a solid run's points to Cesium. A line needs two points, and
-      // Cesium only notices new points when the list is handed over again.
-      const finishRun = () => {
-        const run = parts.run;
-        if (!run || !run.grew || run.positions.length < 2) return;
-        run.grew = false;
-        if (run.line) run.line.positions = run.positions;
-        else {
-          run.line = trailLine(rocket, isFocused, run.positions);
-          parts.lines.push(run.line);
-        }
-      };
       for (let i = parts.count; i < track.length; i++) {
-        const p = track[i];
-        const position = pointPosition(rocket, model, p);
+        const position = pointPosition(rocket, model, track[i]);
         parts.positions.push(position);
-        if (!position) {
-          parts.pendingGap = true;
-          continue;
-        }
-        const prev = parts.last >= 0 ? track[parts.last] : null;
-        if (prev && (p.gapBefore || p.t - prev.t > config.LINK_STALE_S || parts.pendingGap)) {
-          finishRun();
-          parts.lines.push(gapLine(rocket, isFocused, parts.positions[parts.last], position));
-          parts.run = null;
-        }
-        if (!parts.run) parts.run = { line: null, positions: [], grew: false };
-        parts.run.positions.push(position);
-        parts.run.grew = true;
-        parts.pendingGap = false;
-        parts.last = i;
+        if (position) parts.last = i;
       }
       parts.count = track.length;
-      finishRun();
     }
 
+    drawTrail(rocket, parts, isFocused);
     drawPad(rocket, parts, model);
     drawRocketIcon(rocket, parts, isFocused);
   }
 
-  // The rocket icon at the last trail point that has a height. That is
-  // usually its last good position: off-white with rings while the fix is
-  // good, grey and hollow with no fix or when the newest position has no
-  // height yet. It is a billboard with no rotation, so it always stands
-  // straight up on screen.
+  // The trail: the positions from the last TRAIL_WINDOW_S seconds up to
+  // the marker, as thin solid lines that fade out toward the far end. It
+  // breaks wherever the positions do, as on the map: the GPS had no fix
+  // (gapBefore), no position came for longer than LINK_STALE_S, or a point
+  // has no height. Nobody measured the path across a break, so nothing is
+  // drawn there.
+  function drawTrail(rocket, parts, isFocused) {
+    const tailKey = `${parts.last}|${parts.count}`;
+    if (tailKey === parts.tailKey) return;
+    parts.tailKey = tailKey;
+    const track = rocket.track;
+    const end = parts.last;
+    const runs = [];
+    const span = TRAIL_WINDOW_S;
+    const tEnd = end >= 0 ? track[end].t : 0;
+    if (end >= 0) {
+      let first = end;
+      while (first > 0 && track[first - 1].t >= tEnd - span) first -= 1;
+      let run = null;
+      for (let i = first; i <= end; i++) {
+        const p = track[i];
+        const position = parts.positions[i];
+        if (!position) {
+          run = null;
+          continue;
+        }
+        if (run && (p.gapBefore || p.t - run.lastT > config.LINK_STALE_S)) run = null;
+        if (!run) {
+          run = { positions: [], firstT: p.t, lastT: p.t };
+          runs.push(run);
+        }
+        run.positions.push(position);
+        run.lastT = p.t;
+      }
+    }
+    const share = (t) => Math.min(1, Math.max(0, 1 - (tEnd - t) / span));
+    const shown = runs.filter((run) => run.positions.length >= 2);
+    shown.forEach((run, k) => {
+      let line = parts.tail[k];
+      if (!line) {
+        line = trails.add({
+          positions: run.positions,
+          width: isFocused ? TRAIL_WIDTH_PX : TRAIL_OTHER_WIDTH_PX,
+          material: trailMaterial(isFocused ? config.TRACK_COLOR : rocket.profile.color),
+        });
+        parts.tail.push(line);
+      } else {
+        line.positions = run.positions;
+        line.show = true;
+      }
+      line.material.uniforms.fadeFrom = share(run.firstT);
+      line.material.uniforms.fadeTo = share(run.lastT);
+    });
+    for (let k = shown.length; k < parts.tail.length; k++) parts.tail[k].show = false;
+  }
+
+  // The board marker at the last trail point that has a height. That is
+  // usually its last good position: the board's blue with pulse rings
+  // while the fix is good, hollow with no rings when there is no fix right
+  // now or the newest position has no height yet (a barometer that went
+  // quiet). It is a billboard with no rotation and no scaling, so it always
+  // stands upright and keeps one size on screen.
   function drawRocketIcon(rocket, parts, isFocused) {
     const position = parts.last >= 0 ? parts.positions[parts.last] : null;
     if (!position) {
       if (parts.icon) parts.icon.show = false;
-      if (parts.tag) parts.tag.wanted = false;
+      for (const ring of parts.rings) ring.show = false;
       return;
     }
-    const hud = rocketHudLine(store, config, rocket);
-    // The newest good position may have no height yet (a barometer that
-    // went quiet), so the icon is still at an older point. It then looks
-    // like any other old position: grey and hollow.
     parts.old = parts.last !== rocket.track.length - 1;
-    const id = `rocket${isFocused ? '-focus' : ''}${hud.warn || parts.old ? '-hollow' : ''}`;
-    const [w, h] = rocketBox(isFocused ? config.ROCKET_ICON_FOCUSED_PX : config.ROCKET_ICON_PX);
+    const live = store.hasFixNow(rocket) && !parts.old;
+    const id = `board${isFocused ? '-focus' : ''}${live ? '' : '-hollow'}`;
     if (!parts.icon) {
       parts.iconHome = isFocused ? focusIcons : rocketIcons;
       parts.icon = addIcon(parts.iconHome, id, position);
-      // Other rockets get a smaller, dimmer tag. Both lines share one text
-      // size, so their backings come out the same width.
-      const alpha = isFocused ? 1 : 0.74;
-      const font = hudFont(isFocused ? 12 : 11);
-      parts.tag = makeTag(position, [{ font, color: HUD, alpha }, { font, color: HUD_2, alpha }], {
-        sides: ['right', 'left', 'below', 'above'],
-        icon: { left: w / 2, right: w / 2, up: h / 2, down: h / 2 },
-        // Rockets flying close together can leave no room for every tag.
-        // The focused rocket's always shows. Another rocket's steps aside
-        // until it has room (its icon stays).
-        optional: !isFocused,
-        order: isFocused ? 0 : 1,
-      });
+      const ringId = isFocused ? 'ring-focus' : 'ring';
+      parts.rings = [0, 1, 2].map(() => addIcon(ringIcons, ringId, position));
+      // Other rockets' rings are half as strong, as on the map.
+      parts.ringStrength = isFocused ? 1 : 0.5;
     }
     parts.icon.show = true;
     parts.icon.position = position;
     setIcon(parts.icon, id);
-    // The same words as the map's label: the name, then height above
-    // ground and vertical speed, or why the position is old.
-    const line2 = [hud.altKey, hud.alt].filter(Boolean).join(' ') + (hud.speed ? `  VS ${hud.speed}` : '');
-    setTagText(parts.tag, [rocket.profile.callsign, line2]);
-    setTagPosition(parts.tag, position);
-    parts.tag.wanted = true;
-    const line2Color = rgba(hud.warn ? WARN : HUD_2, isFocused ? 1 : 0.74);
-    if (!C.Color.equals(parts.tag.labels[1].fillColor, line2Color)) parts.tag.labels[1].fillColor = line2Color;
+    for (const ring of parts.rings) {
+      ring.show = live;
+      ring.position = position;
+    }
   }
 
-  // The launch rail on the pad: the last good position before liftoff, on
-  // the ground height looked up for it.
+  // The start point (the launch point in a replay): the last good position
+  // before liftoff, as a small dot on the ground height looked up for it.
   function drawPad(rocket, parts, model) {
     const pad = rocket.padPosition;
     const height = !pad || model.kind === 'wait' ? null : model.kind === 'ground' ? model.base : pad.altMsl;
     if (!Number.isFinite(height)) {
       if (parts.pad) parts.pad.show = false;
-      if (parts.padTag) parts.padTag.wanted = false;
       return;
     }
     const position = C.Cartesian3.fromDegrees(pad.lon, pad.lat, height);
-    if (!parts.pad) {
-      parts.pad = addIcon(groundIcons, 'pad', position);
-      parts.padTag = makeTag(position, [{ font: hudFont(12), color: HUD }], {
-        sides: ['left', 'right', 'below'],
-        icon: { left: PAD_ANCHOR[0], right: PAD_SIZE[0] - PAD_ANCHOR[0], up: PAD_ANCHOR[1], down: PAD_SIZE[1] - PAD_ANCHOR[1] },
-        lift: 10,
-        optional: true,
-        order: 3,
-      });
-      parts.padTag.pad = true;
-      setTagText(parts.padTag, [words.padTag]);
-    }
+    if (!parts.pad) parts.pad = addIcon(groundIcons, 'start', position);
     parts.pad.show = true;
     parts.pad.position = position;
-    setTagPosition(parts.padTag, position);
-    parts.padTag.wanted = true;
     parts.padAt = position;
   }
 
   // ------------------------------------------------------------------
-  // Drawing: the ground station, its line to the focused rocket, the drop
-  // line and the event markers
+  // Pulse rings. Three orange rings around each board with a good fix
+  // grow and fade outward, a third of a pulse apart, like the map's. The
+  // scene only redraws when something changes, so while rings show, a
+  // loop asks for a frame at most RING_PULSE_FPS times a second. It rests
+  // while the view is off screen or paused behind the map, and stops when
+  // no ring shows. Viewers who ask for less motion get three still rings
+  // and no loop.
   // ------------------------------------------------------------------
-  const station = { icon: null, tag: null, position: null, ground: null, groundSpot: null, approx: false };
+  let pulseFrame = 0;
+  let pulseDrawn = -Infinity;
+  const ringColor = new C.Color(1, 1, 1, 1);
+
+  function ringsShowing() {
+    for (const parts of drawn.values()) if (parts.rings[0]?.show) return true;
+    return false;
+  }
+
+  function setRings(now) {
+    const still = prefersReducedMotion();
+    for (const parts of drawn.values()) {
+      if (!parts.rings[0]?.show) continue;
+      parts.rings.forEach((ring, k) => {
+        let scale;
+        let alpha;
+        if (still) [scale, alpha] = RING_STILL[k];
+        else {
+          // Where this ring is in its pulse, 0 to 1, with ring k a third
+          // of a pulse behind ring k - 1. Fast at first and slow at the
+          // end, close to the map's cubic-bezier(0.25, 0.6, 0.4, 1).
+          const u = (((now / RING_PULSE_MS - k / 3) % 1) + 1) % 1;
+          const eased = 1 - (1 - u) ** 2.4;
+          scale = RING_FROM_SCALE + (1 - RING_FROM_SCALE) * eased;
+          alpha = 1 - eased;
+        }
+        ring.scale = scale;
+        ringColor.alpha = alpha * parts.ringStrength;
+        ring.color = ringColor;
+      });
+    }
+  }
+
+  // True when some of the view is on screen (the console's other panel
+  // slides it out of sight).
+  function onScreen() {
+    const r = scene.canvas.getBoundingClientRect();
+    return r.width > 0 && r.right > 0 && r.left < window.innerWidth && r.bottom > 0 && r.top < window.innerHeight;
+  }
+
+  function pulse(now) {
+    pulseFrame = 0;
+    if (destroyed || !active || prefersReducedMotion() || !ringsShowing()) return;
+    pulseFrame = window.requestAnimationFrame(pulse);
+    if (now - pulseDrawn < 1000 / RING_PULSE_FPS - 4 || !onScreen()) return;
+    pulseDrawn = now;
+    setRings(now);
+    scene.requestRender();
+  }
+
+  // Runs after every draw: sets the rings for this moment, and starts the
+  // loop if it isn't running.
+  function startPulse() {
+    setRings(performance.now());
+    if (!pulseFrame && !destroyed && active && !prefersReducedMotion() && ringsShowing()) {
+      pulseFrame = window.requestAnimationFrame(pulse);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Drawing: the ground station, its line to the focused rocket and the
+  // event markers
+  // ------------------------------------------------------------------
+  const station = { icon: null, position: null, ground: null, groundSpot: null, approx: false };
 
   function drawStation() {
     const gs = store.getGroundStation();
@@ -1234,162 +989,50 @@ export function createGlobeView(container, ctx, options) {
     if (height === null) {
       station.position = null;
       if (station.icon) station.icon.show = false;
-      if (station.tag) station.tag.wanted = false;
       return;
     }
+    // The dish. While the ground station is the demo placeholder, the KEY
+    // and the readings panel say so.
     const position = C.Cartesian3.fromDegrees(gs.lon, gs.lat, height);
     station.position = position;
-    if (!station.icon) {
-      station.icon = addIcon(groundIcons, 'tower', position);
-      station.tag = makeTag(position, [{ font: hudFont(12), color: HUD }, { font: hudFont(12), color: HUD_2 }], {
-        sides: ['right', 'left', 'below'],
-        icon: { left: TOWER_ANCHOR[0], right: TOWER_SIZE[0] - TOWER_ANCHOR[0], up: TOWER_ANCHOR[1], down: TOWER_SIZE[1] - TOWER_ANCHOR[1] },
-        lift: 14,
-        // It steps out of sight while it would sit under the controls or
-        // the timeline, or off the edge (the KEY still names the tower).
-        optional: true,
-        order: 2,
-      });
-    }
+    if (!station.icon) station.icon = addIcon(groundIcons, 'dish', position);
     station.icon.show = true;
     station.icon.position = position;
-    setTagPosition(station.tag, position);
-    station.tag.wanted = true;
-    // An honesty note, as on the map: the tower sits at a made-up spot
-    // until the real ground station sends its own position.
-    const demo = gs.source === 'config';
-    setTagText(station.tag, ['GND STATION', demo ? 'DEMO POSITION' : '']);
-    setTagLines(station.tag, demo);
-  }
-
-  const dash = (css, opacity, px, bits) => C.Material.fromType('PolylineDash', {
-    color: rgba(css, opacity),
-    gapColor: rgba(config.HALO_COLOR, DASH_GAP_OPACITY * opacity),
-    dashLength: px,
-    dashPattern: bits,
-  });
-  const link = { line: null, tag: null, stale: null };
-  const drop = { line: null };
-
-  // The dashed line from the ground station to the focused rocket,
-  // through the air, labeled with the straight-line distance between them
-  // (so it counts the rocket's height, unlike the map's ground distance).
-  // With no fix right now it ends at the last good position, so it dims
-  // and the label says "Last known".
-  function drawLink(focused, target) {
-    if (!station.position || !target) {
-      if (link.line) link.line.show = false;
-      if (link.tag) link.tag.wanted = false;
-      return;
-    }
-    const stale = !store.hasFixNow(focused) || Boolean(drawn.get(focused.id)?.old);
-    if (!link.line) {
-      link.line = lines.add({ positions: [station.position, target], width: 2 });
-      link.tag = makeTag(target, [{ font: textFont, color: TEXT }], {
-        sides: ['center'],
-        icon: { left: 0, right: 0, up: 0, down: 0 },
-        backing: PAGE,
-        optional: true,
-        order: 5,
-      });
-      link.tag.labels[0].horizontalOrigin = C.HorizontalOrigin.CENTER;
-      link.tag.along = true;
-    }
-    if (link.stale !== stale) {
-      link.stale = stale;
-      link.line.material = dash(config.GROUND_STATION_COLOR, stale ? GS_LINE_STALE_OPACITY : GS_LINE_OPACITY, GS_DASH_PX, GS_DASH_BITS);
-      link.tag.labels[0].fillColor = rgba(stale ? MUTED : TEXT);
-    }
-    link.line.show = true;
-    link.line.positions = [station.position, target];
-    link.from = station.position;
-    link.to = target;
-    setTagText(link.tag, [`${stale ? 'Last known ' : ''}${formatDistance(C.Cartesian3.distance(station.position, target))} straight line`]);
-    link.tag.wanted = true;
-  }
-
-  // A thin line from the focused rocket straight down. Its lower end is
-  // far below any ground, and the terrain hides the part under the
-  // surface, so the line ends where the ground is.
-  function drawDropLine(target) {
-    if (!target) {
-      if (drop.line) drop.line.show = false;
-      return;
-    }
-    const spot = C.Cartographic.fromCartesian(target);
-    const positions = [target, C.Cartesian3.fromRadians(spot.longitude, spot.latitude, DROP_BOTTOM_M)];
-    if (!drop.line) {
-      drop.line = lines.add({
-        positions,
-        width: config.DROP_LINE_WIDTH_PX + 1,
-        material: C.Material.fromType('PolylineOutline', {
-          color: rgba(config.DROP_LINE_COLOR, 0.9),
-          outlineColor: rgba(config.HALO_COLOR, config.HALO_OPACITY),
-          outlineWidth: 1,
-        }),
-      });
-    }
-    drop.line.show = true;
-    drop.line.positions = positions;
   }
 
   // Event markers in the sky, for the focused rocket: one at the trail
   // point of its apogee, drogue, main and landing, and of each event its
-  // board reported, drawn by how the event was found, with a short label
-  // like "Apogee detected, 3,000 m". They come
-  // from the live store, so a marker only exists once playback has
-  // reached its event. An event with no good position at its time (a GPS
-  // gap) gets no marker, since there is no real place to put it.
+  // board reported, drawn by how the event was found. They come from the
+  // live store, so a marker only exists once playback has reached its
+  // event. An event with no good position at its time (a GPS gap) gets no
+  // marker, since there is no real place to put it.
   let marks = [];
   let marksKey = '';
 
   function drawEvents(focused) {
     const parts = focused ? drawn.get(focused.id) : null;
-    const events = focused && parts ? focused.events.filter((e) => e.type in EVENT_WORDS || e.type === 'reported') : [];
-    // Rebuilt when the list of events changes, or the trail under them
-    // was rebuilt (parts.key). A board's own event is logged the moment it
-    // arrives, and a closer GPS point can come in just after it, so the
-    // markers are also placed again on each new point until the trail is
-    // ALTITUDE_STALE_S past every event.
+    const events = focused && parts ? focused.events.filter((e) => EVENT_TYPES.has(e.type) || e.type === 'reported') : [];
+    // Rebuilt when the list of events changes, or the positions under them
+    // were worked out again (parts.key). A board's own event is logged the
+    // moment it arrives, and a closer GPS point can come in just after it,
+    // so the markers are also placed again on each new point until the
+    // trail is ALTITUDE_STALE_S past every event.
     const newest = focused?.track[focused.track.length - 1];
     const settling = events.some((e) => !newest || newest.t <= e.t + config.ALTITUDE_STALE_S) ? focused.track.length : 'settled';
     const key = `${focused?.id ?? ''}|${parts?.key ?? ''}|${events.length}|${parts?.track === focused?.track}|${settling}`;
     if (key !== marksKey || marks.some((m) => m.track !== focused?.track)) {
       marksKey = key;
-      for (const m of marks) {
-        eventIcons.remove(m.icon);
-        removeTag(m.tag);
-      }
+      for (const m of marks) eventIcons.remove(m.icon);
       marks = [];
       for (const e of events) {
         // The marker goes on a real trail point, never between two.
         const i = nearestPoint(focused.track, parts.positions, e.t);
         if (i < 0) continue;
-        const position = parts.positions[i];
         const kind = eventMarkerKind(e, focused.derived);
-        const id = `event-${kind === 'estimated' ? 'inferred' : kind}`;
-        const icon = addIcon(eventIcons, id, position);
-        const tag = makeTag(position, [{ font: textFont, color: TEXT }], {
-          sides: ['right', 'left', 'above', 'below'],
-          icon: { left: EVENT_MARK_PX / 2, right: EVENT_MARK_PX / 2, up: EVENT_MARK_PX / 2, down: EVENT_MARK_PX / 2 },
-          backing: PAGE,
-          optional: true,
-          order: 4,
-        });
-        setTagText(tag, [eventText(e, kind)]);
-        marks.push({ icon, tag, track: focused.track });
+        const icon = addIcon(eventIcons, `event-${kind === 'estimated' ? 'inferred' : kind}`, parts.positions[i]);
+        marks.push({ icon, track: focused.track });
       }
     }
-  }
-
-  // "Apogee detected, 3,000 m", with the event's own height. A board's
-  // own event shows the board's words and no height, since the board
-  // reported none. A landing has no height worth saying.
-  function eventText(e, kind) {
-    const said = e.type === 'reported' ? (/"(.*)"/.exec(e.message ?? '')?.[1] ?? null) : null;
-    const name = e.type === 'reported' ? (said ? `"${said}"` : 'Board event') : EVENT_WORDS[e.type];
-    const where = e.type !== 'landed' && Number.isFinite(e.aglM) ? `, ${formatRounded10(e.aglM)} m` : '';
-    return `${name} ${kind}${where}`;
   }
 
   // Index of the drawn track point closest in time to t, no further away
@@ -1405,48 +1048,6 @@ export function createGlobeView(container, ctx, options) {
     }
     return best;
   }
-
-  // The distance label sits on the ground station line: at the middle, or
-  // the spot nearest the middle where it is clear of the panels and the
-  // other labels. Runs before each frame, after placeTags' usual pass.
-  function placeLinkLabel() {
-    const tag = link.tag;
-    if (destroyed || !tag) return;
-    if (!tag.wanted || !link.from || !tag.w) {
-      showTag(tag, false);
-      return;
-    }
-    const size = { x: scene.canvas.clientWidth, y: scene.canvas.clientHeight };
-    const others = [];
-    for (const other of tags) {
-      if (other === tag || !other.wanted) continue;
-      const p = C.SceneTransforms.worldToWindowCoordinates(scene, other.position);
-      if (!p) continue;
-      const f = distanceScale(other.position);
-      if (other.shown && other.side) others.push(tagBox(other, other.side, p, f));
-      others.push({ left: p.x - other.icon.left * f, right: p.x + other.icon.right * f, top: p.y - other.icon.up * f, bottom: p.y + other.icon.down * f });
-    }
-    let found = null;
-    for (let step = 0; step <= 20 && !found; step++) {
-      for (const f of step === 0 ? [0.5] : [0.5 - step * 0.02, 0.5 + step * 0.02]) {
-        const position = C.Cartesian3.lerp(link.from, link.to, f, new C.Cartesian3());
-        const p = C.SceneTransforms.worldToWindowCoordinates(scene, position);
-        if (!p) continue;
-        const s = distanceScale(position);
-        const w = tag.w * s;
-        const h = tag.heights[0] * s;
-        const box = { left: p.x - w / 2, right: p.x + w / 2, top: p.y - h / 2, bottom: p.y + h / 2 };
-        if (labelCost(box, covered, others, size, 1) === 0) { found = position; break; }
-      }
-    }
-    if (!found) {
-      showTag(tag, false);
-      return;
-    }
-    setTagPosition(tag, found);
-    showTag(tag, true);
-  }
-  const stopPlacingLink = scene.preRender.addEventListener(placeLinkLabel);
 
   // ------------------------------------------------------------------
   // Camera. It always looks at one point (the pivot) from a heading, a
@@ -1907,10 +1508,8 @@ export function createGlobeView(container, ctx, options) {
     }
     drawStation();
     for (const rocket of rockets) drawRocket(rocket, focused?.id === rocket.id);
-    const target = focusedTarget();
-    drawLink(focused, target);
-    drawDropLine(target);
     drawEvents(focused);
+    startPulse();
     updateCamera();
 
     const text = notes().join('|');
@@ -1933,7 +1532,7 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // Tells map-view.js when the first picture is in, so its "Loading"
-  // panel can go: the icons, fonts and terrain are loaded, no ground
+  // panel can go: the icons and terrain are loaded, no ground
   // height is still being looked up, and the ground in view has drawn. If
   // that takes too long, the view shows as it is.
   let announced = false;
@@ -2017,11 +1616,10 @@ export function createGlobeView(container, ctx, options) {
       clearTimeout(readyTimer);
       clearTimeout(terrainTimer);
       stopWatchingReady();
-      stopPlacing();
-      stopPlacingLink();
       stopSkySwitch();
       stopGlide();
       window.cancelAnimationFrame(pairFrame);
+      window.cancelAnimationFrame(pulseFrame);
       scene.canvas.removeEventListener('webglcontextlost', onContextLost);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
@@ -2043,7 +1641,6 @@ export function createGlobeView(container, ctx, options) {
         container.replaceChildren();
         credits.replaceChildren();
         drawn.clear();
-        tags.clear();
         icons.clear();
         spots.length = 0;
       }

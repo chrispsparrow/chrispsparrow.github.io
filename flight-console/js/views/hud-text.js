@@ -1,9 +1,12 @@
 // hud-text.js
-// The words on a rocket's label, shared by the map and the 3D view so
-// both always say the same thing, and the words both use for what they're
-// tracking.
+// The words the map, the 3D view and the readings panel use for what
+// they're tracking, and rocketHudLine(), the short status line the map
+// and the 3D view used to draw next to a rocket. Neither view draws text
+// any more (the readings panel says the same things), but the bench feed
+// tests still check the age rules through rocketHudLine().
 //
-// Used by: map-view.js and globe-view.js (and main.js for BENCH_WORDS).
+// Used by: map-view.js, globe-view.js, stats-panel.js and main.js (for
+// BENCH_WORDS), and test/bench-feed.test.mjs.
 
 import { formatNumber, MISSING } from '../geo.js';
 
@@ -12,13 +15,16 @@ import { formatNumber, MISSING } from '../geo.js';
 // live console passes BENCH_WORDS in ctx.words for a Dogtooth board on a
 // desk, which isn't flying and has no launch pad. There the "pad" is the
 // spot where the board first sat still with a GPS fix. whole: null leaves
-// the "Whole flight" camera button out.
+// the "Whole flight" camera button out. marker names the board marker in
+// the KEY, and event names the 3D view's event markers there (a board on
+// a desk has no flight events, so its KEY has no row for them).
 export const FLIGHT_WORDS = Object.freeze({
   follow: 'Follow rocket',
   whole: 'Whole flight',
   track: 'Rocket track',
+  marker: 'Dogtooth board',
+  event: 'Flight event, like apogee or landing',
   pad: 'Launch point',
-  padTag: 'LAUNCH POINT',
   mapLabel: 'Map of rocket positions',
   globeLabel: '3D view of the flight',
   noFix: 'No GPS fix yet, so there is no rocket to draw.',
@@ -30,8 +36,9 @@ export const BENCH_WORDS = Object.freeze({
   follow: 'Follow board',
   whole: null,
   track: 'Board track',
+  marker: 'Dogtooth board',
+  event: null,
   pad: 'Start point',
-  padTag: 'START POINT',
   mapLabel: 'Map of the board\'s position',
   globeLabel: '3D view of the board\'s position',
   noFix: 'No GPS fix yet, so the board\'s position isn\'t shown.',
@@ -40,7 +47,7 @@ export const BENCH_WORDS = Object.freeze({
   noData: 'No data from this board yet',
 });
 
-// The second line of a rocket's label: height above ground and vertical
+// The old second line of a rocket's label: height above ground and vertical
 // speed, each after its field code, or why its position is old and for
 // how long: since the last packet of any kind, the last GPS data, or the
 // last good fix, so it agrees with the readings panel.

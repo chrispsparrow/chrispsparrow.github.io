@@ -5,8 +5,10 @@
 // same).
 //
 // The part that is always open shows altitude above ground (large),
-// vertical speed, ground speed and course, the GPS fix and satellites, and
-// the last packet age, plus an orange note when the GPS has a problem.
+// vertical speed, horizontal speed (and course, when the board sends one),
+// the GPS fix and satellites, and the last packet age, plus an orange note
+// when the GPS has a problem. The map and the 3D view have no text labels,
+// so this is where those numbers are.
 // "More readings" opens the rest: position, distance from the ground
 // station, ground level, and one section for each sensor group the rocket
 // has actually sent, built from the channel registry in schema.js, so a
@@ -19,18 +21,17 @@
 // says how old it is, and an old vertical speed isn't shown at all.
 //
 // The labels spell out each acronym the first time the screen shows it:
-// above ground level (AGL) and vertical speed (VS), which the 3D view's
-// labels use, then the Global Positioning System (GPS) and the horizontal
-// dilution of precision (HDOP).
+// above ground level (AGL), vertical speed (VS), the Global Positioning
+// System (GPS) and the horizontal dilution of precision (HDOP).
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, rocketDot } from './dom.js';
-import { uiIcon, iconNode } from './icons.js';
+import { uiIcon, iconNode } from './icons.js?v=2';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js';
-import { FLIGHT_WORDS } from './hud-text.js?v=2';
+import { FLIGHT_WORDS } from './hud-text.js?v=3';
 import {
   formatNumber, formatAge, formatDuration, formatRangeBearing, rangeAndBearing,
-  metersToFeet, compassName, MISSING,
+  metersToFeet, compassName, distanceM, MISSING,
 } from '../geo.js';
 
 export function createStatsPanel(root, ctx) {
@@ -132,7 +133,6 @@ export function createStatsPanel(root, ctx) {
 
     if (hasGps) {
       const gps = rocket.latestByGroup.gps?.values ?? {};
-      const sent = rocket.latestByChannel.gps ?? {};
       const fix = rocket.lastGoodFix;
       const gpsQuiet = store.gpsIsQuiet(rocket);
       const fixNow = store.hasFixNow(rocket);
@@ -146,21 +146,24 @@ export function createStatsPanel(root, ctx) {
       else if (!fix) alertText = 'No GPS fix yet, so there is no position to show.';
       else if (!fixNow) alertText = `No GPS fix right now.${fromLastFix}`;
 
-      // Ground speed and course only count while the fix is good right now.
-      // Otherwise the row says why it shows "--".
-      if (sent.speed || sent.course) {
-        let why = '';
-        if (silent) why = 'No recent packets';
-        else if (gpsQuiet) why = 'No recent GPS data';
-        else if (!fix) why = 'No GPS fix yet';
-        else if (!fixNow) why = 'No GPS fix right now';
-        rows.push({
-          label: 'Ground speed',
-          value: fixNow && Number.isFinite(fix?.speed) ? formatNumber(fix.speed, 1) : MISSING,
-          unit: 'm/s',
-          small: fixNow ? courseText(fix, config.COURSE_MIN_SPEED_MPS) : why,
-        });
-      }
+      // Horizontal speed only counts while the fix is good right now.
+      // Otherwise the row says why it shows "--" (in words without "GPS",
+      // which the row under it spells out first). A board that sends its
+      // GPS speed gets that (and its course). Otherwise it is worked out
+      // from the last two good fixes (see horizontalSpeed).
+      let why = '';
+      if (silent) why = 'No recent packets';
+      else if (gpsQuiet) why = 'No recent position data';
+      else if (!fix) why = 'No position fix yet';
+      else if (!fixNow) why = 'No position fix right now';
+      const hs = fixNow && fix ? horizontalSpeed(rocket, fix, config) : null;
+      rows.push({
+        label: 'Horizontal speed',
+        value: hs && Number.isFinite(hs.mps) ? formatNumber(hs.mps, 1) : MISSING,
+        unit: 'm/s',
+        small: !hs ? why : hs.sent ? courseText(fix, config.COURSE_MIN_SPEED_MPS) : hs.note,
+        tone: hs && Number.isFinite(hs.mps) ? 'live' : null,
+      });
 
       const sats = Number.isFinite(gps.sats) ? `, ${formatNumber(gps.sats, 0)} ${gps.sats === 1 ? 'satellite' : 'satellites'}` : '';
       let fixText = fixNow ? `Fix${sats}` : `No fix${sats}`;
@@ -174,8 +177,8 @@ export function createStatsPanel(root, ctx) {
         rows: [
           { label: 'Altitude above sea level', value: fix ? meters(fix.altMsl, 1) : MISSING },
           { label: 'Horizontal dilution of precision (HDOP)', value: num(gps.hdop, 2) },
-          { label: 'Latitude', value: fix ? `${formatNumber(fix.lat, 5)}°` : MISSING },
-          { label: 'Longitude', value: fix ? `${formatNumber(fix.lon, 5)}°` : MISSING },
+          { label: 'Latitude', value: fix ? `${formatNumber(fix.lat, 7)}°` : MISSING },
+          { label: 'Longitude', value: fix ? `${formatNumber(fix.lon, 7)}°` : MISSING },
           { label: 'Last good fix', value: fix ? formatAge(fixAge) : MISSING },
           // Left out when there is no ground station.
           ...(gs ? [{
@@ -397,6 +400,23 @@ function meters(m, decimals = 0) {
 // to "-1 ft".
 function feet(m) {
   return Number.isFinite(m) ? `${formatNumber(metersToFeet(Math.round(m)), 0)} ft` : '';
+}
+
+// Horizontal speed (m/s) while the fix is good: the board's own GPS speed
+// when it sends one ({ mps, sent: true }), otherwise the distance between
+// the last two good fixes over the time between them ({ mps, note }). That
+// needs two fixes in a row: no fix gap and no radio silence between them,
+// and the newest one is the fix shown. Otherwise mps is null and the note
+// says why.
+function horizontalSpeed(rocket, fix, config) {
+  if (Number.isFinite(fix.speed)) return { mps: fix.speed, sent: true };
+  const track = rocket.track;
+  const b = track[track.length - 1];
+  const a = track[track.length - 2];
+  if (!a || !b || b.t !== fix.t || b.gapBefore) return { mps: null, note: 'Needs two fixes in a row' };
+  const dt = b.t - a.t;
+  if (!(dt > 0) || dt > config.LINK_STALE_S) return { mps: null, note: 'Needs two fixes in a row' };
+  return { mps: distanceM(a.lat, a.lon, b.lat, b.lon) / dt, note: 'From the last two fixes' };
 }
 
 // Course as the board sent it, like "Course 58° NE". Below walking pace a

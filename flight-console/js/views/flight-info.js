@@ -13,7 +13,7 @@
 // Used by: main.js. Reads ctx.flight, never other views.
 
 import { h, setText, setChildren, formatDate, rocketDot } from './dom.js';
-import { uiIcon, iconNode } from './icons.js';
+import { uiIcon, iconNode } from './icons.js?v=2';
 import { formatNumber } from '../geo.js';
 
 export function createFlightInfo(root, ctx) {

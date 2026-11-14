@@ -46,16 +46,6 @@
   --fc-font-text: var(--fc-font-body);
   --fc-font-display: var(--fc-font-head);
   --fc-font-hud: var(--fc-font-readout);
-  /* The labels on the 2D map (the 3D view reads the theme directly). */
-  --fc-hud: var(--fc-offwhite);
-  --fc-hud-2: var(--fc-text-dim);
-  --fc-hud-outline: var(--fc-navy-deep);
-  /* Older names, so a rule that still uses one gets a theme color. */
-  --fc-gold: var(--fc-accent);
-  --fc-gold-soft: var(--fc-accent-soft);
-  --fc-coral: var(--fc-warn);
-  --fc-teal: var(--fc-text-2);
-  --fc-blue: var(--fc-text-2);
   /* The live panels' names for the same colors. js/live/bench-panel.js
      and js/bench/charts.js read them (the graphs draw with them). */
   --bc-panel: var(--fc-panel);
@@ -66,9 +56,6 @@
   --bc-text-2: var(--fc-text-2);
   --bc-muted: var(--fc-muted);
   --bc-accent: var(--fc-accent);           /* a one-line graph's line */
-  --bc-gold: var(--bc-accent);             /* older name */
-  --bc-teal: var(--fc-text-2);
-  --bc-coral: var(--fc-warn);
   --bc-sent: var(--fc-offwhite);           /* radio packets sent (graph line) */
   --bc-err: var(--fc-orange);              /* radio errors (graph line) */
   --bc-ink: var(--fc-ink);
@@ -105,21 +92,9 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 .fc-page .fc-main a { color: var(--fc-accent); text-decoration: underline; text-underline-offset: 3px; }
 .fc-page .fc-main a:hover { color: var(--fc-text); }
 
-/* Every changing number keeps the same width per digit. */
-.fc-page .fc-num { font-variant-numeric: tabular-nums; }
-
 /* ------------------------------------------------------------
    Text
    ------------------------------------------------------------ */
-.fc-page .fc-section-title {
-  font-family: var(--fc-font-head);
-  font-size: clamp(1.6rem, 3.2vw, 2.2rem);
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--fc-text);
-  margin: 0 0 0.4rem;
-}
-.fc-page .fc-section-sub { color: var(--fc-text-2); font-size: 1.05rem; line-height: 1.5; margin: 0 0 1.5rem; }
 .fc-page .fc-wait { color: var(--fc-text-2); font-family: var(--fc-font-readout); font-size: 0.85rem; }
 .fc-page .fc-panel-title {
   font-family: var(--fc-font-head);
@@ -435,35 +410,8 @@ html:has(body.fc-page) { scroll-padding-top: calc(var(--fc-nav-h) + 1rem); }
 }
 
 /* ============================================================
-   The console grid (#fc-console): the live console at ?track and the
-   replay at ?flight=<id>. Every pane is a direct child of the grid with
-   a data-pane name and its own grid area, and data-mode on the grid picks
-   the layout and which panes show:
-     idle    head, bar, notice, errors, intro, saved. For data it doesn't
-             recognize, raw shows in place of intro.
-     bench   head, bar, notice, errors, then readings and graphs side by
-             side (the diagnostics first), then the stage (the 3D view at
-             the board's position, moderate height), raw, saved
-     flight  head, bar, notice, errors, the stage (tall, with the readings
-             panel and altitude tape over it), then readings and graphs
-             (only once a board's status block has come in), raw, saved
-     replay  mission, rockets, phases, stage, timeline, lower
-   The visual order follows the page order, except in flight mode, where
-   the stage comes before readings and graphs. Phones get one column in
-   every mode. A pane a mode leaves out is display: none. Panes are spaced with a bottom margin instead of a row
-   gap, so the empty row of a pane that isn't showing takes no room.
-
-   Later, a no-scroll, one-screen layout: give the grid a fixed height
-   (the window minus the nav), one row and one column, and put every pane
-   of the mode in that one cell. Then show one pane at a time, the one
-   picked by tabs or flip-through buttons (say a data-show attribute on the
-   grid), and let a pane that is too tall scroll inside itself. No markup
-   has to move, since every pane is already a direct child of the grid.
-   ============================================================ */
-
-/* ============================================================
-   The console as it is now (the text above describes the older,
-   scrolling layout and is kept as it was):
+   The console (#fc-console): the live console at ?track and the
+   replay at ?flight=<id>.
 
    #fc-console fills the window under the nav and the page never scrolls
    (the site footer hides while it is up). Top to bottom:
@@ -1411,9 +1359,10 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-legend-row { display: flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
 .fc-page .fc-legend-key { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 18px; }
 .fc-page .fc-legend-key svg { display: block; }
-.fc-page .fc-legend-key .fc-ico-pad { width: 14px; height: 18px; }
-.fc-page .fc-legend-key .fc-ico-tower { width: 15px; height: 18px; }
-.fc-page .fc-legend-code { font-family: var(--fc-font-readout); font-size: 0.72rem; line-height: 1; color: var(--fc-text); }
+.fc-page .fc-legend-key .fc-ico-board { width: 13px; height: 18px; }
+.fc-page .fc-legend-key .fc-ico-start { width: 12px; height: 12px; }
+.fc-page .fc-legend-key .fc-ico-dish { width: 16px; height: 18px; }
+.fc-page .fc-legend-key .fc-basis { --basis-size: 12px; }
 /* Notes like "3D ground height is approximate". The empty note keeps no
    box, but stays in the page so screen readers still hear new notes. */
 .fc-page .fc-map-status {
@@ -1558,61 +1507,14 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-mk { background: none; border: 0; }
 .fc-page .fc-mk svg { display: block; }
 
-/* Map labels: small tags in Share Tech Mono, off-white on a deep navy
-   backing with a thin frame and a solid bar on the side that faces the
-   icon. --hud-accent is the frame and bar color (orange while a rocket has
-   no GPS fix). Text is uppercase in the script itself. */
-.fc-page .fc-hud {
-  --hud-accent: var(--fc-text-2);
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 3px 7px 3px 6px;
-  font-family: var(--fc-font-readout);
-  font-weight: 400;
-  color: var(--fc-hud);
-  white-space: nowrap;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--fc-hud-outline) 90%, transparent);
-  border: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
-  border-left: 3px solid var(--hud-accent);
-}
-.fc-page .fc-mk-off .fc-hud,
-.fc-page .fc-hud.fc-hud--blocked { visibility: hidden; }
-.fc-page .fc-hud-name { font-size: 12px; line-height: 14px; }
-.fc-page .fc-hud-line2 { font-size: 11px; line-height: 13px; color: var(--fc-hud-2); }
-.fc-page .fc-hud-key { opacity: 0.6; margin-right: 0.4em; }
-.fc-page .fc-hud-key:empty { display: none; }
-.fc-page .fc-hud-speed { margin-left: 0.9em; }
-/* A label on the left of its icon has its bar on the right. */
-.fc-page .fc-rkt--left .fc-rkt-label,
-.fc-page .fc-pad-label,
-.fc-page .fc-gs--left .fc-gs-label {
-  padding: 3px 6px 3px 7px;
-  border-left: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
-  border-right: 3px solid var(--hud-accent);
-}
-.fc-page .fc-pad--right .fc-pad-label,
-.fc-page .fc-pad--below .fc-pad-label {
-  padding: 3px 7px 3px 6px;
-  border-left: 3px solid var(--hud-accent);
-  border-right: 1px solid color-mix(in srgb, var(--hud-accent) 45%, transparent);
-}
-/* Rocket. Its marker box has no size: (0, 0) is the rocket's position. */
-.fc-page .fc-rkt { position: absolute; left: 0; top: 0; --w: 16px; --h: 22px; --ring: 46px; --ring-color: var(--fc-accent); }
+/* The board marker. Its marker box has no size: (0, 0) is the board's
+   position. There are no labels on the map: the readings panel says what
+   they used to say. */
+.fc-page .fc-rkt { position: absolute; left: 0; top: 0; --w: 14px; --h: 18px; --ring: 46px; --ring-color: var(--fc-accent); }
 .fc-page .fc-rkt--focus { --ring: 76px; }
 .fc-page .fc-rkt-icon { position: absolute; z-index: 1; left: calc(var(--w) / -2); top: calc(var(--h) / -2); width: var(--w); height: var(--h); }
-.fc-page .fc-rkt-label { z-index: 2; top: 0; left: calc(var(--w) / 2 + 8px); transform: translateY(-50%); }
-.fc-page .fc-rkt--left .fc-rkt-label { left: auto; right: calc(var(--w) / 2 + 8px); align-items: flex-end; }
-.fc-page .fc-rkt--below .fc-rkt-label { top: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
-.fc-page .fc-rkt--above .fc-rkt-label { top: auto; bottom: calc(var(--h) / 2 + 4px); left: 0; transform: translateX(-50%); align-items: center; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-label { opacity: 0.74; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-name { font-size: 11px; line-height: 13px; }
-.fc-page .fc-rkt:not(.fc-rkt--focus) .fc-hud-line2 { font-size: 10px; line-height: 12px; }
-/* Sonar rings around a rocket with a good fix. Three still rings, which
-   only pulse outward when motion is welcome. */
+/* Orange pulse rings around a board with a good fix. Three still rings,
+   which only pulse outward when motion is welcome. */
 .fc-page .fc-rkt-rings { position: absolute; left: 0; top: 0; z-index: 0; }
 .fc-page .fc-rkt:not(.fc-rkt--focus) .fc-rkt-rings { opacity: 0.5; }
 .fc-page .fc-rkt-rings i {
@@ -1638,41 +1540,14 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   from { transform: scale(0.3); opacity: 1; }
   to { transform: scale(1); opacity: 0; }
 }
-/* No GPS fix right now: grey and hollow at the last good position, no
-   rings, and an orange second line saying how old the position is. */
+/* No GPS fix right now: hollow at the last good position (a solid navy
+   middle, so the start dot under it doesn't show through, and a dim
+   outline, as in the 3D view), and no rings. */
 .fc-page .fc-rkt--nofix .fc-rkt-rings { display: none; }
-.fc-page .fc-rkt--nofix .fc-rkt-halo { fill: var(--fc-bg); fill-opacity: 0.92; stroke-width: 3.6; }
-.fc-page .fc-rkt--nofix .fc-rkt-body { fill: none; stroke: var(--fc-muted); stroke-width: 1.5; }
-.fc-page .fc-rkt--nofix .fc-rkt-fins,
-.fc-page .fc-rkt--nofix .fc-rkt-nozzle { display: none; }
-.fc-page .fc-rkt--nofix .fc-rkt-window { fill: none; stroke: var(--fc-muted); stroke-width: 1.2; }
-.fc-page .fc-rkt--nofix .fc-hud-line2 { color: var(--fc-warn); }
-.fc-page .fc-rkt--nofix .fc-rkt-label { --hud-accent: var(--fc-warn); }
-/* Launch rail and ground station tower. */
+.fc-page .fc-rkt--nofix .fc-brd-body { fill: var(--fc-bg); fill-opacity: 1; stroke: var(--fc-text-dim); }
+/* Start point and ground station dish. */
 .fc-page .fc-pad,
 .fc-page .fc-gs { position: relative; width: 100%; height: 100%; }
-.fc-page .fc-pad-label { top: 11px; right: calc(100% + 5px); transform: translateY(-50%); align-items: flex-end; }
-.fc-page .fc-pad--right .fc-pad-label { right: auto; left: calc(100% + 5px); align-items: flex-start; }
-.fc-page .fc-pad--below .fc-pad-label { top: 39px; right: auto; left: 50%; transform: translateX(-50%); align-items: center; }
-.fc-page .fc-gs-label { top: 16px; left: calc(100% + 4px); transform: translateY(-50%); }
-.fc-page .fc-gs--left .fc-gs-label { left: auto; right: calc(100% + 4px); align-items: flex-end; }
-.fc-page .fc-gs--below .fc-gs-label { top: calc(100% + 4px); left: 50%; transform: translateX(-50%); align-items: center; }
-/* The distance and bearing tag on the ground station line. */
-.fc-page .leaflet-tooltip.fc-tip {
-  padding: 0.15rem 0.5rem;
-  font-family: var(--fc-font-readout);
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: var(--fc-text);
-  background: var(--fc-float);
-  border: 1px solid var(--fc-text-2);
-  border-radius: 0;
-  box-shadow: none;
-  white-space: nowrap;
-}
-.fc-page .leaflet-tooltip.fc-tip::before { display: none; }
-.fc-page .leaflet-tooltip.fc-tip--stale { color: var(--fc-muted); border-color: var(--fc-divider); }
-.fc-page .leaflet-tooltip.fc-tip--away { visibility: hidden; }
 /* No map at all: each rocket's position, distance and bearing. */
 .fc-page .fc-nomap {
   position: absolute;
@@ -1849,7 +1724,6 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .bc-reading dd.is-empty { color: var(--fc-muted); font-size: 0.72rem; }
 .fc-page .bc-reading--note { justify-content: flex-start; }
 .fc-page .bc-reading--note dd { text-align: left; }
-.fc-page .bc-dd-sub { display: block; margin-top: 0.1rem; color: var(--fc-text-2); font-size: 0.68rem; }
 /* The HDOP, on its own line under lock quality. */
 .fc-page .bc-reading dd.bc-reading-note { flex: 1 1 100%; margin-top: 0.05rem; font-size: 0.66rem; color: var(--fc-text-2); }
 /* Status words from the board (LOCKED, SEARCHING, GOOD, LOW, SILENT, ON).

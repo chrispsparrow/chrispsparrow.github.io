@@ -9,7 +9,7 @@
 // Used by: main.js. Reads the store and ctx.flight.truth.
 
 import { h, setText, setChildren, createScheduler } from './dom.js';
-import { uiIcon, iconNode } from './icons.js';
+import { uiIcon, iconNode } from './icons.js?v=2';
 import { compareWithTruth, truthPhaseAt } from '../truth-check.js';
 import { EVENT_LABELS } from '../detector.js';
 import { formatNumber } from '../geo.js';
