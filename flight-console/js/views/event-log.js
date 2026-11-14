@@ -17,9 +17,9 @@
 // also names its rocket in its color.
 //
 // Screen readers hear only events that arrive during normal playback, read
-// from a hidden log of their own (open or closed). A seek, a new focused
-// rocket or a new flight rebuilds the list quietly, so old events are
-// never read out again.
+// from a hidden log of their own (open or closed), one line per new event.
+// A seek, a new focused rocket or a new flight rebuilds the list quietly,
+// so old events are never read out again.
 //
 //   createEventLog(root, ctx) -> { destroy() }
 //     root   the element to fill
@@ -96,13 +96,19 @@ export function createEventLog(root, ctx) {
     if (sameList && events.length === rendered.length) { markAtPlayhead(); return; }
 
     const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < config.LOG_AUTOSCROLL_PX;
+    // Events that weren't in the list before. During normal playback they
+    // are read out, even when one lands earlier in the list than the last
+    // (a liftoff placed back at the moment the GPS fix dropped, say).
+    const before = new Set(rendered);
+    const fresh = events.filter((e) => !before.has(e));
+    if (!quiet && fresh.length) announce(fresh);
+    // Only added at the end, with the same times: append just those.
     const added = sameList && events.length > rendered.length && rendered.every((e, i) => events[i] === e)
       ? events.slice(rendered.length) : null;
     lastKey = key;
 
     if (added) {
       list.append(...added.map((e) => item(e, showRocket, animate)));
-      if (!quiet) announce(added);
     } else if (!events.length) {
       setChildren(list, h('li', { class: 'fc-log-empty' }, 'No events yet. They show up here as the flight plays.'));
     } else {

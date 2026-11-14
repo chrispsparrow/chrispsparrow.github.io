@@ -462,7 +462,7 @@
 }
 .fc-page .bc-key .bc-graph-value { text-transform: none; letter-spacing: 0; }
 .fc-page .bc-key-line { display: inline-block; width: 14px; height: 2px; align-self: center; }
-.fc-page .bc-key-line--sent { background: var(--bc-accent); }
+.fc-page .bc-key-line--sent { background: var(--bc-sent); }
 .fc-page .bc-key-line--err { background: var(--bc-err); }
 .fc-page .bc-graph-canvas {
   flex: 1 1 0;
@@ -637,6 +637,10 @@
   .fc-page .fc-dp-side > .fc-dp-head { position: static; }
   .fc-page .bc-graph-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .fc-page .bc-graph-canvas { flex: none; height: 132px; }
+  /* The whole panel scrolls here, so an open strip grows instead of
+     scrolling inside itself. */
+  .fc-page .fc-log-list,
+  .fc-page .fc-info-body { max-height: none; overflow: visible; }
 }
 
 /* Phones */

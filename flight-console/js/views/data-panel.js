@@ -150,7 +150,9 @@ export function createDataPanel(root, ctx) {
       canvas));
     const entry = { def, canvas, values, when };
     entry.chart = new TimeChart(canvas, {
-      series: def.series.map((s) => ({ key: s.key, color: s.warn ? theme.err : theme.accent })),
+      // One line is white. On a graph with two, the second is amber (a
+      // warning) and the first off-white, like the live radio graph.
+      series: def.series.map((s) => ({ key: s.key, color: s.warn ? theme.err : def.series.length > 1 ? theme.sent : theme.accent })),
       theme,
       integer: !!def.integer,
       floorZero: def.floorZero !== false,
