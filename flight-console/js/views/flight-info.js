@@ -68,7 +68,7 @@ export function createFlightInfo(root, ctx) {
 
   // Anything the parser or library had to adjust, said plainly.
   const notes = flight.notes ?? [];
-  if (notes.length) row('Notes', notes.map((note) => h('span', { class: 'fc-info-line' }, note)));
+  if (notes.length) row('Notes', notes.map((note) => h('span', { class: 'fc-info-line fc-info-note' }, note)));
 
   // The closed line: simulated or real, and the file.
   const fileText = files.length === 1 ? files[0].file : files.length ? `${files.length} data files` : '';

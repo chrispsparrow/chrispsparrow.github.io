@@ -241,6 +241,11 @@
                  status blocks. -->
             <div class="fc-data-live">
               <div class="fc-dp-strips">
+                <!-- The mission timeline, the same strip a replay has.
+                     js/live/bench-panel.js fills it from the live store
+                     (js/views/event-log.js), so liftoff, apogee and the
+                     landing are listed as they happen. -->
+                <div id="bc-log" class="fc-dp-strip"></div>
                 <!-- Lines from the board that start with "Error:". -->
                 <section id="bc-errors" class="fc-strip bc-errors" aria-labelledby="bc-errors-title" hidden>
                   <div class="fc-strip-row">

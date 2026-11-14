@@ -8,6 +8,9 @@
 // source, graphs on flight time). Both read the colors and the font from
 // the page's --bc-* variables, so the graphs match panel 2 around them.
 
+// Settings
+const MIN_TICK_GAP_PX = 18;   // value labels up the side sit at least this far apart
+
 // 1, 2 or 5 times a power of ten, at or above `raw`.
 export function niceStep(raw) {
   if (!(raw > 0)) return 1;
@@ -236,10 +239,20 @@ export class TimeChart {
       if (this.floorZero && lo === 0) hi = lo + this.minSpan;
       else { const mid = (hi + lo) / 2; lo = mid - this.minSpan / 2; hi = mid + this.minSpan / 2; }
     }
-    let step = niceStep((hi - lo) / 3);
+    // About three steps up the side. A short graph (a strip open above
+    // it, say) takes bigger steps, so its value labels never overlap. It
+    // always has room for two, since a range that crosses zero (VS) can
+    // never fit in one, and a step as big as the range always fits in two.
+    const room = Math.max(2, Math.floor((h - 30) / MIN_TICK_GAP_PX));
+    let step = niceStep((hi - lo) / Math.min(3, room));
     if (this.integer) step = Math.max(1, Math.round(step));
-    const yLo = Math.floor(lo / step) * step;
+    let yLo = Math.floor(lo / step) * step;
     let yHi = Math.ceil(hi / step) * step;
+    while ((yHi - yLo) / step > room && step < hi - lo) {
+      step = niceStep(step * 1.01);
+      yLo = Math.floor(lo / step) * step;
+      yHi = Math.ceil(hi / step) * step;
+    }
     if (yHi <= yLo) yHi = yLo + step;
     const decimals = step >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(step)));
     const ticks = [];
@@ -266,14 +279,17 @@ export class TimeChart {
     ctx.fillStyle = th.muted;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    for (const v of ticks) {
+    // On a graph too short even for that, only every other line gets a
+    // label (the bottom and the top), so no two labels touch.
+    const labelEvery = ticks.length > 1 && (bottom - top) / (ticks.length - 1) < MIN_TICK_GAP_PX ? 2 : 1;
+    ticks.forEach((v, i) => {
       const y = Math.round(yOf(v)) + 0.5;
       ctx.beginPath();
       ctx.moveTo(left, y);
       ctx.lineTo(right, y);
       ctx.stroke();
-      ctx.fillText(v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }), left - 6, y);
-    }
+      if (i % labelEvery === 0) ctx.fillText(v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }), left - 6, y);
+    });
 
     // The time along the bottom, spaced at least 96 px apart.
     const span = t1 - t0;
