@@ -144,6 +144,24 @@ function deepestZoom(config, coords) {
 // L.tileLayer options). Each tile is a box holding one photo: its own, or
 // the deepest one above it, scaled up and moved so the right part of it
 // fills the box. map-view.js styles the box (fc-sat-tiles).
+//
+// Apart from where the photo comes from, the layer works like Leaflet's
+// own tile layer. That needs a few of Leaflet's methods redone, because
+// Leaflet's versions expect each tile to be the photo itself (an img), and
+// here it is a box around one:
+// - When the zoom level changes, Leaflet throws away the old level's tiles
+//   that are still loading (_abortLoading). It tells them apart by the
+//   img's `complete`, which a box doesn't have, so it threw away every old
+//   tile, loaded ones too, and the map went black until the new photos
+//   came in. Here a tile counts as finished once its photo has loaded or
+//   failed, so the old photos stay on screen, scaled, until the new ones
+//   have faded in over them, the same as on the dark map.
+// - When Leaflet drops a tile (the view moved on), it cancels the photo's
+//   download by pointing the img at an empty picture. Here that is done to
+//   the img inside the box (drop()). A tile still waiting to hear which
+//   photos exist never asks for one at all.
+// - A dropped tile's late "loaded" is ignored (_tileReady), so it can't be
+//   mistaken for a new tile in the same spot.
 export function createSatelliteLayer(L, config, options) {
   const SatelliteLayer = L.TileLayer.extend({
     createTile(coords, done) {
@@ -152,7 +170,12 @@ export function createSatelliteLayer(L, config, options) {
       img.alt = '';
       img.setAttribute('role', 'presentation');
       box.append(img);
+      // finished: the photo loaded or failed. dropped: the map let go of
+      // the tile (see drop()).
+      const tile = { img, finished: false, dropped: false };
+      box.fcTile = tile;
       const show = (z) => {
+        if (tile.dropped) return;
         // How many of this tile fit across the photo it borrows from (1
         // when it has its own), and which one it is.
         const scale = 2 ** (coords.z - z);
@@ -163,17 +186,58 @@ export function createSatelliteLayer(L, config, options) {
         img.style.height = `${size.y * scale + 0.5}px`;
         img.style.left = `${-(coords.x - x * scale) * size.x}px`;
         img.style.top = `${-(coords.y - y * scale) * size.y}px`;
-        img.onload = () => done(null, box);
-        img.onerror = (e) => done(e, box);
+        img.onload = () => { tile.finished = true; done(null, box); };
+        img.onerror = (e) => { tile.finished = true; done(e, box); };
         img.src = L.Util.template(this._url, L.Util.extend({ r: '', s: '' }, this.options, { x, y, z }));
       };
       const z = deepestZoom(config, coords);
       if (typeof z === 'number') show(z);
-      // A tile the map dropped while it waited (the view moved on) isn't
-      // asked for. Leaflet takes a dropped tile out of the page.
-      else z.then((found) => { if (box.parentNode) show(found); });
+      else z.then(show);
       return box;
+    },
+
+    // Leaflet's _abortLoading, for boxes: when the zoom level changes, the
+    // tiles of other levels that are still loading go. Finished ones stay
+    // until Leaflet's pruning takes them away, once the new level covers
+    // their spot.
+    _abortLoading() {
+      for (const key in this._tiles) {
+        const entry = this._tiles[key];
+        if (entry.coords.z === this._tileZoom || entry.el.fcTile?.finished) continue;
+        drop(L, entry.el);
+        L.DomUtil.remove(entry.el);
+        delete this._tiles[key];
+        this.fire('tileabort', { tile: entry.el, coords: entry.coords });
+      }
+    },
+
+    // Leaflet's _removeTile, for boxes: cancel the photo, then let Leaflet
+    // take the tile out of the page as usual.
+    _removeTile(key) {
+      const entry = this._tiles[key];
+      if (!entry) return;
+      drop(L, entry.el);
+      return L.GridLayer.prototype._removeTile.call(this, key);
+    },
+
+    // Leaflet's _tileReady, for boxes: nothing to do for a dropped tile.
+    _tileReady(coords, err, box) {
+      if (!this._map || box?.fcTile?.dropped) return;
+      return L.GridLayer.prototype._tileReady.call(this, coords, err, box);
     },
   });
   return new SatelliteLayer(config.SATELLITE_URL, options);
+}
+
+// Lets go of a tile's photo: it never reports back, and a download still
+// on its way is cancelled by pointing the img at Leaflet's empty picture
+// (what Leaflet does to its own tiles). A tile still waiting to hear which
+// photos exist won't ask for one.
+function drop(L, box) {
+  const tile = box.fcTile;
+  if (!tile || tile.dropped) return;
+  tile.dropped = true;
+  tile.img.onload = null;
+  tile.img.onerror = null;
+  if (tile.img.getAttribute('src')) tile.img.setAttribute('src', L.Util.emptyImageUrl);
 }

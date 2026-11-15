@@ -392,6 +392,18 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
 .fc-page .fc-replay-name:focus { outline: none; }
 .fc-page .fc-replay-name:focus-visible { outline: 1px dashed var(--fc-accent); outline-offset: 3px; }
 .fc-page .fc-replay-close { flex: none; }
+/* On the narrowest phones (under 390 px wide) a long name, like
+   "SIMULATED FLIGHT, KOMODO, INDONESIA", wraps onto a second line instead
+   of being cut short. CLOSE stays next to its first line. A name that
+   fits keeps one line. */
+@media (max-width: 389.98px) {
+  .fc-page .fc-replay-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+}
 
 /* SAVED FLIGHTS: a small dropdown log under its button, one line per
    flight. The open one's line is amber. */

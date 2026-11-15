@@ -61,7 +61,7 @@
 // notes and camera mode). Never other views.
 
 import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js?v=2';
-import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js?v=2';
+import { formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js?v=2';
 import { iconNode } from './icons.js?v=3';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
@@ -73,7 +73,7 @@ import { checkEsriKey, createSatelliteLayer } from './esri.js';
 import { loadCesium } from './cesium-loader.js?v=2';
 import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=2';
 import { speedColor } from '../track.js?v=2';
-import { flightState, eventCrumb, recoveryInfo, STATE } from '../flight-state.js?v=2';
+import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=2';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
@@ -106,6 +106,9 @@ const FOLLOW_PAN_MS = 600;
 // that starts this soon (ms) after the map moved itself counts as its own,
 // not the viewer's.
 const OWN_MOVE_MS = 1200;
+// The longest (ms) one of this view's own flights (the first view flying
+// to a new site) is waited for. It normally ends sooner, when it lands.
+const FLY_MAX_MS = 15000;
 // Where the map waits before the first position when there is no ground
 // station to start on: most of the world, until the first view fits.
 const NO_STATION_CENTER = [20, 0];
@@ -275,6 +278,7 @@ export function createMapView(root, ctx) {
   let viewTouched = false;  // the viewer has dragged or zoomed the map
   let ownMove = false;      // true while this view moves the map itself
   let ownMoveUntil = 0;     // ...and until then, for a move Leaflet animates
+  let flyingUntil = 0;      // this view's own flight is on its way until it lands, or until then
   let flyNext = false;      // the next first view flies there (a new source)
   let whole2d = null;       // WHOLE FLIGHT on the map: { bounds } it framed, or null
   let lastState = null;     // the flight state at the last draw (to spot liftoff)
@@ -397,6 +401,9 @@ export function createMapView(root, ctx) {
       // After any pan or zoom (FOLLOW BOARD's own pans included), look
       // again at the new view, even if playback is paused.
       map.on('moveend', () => scheduler.schedule());
+      // This view's own flight has landed (a flight ends with zoomend, then
+      // moveend), or the viewer took over and stopped it.
+      map.on('zoomend dragstart', () => { flyingUntil = 0; });
       // The labels and the scale follow the map as it moves. During a zoom
       // the labels hide, since the markers glide while Leaflet animates.
       map.on('move', () => { placeLabels2d(); updateScale2d(); });
@@ -807,6 +814,11 @@ export function createMapView(root, ctx) {
     labels.update([]);
     applyView();
     if (mode === 'leaflet') {
+      // A map that hasn't been framed yet (it waited behind the 3D view, on
+      // the world or on an old site) shows its first view at once, the
+      // same on every screen. A flight from wherever it waited would only
+      // be motion the viewer never asked for.
+      if (!fitted) flyNext = false;
       map.invalidateSize();
       scheduler.flush();
     } else {
@@ -1689,7 +1701,7 @@ export function createMapView(root, ctx) {
         }
         ownMove = false;
         ownMoveUntil = performance.now() + OWN_MOVE_MS;
-        if (animate) followPanUntil = performance.now() + 1500;
+        if (animate) startedFlight();
         flyNext = false;
         fitted = true;
         fitPads = padMarkers.size;
@@ -1719,6 +1731,10 @@ export function createMapView(root, ctx) {
   // over it), the map moves at once instead of gliding, so it is never
   // hidden. With urgentOnly set, only that last check runs.
   function followBoard2d(target, size, covers, { urgentOnly = false } = {}) {
+    // Any pan, even an instant one, would stop this view's own flight
+    // halfway (on a phone it used to stop the first view's flight from the
+    // world map on its first frame). The check runs again when it lands.
+    if (flying()) return;
     const p = map.latLngToContainerPoint(target);
     const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
     const { ins, free } = followInsets(size, covers);
@@ -1736,6 +1752,16 @@ export function createMapView(root, ctx) {
     ownMove = false;
     ownMoveUntil = performance.now() + OWN_MOVE_MS;
     followPanUntil = animate ? performance.now() + FOLLOW_PAN_MS : 0;
+  }
+
+  // One of this view's own flights (flyTo or flyToBounds) just started.
+  // FOLLOW BOARD waits for it to land, at the latest FLY_MAX_MS.
+  function startedFlight() {
+    flyingUntil = performance.now() + FLY_MAX_MS;
+  }
+
+  function flying() {
+    return performance.now() < flyingUntil;
   }
 
   // A HUD block changed size: if it now covers the board, move the view
@@ -2083,7 +2109,12 @@ export function createMapView(root, ctx) {
     for (const rocket of rockets) {
       const row = fallbackRows.get(rocket.id);
       const fix = rocket.lastGoodFix;
-      const rb = fix && gs ? rangeAndBearing(gs, fix) : null;
+      // Distance and bearing from Manta, the same numbers as the HUD's
+      // (rangeReading() in flight-state.js): to the newest good fix, and
+      // in recovery to the recovery position. The text and the arrow both
+      // use them.
+      const range = rangeReading(store, rocket);
+      const rb = range && range.from === 'manta' && Number.isFinite(range.distanceM) ? range : null;
       let position = 'NO GPS DATA';
       if (fix) position = `${formatNumber(fix.lat, 5)}, ${formatNumber(fix.lon, 5)}`;
       else if (rocket.lastPacketT === null) position = 'NO DATA YET';
@@ -2160,7 +2191,10 @@ export function createMapView(root, ctx) {
       if (Array.isArray(padPoint) && view === 'map') {
         ownMove = true;
         if (prefersReducedMotion()) map.setView(padPoint, config.MAP_DEFAULT_ZOOM, { animate: false });
-        else map.flyTo(padPoint, config.MAP_DEFAULT_ZOOM);
+        else {
+          map.flyTo(padPoint, config.MAP_DEFAULT_ZOOM);
+          startedFlight();
+        }
         ownMove = false;
         ownMoveUntil = performance.now() + OWN_MOVE_MS;
       } else if (view === 'map' && !store.getGroundStation() && !store.getRockets().some((r) => r.crumbs?.length)) {
@@ -2247,7 +2281,7 @@ export function createMapView(root, ctx) {
         insets: freeInsets(canvas),
         width: size.x,
         height: size.y,
-        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress),
+        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress || flying()),
       };
     },
     // Where the focused board shows on screen (px in the view) and the
@@ -2272,7 +2306,7 @@ export function createMapView(root, ctx) {
         center: [c.lat, c.lng],
         centerPx: (({ x, y }) => [x, y])(map.project(c, map.getZoom())),
         zoom: map.getZoom(),
-        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress),
+        moving: Boolean(map._animatingZoom || map._panAnim?._inProgress || flying()),
       };
     },
     // How many things each view has drawn right now.
