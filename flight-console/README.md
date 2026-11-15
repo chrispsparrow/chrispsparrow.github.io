@@ -385,7 +385,17 @@ The camera always looks at one point and circles around it. Cesium's own mouse a
 - With keyboard focus on the 3D view, the arrow keys move the camera around the point (`GLOBE_KEY_TURN_DEG`), and + and - zoom (`GLOBE_KEY_ZOOM`).
 - In the idle view (the whole Earth, nothing to look at) the camera stays put.
 
-Nothing keeps moving after you let go. The camera can't go under the ground or flip over the top. The starting view looks north from the side, tilted 12 degrees down, from three times the flight's highest point away (from the pre-scan). Live data has no pre-scan, so it starts at `GLOBE_START_RANGE_MIN_M`. A new site far away is reached with Cesium's own flight (`FLY_IN_S`), and a near one with a short glide (`GLOBE_MOVE_MS`). Anything the viewer does with the camera on the way ends the flight at its goal. With less motion asked for, the camera jumps.
+Nothing keeps moving after you let go. The camera can't go under the ground or flip over the top. The starting view looks north from the side, tilted 12 degrees down, from three times the flight's highest point away (from the pre-scan). Live data has no pre-scan, so it starts at `GLOBE_START_RANGE_MIN_M`. A new site far away is reached with a flight (see "Flights to a far site" below), and a near one with a short glide (`GLOBE_MOVE_MS`). Anything the viewer does with the camera on the way ends the flight at its goal. With less motion asked for, the camera jumps.
+
+#### Flights to a far site
+
+`globe-view.js` flies the camera itself instead of using Cesium's `camera.flyTo`. Cesium's flight turned the camera on its own schedule, and on a long flight (the idle globe to Komodo, on the far side of the Earth) it looked out into space and the view went black for over a second. Now the camera always looks at a point on the Earth, so the Earth is in the middle of the view on every frame. That point slides along the great circle to the new site, so the globe turns under the camera. The camera's distance follows van Wijk and Nuij's "smooth and efficient zooming and panning" path: it rises just enough that the ground slides by at an even pace, never past the whole-Earth view, and comes down onto the site. High above both ends it looks straight down with north up, and it tilts to the site's view as it comes down.
+
+- A usual flight takes `FLY_IN_S` (2.6 s). One with more to cover takes a little longer, up to `FLY_IN_MAX_S` (3.6 s): about 3 s from the idle globe to Komodo or from one saved flight to the other.
+- A new goal on the way (a saved flight's data arriving while the camera still flies to its launch point) bends the flight onto it over `FLY_RETARGET_MS`, so nothing jumps. Flying out to the whole Earth, it also follows the HUD as it changes from a replay's to live's.
+- If the page is busy for a moment, the flight's clock moves on at most `FLY_MAX_STEP_MS` per frame, so the camera carries on instead of jumping ahead.
+- While a saved flight downloads, the camera heads for its launch point at a rough ground height. Seen from far away, Cesium can report a spot on the far side of the Earth as about 50 km under the sea, which put the camera inside the Earth, so a rough height outside `GROUND_GUESS_M` counts as sea level.
+- On a slow connection the camera still comes down on time. The globe is there the whole way, but at the site the ground can show as a plain blue-green blur for a few seconds until its photos arrive.
 
 ### Drawing only when needed
 
@@ -726,7 +736,7 @@ node --test "flight-console/test/*.test.mjs"
 - `js/views/launcher.js`: types the landing's title and starts its ocean currents (`js/hero-currents.js`).
 - `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped.
 - `js/views/panels.js`: the two panels: the `[ GRAPHS ]` and `[ MAP ]` switches, the left and right arrow keys (and where they belong to something else), keeping the panel off screen inert, and putting back any sideways scroll of the panel track.
-- `js/views/esri.js`: asks Esri once whether it accepts the satellite key. Every map in the visit shares the answer.
+- `js/views/esri.js`: asks Esri once whether it accepts the satellite key, and makes the satellite tile layer, which checks how deep Esri's photos go at each place before asking for a tile. Every map in the visit shares both.
 - `js/views/hud.js`: the HUD over the 3D view (see "The HUD").
 - `js/views/hud-text.js`: only `hudAge()`, the HUD's short ages ("4 S", "2 MIN"). `hud.js` and `test/bench-feed.test.mjs` use it.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with two or more rockets. Click one to focus it.
@@ -848,7 +858,9 @@ These are in `js/config.js` unless it says otherwise.
 - `TILE_API_KEY`: the public CARTO key for the dark map on the live site. See "Map keys" below.
 - `ESRI_API_KEY`: the Esri key for the satellite map. It expires 9/30/2027. See "Map keys" below.
 - `DEFAULT_MAP_LAYER`: the map background a first-time viewer sees (`'satellite'` or `'dark'`).
-- `SATELLITE_MAX_NATIVE_ZOOM`: the deepest zoom with real Esri photos (19). Closer zooms scale those photos up.
+- `SATELLITE_MAX_NATIVE_ZOOM`: the deepest zoom the satellite map ever asks Esri for (20). Where Esri has no photo that deep, the deepest one it has is scaled up (see "Satellite (Esri)").
+- `SATELLITE_SURE_ZOOM`: photos exist down to this zoom everywhere (13), so tiles up to it are asked for without checking.
+- `SATELLITE_TILEMAP_URL` and `SATELLITE_TILEMAP_BLOCK`: where the satellite layer asks which tiles exist, and how many tiles across one answer covers (32).
 - `HALO_COLOR`: the near-black outline under the dots, the line and the markers that keeps them visible on bright photos and dark water.
 - `MAP_DEFAULT_ZOOM`, `FIT_PADDING_PX`, `FIT_MAX_ZOOM` and `FOLLOW_EDGE_PX`: the 2D map's zoom with one point, its first framing, and how close the board gets to an edge or the HUD before FOLLOW BOARD pans.
 - `TILE_FAIL_COUNT`, `TILE_FAIL_TIMEOUT_MS` and `LIBRARY_LOAD_TIMEOUT_MS`: when the tiles count as failed, and how long to wait for Leaflet.
@@ -863,7 +875,7 @@ These are in `js/config.js` unless it says otherwise.
 - `GLOBE_MAX_PIXEL_RATIO`: the sharpest the 3D view draws on high-resolution screens. Lower it to save battery.
 - `COLOR_WHITE` and `THERMAL_RAMP`: hex copies of the theme's white and its ironbow ramp, for code that can't read CSS. The near-black is `HALO_COLOR`, and `PAD_COLOR` is the off-white of the launch point, the dish and the board marker's outline. `ROCKET_PALETTE` gives each extra rocket a white or grey, so they stay apart from the focused rocket's speed colors.
 - In `js/views/markers.js`: the sizes of everything on the map, like `DOT_PX`, `LINE_PX`, `RING_PX` and `RING_MS` (the packet ring), `LINK_SOLID` and `LINK_TRAVEL_MS` (the radio link), `SHADOW_*` and `SHADOW_EDGE_*` (the 3D ground shadow and its light edge), and `BOARD_BLUE`, the board marker's blue.
-- In `js/views/map-view.js`: `THREE_SLOW_MS` and `THREE_RETRY_MS` (the 3D loading message and retries), `LABEL_FAR_ZOOM` (where the 2D labels fade out), `WHOLE_ROOM_PX` (WHOLE FLIGHT's room), `CORNER_*` (the bottom right corner) and `LEGEND_*` (where the open KEY goes). In `js/views/globe-view.js`: the sky, haze and horizon settings at the top, `FLY_IN_S`, `LABEL_FAR_M_PER_PX` (where the 3D labels fade out), and the follow camera's `FOLLOW_*` and `RECOVERY_*` (see "FOLLOW BOARD").
+- In `js/views/map-view.js`: `THREE_SLOW_MS` and `THREE_RETRY_MS` (the 3D loading message and retries), `LABEL_FAR_ZOOM` (where the 2D labels fade out), `WHOLE_ROOM_PX` (WHOLE FLIGHT's room), `CORNER_*` (the bottom right corner) and `LEGEND_*` (where the open KEY goes). In `js/views/globe-view.js`: the sky, haze and horizon settings at the top, the flight settings (`FLY_*` and `GROUND_GUESS_M`), `LABEL_FAR_M_PER_PX` (where the 3D labels fade out), and the follow camera's `FOLLOW_*` and `RECOVERY_*` (see "FOLLOW BOARD").
 - In `js/views/hud.js`: `FIELD_CH` and `UNIT_CH`, the fixed widths of the HUD's values and units, in characters. In `js/views/timeline.js`: `MIN_PLOT_PX` and the peak label's settings. In `js/bench/charts.js`: `MIN_TICK_GAP_PX`.
 - In `js/hero-currents.js`: the CONFIG block for the hero, with `FISH_VISIBILITY` (0.6), and `PHONE_FISH_VISIBILITY` (0.1) just under it (see "The landing").
 - The page's colors and fonts come from `../css/flight-console-theme.css`. The tokens at the top of `flight-console.css` give them jobs.
@@ -879,6 +891,7 @@ The photos come from Esri's World Imagery service, and the labels on top (roads,
 - It is an ArcGIS Location Platform key with only the Basemaps privilege. In Esri's dashboard it is limited to dogtoothsystems.com, www.dogtoothsystems.com, chrispsparrow.github.io and http://localhost:8000, so it is safe to publish.
 - It expires 9/30/2027. To renew it, make a new key (or extend this one) in the Esri Location Platform dashboard and paste it into `ESRI_API_KEY`.
 - Before showing any photos, the page asks Esri once whether it accepts the key (`js/views/esri.js`). If Esri says no (an expired key, for example), or the photos keep failing to load, the page switches to the dark map and says satellite imagery isn't available right now. The viewer's choice stays "Satellite", so the next visit tries again.
+- How deep the photos go depends on the place: zoom 20 on my campus in Boston, 19 at the California site, 18 at Komodo, 17 in the Sahara and 13 over open ocean. Asking for a tile that isn't there fails, and the map used to show holes and the console filled with failed requests. Now, for a tile deeper than `SATELLITE_SURE_ZOOM`, the layer first asks the same World Imagery service, with the same key, which tiles exist (its "tilemap"). One answer of about 2 KB covers 32 by 32 tiles of one zoom, the browser keeps it for a day, and the page keeps it for the visit. Where the photo isn't there, the deepest one that is gets scaled up to fill its place. Wheeling in from zoom 13 to 20 over one spot costs about 7 to 9 of these answers. If the tilemap can't answer, the layer asks for the tiles as before. Esri's labels and the dark map have tiles at every zoom the map uses, so they need no check.
 - Esri asks for "Powered by Esri" and each layer's data credit on the map. Those are in `js/config.js` (`ESRI_POWERED_BY`, `SATELLITE_ATTRIBUTION`, `SATELLITE_LABELS_ATTRIBUTION`). The page shows them only while the satellite map is on.
 
 ### Dark map (CARTO)
