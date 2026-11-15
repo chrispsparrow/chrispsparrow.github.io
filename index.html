@@ -240,9 +240,9 @@
   <!-- ── Flight Console panel (near-black) : picture LEFT, info RIGHT ── -->
   <section id="panel-flight-console" class="panel panel-flight-console" aria-label="Flight Console">
     <div class="panel-inner">
-      <!-- The frame is a mount: the picture sits inside it with an even margin, and
-           the caption and the credit sit on the strip under the picture, not on top
-           of it. The full credit opens over the bottom of the picture.
+      <!-- The frame is the same plain frame as the other slides, with the picture
+           in it. The caption and the credit sit in a row under the frame. The full
+           credit opens over the bottom of the picture (on a phone, under the row).
            The link over the frame is for a mouse click or a tap. It is hidden from
            keyboards and screen readers, which use the text link beside it.
            The picture waits in data-src until the panel gets close (js/main.js). -->
@@ -252,25 +252,21 @@
           <span class="hero-corner tr" aria-hidden="true"></span>
           <span class="hero-corner bl" aria-hidden="true"></span>
           <span class="hero-corner br" aria-hidden="true"></span>
-          <div class="console-mount">
-            <div class="console-shot">
-              <img class="console-pic"
-                   data-src="assets/flight-console/slide-komodo.webp"
-                   width="1600" height="1920" loading="lazy" decoding="async"
-                   alt="My Flight Console replaying a simulated flight over Komodo, Indonesia, in 3D. One minute after liftoff, the orange climb and the pink drogue descent make a tall loop over the island's hills, with apogee marked at 3,018 m and Dogtooth falling at 25.9 m/s through 2,130 m AGL.">
-            </div>
-            <div class="console-foot">
-              <span class="console-caption" aria-hidden="true">Simulated flight over Komodo, Indonesia</span>
-              <details class="console-credit">
-                <summary>Imagery and terrain from Cesium ion</summary>
-                <div class="console-credit-body">
-                  <p>Imagery: Bing Maps, ©&nbsp;2026 Microsoft Corporation, ©&nbsp;Mapbox, ©&nbsp;Maxar, ©&nbsp;CNES (2026) Distribution Airbus DS, Earthstar Geographics SIO.</p>
-                  <p>Terrain: Data available from the U.S. Geological Survey, <span>©&nbsp;CGIAR-CSI</span>, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
-                </div>
-              </details>
-            </div>
-          </div>
+          <img class="console-pic"
+               data-src="assets/flight-console/slide-komodo.webp"
+               width="1600" height="1920" loading="lazy" decoding="async"
+               alt="My Flight Console replaying a simulated flight over Komodo, Indonesia, in 3D. One minute after liftoff, the orange climb and the pink drogue descent make a tall loop over the island's hills, with apogee marked at 3,018 m and Dogtooth falling at 25.9 m/s through 2,130 m AGL.">
           <a class="console-open" href="flight-console/" tabindex="-1" aria-hidden="true"></a>
+        </div>
+        <div class="console-foot">
+          <span class="console-caption" aria-hidden="true">Simulated flight over Komodo, Indonesia</span>
+          <details class="console-credit">
+            <summary>Imagery and terrain from Cesium ion</summary>
+            <div class="console-credit-body">
+              <p>Imagery: Bing Maps, ©&nbsp;2026 Microsoft Corporation, ©&nbsp;Mapbox, ©&nbsp;Maxar, ©&nbsp;CNES (2026) Distribution Airbus DS, Earthstar Geographics SIO.</p>
+              <p>Terrain: Data available from the U.S. Geological Survey, <span>©&nbsp;CGIAR-CSI</span>, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
+            </div>
+          </details>
         </div>
       </div>
 
