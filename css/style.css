@@ -1070,6 +1070,8 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
 }
 .console-credit-body p { margin: 0; }
 .console-credit-body p + p { margin-top: 0.4rem; }
+/* Keeps "© CGIAR-CSI" on one line instead of breaking after the © or the hyphen */
+.console-credit-body span { white-space: nowrap; }
 /* Pointing at the picture, or pointing at or tabbing to the text link beside it,
    brightens the frame's edge. :has() works whichever side the picture is on.
    The :has() rules stand alone, so a browser without :has() still keeps the
