@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=31">
+  <link rel="stylesheet" href="css/style.css?v=32">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -136,7 +136,8 @@
     <!-- ── COMING SOON (inside the Projects band, above the panels) ──
          No visible title, since each card shows its own status. On wide
          screens the cards keep a two-across size in a row that runs the full
-         width of the window. It only scrolls sideways when the visitor scrolls
+         width of the window. With two cards the row is exactly full. A third
+         card would make it scroll sideways, but only when the visitor scrolls
          it (trackpad or Shift+wheel while over it). -->
     <section class="coming-soon" aria-label="Coming soon">
       <div class="coming-soon-grid">
@@ -167,26 +168,14 @@
             <li>Plugs into Manta's tracker port</li>
           </ul>
         </article>
-
-        <article class="soon-card reveal reveal-d3" id="live-tracking">
-          <svg class="soon-border" aria-hidden="true" focusable="false">
-            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
-          </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
-          <h3 class="soon-title">Flight Console Live Tracking</h3>
-          <p class="soon-meta">Solo project, waiting on Manta</p>
-          <ul class="soon-list">
-            <li>Live 3D view of a rocket during launch</li>
-            <li>Will run on live data from Manta once it's built</li>
-            <li>Currently displays simulated DOGTOOTH PCB data</li>
-          </ul>
-          <p class="soon-link-row"><a class="soon-link" href="flight-console/">Open the Flight Console</a></p>
-        </article>
       </div>
     </section>
   </section><!-- /#work (Projects intro band) -->
 
-  <!-- ── Project 01 panel — Avionics PCB (deep navy) : info LEFT, viewer RIGHT ── -->
+  <!-- ── Avionics PCB panel (deep navy) : info LEFT, viewer RIGHT ──
+       The slides alternate sides all the way down: Avionics, Flight Console,
+       Firmware, Toothpaste. On phones they stack in the order they are written
+       here, so a picture-first slide shows its picture on top. -->
   <section id="panel-avionics" class="panel panel-avionics" aria-label="Custom Avionics GPS and Radio PCB">
     <div class="panel-inner">
       <a class="work-row-info reveal" href="projects/avionics-pcb.html"
@@ -248,11 +237,75 @@
     </div>
   </section>
 
-  <!-- ── Firmware panel (charcoal) : interactive flight chart LEFT, info RIGHT ── -->
+  <!-- ── Flight Console panel (near-black) : picture LEFT, info RIGHT ── -->
+  <section id="panel-flight-console" class="panel panel-flight-console" aria-label="Flight Console">
+    <div class="panel-inner">
+      <!-- The frame is the same plain frame as the other slides, with the picture
+           in it. The caption and the credit sit in a row under the frame. The full
+           credit opens over the bottom of the picture (on a phone, under the row).
+           The link over the frame is for a mouse click or a tap. It is hidden from
+           keyboards and screen readers, which use the text link beside it.
+           The picture waits in data-src until the panel gets close (js/main.js). -->
+      <div class="work-row-media reveal">
+        <div class="card-frame card-console">
+          <span class="hero-corner tl" aria-hidden="true"></span>
+          <span class="hero-corner tr" aria-hidden="true"></span>
+          <span class="hero-corner bl" aria-hidden="true"></span>
+          <span class="hero-corner br" aria-hidden="true"></span>
+          <img class="console-pic"
+               data-src="assets/flight-console/slide-komodo.webp"
+               width="1600" height="1920" loading="lazy" decoding="async"
+               alt="My Flight Console replaying a simulated flight over Komodo, Indonesia, in 3D. One minute after liftoff, the orange climb and the pink drogue descent make a tall loop over the island's hills, with apogee marked at 3,018 m and Dogtooth falling at 25.9 m/s through 2,130 m AGL.">
+          <a class="console-open" href="flight-console/" tabindex="-1" aria-hidden="true"></a>
+        </div>
+        <div class="console-foot">
+          <span class="console-caption" aria-hidden="true">Simulated flight over Komodo, Indonesia</span>
+          <details class="console-credit">
+            <summary>Imagery and terrain from Cesium ion</summary>
+            <div class="console-credit-body">
+              <p>Imagery: Bing Maps, ©&nbsp;2026 Microsoft Corporation, ©&nbsp;Mapbox, ©&nbsp;Maxar, ©&nbsp;CNES (2026) Distribution Airbus DS, Earthstar Geographics SIO.</p>
+              <p>Terrain: Data available from the U.S. Geological Survey, <span>©&nbsp;CGIAR-CSI</span>, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <a class="work-row-info reveal reveal-d1" href="flight-console/"
+         aria-label="Flight Console, view the project">
+        <div class="card-meta">
+          <span class="card-tag">TELEMETRY</span>
+          <span class="card-tag">SOFTWARE</span>
+          <span class="card-tag">SOLO PROJECT</span>
+        </div>
+        <h3 class="work-row-title">Flight Console</h3>
+        <p class="work-row-subtitle">Live Rocket Tracking and Recovery</p>
+        <ul class="work-row-desc work-row-list">
+          <li>Reads Dogtooth live and replays flights in 3D</li>
+          <li>Detects liftoff, apogee and landing, then points the way to the rocket</li>
+          <li>Tested on the bench and on simulated flights, ready for launch day</li>
+        </ul>
+        <span class="card-cta">View Project →</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Firmware panel (charcoal) : info LEFT, interactive flight chart RIGHT ── -->
   <section id="panel-firmware" class="panel panel-firmware" aria-label="Avionics Flight Computer Firmware">
     <div class="panel-inner">
+      <a class="work-row-info reveal" href="projects/flight-firmware.html"
+         aria-label="Avionics Flight Computer Firmware, view the project">
+        <div class="card-meta">
+          <span class="card-tag">EMBEDDED</span>
+          <span class="card-tag">FIRMWARE</span>
+          <span class="card-tag">TEAM PROJECT</span>
+        </div>
+        <h3 class="work-row-title">Avionics Flight<br>Computer Firmware</h3>
+        <p class="work-row-desc">Code I wrote with mentors on my avionics team for Silly Goose, a custom altimeter board built by one of them, Patrick McGuire. It reads the pressure and motion sensors, smooths out the noise, and figures out when the rocket launches, peaks, and lands.</p>
+        <span class="card-cta">View Project →</span>
+      </a>
+
       <!-- Media is its own region (NOT a link) so hovering and tapping the chart never navigates -->
-      <div class="work-row-media reveal">
+      <div class="work-row-media reveal reveal-d1">
         <div class="card-frame">
           <span class="hero-corner tl" aria-hidden="true"></span>
           <span class="hero-corner tr" aria-hidden="true"></span>
@@ -278,72 +331,8 @@
           </div>
         </div>
       </div>
-
-      <a class="work-row-info reveal reveal-d1" href="projects/flight-firmware.html"
-         aria-label="Avionics Flight Computer Firmware, view the project">
-        <div class="card-meta">
-          <span class="card-tag">EMBEDDED</span>
-          <span class="card-tag">FIRMWARE</span>
-          <span class="card-tag">TEAM PROJECT</span>
-        </div>
-        <h3 class="work-row-title">Avionics Flight<br>Computer Firmware</h3>
-        <p class="work-row-desc">Code I wrote with mentors on my avionics team for Silly Goose, a custom altimeter board built by one of them, Patrick McGuire. It reads the pressure and motion sensors, smooths out the noise, and figures out when the rocket launches, peaks, and lands.</p>
-        <span class="card-cta">View Project →</span>
-      </a>
     </div>
   </section>
-
-  <!-- ── Flight Console panel (deep green) : info LEFT, picture RIGHT ── -->
-  <section id="panel-flight-console" class="panel panel-flight-console" aria-label="Flight Console">
-    <div class="panel-inner">
-      <a class="work-row-info reveal" href="flight-console/"
-         aria-label="Open the Flight Console">
-        <div class="card-meta">
-          <span class="card-tag">TELEMETRY</span>
-          <span class="card-tag">SOFTWARE</span>
-          <span class="card-tag">SOLO PROJECT</span>
-        </div>
-        <h3 class="work-row-title">Flight Console</h3>
-        <p class="work-row-desc">A web page I built to replay rocket flights on a map or in a 3D view. It shows each rocket's track, altitude, and speed, and marks liftoff, apogee, and landing as they happen. For now it plays one simulated flight, made by running my GPS and radio board's firmware on a PC.</p>
-        <span class="card-cta">Open the Flight Console →</span>
-      </a>
-
-      <!-- The picture is the Flight Console's own cover for this flight, so a new
-           cover shows up here too. Its alt text and credit are copied from that
-           flight's entry in flight-console/data/flights/index.json. Keep them the same.
-           The frame is a mount: the picture sits inside it, and the caption and the
-           credit sit on the strip under the picture, not on top of it.
-           The full credit opens over the bottom of the picture.
-           The link over the frame is for a mouse click or a tap. It is hidden from
-           keyboards and screen readers, which use the text link beside it. -->
-      <div class="work-row-media reveal reveal-d1">
-        <div class="card-frame card-console">
-          <span class="hero-corner tl" aria-hidden="true"></span>
-          <span class="hero-corner tr" aria-hidden="true"></span>
-          <span class="hero-corner bl" aria-hidden="true"></span>
-          <span class="hero-corner br" aria-hidden="true"></span>
-          <div class="console-shot">
-            <img class="console-pic"
-                 src="flight-console/data/flights/gps-board-sim-01/cover-3d.webp"
-                 width="1400" height="1680" loading="lazy" decoding="async"
-                 alt="The simulated flight in the Flight Console's 3D view, over desert terrain. A gold track climbs straight up from the launch point to apogee at 3,000 m. The rocket is on its way down at 1,750 m above ground, and a dashed line runs to it from the ground station.">
-          </div>
-          <a class="console-open" href="flight-console/" tabindex="-1" aria-hidden="true"></a>
-          <div class="console-foot">
-            <span class="console-caption" aria-hidden="true">Simulated flight in the 3D view</span>
-            <details class="console-credit">
-              <summary>Imagery and terrain from Cesium ion</summary>
-              <div class="console-credit-body">
-                <p>Imagery: Bing Maps, © 2026 Microsoft Corporation, © Mapbox, Earthstar Geographics SIO, © Maxar, © CNES (2026) Distribution Airbus DS.</p>
-                <p>Terrain: Data available from the U.S. Geological Survey, © CGIAR-CSI, Produced using Copernicus data and information funded by the European Union - EU-DEM layers, Data available from Land Information New Zealand, Data available from data.gov.uk, Data courtesy Geoscience Australia.</p>
-              </div>
-            </details>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ── Toothpaste panel (pale mint) : photo LEFT, info RIGHT ── -->
   <section id="panel-toothpaste" class="panel panel-toothpaste" aria-label="Assistive Toothpaste Dispenser">
     <div class="panel-inner">
@@ -560,7 +549,7 @@
     const card = document.getElementById('av-viewer');
     if (card) applyLookToModelViewer(card);
   </script>
-  <script src="js/main.js?v=17"></script>
+  <script src="js/main.js?v=18"></script>
   <script src="js/fish-logo.js?v=1"></script>
   <script src="js/flight-replay.js?v=2"></script>
 </body>
