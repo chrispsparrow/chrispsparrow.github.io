@@ -1732,8 +1732,10 @@ export function createMapView(root, ctx) {
   // hidden. With urgentOnly set, only that last check runs.
   function followBoard2d(target, size, covers, { urgentOnly = false } = {}) {
     // Any pan, even an instant one, would stop this view's own flight
-    // halfway (on a phone it used to stop the first view's flight from the
-    // world map on its first frame). The check runs again when it lands.
+    // halfway. On a narrow screen the board starts off the edge of the
+    // world map, and the instant pan to it used to stop the first view's
+    // flight on its first frame, so the map stayed on the whole world. The
+    // check runs again when the flight lands.
     if (flying()) return;
     const p = map.latLngToContainerPoint(target);
     const point = { left: p.x, top: p.y, right: p.x, bottom: p.y };
