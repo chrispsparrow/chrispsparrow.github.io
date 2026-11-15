@@ -340,9 +340,22 @@ export const TILE_MAX_ZOOM = 20;
 export const ESRI_API_KEY = 'AAPTa2ur8bkfWxnXJzQ0kE6tVFA..K7Cdcxmt2hOIPTg9jtq0S_app4Zim_RkWEv37WmqCo-ktduo__CT6Ovtut5VPqQymnxSMRBoDhiX3k6bNlWKXesPV3pqBd-sZhkDThC7upNMpLWJXqfVsIkVfkAaWW-CbepDr7QwbWv3NYC1mc9T_JpLN6zRqF79VZ9HPs9AMKKVlBP9dYjL1tSG0hEs_roNAzKqKmNIFGVnUQfluAeTLLE_p1M_fIRYlfX8E8bty26HbkSFL3ySxlS1jRnKAQ..AT1_caklFlpC';
 // Esri World Imagery photos, 256 px tiles. Esri tile addresses put y before x.
 export const SATELLITE_URL = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token={key}';
-// Deepest zoom with real imagery. Zoom 19 had photos at every US launch site
-// I checked, and zoom 20 had none, so closer zooms scale up zoom 19 tiles.
-export const SATELLITE_MAX_NATIVE_ZOOM = 19;
+// How deep the photos go depends on the place: zoom 20 on my campus in
+// Boston, 19 at the California launch site, 18 at Komodo, 17 in the Sahara
+// and 13 over open ocean. Asking for a tile that isn't there fails and
+// leaves a hole, so esri.js asks first (see SATELLITE_TILEMAP_URL) and
+// scales up the deepest photo there is.
+// The deepest zoom the map ever asks for. Closer zooms scale up these tiles.
+export const SATELLITE_MAX_NATIVE_ZOOM = 20;
+// Photos exist down to this zoom everywhere I checked (open ocean and
+// Antarctica stop here), so tiles up to it are asked for without checking.
+export const SATELLITE_SURE_ZOOM = 13;
+// Esri's answer to "which tiles of this block exist" for the same World
+// Imagery service, with the same key: one 0 or 1 per tile, for a block of
+// SATELLITE_TILEMAP_BLOCK by SATELLITE_TILEMAP_BLOCK tiles of one zoom
+// (about 2 KB). The browser keeps each answer for a day.
+export const SATELLITE_TILEMAP_URL = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tilemap/{z}/{y}/{x}/{size}/{size}?token={key}';
+export const SATELLITE_TILEMAP_BLOCK = 32;
 // Esri's labels for imagery (roads, road names, places and borders) from the
 // Static Basemap Tiles service. These tiles are 512 px, one zoom level
 // "behind" the 256 px tiles, which map-view.js allows for.

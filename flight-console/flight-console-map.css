@@ -358,10 +358,13 @@
 .fc-page .leaflet-pane > svg,
 .fc-page .leaflet-pane > canvas,
 .fc-page .leaflet-marker-icon svg { max-width: none; max-height: none; }
-/* On high-resolution screens the photos can show a thin seam where two
-   tiles meet. Each photo is drawn half a pixel bigger so it overlaps its
-   neighbor, with normal blending. */
-.fc-page .fc-sat-tiles img.leaflet-tile { mix-blend-mode: normal; width: 256.5px !important; height: 256.5px !important; }
+/* Each satellite tile is a box holding one photo (esri.js): its own, or a
+   bigger one scaled up from a shallower zoom where Esri has no deeper
+   photo, moved so the right part shows. On high-resolution screens the
+   photos can show a thin seam where two tiles meet, so each box is half a
+   pixel bigger and overlaps its neighbor, with normal blending. */
+.fc-page .fc-sat-tiles .leaflet-tile { overflow: hidden; width: 256.5px !important; height: 256.5px !important; }
+.fc-page .fc-sat-tiles .leaflet-tile img { position: absolute; mix-blend-mode: normal; }
 .fc-page .leaflet-div-icon { background: none; border: none; }
 .fc-page .fc-mk { background: none; border: 0; }
 .fc-page .fc-mk svg { display: block; }

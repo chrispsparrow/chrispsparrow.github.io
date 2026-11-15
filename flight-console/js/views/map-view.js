@@ -69,7 +69,7 @@ import {
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
   NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
 } from './markers.js?v=2';
-import { checkEsriKey } from './esri.js';
+import { checkEsriKey, createSatelliteLayer } from './esri.js';
 import { loadCesium } from './cesium-loader.js?v=2';
 import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=2';
 import { speedColor } from '../track.js?v=2';
@@ -558,12 +558,15 @@ export function createMapView(root, ctx) {
         satelliteFailed(gen);
         return;
       }
-      baseTiles = L.tileLayer(config.SATELLITE_URL, {
+      // esri.js checks how deep Esri's photos go at each place, and scales
+      // up the deepest one where there is none deeper.
+      baseTiles = createSatelliteLayer(L, config, {
         key: encodeURIComponent(config.ESRI_API_KEY),
         maxZoom: config.TILE_MAX_ZOOM,
-        // Past this zoom Esri has no photos, so the last good tiles are scaled up.
+        // Esri never has photos deeper than this, so Leaflet scales up these.
         maxNativeZoom: config.SATELLITE_MAX_NATIVE_ZOOM,
-        // Hook for the CSS that hides hairline seams between photos (fc-sat-tiles).
+        // Hook for the CSS that sizes each tile's box and hides hairline
+        // seams between photos (fc-sat-tiles).
         className: 'fc-sat-tiles',
       });
       watchTiles(baseTiles, () => satelliteFailed(gen));

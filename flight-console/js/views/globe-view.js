@@ -115,8 +115,36 @@ const LINK_DISH_RISE_M = 3;
 const WAIT_FAR_LAT = 25;
 const WAIT_FAR_LON = -40;
 const IDLE_MARGIN = 0.1;
-// How long (s) the camera takes to fly from far away to a site.
+// How long (s) the camera takes to fly from far away to a site. A flight
+// with more to cover (from one side of the Earth to the other, or up from
+// one site and down onto another) takes a little longer, up to FLY_IN_MAX_S.
+// Flights up to FLY_IN_PATH long take FLY_IN_S. (Lengths are in the units
+// flightPath() measures, see "Flights" below. From the whole Earth down to
+// the California site is about 7, down to Komodo about 12, and from one of
+// those sites to the other about 12.)
 const FLY_IN_S = 2.6;
+const FLY_IN_MAX_S = 3.6;
+const FLY_IN_PATH = 9;
+// How much a flight rises on its way to a far site, so the ground slides
+// by at a pace the eye can follow. 1.4 is the value van Wijk and Nuij
+// found looks best. Lower values rise less. A flight never rises past the
+// whole-Earth view, so for a far site this comes down until it fits.
+const FLY_RISE = 1.4;
+// Once the camera is this many times higher than at either end of the
+// flight, it looks straight down.
+const FLY_TOP_DOWN = 20;
+// A flight whose goal changes on the way (a saved flight's data arrives
+// while the camera is still flying to its launch point) bends onto the new
+// goal over this long (ms). With less time than that left, the camera
+// lands first and then glides to the new goal.
+const FLY_RETARGET_MS = 700;
+// A flight's clock moves on at most this much (ms) per frame. When the page
+// is busy for a moment (a saved flight's data being drawn), the camera
+// carries on from where it was instead of jumping ahead to catch up.
+const FLY_MAX_STEP_MS = 50;
+// Flying out to the whole Earth, the flight bends onto a new fit for the
+// whole Earth (the HUD changed size) as long as this much (ms) is left.
+const FLY_IDLE_REFIT_MS = 150;
 // A new site closer than this (m) to where the camera looks gets a short
 // glide instead of a flight.
 const GLIDE_MAX_M = 30000;
@@ -124,6 +152,10 @@ const GLIDE_MAX_M = 30000;
 // from this far (m), looking down this steeply (degrees).
 const LOADING_RANGE_M = 6000;
 const LOADING_PITCH_DEG = -30;
+// The lowest and highest ground (m) a launch point's rough height is
+// believed at while the flight downloads (the Dead Sea shore to well above
+// any launch site).
+const GROUND_GUESS_M = [-450, 6000];
 // WHOLE FLIGHT keeps this much room (px) between the flight and the edge
 // of the part of the view nothing covers. It checks its fit by projecting
 // the points to the screen, up to this many times.
@@ -1469,7 +1501,7 @@ export function createGlobeView(container, ctx, options) {
   let started = false;         // the starting view has been set on real data
   let framed = null;           // what 'whole' last framed: { center, radius }
   let glide = null;            // a camera move in progress: { to, frame }
-  let flying = false;          // a Cesium flight (to a new site) is running
+  let flying = false;          // a flight (to a new site, see "Flights") is on its way
   const frameOf = (position) => C.Transforms.eastNorthUpToFixedFrame(position);
   const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
   const PITCH_MIN = C.Math.toRadians(config.GLOBE_PITCH_MIN_DEG);
@@ -1569,25 +1601,26 @@ export function createGlobeView(container, ctx, options) {
 
   // The view size and bottom band the idle view was last fitted to.
   let idleKey = '';
+  const idleKeyNow = () => `${scene.canvas.clientWidth}x${scene.canvas.clientHeight}|${Math.round(options.idleBottom?.() ?? 0)}`;
 
   // Flies out to the idle view (back to live with nothing connected).
   function flyOut() {
-    stopGlide();
+    if (glide) window.cancelAnimationFrame(glide.frame);
+    glide = null;
+    dropFlight();
     const v = idleCamera();
-    Object.assign(look, v.look);
     if (prefersReducedMotion() || !active) {
+      Object.assign(look, v.look);
       aimIdle();
       return;
     }
-    const landed = () => {
-      if (!flying) return;
-      flying = false;
-      if (!destroyed) aim();
-    };
-    camera.lookAtTransform(C.Matrix4.IDENTITY);
-    flying = true;
-    camera.flyTo({ destination: v.destination, orientation: { direction: v.direction, up: v.up }, duration: FLY_IN_S, complete: landed, cancel: landed });
-    scene.requestRender();
+    // A flight on its way turns around from where the camera is.
+    startFlight(poseOf(v.destination, v.direction, v.up), () => aim());
+    Object.assign(look, v.look);
+    // The HUD changes from a replay's to live's while the camera flies out,
+    // and the whole-Earth view is fitted to it. So the flight checks the
+    // fit on every frame (see flightStep).
+    flight.idleKey = idleKeyNow();
   }
 
   // Where the camera looks from: { pivot, heading, pitch, range }. Until
@@ -1686,58 +1719,361 @@ export function createGlobeView(container, ctx, options) {
     glide = { to, frame: window.requestAnimationFrame(step) };
   }
 
+  // Stops a glide where it is, and ends a flight at its goal.
   function stopGlide() {
     if (glide) window.cancelAnimationFrame(glide.frame);
     glide = null;
-    if (flying) camera.cancelFlight();
+    endFlight();
   }
 
-  // A flight to a new site, or out to the idle view: Cesium's own flight,
-  // ending exactly where `to` looks from. Anything the viewer does with
-  // the camera on the way ends the flight at its goal. With less motion
-  // asked for, the camera jumps there.
+  // A flight to a new site, ending exactly where `to` looks from (see
+  // "Flights" below). Anything the viewer does with the camera on the way
+  // ends the flight at its goal. With less motion asked for, the camera
+  // jumps there. A new goal while a flight is on its way bends the flight
+  // onto it, so the camera never jumps.
   function flyIn(to) {
-    stopGlide();
-    Object.assign(look, to);
-    look.range = clamp(look.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
-    look.pitch = clamp(look.pitch, PITCH_MIN, PITCH_MAX);
+    if (glide) {
+      window.cancelAnimationFrame(glide.frame);
+      glide = null;
+    }
+    const goal = { ...to };
+    goal.range = clamp(goal.range, config.GLOBE_ZOOM_MIN_M, config.GLOBE_ZOOM_MAX_M);
+    goal.pitch = clamp(goal.pitch, PITCH_MIN, PITCH_MAX);
     if (prefersReducedMotion() || !active) {
+      endFlight();
+      Object.assign(look, goal);
       aimNow();
       return;
     }
     const landed = () => {
-      if (!flying) return;
-      flying = false;
-      if (destroyed) return;
       aim();
       // FOLLOW BOARD takes over from here, with a glide.
       chase.needsGlide = true;
       scheduler.schedule();
     };
-    camera.lookAtTransform(C.Matrix4.IDENTITY);
-    flying = true;
-    camera.flyTo({
-      destination: cameraSpot(look),
-      orientation: { heading: look.heading, pitch: look.pitch, roll: 0 },
-      duration: FLY_IN_S,
-      complete: landed,
-      cancel: landed,
-    });
-    scene.requestRender();
+    if (flight && retarget(goal, landed)) {
+      // (A flight out to the whole Earth that turns back to a site stops
+      // fitting the whole Earth.)
+      flight.idleKey = null;
+      Object.assign(look, goal);
+      return;
+    }
+    // A flight that is nearly down lands first, then glides to a new goal
+    // near its own. A far one gets a new flight from where the camera is.
+    if (flight && C.Cartesian3.distance(goal.pivot, look.pivot) < GLIDE_MAX_M) {
+      flight.next = goal;
+      return;
+    }
+    dropFlight();
+    // The flight starts from the pose the camera has now, worked out with
+    // the old `look`, so the goal goes into `look` after.
+    startFlight(goal, landed);
+    Object.assign(look, goal);
   }
 
   // Goes to a new look: a short glide when it is near what the camera
-  // looks at now, a flight when it is far.
+  // looks at now, a flight when it is far. While a flight is on its way,
+  // the flight takes the new goal (`look` holds the flight's goal then,
+  // not where the camera is).
   function goTo(to) {
+    if (flying) {
+      flyIn(to);
+      return;
+    }
     const near = !idle() && C.Cartesian3.distance(to.pivot, look.pivot) < GLIDE_MAX_M && look.pitch !== STRAIGHT_DOWN;
     if (near) moveTo(to, { animate: true });
     else flyIn(to);
   }
 
+  // ------------------------------------------------------------------
+  // Flights. A long camera move (from the whole Earth down to a site, from
+  // one site to the far side of the world, or back out) is done here and
+  // not with Cesium's camera.flyTo. Cesium's flight turns the camera from
+  // where it looks at the start to where it looks at the end on its own
+  // schedule, so on a long flight it looked out into space for a second or
+  // more and the view went black.
+  //
+  // Here the camera always looks at a point on the Earth (the pivot), so
+  // the Earth is in the middle of the view on every frame:
+  //   - the pivot slides along the great circle from where the camera
+  //     looks now to the new site, so the globe turns under the camera
+  //   - the distance follows van Wijk and Nuij's "smooth and efficient
+  //     zooming and panning" (2003): it rises just enough that the ground
+  //     slides by at an even pace on screen, then comes down onto the site.
+  //     It never rises past the whole-Earth view (idleCamera).
+  //   - the heading and pitch turn from the start's to the goal's as the
+  //     height changes, and high above both ends the camera looks straight
+  //     down, north up.
+  // A pose here is { pivot, heading, pitch, range }, like `look`, except the
+  // pitch may go past straight down (to -180°). The idle view needs that: it
+  // looks a touch south with north still up, which is a pitch just past -90°
+  // with heading 0.
+  // ------------------------------------------------------------------
+  // The flight on its way: { from, path, start, duration, frame, landed,
+  // old, next }. `old` is the path it is bending away from after a new
+  // goal, `next` a goal to glide to once it has landed.
+  let flight = null;
+
+  // The pose of a camera at `position` looking along `direction` with
+  // `up` on screen. The pivot is the point it looks at: `look.pivot` when
+  // that is straight ahead, otherwise where the line of sight meets the
+  // Earth.
+  function poseOf(position, direction, up) {
+    const ray = new C.Ray(position, direction);
+    let dist = null;
+    const toPivot = C.Cartesian3.subtract(look.pivot, position, new C.Cartesian3());
+    const ahead = C.Cartesian3.dot(toPivot, direction);
+    const aside = C.Cartesian3.magnitude(C.Cartesian3.cross(toPivot, direction, new C.Cartesian3()));
+    if (ahead > 0 && aside < ahead * 0.001) dist = ahead;
+    if (dist === null) {
+      const hit = C.IntersectionTests.rayEllipsoid(ray, C.Ellipsoid.WGS84);
+      if (hit && hit.start > 0) dist = hit.start;
+    }
+    // Looking past the Earth (only after a hand tilted the camera up): the
+    // pivot goes as far ahead as the camera is high.
+    if (dist === null) dist = Math.max(1000, C.Cartographic.fromCartesian(position).height);
+    const pivot = C.Ray.getPoint(ray, dist, new C.Cartesian3());
+    const { east, north, up: skyward } = localAxes(pivot);
+    // The camera's direction is fwd·cos(pitch) + skyward·sin(pitch) and its
+    // up is -fwd·sin(pitch) + skyward·cos(pitch), with fwd level.
+    const pitch = Math.atan2(C.Cartesian3.dot(direction, skyward), C.Cartesian3.dot(up, skyward));
+    const fwd = C.Cartesian3.subtract(
+      C.Cartesian3.multiplyByScalar(direction, Math.cos(pitch), new C.Cartesian3()),
+      C.Cartesian3.multiplyByScalar(up, Math.sin(pitch), new C.Cartesian3()),
+      new C.Cartesian3());
+    const heading = Math.atan2(C.Cartesian3.dot(fwd, east), C.Cartesian3.dot(fwd, north));
+    return { pivot, heading, pitch, range: dist };
+  }
+
+  // East, north and up (unit vectors) on the ground at a point.
+  function localAxes(point) {
+    const up = C.Ellipsoid.WGS84.geodeticSurfaceNormal(point, new C.Cartesian3());
+    const east = C.Cartesian3.normalize(C.Cartesian3.cross(C.Cartesian3.UNIT_Z, up, new C.Cartesian3()), new C.Cartesian3());
+    const north = C.Cartesian3.cross(up, east, new C.Cartesian3());
+    return { east, north, up };
+  }
+
+  // Puts the camera at a pose (set directly, like aimIdle, so a pitch past
+  // straight down works).
+  function placeCamera(pose) {
+    const { east, north, up } = localAxes(pose.pivot);
+    const fwd = C.Cartesian3.add(
+      C.Cartesian3.multiplyByScalar(north, Math.cos(pose.heading), new C.Cartesian3()),
+      C.Cartesian3.multiplyByScalar(east, Math.sin(pose.heading), new C.Cartesian3()),
+      new C.Cartesian3());
+    const mix = (a, ka, b, kb) => C.Cartesian3.add(
+      C.Cartesian3.multiplyByScalar(a, ka, new C.Cartesian3()),
+      C.Cartesian3.multiplyByScalar(b, kb, new C.Cartesian3()),
+      new C.Cartesian3());
+    const direction = C.Cartesian3.normalize(mix(fwd, Math.cos(pose.pitch), up, Math.sin(pose.pitch)), new C.Cartesian3());
+    const cameraUp = C.Cartesian3.normalize(mix(fwd, -Math.sin(pose.pitch), up, Math.cos(pose.pitch)), new C.Cartesian3());
+    camera.lookAtTransform(C.Matrix4.IDENTITY);
+    C.Cartesian3.clone(mix(pose.pivot, 1, direction, -pose.range), camera.position);
+    C.Cartesian3.clone(direction, camera.direction);
+    C.Cartesian3.clone(cameraUp, camera.up);
+    C.Cartesian3.normalize(C.Cartesian3.cross(direction, cameraUp, camera.right), camera.right);
+    scene.requestRender();
+  }
+
+  // van Wijk and Nuij's path for a view `w0` wide moving `d` along the
+  // ground to a view `w1` wide, with `rise` (their rho) saying how much it
+  // rises on the way. Returns its length and, for progress s from 0 to 1,
+  // the share of the way the middle of the view has moved (u) and the
+  // view's width (w). Their equations, as written in their paper.
+  function zoomPath(w0, w1, d, rise) {
+    const r2 = rise * rise;
+    if (!(d > 1e-6 * Math.max(w0, w1))) {
+      // No way to go, only in or out.
+      const k = Math.log(w1 / w0);
+      return { length: Math.abs(k) / rise, top: Math.max(w0, w1), at: (s) => ({ u: s, w: w0 * Math.exp(k * s) }) };
+    }
+    const b0 = (w1 * w1 - w0 * w0 + r2 * r2 * d * d) / (2 * w0 * r2 * d);
+    const b1 = (w1 * w1 - w0 * w0 - r2 * r2 * d * d) / (2 * w1 * r2 * d);
+    const r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0);
+    const r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1);
+    const length = (r1 - r0) / rise;
+    // The widest the view gets: in the middle when the path rises, at an
+    // end when it doesn't.
+    const top = r0 < 0 && r1 > 0 ? w0 * Math.cosh(r0) : Math.max(w0, w1);
+    return {
+      length,
+      top,
+      at(s) {
+        const x = rise * s * length + r0;
+        return {
+          u: (w0 / (r2 * d)) * (Math.cosh(r0) * Math.tanh(x) - Math.sinh(r0)),
+          w: (w0 * Math.cosh(r0)) / Math.cosh(x),
+        };
+      },
+    };
+  }
+
+  // The path of a flight from one pose to another: its length and the pose
+  // at progress s (0 to 1).
+  function flightPath(from, to) {
+    const a = C.Cartographic.fromCartesian(from.pivot);
+    const b = C.Cartographic.fromCartesian(to.pivot);
+    const unit = (c) => new C.Cartesian3(Math.cos(c.latitude) * Math.cos(c.longitude), Math.cos(c.latitude) * Math.sin(c.longitude), Math.sin(c.latitude));
+    const va = unit(a);
+    const vb = unit(b);
+    const angle = Math.acos(clamp(C.Cartesian3.dot(va, vb), -1, 1));
+    // A view's height on the ground is about k times the camera's distance.
+    const k = 2 * Math.tan(camera.frustum.fovy / 2);
+    const w0 = from.range * k;
+    const w1 = to.range * k;
+    const d = C.Ellipsoid.WGS84.maximumRadius * angle;
+    // Never higher than the whole-Earth view, or than either end.
+    const highest = Math.max(from.range, to.range, idleLook().range) * k;
+    let rise = FLY_RISE;
+    let zoom = zoomPath(w0, w1, d, rise);
+    while (zoom.top > highest * 1.001 && rise > 0.2) {
+      rise *= 0.85;
+      zoom = zoomPath(w0, w1, d, rise);
+    }
+    const turn = C.Math.negativePiToPi(to.heading - from.heading);
+    // How far apart the two ends are in height. Far apart (the whole Earth
+    // down to a site), the camera turns and tilts as it comes down. Close
+    // (one site to another), it turns along the way.
+    const span = Math.log(to.range / from.range);
+    const byHeight = clamp(Math.abs(span) / Math.log(10), 0, 1);
+    const higherEnd = Math.max(from.range, to.range);
+    return {
+      length: zoom.length,
+      at(s) {
+        if (s <= 0) return from;
+        if (s >= 1) return to;
+        const { u, w } = zoom.at(s);
+        const range = Math.min(w, highest) / k;
+        // The pivot on the great circle between the two ends.
+        let v;
+        if (angle > 1e-9) {
+          const sa = Math.sin((1 - u) * angle) / Math.sin(angle);
+          const sb = Math.sin(u * angle) / Math.sin(angle);
+          v = new C.Cartesian3(va.x * sa + vb.x * sb, va.y * sa + vb.y * sb, va.z * sa + vb.z * sb);
+        } else v = va;
+        const lat = Math.asin(clamp(v.z / C.Cartesian3.magnitude(v), -1, 1));
+        const lon = Math.atan2(v.y, v.x);
+        const pivot = C.Cartesian3.fromRadians(lon, lat, a.height + (b.height - a.height) * u);
+        const climbed = span ? clamp(Math.log(range / from.range) / span, 0, 1) : s;
+        const x = s + (climbed - s) * byHeight;
+        let pitch = from.pitch + (to.pitch - from.pitch) * x;
+        // High above both ends: straight down.
+        const high = clamp(Math.log(range / higherEnd) / Math.log(FLY_TOP_DOWN), 0, 1);
+        pitch += (STRAIGHT_DOWN - pitch) * high;
+        return { pivot, heading: from.heading + turn * x, pitch, range };
+      },
+    };
+  }
+
+  // Starts a flight from where the camera is now to `goal` (a pose).
+  // landed() runs when it ends, on its own or because something stopped it.
+  function startFlight(goal, landed) {
+    const from = poseOf(camera.positionWC, camera.directionWC, camera.upWC);
+    const path = flightPath(from, goal);
+    const duration = 1000 * clamp(FLY_IN_S * Math.sqrt(path.length / FLY_IN_PATH), FLY_IN_S, FLY_IN_MAX_S);
+    flight = { from, path, clock: 0, last: performance.now(), duration, frame: 0, landed, old: null, next: null, idleKey: null };
+    flying = true;
+    flight.frame = window.requestAnimationFrame(flightStep);
+    flightStep(performance.now());
+  }
+
+  // Bends the flight on its way onto a new goal, if at least `needs` ms are
+  // left to do it in. True when it did.
+  function retarget(goal, landed, needs = FLY_RETARGET_MS) {
+    const left = flight.duration - flight.clock;
+    if (left < needs) return false;
+    // Still bending onto an earlier goal: the old path becomes the mix the
+    // camera is on right now, so nothing jumps.
+    let oldPath = flight.path;
+    if (flight.old) {
+      const prev = flight.old.path;
+      const cur = flight.path;
+      const k = blendAt(flight.old);
+      oldPath = { at: (s) => mixPoses(prev.at(s), cur.at(s), k) };
+    }
+    flight.old = { path: oldPath, at: flight.clock, span: Math.min(FLY_RETARGET_MS, left) };
+    flight.path = flightPath(flight.from, goal);
+    flight.landed = landed;
+    flight.next = null;
+    return true;
+  }
+
+  // One frame of the flight: the flight's clock moves on, the time is eased
+  // in and out, then the camera goes to the pose on the path (blended from
+  // the old path while it bends onto a new goal).
+  function flightStep(now) {
+    if (destroyed || !flight) return;
+    flight.clock += clamp(now - flight.last, 0, FLY_MAX_STEP_MS);
+    flight.last = now;
+    // Flying out to the whole Earth, and the HUD has changed size: aim for
+    // the whole-Earth view that fits it now.
+    if (flight.idleKey && flight.idleKey !== idleKeyNow()) {
+      flight.idleKey = idleKeyNow();
+      const v = idleCamera();
+      Object.assign(look, v.look);
+      retarget(poseOf(v.destination, v.direction, v.up), flight.landed, FLY_IDLE_REFIT_MS);
+    }
+    const t = clamp(flight.clock / flight.duration, 0, 1);
+    if (t >= 1) {
+      endFlight();
+      return;
+    }
+    const s = t * t * (3 - 2 * t);
+    let pose = flight.path.at(s);
+    if (flight.old) {
+      const blend = blendAt(flight.old);
+      if (blend >= 1) flight.old = null;
+      else pose = mixPoses(flight.old.path.at(s), pose, blend);
+    }
+    placeCamera(pose);
+    flight.frame = window.requestAnimationFrame(flightStep);
+  }
+
+  // How far a flight has bent from its old path onto its new one (0 to 1,
+  // eased in and out).
+  function blendAt(old) {
+    const b = clamp((flight.clock - old.at) / old.span, 0, 1);
+    return b * b * (3 - 2 * b);
+  }
+
+  // Two poses mixed: k = 0 is the first, 1 the second.
+  function mixPoses(p, q, k) {
+    return {
+      pivot: C.Cartesian3.lerp(p.pivot, q.pivot, k, new C.Cartesian3()),
+      heading: p.heading + C.Math.negativePiToPi(q.heading - p.heading) * k,
+      pitch: p.pitch + (q.pitch - p.pitch) * k,
+      range: Math.exp(Math.log(p.range) + (Math.log(q.range) - Math.log(p.range)) * k),
+    };
+  }
+
+  // Ends the flight at its goal (`look`), if one is on its way. A goal that
+  // came too late to bend onto gets a short glide from there.
+  function endFlight() {
+    if (!flight) return;
+    const { landed, next, frame } = flight;
+    window.cancelAnimationFrame(frame);
+    flight = null;
+    flying = false;
+    if (destroyed) return;
+    landed();
+    if (next) moveTo(next, { animate: true });
+  }
+
+  // Stops a flight where the camera is, without landing it (a new flight
+  // starts from there).
+  function dropFlight() {
+    if (!flight) return;
+    window.cancelAnimationFrame(flight.frame);
+    flight = null;
+    flying = false;
+  }
+
   // Ends a glide or a flight at its goal (the view is about to be hidden).
   function finishGlide() {
-    // A flight ends at its goal when it is cancelled.
-    if (flying) camera.cancelFlight();
+    if (flight) {
+      flight.next = null;
+      endFlight();
+    }
     if (!glide) return;
     const { to } = glide;
     stopGlide();
@@ -2378,11 +2714,17 @@ export function createGlobeView(container, ctx, options) {
     const padPoint = s.loading ? s.entry?.summary?.padPoint : null;
     waitFar = !gs;
     if (Array.isArray(padPoint) && Number.isFinite(padPoint[0]) && Number.isFinite(padPoint[1])) {
-      // A saved flight is downloading: head for its launch point now.
-      const ground = scene.globe.getHeight(C.Cartographic.fromDegrees(padPoint[1], padPoint[0])) ?? 0;
+      // A saved flight is downloading: head for its launch point now. The
+      // ground there is only known roughly yet. Seen from far away the
+      // globe is drawn from a few big flat pieces, and Cesium can report a
+      // spot on the far side as 50 km under the sea, which put the camera
+      // inside the Earth. So a height outside GROUND_GUESS_M counts as sea
+      // level.
+      const ground = scene.globe.getHeight(C.Cartographic.fromDegrees(padPoint[1], padPoint[0]));
+      const guess = Number.isFinite(ground) && ground >= GROUND_GUESS_M[0] && ground <= GROUND_GUESS_M[1] ? ground : 0;
       waitFar = false;
       goTo({
-        pivot: C.Cartesian3.fromDegrees(padPoint[1], padPoint[0], Number.isFinite(ground) ? ground : 0),
+        pivot: C.Cartesian3.fromDegrees(padPoint[1], padPoint[0], guess),
         heading: C.Math.toRadians(config.GLOBE_START_HEADING_DEG),
         pitch: C.Math.toRadians(LOADING_PITCH_DEG),
         range: LOADING_RANGE_M,
@@ -2722,7 +3064,7 @@ export function createGlobeView(container, ctx, options) {
       if (destroyed) return;
       followOn = false;
       cameraMode = 'whole';
-      if (flying) camera.cancelFlight();
+      finishGlide();
       frameEverything({ animate: true });
       scene.requestRender();
     },
@@ -2768,7 +3110,7 @@ export function createGlobeView(container, ctx, options) {
     // the free part again.
     relayout() {
       if (destroyed || !active || !idle() || flying || glide) return;
-      const key = `${scene.canvas.clientWidth}x${scene.canvas.clientHeight}|${Math.round(options.idleBottom?.() ?? 0)}`;
+      const key = idleKeyNow();
       if (key === idleKey) return;
       idleKey = key;
       aimIdle();
@@ -2809,6 +3151,7 @@ export function createGlobeView(container, ctx, options) {
         pitch: look.pitch,
         f: size?.f ?? null,
         moving: Boolean(glide || flying || chase.frame),
+        flight: flight ? { length: flight.path.length, ms: flight.duration } : null,
       };
     },
     // For the tests: how many things are drawn, so a test can check that a
