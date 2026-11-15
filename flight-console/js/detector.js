@@ -34,9 +34,9 @@
 // Used by: store.js (one detector per rocket), main.js (a separate detector
 // pre-scans each flight for the jump buttons), and both Node tools. No DOM.
 
-import { DETECTOR_DEFAULTS } from './config.js?v=2';
+import { DETECTOR_DEFAULTS } from './config.js?v=3';
 import { hasGoodPosition } from './schema.js?v=2';
-import { distanceM, formatRounded10, formatFlightSeconds, formatDuration, formatNumber } from './geo.js?v=2';
+import { distanceM, formatRounded10, formatFlightSeconds, formatDuration, formatNumber } from './geo.js?v=3';
 
 // Flight events in the order they happen.
 export const FLIGHT_EVENT_TYPES = Object.freeze(['liftoff', 'apogee', 'drogue', 'main', 'landed']);

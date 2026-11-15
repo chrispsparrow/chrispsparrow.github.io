@@ -14,7 +14,7 @@
 //
 // Used by: map-view.js.
 
-import { CESIUM_JS_URL, CESIUM_CSS_URL, CESIUM_BASE_URL, CESIUM_LOAD_TIMEOUT_MS } from '../config.js?v=2';
+import { CESIUM_JS_URL, CESIUM_CSS_URL, CESIUM_BASE_URL, CESIUM_LOAD_TIMEOUT_MS } from '../config.js?v=3';
 
 // The download in progress. It settles only when the script itself loads
 // or fails, never because a caller ran out of patience.

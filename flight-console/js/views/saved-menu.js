@@ -17,7 +17,7 @@
 // Used by: main.js.
 
 import { h, setChildren } from './dom.js?v=2';
-import { formatDuration } from '../geo.js?v=2';
+import { formatDuration } from '../geo.js?v=3';
 
 // root holds the button and the menu.
 //   hrefFor(id)   a flight's real address

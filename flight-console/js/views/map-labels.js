@@ -24,7 +24,7 @@
 // globe-view.js.
 
 import { h, svg } from './dom.js?v=2';
-import { formatNumber } from '../geo.js?v=2';
+import { formatNumber } from '../geo.js?v=3';
 
 // The fixed names.
 export const LABEL_NAMES = Object.freeze({

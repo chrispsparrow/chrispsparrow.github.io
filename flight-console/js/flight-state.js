@@ -93,8 +93,8 @@
 // Used by: the HUD, the map and 3D view, panel 2's readings, main.js and
 // the tests. No DOM.
 
-import * as config from './config.js?v=2';
-import { rangeAndBearing, formatBearing, formatClock, formatNumber, MISSING } from './geo.js?v=2';
+import * as config from './config.js?v=3';
+import { rangeAndBearing, formatBearing, formatClock, formatNumber, MISSING } from './geo.js?v=3';
 
 export const STATE = Object.freeze({ IDLE: 'idle', PAD: 'pad', FLIGHT: 'flight', RECOVERY: 'recovery' });
 

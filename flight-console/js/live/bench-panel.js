@@ -48,9 +48,9 @@ import { FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '..
 import { buildCsv, csvFileName } from '../bench/csv.js?v=5';
 import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=5';
 import { LINK_TEXT, serialSupported } from './serial-link.js';
-import { createEventLog } from '../views/event-log.js?v=3';
+import { createEventLog } from '../views/event-log.js?v=4';
 import { createStoreSwitch } from '../store-switch.js?v=2';
-import * as config from '../config.js?v=2';
+import * as config from '../config.js?v=3';
 
 const WINDOW_MS = 10 * 60 * 1000;   // the graphs and the trace keep the last 10 minutes
 const GAP_MS = 6000;                // graph lines break across longer gaps (the board prints every second)

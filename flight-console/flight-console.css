@@ -404,6 +404,13 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
     overflow-wrap: break-word;
   }
 }
+/* Tablets and small laptops (641 to 1023 px wide): the name takes its own
+   row under the buttons, as on a phone, so it is never cut short between
+   them. The bar is one row taller there. */
+@media (min-width: 641px) and (max-width: 1023.98px) {
+  .fc-page .fc-bar { flex-wrap: wrap; }
+  .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; }
+}
 
 /* SAVED FLIGHTS: a small dropdown log under its button, one line per
    flight. The open one's line is amber. */

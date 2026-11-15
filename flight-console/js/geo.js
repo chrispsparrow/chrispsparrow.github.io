@@ -4,7 +4,7 @@
 // numbers, times and units.
 // Used by: store.js, the views, and tools/add_flight.mjs. No DOM.
 
-import { FEET_PER_METER } from './config.js?v=2';
+import { FEET_PER_METER } from './config.js?v=3';
 
 // Mean radius of the Earth in meters (the same value the firmware's
 // simulator uses).

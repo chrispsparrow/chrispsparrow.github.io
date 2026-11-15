@@ -44,12 +44,12 @@
 // Used by: main.js.
 
 import { h, setText, setChildren, createScheduler, rocketDot } from './dom.js?v=2';
-import { createEventLog } from './event-log.js?v=3';
-import { createFlightInfo } from './flight-info.js?v=4';
-import { createReadings } from './data-readings.js?v=2';
-import { createSeriesBuilder } from './data-series.js?v=2';
+import { createEventLog } from './event-log.js?v=4';
+import { createFlightInfo } from './flight-info.js?v=5';
+import { createReadings } from './data-readings.js?v=3';
+import { createSeriesBuilder } from './data-series.js?v=3';
 import { TimeChart, readTheme } from '../bench/charts.js?v=5';
-import { formatNumber, formatFlightClock, formatClock } from '../geo.js?v=2';
+import { formatNumber, formatFlightClock, formatClock } from '../geo.js?v=3';
 
 // Settings
 const DRAW_MAX_FPS = 6;          // graphs and readings redraw at most this often while a flight plays

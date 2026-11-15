@@ -61,19 +61,19 @@
 // notes and camera mode). Never other views.
 
 import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js?v=2';
-import { formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js?v=2';
+import { formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js?v=3';
 import { iconNode } from './icons.js?v=3';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE, pathKeySvg, gapKeySvg, ringKeySvg, weakKeySvg, shadowKeySvg, linkKeySvg,
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
   NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
-} from './markers.js?v=2';
-import { checkEsriKey, createSatelliteLayer } from './esri.js';
-import { loadCesium } from './cesium-loader.js?v=2';
-import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=2';
-import { speedColor } from '../track.js?v=2';
-import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=2';
+} from './markers.js?v=3';
+import { checkEsriKey, createSatelliteLayer } from './esri.js?v=2';
+import { loadCesium } from './cesium-loader.js?v=3';
+import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
+import { speedColor } from '../track.js?v=3';
+import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=3';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
@@ -846,7 +846,7 @@ export function createMapView(root, ctx) {
       }, THREE_SLOW_MS);
     }
     showThreePanel();
-    Promise.all([loadCesium(), import('./globe-view.js?v=6')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=7')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.

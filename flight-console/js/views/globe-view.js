@@ -76,9 +76,9 @@
 // Reads the store, never other views.
 
 import { createScheduler, prefersReducedMotion } from './dom.js?v=2';
-import { distanceM } from '../geo.js?v=2';
-import { speedColor } from '../track.js?v=2';
-import { eventCrumb, recoveryInfo, flightState, STATE } from '../flight-state.js?v=2';
+import { distanceM } from '../geo.js?v=3';
+import { speedColor } from '../track.js?v=3';
+import { eventCrumb, recoveryInfo, flightState, STATE } from '../flight-state.js?v=3';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE,
@@ -86,8 +86,8 @@ import {
   OTHER_LINE_PX, OTHER_DOT_PX, SHADOW_PX, SHADOW_ALPHA, SHADOW_EDGE_PX, SHADOW_EDGE_ALPHA, OFF_WHITE, NEAR_BLACK, WHITE,
   RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
   LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
-} from './markers.js?v=2';
-import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=2';
+} from './markers.js?v=3';
+import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
 
 // The events that get a diamond. Liftoff has none, since the launch point
 // marks it.

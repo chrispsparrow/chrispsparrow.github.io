@@ -10,7 +10,7 @@
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js?v=2';
-import { formatAge } from '../geo.js?v=2';
+import { formatAge } from '../geo.js?v=3';
 
 // How long a flashed chip stays marked, in ms. Matches the CSS animation.
 const FLASH_MS = 1400;

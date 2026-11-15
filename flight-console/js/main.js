@@ -63,27 +63,27 @@
 // minutes) fetches the new one instead of mixing old and new code. Every
 // file that imports a module uses the same query, or the browser would
 // load it twice.
-import * as config from './config.js?v=2';
-import { loadManifest, loadFlight } from './library.js?v=3';
-import { createStore } from './store.js?v=3';
+import * as config from './config.js?v=3';
+import { loadManifest, loadFlight } from './library.js?v=4';
+import { createStore } from './store.js?v=4';
 import { createStoreSwitch } from './store-switch.js?v=2';
-import { createPlayer } from './player.js?v=2';
-import { createFleet } from './fleet.js?v=2';
-import { STATE } from './flight-state.js?v=2';
+import { createPlayer } from './player.js?v=3';
+import { createFleet } from './fleet.js?v=3';
+import { STATE } from './flight-state.js?v=3';
 import { h, setChildren } from './views/dom.js?v=2';
 import { createLanding } from './views/launcher.js?v=6';
-import { createSavedMenu } from './views/saved-menu.js?v=2';
+import { createSavedMenu } from './views/saved-menu.js?v=3';
 import { createPanels } from './views/panels.js?v=2';
-import { createHud } from './views/hud.js?v=2';
-import { createRocketBar } from './views/rocket-bar.js?v=2';
-import { createPhaseStrip } from './views/phase-strip.js?v=2';
-import { createMapView } from './views/map-view.js?v=7';
-import { createTimeline } from './views/timeline.js?v=4';
-import { createDataPanel } from './views/data-panel.js?v=2';
+import { createHud } from './views/hud.js?v=3';
+import { createRocketBar } from './views/rocket-bar.js?v=3';
+import { createPhaseStrip } from './views/phase-strip.js?v=3';
+import { createMapView } from './views/map-view.js?v=8';
+import { createTimeline } from './views/timeline.js?v=5';
+import { createDataPanel } from './views/data-panel.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
 import { createSourceDetector } from './live/sources.js?v=2';
-import { createBenchPanel } from './live/bench-panel.js?v=4';
-import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=2';
+import { createBenchPanel } from './live/bench-panel.js?v=5';
+import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=3';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
 const TITLE_CONSOLE = 'Track a Rocket | Dogtooth Systems';

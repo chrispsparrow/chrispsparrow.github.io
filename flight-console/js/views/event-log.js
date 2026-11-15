@@ -32,7 +32,7 @@
 // views.
 
 import { h, setText, setChildren, createScheduler, eventMarkerKind, markerClass, rocketDot, prefersReducedMotion } from './dom.js?v=2';
-import { formatFlightClock } from '../geo.js?v=2';
+import { formatFlightClock } from '../geo.js?v=3';
 
 // How many announcements the hidden log keeps. Older ones were already read.
 const ANNOUNCE_KEEP = 4;

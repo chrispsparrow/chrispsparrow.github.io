@@ -18,8 +18,8 @@
 //
 // Used by: globe-view.js and map-view.js.
 
-import { HALO_COLOR, PAD_COLOR, COLOR_WHITE } from '../config.js?v=2';
-import { TRACK_RAMP } from '../track.js?v=2';
+import { HALO_COLOR, PAD_COLOR, COLOR_WHITE } from '../config.js?v=3';
+import { TRACK_RAMP } from '../track.js?v=3';
 
 // The board's blue. #184590 is the soldermask as the 3D viewer on
 // projects/avionics-pcb.html renders it, sampled from
