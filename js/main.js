@@ -474,13 +474,26 @@ const SOON    = {};
   }
 })();
 
-/* ── FLIGHT CONSOLE PICTURE LINK ─────────────────────────── */
+/* ── FLIGHT CONSOLE PICTURE ──────────────────────────────── */
 /* The link over the picture is for a mouse click or a tap, and it is hidden
    from screen readers, so it must never hold focus. A click still opens the
-   console. */
+   console.
+   The picture waits in data-src. The panel sits close to the top of the page,
+   inside the distance where Chrome starts a lazy image early, so loading="lazy"
+   alone would fetch it at page load on a short window. It loads once the panel
+   is within one window height of the screen instead. */
 (function () {
   const open = document.querySelector('.console-open');
   if (open) open.addEventListener('mousedown', (e) => e.preventDefault());
+
+  const pic = document.querySelector('.console-pic[data-src]');
+  if (!pic) return;
+  const load = () => { pic.src = pic.dataset.src; pic.removeAttribute('data-src'); };
+  if (!('IntersectionObserver' in window)) { load(); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some(e => e.isIntersecting)) { io.disconnect(); load(); }
+  }, { rootMargin: '0px 0px 100% 0px' });
+  io.observe(pic.closest('.panel') || pic);
 })();
 
 /* ── HERO RINGS ──────────────────────────────────────────── */
