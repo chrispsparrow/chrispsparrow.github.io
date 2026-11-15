@@ -224,14 +224,14 @@ function describe(store, rocket, config) {
     // from the launch point when there is no Manta position).
     const range = rangeReading(store, rocket);
     if (range) {
-      const notes = [];
-      if (range.recovery) notes.push('To the recovery position');
-      if (range.from === 'manta' && range.demo) notes.push('Demo ground station position');
+      const demo = range.from === 'manta' && range.demo;
+      let note = demo ? 'Demo ground station position' : '';
+      if (range.recovery) note = demo ? 'From the demo spot to the recovery position' : 'To the recovery position';
       rows.push({
         key: `gps.from.${range.from}`,
         label: range.from === 'manta' ? 'From Manta' : 'From launch point',
         value: Number.isFinite(range.distanceM) ? `${formatDistance(range.distanceM)}, ${formatBearing(range.bearingDeg)}` : MISSING,
-        small: notes.join('. '),
+        small: note,
       });
     }
     sections.push({ id: 'gps', title: GROUP_LABELS.gps, rows });
