@@ -23,7 +23,7 @@
 //
 // No DOM here, so Node can run it too.
 
-import { parseLine } from '../bench/parse.js?v=4';
+import { parseLine } from '../bench/parse.js?v=5';
 
 export const SOURCES = Object.freeze([
   Object.freeze({

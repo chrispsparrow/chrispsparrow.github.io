@@ -5,7 +5,7 @@
 // Used by: hud.js, and test/bench-feed.test.mjs (which checks the ages the
 // HUD would show for a board that goes quiet).
 
-import { MISSING } from '../geo.js';
+import { MISSING } from '../geo.js?v=2';
 
 // How old something is, in whole seconds, or minutes once it is long.
 export function hudAge(seconds) {

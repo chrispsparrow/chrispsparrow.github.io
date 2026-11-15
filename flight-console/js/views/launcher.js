@@ -20,7 +20,7 @@
 // The saved flights live in the console's SAVED FLIGHTS dropdown
 // (saved-menu.js). Used by: main.js.
 
-import { startCurrents } from '../hero-currents.js?v=3';
+import { startCurrents } from '../hero-currents.js?v=4';
 
 // ------------------------------------------------------------------
 // Settings

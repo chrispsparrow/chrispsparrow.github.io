@@ -22,8 +22,8 @@
 //
 // Used by: js/views/data-panel.js. Reads ctx.flight, never other views.
 
-import { h, setText, setChildren, formatDate, rocketDot } from './dom.js';
-import { formatNumber } from '../geo.js';
+import { h, setText, setChildren, formatDate, rocketDot } from './dom.js?v=2';
+import { formatNumber } from '../geo.js?v=2';
 
 let nextId = 0;
 

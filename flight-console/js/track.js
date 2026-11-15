@@ -77,9 +77,9 @@
 // Used by: store.js (one trail per rocket), the map and the 3D view (they
 // read rocket.crumbs), and the tests. No DOM, so Node can run it too.
 
-import * as config from './config.js';
-import { hasGoodPosition } from './schema.js';
-import { distanceM } from './geo.js';
+import * as config from './config.js?v=2';
+import { hasGoodPosition } from './schema.js?v=2';
+import { distanceM } from './geo.js?v=2';
 
 export const TRACK_DEFAULTS = Object.freeze({
   MIN_SATS: config.MIN_SATS,

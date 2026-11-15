@@ -17,8 +17,8 @@
 // keeps the current phase in view.
 // Used by: main.js. Reads the store, never other views.
 
-import { h, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';
-import { formatFlightClock } from '../geo.js';
+import { h, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js?v=2';
+import { formatFlightClock } from '../geo.js?v=2';
 
 // The segments in order. event is the detector event that starts each one
 // (the pad has none: the detector confirms it by watching the rocket sit

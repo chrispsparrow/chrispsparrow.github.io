@@ -32,10 +32,10 @@
 //
 // No DOM here, so Node can run it too.
 
-import { readLock, readPosition } from '../bench/parse.js?v=4';
-import { GROUPS, channelsInGroup } from '../schema.js';
-import { KNOWN_ROCKETS } from '../fleet.js';
-import { DETECTOR_DEFAULTS } from '../config.js';
+import { readLock, readPosition } from '../bench/parse.js?v=5';
+import { GROUPS, channelsInGroup } from '../schema.js?v=2';
+import { KNOWN_ROCKETS } from '../fleet.js?v=2';
+import { DETECTOR_DEFAULTS } from '../config.js?v=2';
 
 // The live bench store uses the normal detector, liftoff included, so the
 // four Track a Rocket states (idle, pad, flight, recovery) follow the data

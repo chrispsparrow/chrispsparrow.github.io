@@ -23,11 +23,11 @@
 //
 // Used by: main.js, player.js and every view. No DOM.
 
-import { GROUND_STATION, DETECTOR_DEFAULTS, LINK_STALE_S, ALTITUDE_STALE_S, PAD_AVG_S } from './config.js';
-import { GROUPS, hasGoodPosition } from './schema.js';
-import { createDetector, FLIGHT_EVENT_TYPES } from './detector.js';
-import { createFleet } from './fleet.js';
-import { createCrumbTrail } from './track.js';
+import { GROUND_STATION, DETECTOR_DEFAULTS, LINK_STALE_S, ALTITUDE_STALE_S, PAD_AVG_S } from './config.js?v=2';
+import { GROUPS, hasGoodPosition } from './schema.js?v=2';
+import { createDetector, FLIGHT_EVENT_TYPES } from './detector.js?v=2';
+import { createFleet } from './fleet.js?v=2';
+import { createCrumbTrail } from './track.js?v=2';
 
 export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_DEFAULTS, groundStation = GROUND_STATION } = {}) {
   const listeners = new Set();

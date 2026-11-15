@@ -78,8 +78,8 @@
 //
 // Used by: the HUD, the map and 3D view, main.js and the tests. No DOM.
 
-import * as config from './config.js';
-import { rangeAndBearing, compass16Name, formatClock, formatNumber, MISSING } from './geo.js';
+import * as config from './config.js?v=2';
+import { rangeAndBearing, compass16Name, formatClock, formatNumber, MISSING } from './geo.js?v=2';
 
 export const STATE = Object.freeze({ IDLE: 'idle', PAD: 'pad', FLIGHT: 'flight', RECOVERY: 'recovery' });
 

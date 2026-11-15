@@ -44,13 +44,13 @@
 //
 // Used by: main.js. Reads the store, never other views.
 
-import { h, setText, setChildren, createScheduler, copyText } from './dom.js';
-import { hudAge } from './hud-text.js?v=3';
-import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js';
-import { flightState, padChecklist, recoveryInfo, groundSpeed, STATE } from '../flight-state.js';
+import { h, setText, setChildren, createScheduler, copyText } from './dom.js?v=2';
+import { hudAge } from './hud-text.js?v=4';
+import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
+import { flightState, padChecklist, recoveryInfo, groundSpeed, STATE } from '../flight-state.js?v=2';
 import {
   formatNumber, formatFlightClock, formatRangeBearing, rangeAndBearing, metersToFeet, MISSING,
-} from '../geo.js';
+} from '../geo.js?v=2';
 
 // The phase word next to the flight time, for each detector phase.
 const PHASE_WORDS = Object.freeze({

@@ -27,9 +27,9 @@
 //
 // Used by: main.js. Talks to the player and reads the store, never other views.
 
-import { h, svg, setText, setChildren, createScheduler, eventMarkerKind, markerClass, MARKER_KIND_TEXT } from './dom.js';
-import { formatClock, formatFlightSeconds, formatNumber, formatRounded10 } from '../geo.js';
-import { FLIGHT_EVENT_TYPES, EVENT_LABELS } from '../detector.js';
+import { h, svg, setText, setChildren, createScheduler, eventMarkerKind, markerClass, MARKER_KIND_TEXT } from './dom.js?v=2';
+import { formatClock, formatFlightSeconds, formatNumber, formatRounded10 } from '../geo.js?v=2';
+import { FLIGHT_EVENT_TYPES, EVENT_LABELS } from '../detector.js?v=2';
 
 // Room (px) around the plot inside the strip: above for the apogee label,
 // below for the time labels, and at the sides for the end markers.

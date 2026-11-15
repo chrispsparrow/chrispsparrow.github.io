@@ -16,8 +16,8 @@
 // It only ever reads the manifest, never a flight's data files.
 // Used by: main.js.
 
-import { h, setChildren } from './dom.js';
-import { formatDuration } from '../geo.js';
+import { h, setChildren } from './dom.js?v=2';
+import { formatDuration } from '../geo.js?v=2';
 
 // root holds the button and the menu.
 //   hrefFor(id)   a flight's real address

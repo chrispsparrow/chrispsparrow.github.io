@@ -39,9 +39,9 @@
 //
 // Used by: js/views/data-panel.js and the tests.
 
-import { VSPEED_AVG_S, LINK_STALE_S } from '../config.js';
-import { hasGoodPosition } from '../schema.js';
-import { distanceM } from '../geo.js';
+import { VSPEED_AVG_S, LINK_STALE_S } from '../config.js?v=2';
+import { hasGoodPosition } from '../schema.js?v=2';
+import { distanceM } from '../geo.js?v=2';
 
 // Settings
 const SEQ_MODULO = 65536;   // the packet's sequence number is 16 bits and wraps around

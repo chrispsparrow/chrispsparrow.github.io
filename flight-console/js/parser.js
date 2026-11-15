@@ -24,7 +24,7 @@
 // the returned `sample` to the store. (Board restart shifting only happens
 // in parseSerialLog(), which sees a whole file.) No DOM.
 
-import { CHANNELS, GROUPS, lookupAlias, lookupAliasInGroup } from './schema.js';
+import { CHANNELS, GROUPS, lookupAlias, lookupAliasInGroup } from './schema.js?v=2';
 
 // Firmware telemetry packet layout (DOGTOOTH_V1_FIRMWARE src/core/Telemetry.h).
 const PACKET_SIZE = 34;

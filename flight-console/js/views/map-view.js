@@ -60,20 +60,20 @@
 // Used by: main.js. Reads the store, and the 3D view it starts (for its
 // notes and camera mode). Never other views.
 
-import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js';
-import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js';
-import { iconNode } from './icons.js?v=2';
+import { h, svg, setText, setChildren, createScheduler, prefersReducedMotion } from './dom.js?v=2';
+import { rangeAndBearing, formatRangeBearing, formatAge, formatNumber, MISSING } from '../geo.js?v=2';
+import { iconNode } from './icons.js?v=3';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE, pathKeySvg, gapKeySvg, ringKeySvg, weakKeySvg, shadowKeySvg, linkKeySvg,
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
   NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
-} from './markers.js';
+} from './markers.js?v=2';
 import { checkEsriKey } from './esri.js';
-import { loadCesium } from './cesium-loader.js';
-import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js';
-import { speedColor } from '../track.js';
-import { flightState, eventCrumb, recoveryInfo, STATE } from '../flight-state.js';
+import { loadCesium } from './cesium-loader.js?v=2';
+import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=2';
+import { speedColor } from '../track.js?v=2';
+import { flightState, eventCrumb, recoveryInfo, STATE } from '../flight-state.js?v=2';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
@@ -830,7 +830,7 @@ export function createMapView(root, ctx) {
       }, THREE_SLOW_MS);
     }
     showThreePanel();
-    Promise.all([loadCesium(), import('./globe-view.js?v=5')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=6')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -944,15 +944,15 @@ export function createMapView(root, ctx) {
   // ------------------------------------------------------------------
   // Covered areas: the parts of the view under the HUD (every element on
   // the stage marked data-fc-cover, this file's controls row included) and
-  // the arrow tabs at the panel's edges. Measured on every draw, because
-  // they change size.
+  // the panel switches at the panel's edges ([ GRAPHS ] and [ MAP ]).
+  // Measured on every draw, because they change size.
   // ------------------------------------------------------------------
   function coverElements() {
     const stage = root.closest('.fc-stage');
     const panels = stage ? [...stage.querySelectorAll('[data-fc-cover]')] : [];
     if (ownCorner) panels.push(ownCorner);
-    // The console's arrow tabs at the panel's edges cover a little of the
-    // view too. (A hidden one has no size, so it doesn't count.)
+    // The console's panel switches at the panel's edges cover a little of
+    // the view too. (A hidden one has no size, so it doesn't count.)
     const tabs = [...(root.closest('.fc-screens')?.querySelectorAll('.fc-flip') ?? [])];
     return [...panels, ...tabs];
   }
@@ -1051,7 +1051,7 @@ export function createMapView(root, ctx) {
 
   // The height (px) of the band the controls row and the corner take
   // along the bottom of a view, so the idle Earth can sit above it.
-  // (The arrow tabs halfway up the sides don't count.)
+  // (The panel switches halfway up the sides don't count.)
   function bottomBand(boxEl) {
     const box = boxEl.getBoundingClientRect();
     let band = 0;

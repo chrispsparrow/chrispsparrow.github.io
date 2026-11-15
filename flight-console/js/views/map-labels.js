@@ -23,8 +23,8 @@
 // Used by: map-view.js, which makes one layer and shares it with
 // globe-view.js.
 
-import { h, svg } from './dom.js';
-import { formatNumber } from '../geo.js';
+import { h, svg } from './dom.js?v=2';
+import { formatNumber } from '../geo.js?v=2';
 
 // The fixed names.
 export const LABEL_NAMES = Object.freeze({

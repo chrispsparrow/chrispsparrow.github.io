@@ -5,7 +5,7 @@
 // doesn't load this file.
 // Used by: tools/check_detection.mjs and the tests. No DOM.
 
-import { FLIGHT_EVENT_TYPES } from './detector.js';
+import { FLIGHT_EVENT_TYPES } from './detector.js?v=2';
 
 // Which simulator phase each flight event should line up with. The firmware
 // simulator's phases are pad, boost, coast, apogee, drogue, main, landed.

@@ -17,8 +17,8 @@
 // tools/add_flight.mjs and tools/check_detection.mjs in Node (they pass
 // their own file reader instead of fetch). No DOM.
 
-import { LIBRARY_BASE, MANIFEST_FILE } from './config.js';
-import { parseFile } from './parser.js';
+import { LIBRARY_BASE, MANIFEST_FILE } from './config.js?v=2';
+import { parseFile } from './parser.js?v=2';
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const KINDS = ['simulated', 'real'];

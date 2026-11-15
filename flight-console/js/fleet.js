@@ -8,7 +8,7 @@
 // Used by: store.js (every rocket gets a profile), main.js and add_flight.mjs.
 // No DOM.
 
-import { ROCKET_PALETTE } from './config.js';
+import { ROCKET_PALETTE } from './config.js?v=2';
 
 // Boards I know about. Their details fill in anything a manifest leaves out,
 // and they name rockets heard live before any manifest exists. The ID is the

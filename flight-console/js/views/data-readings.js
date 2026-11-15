@@ -20,12 +20,12 @@
 //
 // Used by: js/views/data-panel.js.
 
-import { h, setText, setChildren } from './dom.js';
-import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js';
-import { groundSpeed } from '../flight-state.js';
+import { h, setText, setChildren } from './dom.js?v=2';
+import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
+import { groundSpeed } from '../flight-state.js?v=2';
 import {
   formatNumber, formatAge as ageText, formatFlightClock, formatDistance, formatBearing, rangeAndBearing, MISSING,
-} from '../geo.js';
+} from '../geo.js?v=2';
 
 // Shorter labels for a few GPS channels, so the list reads like the HUD.
 // Every other channel uses its label from schema.js.

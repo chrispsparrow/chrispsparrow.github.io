@@ -14,7 +14,7 @@
 // play, pause, seek). No DOM, but it uses the browser's
 // requestAnimationFrame when it exists.
 
-import { PLAYBACK_SPEEDS, DEFAULT_SPEED, MAX_FRAME_STEP_S } from './config.js';
+import { PLAYBACK_SPEEDS, DEFAULT_SPEED, MAX_FRAME_STEP_S } from './config.js?v=2';
 
 export function createPlayer({
   store,
