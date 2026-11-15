@@ -10,16 +10,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  flightState, padChecklist, recoveryInfo, groundSpeed, eventCrumb, packetRate,
-  formatBearing3, formatDistanceCaps, STATE,
+  flightState, padChecklist, recoveryInfo, rangeReading, groundSpeed, eventCrumb, packetRate,
+  formatDistanceCaps, STATE,
 } from '../js/flight-state.js';
+import { gpsLineWarn } from '../js/views/hud-text.js';
 import { createStore } from '../js/store.js';
 import { createFleet } from '../js/fleet.js';
 import { createPlayer } from '../js/player.js';
 import { createCrumbTrail } from '../js/track.js';
 import { createLiveFeed, LIVE_STORE_OPTIONS } from '../js/live/bench-feed.js';
 import { BlockParser } from '../js/bench/parse.js?v=4';
-import { destinationPoint, distanceM } from '../js/geo.js';
+import { destinationPoint, distanceM, formatBearing, formatRangeBearing } from '../js/geo.js';
 import { makeSample, flightSamples, statusBlockLines, SITE } from './synthetic.mjs';
 import * as config from '../js/config.js';
 
@@ -172,14 +173,69 @@ test('three-digit bearings with 16-point compass names, and distances in caps', 
     [90, '090° (E)'], [135, '135° (SE)'], [180, '180° (S)'], [202.5, '203° (SSW)'], [247, '247° (WSW)'],
     [270, '270° (W)'], [315, '315° (NW)'], [337, '337° (NNW)'], [359.6, '000° (N)'], [-90, '270° (W)'], [720, '000° (N)'],
   ];
-  for (const [deg, text] of cases) assert.equal(formatBearing3(deg), text, `${deg} degrees`);
-  assert.equal(formatBearing3(null), '--');
+  for (const [deg, text] of cases) assert.equal(formatBearing(deg), text, `${deg} degrees`);
+  assert.equal(formatBearing(null), '--');
+  // The readings lists and the NO MAP panel write bearings the same way.
+  assert.equal(formatRangeBearing({ distanceM: 398.4, bearingDeg: 102.9 }), '398 m, bearing 103° (ESE)');
+  assert.equal(formatRangeBearing(null), '--');
   assert.equal(formatDistanceCaps(840), '840 M');
   assert.equal(formatDistanceCaps(0), '0 M');
   assert.equal(formatDistanceCaps(999.4), '999 M');
   assert.equal(formatDistanceCaps(999.6), '1.00 KM');
   assert.equal(formatDistanceCaps(1240), '1.24 KM');
   assert.equal(formatDistanceCaps(NaN), '--');
+});
+
+test('the readings lists\' range row: the newest fix before recovery, the HUD\'s answer in recovery', () => {
+  const gs = { lat: -8.5374, lon: 119.5724, altMsl: 2 };
+  const { samples, touchdownT } = simpleFlight(gs);
+  const store = newStore({ groundStation: gs });
+  for (const s of samples) {
+    store.addSample(s);
+    if (s.t === touchdownT - 20) {
+      // In flight: from Manta to the newest good fix.
+      const fix = store.getFocused().lastGoodFix;
+      const r = rangeReading(store);
+      assert.equal(r.from, 'manta');
+      assert.equal(r.recovery, false);
+      assert.ok(Math.abs(r.distanceM - distanceM(gs.lat, gs.lon, fix.lat, fix.lon)) < 1e-6);
+    }
+  }
+  assert.equal(flightState(store).state, STATE.RECOVERY);
+  // A fix that wanders off after the landing window moves the newest fix,
+  // but not the row: it keeps the HUD's distance and bearing.
+  const last = samples[samples.length - 1];
+  const off = destinationPoint(last.gps.lat, last.gps.lon, 0, 6);
+  store.addSample(makeSample({ ...last.gps, t: last.t + 1, seq: (last.extra?.seq ?? 0) + 1, lat: off.lat, lon: off.lon }));
+  const info = recoveryInfo(store);
+  const r = rangeReading(store);
+  assert.deepEqual(r, { from: 'manta', demo: false, recovery: true, distanceM: info.distanceM, bearingDeg: info.bearingDeg });
+  assert.equal(formatBearing(r.bearingDeg), info.text.bearing);
+});
+
+test('the range row without a Manta position: hidden before recovery, from the launch point in it', () => {
+  const { samples } = simpleFlight({ lat: SITE.lat, lon: SITE.lon });
+  const store = newStore({ groundStation: null });
+  store.addSamples(samples.filter((s) => s.t <= 100));
+  assert.equal(rangeReading(store), null, 'no Manta, no row');
+  store.addSamples(samples.filter((s) => s.t > 100));
+  const info = recoveryInfo(store);
+  const r = rangeReading(store);
+  assert.equal(info.from, 'launch');
+  assert.equal(r.from, 'launch');
+  assert.equal(r.distanceM, info.distanceM);
+  assert.equal(r.bearingDeg, info.bearingDeg);
+  assert.equal(rangeReading(newStore()), null, 'no rocket at all');
+});
+
+test('the HUD\'s GPS line is amber with no fix or too few satellites for the quality gate', () => {
+  assert.equal(gpsLineWarn(true, config.MIN_SATS, config.MIN_SATS), false);
+  assert.equal(gpsLineWarn(true, 12, config.MIN_SATS), false);
+  assert.equal(gpsLineWarn(true, config.MIN_SATS - 1, config.MIN_SATS), true);
+  assert.equal(gpsLineWarn(true, 4, config.MIN_SATS), true);
+  assert.equal(gpsLineWarn(false, 12, config.MIN_SATS), true);
+  assert.equal(gpsLineWarn(true, null, config.MIN_SATS), false, 'a count that isn\'t known only leaves the fix');
+  assert.equal(gpsLineWarn(false, null, config.MIN_SATS), true);
 });
 
 test('the link going quiet in flight stays FLIGHT, marked silent', () => {

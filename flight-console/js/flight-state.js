@@ -72,14 +72,29 @@
 //     -> the good crumb (see track.js) where a flight event happened, or
 //        null when the event fell in a GPS gap
 //
-//   packetRate(store, rocket)  packets a second over the last PAD_LINK_WINDOW_S
-//   formatBearing3(deg)        '062° (ENE)'
-//   formatDistanceCaps(m)      '840 M' or '1.24 KM'
+//   rangeReading(store, rocket)
+//     -> what the readings lists' "From Manta" row shows (the MORE column
+//        and panel 2), or null to leave the row out: {
+//          from          'manta' or 'launch'
+//          demo          true when Manta's position is the demo spot in config.js
+//          recovery      true in 'recovery'
+//          distanceM, bearingDeg   or null when there is nothing to measure to
+//        }
+//        In 'recovery' it is recoveryInfo()'s own answer: from Manta (or the
+//        launch point when there is no Manta position) to the recovery
+//        position. So the row and the HUD's recovery block always agree.
+//        Before that it is from Manta to the newest good fix, and null when
+//        there is no Manta position.
 //
-// Used by: the HUD, the map and 3D view, main.js and the tests. No DOM.
+//   packetRate(store, rocket)  packets a second over the last PAD_LINK_WINDOW_S
+//   formatDistanceCaps(m)      '840 M' or '1.24 KM'
+//   Bearings are written by formatBearing() in geo.js ('062° (ENE)').
+//
+// Used by: the HUD, the map and 3D view, panel 2's readings, main.js and
+// the tests. No DOM.
 
 import * as config from './config.js?v=2';
-import { rangeAndBearing, compass16Name, formatClock, formatNumber, MISSING } from './geo.js?v=2';
+import { rangeAndBearing, formatBearing, formatClock, formatNumber, MISSING } from './geo.js?v=2';
 
 export const STATE = Object.freeze({ IDLE: 'idle', PAD: 'pad', FLIGHT: 'flight', RECOVERY: 'recovery' });
 
@@ -188,13 +203,6 @@ export function eventCrumb(rocket, event, maxGapS = config.TRACK_GAP_S) {
   return best && Math.abs(best.t - event.t) <= maxGapS ? best : null;
 }
 
-// "062° (ENE)": three digits and a 16-point compass name.
-export function formatBearing3(deg) {
-  if (!Number.isFinite(deg)) return MISSING;
-  const whole = ((Math.round(deg) % 360) + 360) % 360;
-  return `${String(whole).padStart(3, '0')}° (${compass16Name(whole)})`;
-}
-
 // "840 M" under 1 km, "1.24 KM" from there.
 export function formatDistanceCaps(m) {
   if (!Number.isFinite(m)) return MISSING;
@@ -247,9 +255,26 @@ export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
     text: {
       lastFix: Number.isFinite(lastFixAgeS) ? `${formatClock(lastFixAgeS)} AGO` : MISSING,
       distance: rb ? `${formatDistanceCaps(rb.distanceM)} ${fromWords}` : MISSING,
-      bearing: rb ? formatBearing3(rb.bearingDeg) : MISSING,
+      bearing: rb ? formatBearing(rb.bearingDeg) : MISSING,
     },
     coordsText: position ? `${position.lat.toFixed(6)}, ${position.lon.toFixed(6)}` : '',
     mapsUrl: position ? `https://www.google.com/maps/search/?api=1&query=${position.lat.toFixed(6)},${position.lon.toFixed(6)}` : '',
   };
+}
+
+export function rangeReading(store, rocket = store?.getFocused?.() ?? null) {
+  if (!store || !rocket) return null;
+  const gs = store.getGroundStation();
+  const demo = gs?.source === 'config';
+  // In recovery: the HUD's own numbers, measured the same way it does.
+  const info = recoveryInfo(store, rocket);
+  if (info) {
+    const from = gs ? 'manta' : rocket.padPosition ? 'launch' : null;
+    if (!from) return null;
+    return { from, demo, recovery: true, distanceM: info.distanceM, bearingDeg: info.bearingDeg };
+  }
+  // Before that: from Manta to the newest good fix.
+  if (!gs) return null;
+  const rb = rangeAndBearing(gs, rocket.lastGoodFix);
+  return { from: 'manta', demo, recovery: false, distanceM: rb ? rb.distanceM : null, bearingDeg: rb ? rb.bearingDeg : null };
 }

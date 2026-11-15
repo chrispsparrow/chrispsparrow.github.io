@@ -15,6 +15,11 @@
 // before the fix was lost says when it was good, and the vertical speed
 // isn't shown at all once the altitude is old.
 //
+// It warns like the HUD does: the GPS fix row is amber with no fix, Sats
+// under MIN_SATS and HDOP over MAX_HDOP are amber, and so is an old packet.
+// The "From Manta" row comes from rangeReading() in flight-state.js, so in
+// recovery it gives the same distance and bearing as the HUD.
+//
 //   const readings = createReadings(container);
 //   readings.render(store, rocket, config);   // as often as it likes
 //
@@ -22,9 +27,9 @@
 
 import { h, setText, setChildren } from './dom.js?v=2';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
-import { groundSpeed } from '../flight-state.js?v=2';
+import { groundSpeed, rangeReading } from '../flight-state.js?v=2';
 import {
-  formatNumber, formatAge as ageText, formatFlightClock, formatDistance, formatBearing, rangeAndBearing, MISSING,
+  formatNumber, formatAge as ageText, formatFlightClock, formatDistance, formatBearing, MISSING,
 } from '../geo.js?v=2';
 
 // Shorter labels for a few GPS channels, so the list reads like the HUD.
@@ -205,12 +210,28 @@ function describe(store, rocket, config) {
     const fixRow = rows.find((r) => r.key === 'gps.fix');
     if (fixRow && !fixNow) fixRow.tone = 'warn';
     rows.push({ key: 'gps.age', label: 'Last good fix', value: fix ? formatAge(fixAge) : MISSING, tone: fix && !fixNow ? 'warn' : null });
-    const gsPos = store.getGroundStation();
-    if (gsPos) {
-      const rb = fix ? rangeAndBearing(gsPos, fix) : null;
+    // The satellite count and HDOP turn amber on the same limits as the
+    // HUD's GPS and HDOP lines (the map's quality gate), while they are
+    // current. An old value stays dimmed instead.
+    const satsRow = rows.find((r) => r.key === 'gps.sats');
+    const sats = latest.sats?.value;
+    if (satsRow && !satsRow.tone && Number.isFinite(sats) && sats < config.MIN_SATS) satsRow.tone = 'warn';
+    const hdopRow = rows.find((r) => r.key === 'gps.hdop');
+    const hdop = latest.hdop?.value;
+    if (hdopRow && !hdopRow.tone && Number.isFinite(hdop) && hdop > config.MAX_HDOP) hdopRow.tone = 'warn';
+    // Distance and bearing, from rangeReading(): from Manta to the newest
+    // fix, and in recovery the HUD's own answer (to the recovery position,
+    // from the launch point when there is no Manta position).
+    const range = rangeReading(store, rocket);
+    if (range) {
+      const notes = [];
+      if (range.recovery) notes.push('To the recovery position');
+      if (range.from === 'manta' && range.demo) notes.push('Demo ground station position');
       rows.push({
-        key: 'gps.manta', label: 'From Manta', value: rb ? `${formatDistance(rb.distanceM)}, ${formatBearing(rb.bearingDeg)}` : MISSING,
-        small: gsPos.source === 'config' ? 'Demo ground station position' : '',
+        key: `gps.from.${range.from}`,
+        label: range.from === 'manta' ? 'From Manta' : 'From launch point',
+        value: Number.isFinite(range.distanceM) ? `${formatDistance(range.distanceM)}, ${formatBearing(range.bearingDeg)}` : MISSING,
+        small: notes.join('. '),
       });
     }
     sections.push({ id: 'gps', title: GROUP_LABELS.gps, rows });

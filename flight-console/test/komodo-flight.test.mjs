@@ -14,9 +14,12 @@ import { fileURLToPath } from 'node:url';
 import { validateManifest, buildFlight } from '../js/library.js';
 import { createStore } from '../js/store.js';
 import { createFleet } from '../js/fleet.js';
-import { flightState, recoveryInfo, STATE } from '../js/flight-state.js';
+import { flightState, recoveryInfo, rangeReading, STATE } from '../js/flight-state.js';
 import { compareWithTruth } from '../js/truth-check.js';
-import { distanceM } from '../js/geo.js';
+import { distanceM, formatBearing, formatNumber } from '../js/geo.js';
+import { apogeeLabel } from '../js/views/map-labels.js';
+import { gpsLineWarn } from '../js/views/hud-text.js';
+import { MIN_SATS } from '../js/config.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FLIGHTS_DIR = path.resolve(HERE, '..', 'data', 'flights');
@@ -145,4 +148,52 @@ test('the board lies still in a cloud after landing, and the recovery position i
   // About 400 m from Manta on the beach.
   assert.ok(info.distanceM > 360 && info.distanceM < 450, `${info.distanceM} m from Manta`);
   assert.match(info.mapsUrl, new RegExp(info.position.lat.toFixed(4).replace('.', '\\.')));
+});
+
+test('the apogee message gives the highest reading in whole meters, like the map label', () => {
+  const { entry, flight } = loadFlight();
+  const { rocket } = play(entry, flight);
+  const { apogee, drogue, main, landed } = rocket.derived.events;
+  const meters = formatNumber(rocket.derived.maxAgl, 0);
+  assert.equal(apogeeLabel(apogee.aglM), `APOGEE ${meters} M`);
+  assert.match(apogee.message, new RegExp(`^Apogee detected: ${meters} m AGL at T\\+`));
+  assert.doesNotMatch(apogee.message, /about/);
+  // The other heights are estimates, so they stay "about" and rounded.
+  for (const e of [drogue, main, landed]) assert.match(e.message, /about -?[\d,]+0 m AGL/, e.type);
+});
+
+test('in recovery the readings row and the HUD give the same distance and bearing', () => {
+  const { entry, flight } = loadFlight();
+  const { store, rocket } = play(entry, flight);
+  const info = recoveryInfo(store, rocket);
+  const range = rangeReading(store, rocket);
+  assert.equal(range.recovery, true);
+  assert.equal(range.distanceM, info.distanceM);
+  assert.equal(range.bearingDeg, info.bearingDeg);
+  assert.equal(formatBearing(range.bearingDeg), info.text.bearing);
+  assert.match(info.text.bearing, /^\d{3}° \([NESW]{1,3}\)$/);
+  // The newest fix has wandered a few meters from the average, so it would
+  // give a slightly different answer. That is why the row uses the HUD's.
+  const fromNewest = distanceM(MANTA.lat, MANTA.lon, rocket.lastGoodFix.lat, rocket.lastGoodFix.lon);
+  assert.ok(Math.abs(fromNewest - info.distanceM) > 0.5, `newest fix ${fromNewest.toFixed(1)} m, recovery ${info.distanceM.toFixed(1)} m`);
+});
+
+test('the HUD marks every fix with too few satellites, as the map does with a hollow dot', () => {
+  const { entry, flight } = loadFlight();
+  const store = createStore({ fleet: createFleet(), groundStation: entry.groundStation });
+  const lowSatTimes = [];
+  for (const s of flight.samples) {
+    store.addSample(s);
+    const rocket = store.getFocused();
+    const sats = rocket.latestByGroup.gps?.values?.sats;
+    const fixNow = store.hasFixNow(rocket);
+    if (fixNow && sats < MIN_SATS) {
+      lowSatTimes.push(s.t);
+      assert.equal(gpsLineWarn(fixNow, sats, MIN_SATS), true, `t=${s.t} with ${sats} satellites`);
+      assert.equal(rocket.crumbs[rocket.crumbs.length - 1].quality, 'weak', `the map's dot at t=${s.t} is hollow`);
+    }
+  }
+  // The flight has such moments: right after the fix comes back, under the
+  // drogue and at the main.
+  assert.ok(lowSatTimes.length >= 5, `${lowSatTimes.length} fixes under ${MIN_SATS} satellites`);
 });

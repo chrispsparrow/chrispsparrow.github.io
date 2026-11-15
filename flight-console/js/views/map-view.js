@@ -563,7 +563,8 @@ export function createMapView(root, ctx) {
       baseTiles = createSatelliteLayer(L, config, {
         key: encodeURIComponent(config.ESRI_API_KEY),
         maxZoom: config.TILE_MAX_ZOOM,
-        // Esri never has photos deeper than this, so Leaflet scales up these.
+        // The deepest zoom the map ever asks Esri for. Zoomed in closer than
+        // this, Leaflet scales up these photos.
         maxNativeZoom: config.SATELLITE_MAX_NATIVE_ZOOM,
         // Hook for the CSS that sizes each tile's box and hides hairline
         // seams between photos (fc-sat-tiles).

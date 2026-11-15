@@ -25,9 +25,12 @@
 //   - A missing value shows "--", never 0, and gets no unit.
 //   - Old values never look live. An old altitude turns its line amber and
 //     says how old it is, and VS shows "--" while the altitude is old.
-//   - A warning (no fix, packets gone stale, an old altitude) turns its line
-//     amber and blinks it once. Every value sits in a fixed-width field, so
-//     the layout never moves when a value or a warning changes.
+//   - A warning (no fix, fewer satellites than MIN_SATS, HDOP over
+//     MAX_HDOP, packets gone stale, an old altitude) turns its line amber
+//     and blinks it once. The GPS and HDOP limits are the map's quality
+//     gate, so the HUD marks a fix the map draws as a hollow dot. Every
+//     value sits in a fixed-width field, so the layout never moves when a
+//     value or a warning changes.
 //
 // ctx (from main.js):
 //   store         the store to read. The console passes a store switch
@@ -45,11 +48,11 @@
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, copyText } from './dom.js?v=2';
-import { hudAge } from './hud-text.js?v=4';
+import { hudAge, gpsLineWarn } from './hud-text.js?v=4';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
-import { flightState, padChecklist, recoveryInfo, groundSpeed, STATE } from '../flight-state.js?v=2';
+import { flightState, padChecklist, recoveryInfo, rangeReading, groundSpeed, STATE } from '../flight-state.js?v=2';
 import {
-  formatNumber, formatFlightClock, formatRangeBearing, rangeAndBearing, metersToFeet, MISSING,
+  formatNumber, formatFlightClock, formatRangeBearing, metersToFeet, MISSING,
 } from '../geo.js?v=2';
 
 // The phase word next to the flight time, for each detector phase.
@@ -396,10 +399,13 @@ export function createHud(root, ctx) {
       const values = rocket.latestByGroup.gps?.values ?? {};
       const quiet = store.gpsIsQuiet(rocket);
       const fixNow = store.hasFixNow(rocket);
-      const sats = Number.isFinite(values.sats) && !silent && !quiet ? `${formatNumber(values.sats, 0)} SAT ` : '';
+      const satsNow = Number.isFinite(values.sats) && !silent && !quiet ? values.sats : null;
+      const sats = satsNow !== null ? `${formatNumber(satsNow, 0)} SAT ` : '';
       let text = fixNow ? `${sats}FIX` : `${sats}NO FIX`;
       if (silent || quiet) text = 'NO DATA';
-      setLine(gps, text, !fixNow);
+      // Amber with no fix, or with fewer satellites than the map's quality
+      // gate wants (MIN_SATS), when the map draws the fix as a hollow dot.
+      setLine(gps, text, gpsLineWarn(fixNow, satsNow, config.MIN_SATS));
       const hd = Number.isFinite(values.hdop) && !silent && !quiet ? values.hdop : null;
       setLine(hdop, hd === null ? MISSING : formatNumber(hd, 2), hd !== null && hd > config.MAX_HDOP);
     } else {
@@ -488,8 +494,9 @@ export function createHud(root, ctx) {
     const hasGps = rocket.sensorGroups.has('gps');
 
     if (hasGps) {
-      const gsPos = store.getGroundStation();
-      const fromGs = fix && gsPos ? rangeAndBearing(gsPos, fix) : null;
+      // From Manta to the newest fix. In recovery it is the recovery
+      // block's own answer, so the two never disagree (see rangeReading()).
+      const range = rangeReading(store, rocket);
       const fixAge = fix ? store.ageOf(fix.t) : null;
       out.push({
         title: 'POSITION',
@@ -499,10 +506,12 @@ export function createHud(root, ctx) {
           { label: 'LON', value: fix ? `${formatNumber(fix.lon, 6)}°` : MISSING },
           { label: 'ALT MSL', value: fix && Number.isFinite(fix.altMsl) ? `${formatNumber(fix.altMsl, 1)} M` : MISSING },
           { label: 'LAST FIX', value: fix ? `${hudAge(fixAge)} AGO` : MISSING, warn: !fix || fixAge > config.LINK_STALE_S },
-          // Left out when there is no ground station (a board on the bench).
-          ...(gsPos ? [{
-            label: gsPos.source === 'config' ? 'MANTA (DEMO SPOT)' : 'MANTA',
-            value: fromGs ? formatRangeBearing(fromGs).toUpperCase() : MISSING,
+          // Left out when there is nothing to measure from (a board on the
+          // bench with no Manta position). No small line in recovery: the
+          // small line here is amber, and this is no warning.
+          ...(range ? [{
+            label: range.from === 'launch' ? 'LAUNCH POINT' : range.demo ? 'MANTA (DEMO SPOT)' : 'MANTA',
+            value: Number.isFinite(range.distanceM) ? formatRangeBearing(range).toUpperCase() : MISSING,
           }] : []),
           // Any other GPS channel this board sent (new ones in the schema
           // show up here with no change).

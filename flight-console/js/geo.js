@@ -1,6 +1,7 @@
 // geo.js
-// Distance and direction between two GPS positions, compass names, and the
-// small formatting helpers every view uses for numbers, times and units.
+// Distance and direction between two GPS positions, the one way bearings
+// are written, and the small formatting helpers every view uses for
+// numbers, times and units.
 // Used by: store.js, the views, and tools/add_flight.mjs. No DOM.
 
 import { FEET_PER_METER } from './config.js?v=2';
@@ -41,17 +42,10 @@ export function destinationPoint(lat, lon, bearing, distance) {
   return { lat: toDeg(lat2), lon: ((toDeg(lon2) + 540) % 360) - 180 };
 }
 
-// Eight compass directions: 58 degrees is "NE".
-const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-export function compassName(deg) {
-  if (!Number.isFinite(deg)) return '';
-  return COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
-}
-
-// Sixteen compass directions: 62 degrees is "ENE".
+// Sixteen compass directions: 62 degrees is "ENE". Only formatBearing()
+// uses it, so every bearing on the page gets the same names.
 const COMPASS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-export function compass16Name(deg) {
-  if (!Number.isFinite(deg)) return '';
+function compassName(deg) {
   return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
@@ -80,7 +74,9 @@ export function formatNumber(value, decimals = 0) {
   return rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-// Rounded to the nearest 10 m, as event messages use: 2994 -> "2,990".
+// Rounded to the nearest 10 m, as event messages use for heights that are
+// estimates: 2994 -> "2,990". (The apogee height is a real reading, so it
+// is written in whole meters instead.)
 export function formatRounded10(value) {
   if (!Number.isFinite(value)) return MISSING;
   return formatNumber(Math.round(value / 10) * 10 + 0, 0);
@@ -98,14 +94,16 @@ export function formatDistance(m) {
   return `${formatNumber(m / 1000, 2)} km`;
 }
 
-// "58° (NE)"
+// "062° (ENE)": three digits, the degree sign and a 16-point compass name.
+// This is the one way the console writes a bearing: the HUD's recovery
+// block, the readings lists and the NO MAP panel all use it.
 export function formatBearing(deg) {
   if (!Number.isFinite(deg)) return MISSING;
-  const whole = Math.round(deg) % 360;
-  return `${whole}° (${compassName(whole)})`;
+  const whole = ((Math.round(deg) % 360) + 360) % 360;
+  return `${String(whole).padStart(3, '0')}° (${compassName(whole)})`;
 }
 
-// "1.24 km, bearing 58° (NE)"
+// "1.24 km, bearing 062° (ENE)"
 export function formatRangeBearing(rb) {
   if (!rb) return MISSING;
   return `${formatDistance(rb.distanceM)}, bearing ${formatBearing(rb.bearingDeg)}`;
