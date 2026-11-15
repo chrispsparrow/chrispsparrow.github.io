@@ -370,7 +370,9 @@ A rocket isn't drawn in 3D until its launch pad and the ground height there are 
 
 If ion's imagery doesn't load, a note says "The 3D imagery didn't load, so the ground is plain."
 
-For the simulated flight, the pad's ground height came out to about 814 m above the ellipsoid. The simulator's "700 m above sea level" is a placeholder and isn't the real ground there. Heights above ground are measured from the pad, so if the rocket lands on higher or lower ground, the end of the path can sit a little under or over the terrain there.
+For the first simulated flight (`gps-board-sim-01`), the pad's ground height came out to about 814 m above the ellipsoid. That simulator's "700 m above sea level" is a placeholder and isn't the real ground there. Heights above ground are measured from the pad, so if the rocket lands on higher or lower ground, the end of the path can sit a little under or over the terrain there.
+
+The Komodo flight (`komodo-sim-01`) uses the real ground height. Its pad is 105.7 m above sea level, which is 145.76 m above the ellipsoid there, and it lands in the sea, 105 m below the pad. So its path starts on the ground and ends on the water, give or take the GPS's own altitude error (the board's altitude wanders by about 10 m while it lies there).
 
 ### Moving the 3D camera
 
@@ -584,6 +586,47 @@ SAVED FLIGHTS, the dropdown on the right of the console's bar (`js/views/saved-m
 
 While a replay is open, its name shows in the bar with `[ CLOSE ]`, the slim way back to live. Either way, back at `?track` a connected board is still connected and its data is still there.
 
+### The saved flights
+
+There are two. SAVED FLIGHTS lists them newest first, so the Komodo flight is on top.
+
+- **Simulated flight, Komodo, Indonesia** (`komodo-sim-01`, 2026-11-14). A realistic flight from a real place. The pad is on open grass on top of a small island off the east coast of Komodo, at -8.5366, 119.5742, 105.7 m above sea level. Manta stands on a small beach about 360 m south of the pad. A northwest wind carries the rocket back over the island and out over the reef flat, and it comes down in shallow water about 150 m off the island's southeast shore, 650 m from the pad and 400 m from Manta. Apogee is about 3,018 m above the pad.
+- **GPS and radio board simulated flight** (`gps-board-sim-01`, 2026-09-30). My first simulated flight, from a made-up site in California with a perfect GPS. It always has 10 satellites and HDOP 0.90, and every fix sits exactly where the rocket is. Its 700 m ground height is a placeholder, not the real ground there.
+
+Both logs came out of my firmware's PC sim dump (`pio run -e pc_sim -t exec`). It runs my firmware's real GPS parser (`GpsParser`, built on TinyGPSPlus) and packet code (`Telemetry`) on a PC, fed by a simulated GPS that writes the same NMEA sentences a receiver sends. Each log here is a byte-for-byte copy of what that program wrote, so every packet in it was made by the same code the board runs. The page only reads the `SIM PKT` lines and the `SIM launch site:` line, and skips the rest.
+
+### How the Komodo flight was made
+
+I wanted a flight that looks like real GPS data. So I gave my firmware's simulated GPS a second flight, switched on with a build flag (`DOGTOOTH_SIM_KOMODO=1`), and a PC sim dump for it (`pio run -e pc_sim_komodo -t exec`). The flag only changes what the simulated GPS says. The parser, the packet and every line the program prints stay the same. I built it from firmware commit ee4b607 on the `pc-sim-dump` branch. The firmware change isn't in my firmware project yet. It is kept as a patch (`komodo-flight.patch`) until I add it.
+
+I picked the places on the 3D view's satellite imagery and took the heights from Cesium World Terrain. The pad's ground is 145.76 m above the ellipsoid there, and the sea around the island is at 40.05 m, so the pad is 105.7 m above sea level.
+
+The flight:
+
+- 35 s on the pad, then liftoff, a 3 s burn, and a coast with air drag up to about 3,018 m above the pad.
+- The rocket turns into the wind on the way up, so apogee is about 260 m west-northwest of the pad.
+- The drogue opens 1 s after apogee and settles at about 26 m/s. The main opens 300 m above the pad and settles at about 5.5 m/s.
+- The wind blows from the northwest, 6.8 m/s up high and 4.2 m/s near the ground. I picked northwest because the west monsoon starts there around November. The rocket lands at sea level, 105 m below the pad, and the log keeps going for 2 minutes while it lies in the water.
+
+The simulated GPS does what a real receiver does:
+
+- Every fix jumps a little, sized by that fix's HDOP. It is about 0.9 m on each axis at HDOP 1, and more when HDOP is worse.
+- On top of that the position wanders slowly by a few meters, over tens of seconds to minutes.
+- The fix drops for 4 s right at liftoff and comes back with only 5 satellites.
+- The satellite count changes all through the flight. It is 9 to 12 on the pad, fewer after liftoff, dips under the drogue and again when the main opens, and is 8 to 10 with the board lying in the water. HDOP moves with it. Ten fixes fail the quality gate, so the map shows them as hollow grey dots.
+- Altitude is about twice as noisy as position, as on a real receiver.
+- Ground speed and course follow the real motion with a little noise, so the still board reports a small speed now and then (always under 0.5 m/s).
+- After landing the fixes wander in a cloud about 11 m by 7 m, and the altitude drifts by about 10 m.
+
+The noise comes from a seeded random number generator (seed 20261114), and each second's sentences depend only on that second. So making the flight again gives exactly the same packets. The log's first lines still say "placeholder values" next to the launch site, because the firmware prints that line the same way for every simulated flight.
+
+To make it again:
+
+1. Apply `komodo-flight.patch` to the firmware at commit ee4b607.
+2. In the firmware folder, with CLion's MinGW at the front of the PATH, run `pio run -e pc_sim_komodo -t exec`. It writes `sim_output/komodo/pc_sim_flight.log`. Only the "Built" date line differs from the log here.
+3. From the website folder, run `node flight-console/tools/add_flight.mjs --replace` with the same options as before (see "Adding a flight"), pointing `--file` at that log. The Komodo entry uses `--gs-lat -8.539775 --gs-lon 119.574933 --gs-alt 2` for Manta.
+4. Run `node flight-console/tools/check_detection.mjs komodo-sim-01` and `node --test "flight-console/test/*.test.mjs"`.
+
 ### How one sample travels from the file to the screen
 
 1. `library.js` downloads the flight's data file listed in `data/flights/index.json`.
@@ -611,7 +654,8 @@ node --test "flight-console/test/*.test.mjs"
 - `test/bench-terminal.test.mjs` checks the parser and the CSV against real serial output: two blocks in a row (heartbeats 3533 and 3534), copied character for character from my terminal during a bench test. The How it works page shows the same text, so the two must be changed together (see "The How it works page").
 - `test/bench-feed.test.mjs` checks the bench feed: blocks become samples with a good fix only when they should, the store's clock keeps moving, a restart starts over, and a board on a desk shows a pad and fires no flight events. The desk runs use the page's own live store options (`LIVE_STORE_OPTIONS.bench`), including a 35 m GPS jump and a steady 40 m climb that must not read as liftoff. The same live store does see a real liftoff climb. A store with no ground station keeps none until a "gs" packet sets one. It also checks what the HUD would show for a board that goes quiet (no fix while the block says SEARCHING, the altitude old after 2 s, and silent with "10 S" after 10 s), through the store and `hudAge()` directly.
 - `test/bench-wander.test.mjs` checks that a still board wandering for 30 minutes stays PAD, over many seeds, through both kinds of store and through the status block text. Jumps, steps, slow climbs and a settling GPS are never a liftoff, and a fix that comes back higher is only a liftoff when it is far higher, fast.
-- `test/landing.test.mjs` runs 160 synthetic flights that land into the same bench wander: each must reach FLIGHT within 6 s of liftoff and RECOVERY within 30 s of touchdown, with the recovery position the average of the window's fixes. It also checks a low flight that never arms apogee, a board still moving along the ground (by the receiver's ground speed), and that the saved simulated flight still detects every event near the truth.
+- `test/landing.test.mjs` runs 160 synthetic flights that land into the same bench wander: each must reach FLIGHT within 6 s of liftoff and RECOVERY within 30 s of touchdown, with the recovery position the average of the window's fixes. It also checks a low flight that never arms apogee, a board still moving along the ground (by the receiver's ground speed), and that the first saved simulated flight (`gps-board-sim-01`) still detects every event near the truth.
+- `test/komodo-flight.test.mjs` loads the Komodo flight through the page's own library and store code. It checks that SAVED FLIGHTS lists it first with the old flight below it, that it parses with no bad rows and its satellite count and HDOP move, that every event fires once, in order, within 5 s of the simulator's truth, that the states go PAD, FLIGHT, RECOVERY, that the trail has a gap at the liftoff fix loss and a few weak fixes under the parachutes, and that the recovery position is within 15 m of the simulator's true landing point (it comes out about 5 m off).
 - `test/flight-state.test.mjs` checks `js/flight-state.js`: the four states, the pad checklist and its thresholds (edges included), the recovery block from Manta or from the launch point, bearings and distances in capitals, ground speed, `eventCrumb()`, `packetRate()`, and the hard cases: a connected board that is silent, the fix lost on the pad, the link going quiet in flight, a replay seeking backward, a board restart, and data that starts in flight.
 - `test/track.test.mjs` checks `js/track.js`: the quality gate, outlier rejection, the smoothed line (the dots stay raw), gaps, speeds and the speed colors, and that the store keeps the samples (and so the CSV) raw.
 - `test/store-switch.test.mjs` checks `js/store-switch.js`: every store method answers from the store in use, `use()` sends one `'source'` change and the old store goes quiet, a listener that throws doesn't stop the others, and only stores go in.
@@ -638,7 +682,8 @@ node --test "flight-console/test/*.test.mjs"
 ### Data
 
 - `data/flights/index.json`: the flight library list (the "manifest"). A static site can't list its own folders, so this file is the only way the page knows which flights exist.
-- `data/flights/gps-board-sim-01/pc_sim_flight.log`: my simulated flight. It is a byte-for-byte copy of the log my firmware's PC sim dump program wrote.
+- `data/flights/komodo-sim-01/pc_sim_flight.log`: the Komodo flight, a byte-for-byte copy of the log my firmware's PC sim dump wrote with the Komodo flight switched on. See "The saved flights".
+- `data/flights/gps-board-sim-01/pc_sim_flight.log`: my first simulated flight. It is a byte-for-byte copy of the log my firmware's PC sim dump program wrote.
 - `data/flights/gps-board-sim-01/cover-3d.webp`: that flight's cover picture. The home page's Flight Console slide shows it. See "A flight's cover picture".
 - `data/flights/.gitattributes`: tells Git to leave the log files' line endings alone, so the copies stay exact.
 
@@ -723,7 +768,7 @@ Each flight in the `flights` list has these fields:
 - `description`: one or two plain sentences.
 - `site`: the launch site's name.
 - `groundStation` (optional): `{ lat, lon, altMsl }`, where Manta stood for that flight. `altMsl` can be left out. `library.js` checks it, and a broken one skips the entry. `main.js` gives it to the replay's store, so the radio link, the HUD's distances and the recovery block measure from Manta instead of the demo position. Without it, the replay uses the demo position in `config.js`, and the HUD marks it as the demo spot.
-- `cover` (optional): a picture of the flight. The Flight Console page doesn't show it. The home page's Flight Console slide shows the simulated flight's. See "A flight's cover picture". It has:
+- `cover` (optional): a picture of the flight. The Flight Console page doesn't show it. The home page's Flight Console slide shows the first simulated flight's. See "A flight's cover picture". It has:
   - `file`: the picture's name inside the flight's folder.
   - `alt`: what the picture shows, for screen readers.
   - `credit`: the credit line for the picture's imagery and terrain. It shows on the picture.
@@ -768,7 +813,7 @@ For a flight with several rockets in separate files, repeat `--file` once per ro
 
 ## A flight's cover picture
 
-A flight can have a cover picture, a screenshot of its 3D view. The Flight Console page doesn't show covers, but the home page's Flight Console slide shows the simulated flight's cover, so its `cover` entry and its file stay.
+A flight can have a cover picture, a screenshot of its 3D view. The Flight Console page doesn't show covers, but the home page's Flight Console slide shows the first simulated flight's cover, so its `cover` entry and its file stay. The Komodo flight has no cover.
 
 A cover is added by hand. The tool doesn't make one.
 
