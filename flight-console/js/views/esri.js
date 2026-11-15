@@ -170,8 +170,7 @@ export function createSatelliteLayer(L, config, options) {
       const z = deepestZoom(config, coords);
       if (typeof z === 'number') show(z);
       // A tile the map dropped while it waited (the view moved on) isn't
-      // asked for.
-      // (Leaflet takes a dropped tile out of its tile level.)
+      // asked for. Leaflet takes a dropped tile out of the page.
       else z.then((found) => { if (box.parentNode) show(found); });
       return box;
     },

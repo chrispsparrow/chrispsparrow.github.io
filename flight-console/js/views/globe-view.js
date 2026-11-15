@@ -1719,10 +1719,13 @@ export function createGlobeView(container, ctx, options) {
     glide = { to, frame: window.requestAnimationFrame(step) };
   }
 
-  // Stops a glide where it is, and ends a flight at its goal.
+  // Stops a glide where it is, and ends a flight at its goal. (Something
+  // else moves the camera now, so a goal waiting for the flight to land is
+  // dropped.)
   function stopGlide() {
     if (glide) window.cancelAnimationFrame(glide.frame);
     glide = null;
+    if (flight) flight.next = null;
     endFlight();
   }
 
@@ -1809,9 +1812,12 @@ export function createGlobeView(container, ctx, options) {
   // looks a touch south with north still up, which is a pitch just past -90°
   // with heading 0.
   // ------------------------------------------------------------------
-  // The flight on its way: { from, path, start, duration, frame, landed,
-  // old, next }. `old` is the path it is bending away from after a new
-  // goal, `next` a goal to glide to once it has landed.
+  // The flight on its way: { from, path, clock, last, duration, frame,
+  // landed, old, next, idleKey }. `clock` is how far into the flight it is
+  // (ms) and `last` the frame time it was moved on at. `old` is the path it
+  // is bending away from after a new goal, `next` a goal to glide to once
+  // it has landed, and `idleKey` the HUD size a flight out to the whole
+  // Earth is fitted to.
   let flight = null;
 
   // The pose of a camera at `position` looking along `direction` with
