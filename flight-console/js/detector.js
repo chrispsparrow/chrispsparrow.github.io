@@ -551,7 +551,7 @@ export function createDetector(overrides = {}) {
       s.apogee = makeEvent('apogee', {
         t: s.maxAglT, confirmedT: t, basis: 'detected', aglM: s.maxAgl,
         message: `Apogee detected as already passed, because the data starts in flight and falling. ` +
-          `The highest reading is about ${formatRounded10(s.maxAgl)} m AGL at ${at(s.maxAglT)}`,
+          `The highest reading is ${formatNumber(s.maxAgl, 0)} m AGL at ${at(s.maxAglT)}`,
       });
       events.push(s.apogee);
     }
@@ -567,7 +567,10 @@ export function createDetector(overrides = {}) {
       if (t - s.apogeeStreak.startT >= cfg.APOGEE_CONFIRM_S - EPS) {
         s.apogee = makeEvent('apogee', {
           t: s.maxAglT, confirmedT: t, basis: 'detected', aglM: s.maxAgl,
-          message: `Apogee detected: about ${formatRounded10(s.maxAgl)} m AGL at ${at(s.maxAglT)} (confirmed ${at(t)})`,
+          // The highest reading in whole meters, the same number as the
+          // map's APOGEE label. Other heights here are estimates, so they
+          // say "about" and are rounded to 10 m.
+          message: `Apogee detected: ${formatNumber(s.maxAgl, 0)} m AGL at ${at(s.maxAglT)} (confirmed ${at(t)})`,
         });
         events.push(s.apogee);
       }

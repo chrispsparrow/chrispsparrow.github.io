@@ -342,8 +342,11 @@ export function createTimeline(root, ctx) {
       : (EVENT_LABELS[e.type] ?? e.label ?? e.type);
     // Height: the event's own, or the curve's there. A liftoff without its
     // own height is left out (its time is often estimated in a gap).
+    // Apogee's is the highest reading, so it is the whole number of meters
+    // the peak label and the map show. The others are about, to 10 m.
     const agl = Number.isFinite(e.aglM) ? e.aglM : e.type === 'liftoff' ? null : aglAt(profile, e.t, { interpolate: false });
-    const height = Number.isFinite(agl) ? `about ${formatRounded10(agl)} m AGL` : null;
+    let height = null;
+    if (Number.isFinite(agl)) height = e.type === 'apogee' ? `${formatNumber(agl, 0)} m AGL` : `about ${formatRounded10(agl)} m AGL`;
 
     const accessible = ['Jump to ' + lowerFirst(name), how, when].filter(Boolean).join(', ');
     const descId = `fc-tl-mark-${n}-${index}`;
@@ -444,7 +447,7 @@ export function createTimeline(root, ctx) {
   function renderSummary(profile) {
     const peak = profile.reduce((m, p) => (Number.isFinite(p.agl) && p.agl > m ? p.agl : m), -Infinity);
     setText(summary, Number.isFinite(peak)
-      ? `The curve shows altitude AGL over the whole recording, up to about ${formatRounded10(peak)} m. The event buttons after it jump to each event.`
+      ? `The curve shows altitude AGL over the whole recording, up to ${formatNumber(peak, 0)} m. The event buttons after it jump to each event.`
       : 'No altitude data for this rocket yet.');
   }
 
