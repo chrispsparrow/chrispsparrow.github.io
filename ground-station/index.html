@@ -18,9 +18,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=33">
-  <link rel="stylesheet" href="../css/ground-station.css?v=1">
+  <link rel="stylesheet" href="../css/ground-station.css?v=2">
 </head>
-<body class="gs-page">
+<body class="gs-page gs-nav-hero">
   <!-- A short concept page for the ground station (Manta and Remora). The home
        page's ground station card links here. It uses the site's cream --bg, not
        the black of the other project pages, because the drawings have the same
@@ -43,25 +43,61 @@
 
   <main class="gs-main">
 
-    <!-- 1. Top: title on the left, the renders on the right (on top on a phone).
-         The three renders share the same field, sky and rocket trail, so only
-         the hardware changes. js/ground-station.js switches them once a second
-         (omnis, starter, yagis, then around again) with a 150ms crossfade, after
-         all three have loaded. It stops while the tab is hidden. With reduced
-         motion, CSS shows only the starter render. One label covers the group. -->
-    <section class="gs-top" aria-labelledby="gs-title">
-      <div class="container gs-top-inner">
-        <div class="gs-top-text">
-          <p class="gs-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
-          <h1 class="gs-title" id="gs-title">Ground Station</h1>
-          <p class="gs-lede">Manta and Remora, the gear on the ground that catches my rockets' signals and points an antenna at them.</p>
-        </div>
-        <div class="gs-cycle" role="img"
-             aria-label="Manta ground station on a surveyor tripod in a field with a rocket's smoke trail behind it, switching between three omni antennas, one Yagi with two omnis, and three Yagis.">
-          <img class="gs-frame is-on" data-frame="omnis" src="../assets/manta/ground-station-omnis.jpg" width="900" height="1380" alt="" decoding="async" fetchpriority="high">
-          <img class="gs-frame" data-frame="starter" src="../assets/manta/ground-station-starter.jpg" width="900" height="1380" alt="" decoding="async">
-          <img class="gs-frame" data-frame="yagis" src="../assets/manta/ground-station-yagis.jpg" width="900" height="1380" alt="" decoding="async">
-        </div>
+    <!-- 1. Hero: the renders fill the whole window, with the title on top of
+         them in the bottom-left corner. The nav sits over it in light text
+         (js/ground-station.js switches the nav back to the cream style once the
+         hero has scrolled past).
+         The three renders (omnis, starter, yagis) share the same field, sky,
+         tents and rocket. Only the hardware on the arms changes. Plain WebP
+         compresses each render a little differently, so three full frames
+         would make the grass shimmer during a crossfade. So the hero is layers:
+           - .gs-hero-bg: the whole starter render. It never fades, so the
+             background can't move.
+           - three .gs-frame pictures: each render's hardware only, with the
+             rest transparent and a soft edge. Only these crossfade.
+         Every layer has the same size and crop, so they line up exactly.
+         Phones held upright get the 900 x 1380 renders and everything else
+         the 16:9 ones, at 1920 or 2560 wide. assets/manta/build_hero_images.py
+         makes all of these files from the original renders.
+         js/ground-station.js waits until every layer has loaded, then changes
+         the frame every 2 seconds with a 0.5s crossfade (omnis, starter, yagis,
+         then around again). It starts on the starter frame, which matches the
+         background, so nothing jumps while the overlays load. It pauses while
+         the tab is hidden or the hero is scrolled away. With reduced motion,
+         CSS shows only the starter frame. One label covers the group. -->
+    <section class="gs-hero" aria-labelledby="gs-title">
+      <div class="gs-hero-media" role="img"
+           aria-label="Manta ground station on a surveyor tripod in a field with a rocket's smoke trail behind it, switching between three omni antennas, one Yagi with two omnis, and three Yagis.">
+        <picture class="gs-layer gs-hero-bg">
+          <source media="(max-width: 700px) and (orientation: portrait)" srcset="../assets/manta/gs-tall-bg.webp" width="900" height="1380">
+          <img src="../assets/manta/gs-wide-bg-1920.webp"
+               srcset="../assets/manta/gs-wide-bg-1920.webp 1920w, ../assets/manta/gs-wide-bg-2560.webp 2560w"
+               sizes="(min-aspect-ratio: 16/9) 100vw, 178vh" width="2560" height="1440" alt="" decoding="async" fetchpriority="high">
+        </picture>
+        <picture class="gs-layer gs-frame" data-frame="omnis">
+          <source media="(max-width: 700px) and (orientation: portrait)" srcset="../assets/manta/gs-tall-omnis.webp" width="900" height="1380">
+          <img src="../assets/manta/gs-wide-omnis-1920.webp"
+               srcset="../assets/manta/gs-wide-omnis-1920.webp 1920w, ../assets/manta/gs-wide-omnis-2560.webp 2560w"
+               sizes="(min-aspect-ratio: 16/9) 100vw, 178vh" width="2560" height="1440" alt="" decoding="async">
+        </picture>
+        <picture class="gs-layer gs-frame is-on" data-frame="starter">
+          <source media="(max-width: 700px) and (orientation: portrait)" srcset="../assets/manta/gs-tall-starter.webp" width="900" height="1380">
+          <img src="../assets/manta/gs-wide-starter-1920.webp"
+               srcset="../assets/manta/gs-wide-starter-1920.webp 1920w, ../assets/manta/gs-wide-starter-2560.webp 2560w"
+               sizes="(min-aspect-ratio: 16/9) 100vw, 178vh" width="2560" height="1440" alt="" decoding="async">
+        </picture>
+        <picture class="gs-layer gs-frame" data-frame="yagis">
+          <source media="(max-width: 700px) and (orientation: portrait)" srcset="../assets/manta/gs-tall-yagis.webp" width="900" height="1380">
+          <img src="../assets/manta/gs-wide-yagis-1920.webp"
+               srcset="../assets/manta/gs-wide-yagis-1920.webp 1920w, ../assets/manta/gs-wide-yagis-2560.webp 2560w"
+               sizes="(min-aspect-ratio: 16/9) 100vw, 178vh" width="2560" height="1440" alt="" decoding="async">
+        </picture>
+      </div>
+      <div class="gs-hero-shade" aria-hidden="true"></div>
+      <div class="gs-hero-text">
+        <p class="gs-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
+        <h1 class="gs-title" id="gs-title">Ground Station</h1>
+        <p class="gs-lede">Manta and Remora, the gear on the ground that catches my rockets' signals and points an antenna at them.</p>
       </div>
     </section>
 
@@ -141,6 +177,6 @@
 
   <script src="../js/main.js?v=19"></script>
   <script src="../js/fish-logo.js?v=2"></script>
-  <script src="../js/ground-station.js?v=1"></script>
+  <script src="../js/ground-station.js?v=2"></script>
 </body>
 </html>

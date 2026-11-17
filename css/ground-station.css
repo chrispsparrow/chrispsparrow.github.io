@@ -6,13 +6,83 @@
    salmon --soon-accent and --soon-text accents from the home page card.
    ============================================================ */
 
-/* ── 1. Top: title left, cycling renders right ─────────────── */
-.gs-top { padding: 6.75rem 0 3.5rem; }
-.gs-top-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: clamp(2rem, 5vw, 5rem);
+/* ── 1. Hero: the renders fill the window, title bottom-left ── */
+.gs-hero {
+  position: relative;
+  height: 100svh;
+  min-height: 26rem;           /* phones turned sideways: keep room for the title */
+  overflow: hidden;
+  background: #517BA1;         /* the sky's blue, only seen before the background loads */
+  color: var(--hero-text);
+}
+/* Every layer is the same size with the same crop, so they line up exactly */
+.gs-hero-media { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
+.gs-layer { position: absolute; inset: 0; }
+.gs-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Wide renders: the hardware is on the right (the Manta box at about 67%
+     across). On windows narrower than 16:9 the sides get cut and 65% keeps
+     the hardware and the rocket trail in. On windows wider than 16:9 the top
+     and bottom get cut instead. The top Yagi tips are only 7.4% down from the
+     top of the render, so 10% cuts almost nothing off the top and keeps them
+     clear of the nav. (At 40% a 21:9 window would cut them off.) */
+  object-position: 65% 10%;
+}
+/* Tablets held upright still get the wide renders, cut hard on the sides.
+   75% keeps the rocket and every antenna in view. */
+@media (orientation: portrait) and (min-width: 701px) {
+  .gs-layer img { object-position: 75% 50%; }
+}
+/* Phones held upright get the tall renders, centered */
+@media (orientation: portrait) and (max-width: 700px) {
+  .gs-layer img { object-position: 50% 50%; }
+}
+
+/* The frames (hardware only). The one showing (.is-on) fades in over the last
+   one (.is-prev), which stays fully shown underneath until the fade is done. */
+.gs-hero-bg { z-index: 0; }
+.gs-frame { z-index: 1; opacity: 0; transition: opacity 0.5s ease-in-out; }
+.gs-frame.is-prev { z-index: 2; opacity: 1; transition: none; }
+.gs-frame.is-on   { z-index: 3; opacity: 1; }
+/* Reduced motion: no switching, only the starter frame */
+@media (prefers-reduced-motion: reduce) {
+  .gs-frame { opacity: 0 !important; transition: none; }
+  .gs-frame[data-frame="starter"] { opacity: 1 !important; }
+}
+
+/* There's no shading in the renders. This darkens the left side (half
+   strength at the edge, gone by 60% across) and the bottom-left corner behind
+   the text, plus a little at the top behind the nav. The hardware on the
+   right stays bright. */
+.gs-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(10,13,18,0.28), rgba(10,13,18,0) 7.5rem),
+    radial-gradient(ellipse 60% 62% at 0% 100%, rgba(10,13,18,0.5), rgba(10,13,18,0) 75%),
+    linear-gradient(to right, rgba(10,13,18,0.5), rgba(10,13,18,0) 60%);
+}
+/* Phones: the text sits over the grass and the tripod legs, so the fade comes
+   up from the bottom instead */
+@media (orientation: portrait) and (max-width: 700px) {
+  .gs-hero-shade {
+    background:
+      linear-gradient(to bottom, rgba(10,13,18,0.28), rgba(10,13,18,0) 6rem),
+      linear-gradient(to top, rgba(10,13,18,0.62), rgba(10,13,18,0.3) 32%, rgba(10,13,18,0) 55%);
+  }
+}
+
+.gs-hero-text {
+  position: absolute;
+  z-index: 2;
+  left: clamp(2rem, 6.5vw, 7rem);
+  bottom: clamp(2.25rem, 10svh, 6.5rem);
+  width: min(520px, calc(100% - 4rem));
+  text-shadow: 0 1px 18px rgba(10,13,18,0.45);
 }
 .gs-status {
   display: flex;
@@ -20,55 +90,52 @@
   gap: 0.5rem;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--soon-text);
-  margin-bottom: 1.1rem;
+  color: #FFB59C;              /* light salmon, reads on the photo */
+  margin-bottom: 0.85rem;
 }
 .gs-title {
-  font-size: clamp(3rem, 7vw, 6rem);
+  /* Sized so "Ground Station" stays on one line in the 520px block. It also
+     follows the window's height, for phones turned sideways. */
+  font-size: clamp(2.4rem, min(6.5vw, 9svh), 4.3rem);
   font-weight: 700;
-  line-height: 0.95;
-  color: var(--text);
-  margin-bottom: 1.5rem;
+  line-height: 1;
+  color: var(--hero-text);
+  margin-bottom: 1rem;
 }
 .gs-lede {
-  font-size: clamp(1.1rem, 1.5vw, 1.3rem);
-  line-height: 1.55;
-  color: var(--text-muted);
-  max-width: 32rem;
+  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
+  line-height: 1.5;
+  color: rgba(244,242,237,0.93);
+}
+/* Phones held upright. The antennas span 74% of the tall render's width, so
+   a hero taller than twice the screen's width would cut the outer Yagi tips.
+   Browsers' own bars keep most phones under that anyway. */
+@media (orientation: portrait) and (max-width: 700px) {
+  .gs-hero { max-height: 200vw; }
+  .gs-title { font-size: clamp(2rem, 10.5vw, 2.9rem); }
 }
 
-/* The renders (900 x 1380). The box sets the section's height: as tall as the
-   window allows under the nav, and never so wide that the title gets squeezed.
-   The three frames sit on top of each other. The one showing (.is-on) fades in
-   over the last one (.is-prev), which stays fully shown underneath until the
-   fade ends, so the switch never dips toward a blank frame. */
-.gs-cycle {
-  position: relative;
-  width: clamp(280px, min(44vw, calc((100svh - 10.25rem) * 0.6522)), 540px);
-  aspect-ratio: 900 / 1380;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--surface-2);   /* only seen before the first render loads */
+/* The nav over the hero. While the hero is under it, js/ground-station.js
+   keeps .gs-nav-hero on the body: light text, and once the page has scrolled
+   a little (#nav.scrolled) a see-through dark bar instead of the cream one.
+   Past the hero it's the usual cream nav. The phone menu opens on a cream
+   panel, so its links keep their dark text. */
+.gs-nav-hero .nav-name { color: var(--hero-text); }
+.gs-nav-hero .nav-name:hover { color: var(--gold); }
+.gs-nav-hero .nav-hamburger span { background: var(--hero-text); }
+.gs-nav-hero #nav.scrolled {
+  background: rgba(10,13,18,0.38);
+  border-color: rgba(244,242,237,0.12);
 }
-.gs-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 150ms linear;
-}
-.gs-frame.is-on   { opacity: 1; z-index: 2; }
-.gs-frame.is-prev { opacity: 1; z-index: 1; transition: none; }
-/* Reduced motion: no switching, only the starter render */
-@media (prefers-reduced-motion: reduce) {
-  .gs-frame { opacity: 0 !important; transition: none; }
-  .gs-frame[data-frame="starter"] { opacity: 1 !important; }
+@media (min-width: 641px) {
+  .gs-nav-hero .nav-links a { color: rgba(244,242,237,0.88); }
+  .gs-nav-hero .nav-links a:hover { color: #fff; }
+  .gs-nav-hero .nav-links a.nav-resume { color: var(--hero-text); border-color: rgba(244,242,237,0.5); }
+  .gs-nav-hero .nav-links a.nav-resume:hover { background: rgba(244,242,237,0.12); border-color: var(--hero-text); }
 }
 
 /* ── 2. Intro ──────────────────────────────────────────────── */
-.gs-intro { padding: 2rem 0 3.5rem; }
+.gs-intro { padding: 4.5rem 0 3.5rem; }
 .gs-intro p {
   max-width: 760px;
   margin: 0 auto;
@@ -177,12 +244,6 @@
 
 /* ── Narrow screens ────────────────────────────────────────── */
 @media (max-width: 900px) {
-  /* Renders on top, text under them */
-  .gs-top { padding: 5.5rem 0 2.5rem; }
-  .gs-top-inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
-  .gs-cycle { order: -1; justify-self: center; width: min(100%, calc(66svh * 0.6522)); }
-  .gs-top-text { justify-self: center; width: 100%; max-width: 36rem; }
-
   .gs-part-inner,
   .gs-part--flip .gs-part-inner { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
   .gs-part--flip .gs-fig { order: 0; }
@@ -191,8 +252,7 @@
   .gs-close-row { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 640px) {
-  .gs-top { padding-top: 5rem; }
-  .gs-intro { padding: 1.5rem 0 2.5rem; }
+  .gs-intro { padding: 3rem 0 2.5rem; }
   .gs-part { padding: 2rem 0; }
   .gs-close { padding-bottom: 4.5rem; }
   .gs-actions { width: 100%; }
