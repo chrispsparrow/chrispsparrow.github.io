@@ -82,7 +82,7 @@ import { createPanels } from './views/panels.js?v=2';
 import { createHud } from './views/hud.js?v=4';
 import { createRocketBar } from './views/rocket-bar.js?v=3';
 import { createPhaseStrip } from './views/phase-strip.js?v=3';
-import { createMapView } from './views/map-view.js?v=9';
+import { createMapView } from './views/map-view.js?v=10';
 import { createTimeline } from './views/timeline.js?v=5';
 import { createDataPanel } from './views/data-panel.js?v=4';
 import { createSerialLink } from './live/serial-link.js';

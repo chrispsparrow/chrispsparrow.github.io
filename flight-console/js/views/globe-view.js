@@ -266,8 +266,14 @@ export function createGlobeView(container, ctx, options) {
   let active = true;
 
   // Cesium ion's default aerial imagery. If ion turns the token down, the
-  // layer is taken off so the ground still draws, in a plain color.
+  // layer is taken off so the ground still draws, in a plain color. If ion
+  // answers but the imagery's own tiles don't load (an outage), the layer
+  // stays, and the imagery counts as failed too when the first picture is
+  // in with tiles failed and none loaded (see announceReady). Either way
+  // it stays failed until the page loads again: Cesium doesn't ask for a
+  // failed tile twice.
   const imagery = C.ImageryLayer.fromWorldImagery();
+  const tiles = { loaded: 0, failed: 0 };
   imagery.errorEvent.addEventListener((err) => {
     if (destroyed) return;
     console.warn('Flight Console: the 3D imagery did not load', err);
@@ -276,9 +282,25 @@ export function createGlobeView(container, ctx, options) {
     viewer?.scene.requestRender();
     onChange();
   });
-  imagery.readyEvent.addEventListener(() => {
-    if (!destroyed) viewer?.scene.requestRender();
+  imagery.readyEvent.addEventListener((provider) => {
+    if (destroyed) return;
+    countTiles(provider);
+    viewer?.scene.requestRender();
   });
+
+  // Counts the imagery tiles that load and the ones that fail. The layer
+  // asks its provider for each tile with requestImage. (Listening to the
+  // provider's errorEvent also keeps Cesium from logging every failed tile.)
+  function countTiles(provider) {
+    if (typeof provider?.requestImage !== 'function') return;
+    const request = provider.requestImage;
+    provider.requestImage = function (...args) {
+      const promise = request.apply(this, args);
+      promise?.then?.(() => { tiles.loaded += 1; }, () => {});
+      return promise;
+    };
+    provider.errorEvent?.addEventListener(() => { tiles.failed += 1; });
+  }
 
   // Cesium adds its credit styles to the page's <head>. They are noted
   // here so destroy() can take them out again.
@@ -2551,10 +2573,13 @@ export function createGlobeView(container, ctx, options) {
       // Carry a nudge into the glide, so its next step doesn't undo it.
       const before = toLocal(look.pivot);
       keepBoardOnScreen(size);
-      const after = toLocal(look.pivot);
-      const fade = Math.max(0.05, 1 - chase.glide.e);
-      const n = chase.glide.nudge;
-      chase.glide.nudge = vec(n.x + (after.x - before.x) / fade, n.y + (after.y - before.y) / fade, n.z + (after.z - before.z) / fade);
+      // (A jump to a fresh framing, snapToGoal, ends the glide instead.)
+      if (chase.glide) {
+        const after = toLocal(look.pivot);
+        const fade = Math.max(0.05, 1 - chase.glide.e);
+        const n = chase.glide.nudge;
+        chase.glide.nudge = vec(n.x + (after.x - before.x) / fade, n.y + (after.y - before.y) / fade, n.z + (after.z - before.z) / fade);
+      }
     }
     // Caught up: stop until the next fix, or the visitor moves the view.
     const left = Math.hypot(next.pivot.x - target.pivot.x, next.pivot.y - target.pivot.y, next.pivot.z - target.pivot.z) / (target.range / size.f);
@@ -3007,8 +3032,23 @@ export function createGlobeView(container, ctx, options) {
     announced = true;
     clearTimeout(readyTimer);
     stopWatchingReady();
+    if (!view.imageryFailed && tiles.failed > 0 && tiles.loaded === 0) {
+      console.warn(`Flight Console: the 3D imagery did not load (${tiles.failed} tiles failed)`);
+      view.imageryFailed = true;
+    }
     onReady();
   }
+
+  // The idle Earth, drawn plain because the imagery didn't load.
+  // map-view.js keeps the globe's poster up in its place, so it hears
+  // (onChange) whenever this changes.
+  const plainIdle = () => view.imageryFailed && idle() && !flying && !glide;
+  let wasPlainIdle = false;
+  scene.postRender.addEventListener(() => {
+    if (destroyed || plainIdle() === wasPlainIdle) return;
+    wasPlainIdle = !wasPlainIdle;
+    onChange();
+  });
   const imageryReady = () => imagery.ready || view.imageryFailed;
   const stopWatchingReady = scene.postRender.addEventListener(() => {
     if (assetsReady && view.terrain !== 'loading' && imageryReady() && !spots.some((s) => s.state === 'pending') && scene.globe.tilesLoaded) announceReady();
@@ -3108,6 +3148,7 @@ export function createGlobeView(container, ctx, options) {
       chaseKick();
     },
     notes,
+    plainIdle,
     // The HUD around the view changed size: the idle Earth fits itself to
     // the free part again.
     relayout() {

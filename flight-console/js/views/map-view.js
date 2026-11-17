@@ -330,7 +330,8 @@ export function createMapView(root, ctx) {
   let retryTimer = 0;
   let globe = null;         // the 3D view once it is running (globe-view.js)
   let revealing = false;    // the 3D view is fading in over the poster
-  let posterGlide = 0;      // 0: the poster lands at once, 1: about to glide, 2: glides (see placePoster)
+  let keptPoster = false;   // the poster is up in place of a plain idle Earth (see keepsPoster)
+  let posterGlide = 0;     // 0: the poster lands at once, 1: about to glide, 2: glides (see placePoster)
   let revealTimer = 0;
   let settleWaiters = [];   // whenSettled() calls waiting (see there)
   let body = canvas;        // what the 2D side shows: the map or the no-map panel
@@ -724,7 +725,7 @@ export function createMapView(root, ctx) {
     // The 3D view is in the page as soon as it starts, so Cesium has a size
     // to draw at, but it stays out of sight until its first picture is in.
     globeBox.hidden = !in3d;
-    globeBox.classList.toggle('is-waiting', in3d && !ready);
+    holdGlobe();
     // While the 3D view loads, the map stays in sight if the viewer came
     // from it. Otherwise the frame shows the globe's poster (or the page's
     // near-black) and the loading message. Both stay while the 3D view
@@ -756,22 +757,53 @@ export function createMapView(root, ctx) {
   // The poster shows while the 3D view is on screen and still on its way
   // (downloading, or waiting to try the download again) and will open on
   // the idle Earth: with live data on the stage (a replay opens on its
-  // site), and not over the 2D map. It stays while the 3D view fades in.
+  // site), and not over the 2D map. It stays while the 3D view fades in,
+  // and in place of a plain idle Earth (keepsPoster).
   function posterWanted() {
     if (!poster || view !== '3d' || threeOverMap) return false;
-    if (revealing) return true;
+    if (revealing || keepsPoster()) return true;
     const waiting = three === 'loading' || (three === 'failed' && threeKind === 'load');
     return waiting && session().kind !== 'replay';
+  }
+
+  // The 3D imagery didn't load (ion turned the key down, or its tiles
+  // failed), so the 3D view would show a plain idle Earth. The poster
+  // stays up in its place instead, and the map's note still says the
+  // imagery didn't load. When the camera leaves the idle Earth (a flight
+  // opens), the plain 3D view fades in over the poster, as it does when
+  // it first loads.
+  function keepsPoster() {
+    return three === 'ready' && Boolean(globe?.plainIdle());
+  }
+
+  // The 3D view stays out of sight until its first picture is in, and
+  // while the poster is kept in its place.
+  function holdGlobe() {
+    globeBox.classList.toggle('is-waiting', view === '3d' && (three !== 'ready' || keptPoster));
   }
 
   // on: the poster is wanted. The picture itself shows once it is in, but
   // the message goes under where the Earth will be right away.
   function showPoster(on) {
     if (!poster) return;
+    if (keptPoster && !keepsPoster()) {
+      keptPoster = false;
+      holdGlobe();
+      startReveal();
+      on = posterWanted();
+    }
     const shown = on && posterApi.ready();
     if (poster.hidden === shown) poster.hidden = !shown;
-    // Its credit goes as soon as Cesium's own credits show.
-    const credit = shown && three !== 'ready';
+    if (shown && !revealing && !keptPoster && keepsPoster()) {
+      keptPoster = true;
+      holdGlobe();
+      // The loading message is done with. (Without it, a later fade-in
+      // has no message to fade out.)
+      threePanel.replaceChildren();
+    }
+    // Its credit goes as soon as Cesium's own credits show, unless the
+    // poster is kept.
+    const credit = shown && (three !== 'ready' || keptPoster);
     if (posterCredit.hidden === credit) posterCredit.hidden = !credit;
     threePanel.classList.toggle('is-under', on);
     if (on) placePoster();
@@ -833,7 +865,7 @@ export function createMapView(root, ctx) {
   // fades in over it (and the message fades out) before both go.
   // Otherwise, or with less motion asked for, it just shows.
   function startReveal() {
-    if (!poster || poster.hidden || prefersReducedMotion()) return;
+    if (!poster || poster.hidden || keepsPoster() || prefersReducedMotion()) return;
     revealing = true;
     globeBox.classList.add('is-revealing');
     threePanel.classList.add('is-leaving');
@@ -992,7 +1024,7 @@ export function createMapView(root, ctx) {
       }, THREE_SLOW_MS);
     }
     showThreePanel();
-    Promise.all([loadCesium(), import('./globe-view.js?v=8')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=9')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
