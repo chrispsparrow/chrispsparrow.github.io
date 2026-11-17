@@ -45,7 +45,7 @@
 // (bc-unsupported) instead.
 
 import { FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '../bench/parse.js?v=5';
-import { buildCsv, csvFileName } from '../bench/csv.js?v=5';
+import { buildCsv, csvFileName } from '../bench/csv.js?v=6';
 import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=5';
 import { LINK_TEXT, serialSupported } from './serial-link.js';
 import { createEventLog } from '../views/event-log.js?v=4';

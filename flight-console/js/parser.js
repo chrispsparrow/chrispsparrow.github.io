@@ -13,6 +13,12 @@
 //     "SIM PKT ... hex=01 01 ..."  flight_sim and the PC sim dump program
 //                                  (the 34-byte telemetry packet as hex)
 //     "PKT node=1 seq=.. ..."      bench_rx receiver lines (key=value)
+//     the HEARTBEAT status blocks  a board on USB. Only used when the log
+//                                  has no packet lines, each block becoming
+//                                  a sample the way the live console makes
+//                                  one (blockToSample in live/bench-feed.js)
+//   parseConsoleCsv(text, fileName) the console's own SAVE AS CSV file, read
+//                                  back into the status blocks it came from
 //   parseFile(text, fileName)       picks one of the above
 //
 // A "phase" field is simulated ground truth. It never goes on a sample. It is
@@ -25,6 +31,9 @@
 // in parseSerialLog(), which sees a whole file.) No DOM.
 
 import { CHANNELS, GROUPS, lookupAlias, lookupAliasInGroup } from './schema.js?v=2';
+import { BlockParser } from './bench/parse.js?v=5';
+import { readCsvBlocks } from './bench/csv.js?v=6';
+import { blockToSample, DEFAULT_ROCKET } from './live/bench-feed.js?v=3';
 
 // Firmware telemetry packet layout (DOGTOOTH_V1_FIRMWARE src/core/Telemetry.h).
 const PACKET_SIZE = 34;
@@ -364,10 +373,62 @@ export function parseSerialLog(text, fileName = '', options = {}) {
     }
     records.push({ out, line: i + 1 });
   }
+  // No packet lines: a board on USB that prints only its status blocks.
+  // Each block becomes one sample, the same one the live console makes.
+  if (!records.length) {
+    const fromBlocks = blockRecords(lines, options);
+    if (fromBlocks.length) {
+      result.format = 'serial-log-blocks';
+      records.push(...fromBlocks);
+    }
+  }
   followBoardClocks(result, records, fileName);
   for (const { out } of records) pushRecord(result, out);
   return finish(result);
 }
+
+// The status blocks in a log's lines, as records like parseSerialLog()'s,
+// one per finished block that has a TIME RUNNING (its time).
+function blockRecords(lines, options = {}) {
+  const rocketId = options.defaultRocketId ?? DEFAULT_ROCKET.id;
+  const parser = new BlockParser();
+  const records = [];
+  let startLine = 0;
+  const take = (block, line) => {
+    const sample = block ? blockToSample(block, rocketId) : null;
+    if (sample) records.push({ out: { kind: 'sample', sample }, line });
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const r = parser.push(lines[i].replace(MONITOR_TIME_PREFIX, ''), null);
+    if (r.done) take(r.done, startLine);
+    if (r.type === 'banner') startLine = i + 1;
+  }
+  take(parser.finish(), startLine);
+  return records;
+}
+
+// Reads the console's own CSV file (SAVE AS CSV and a saved flight's EXPORT
+// CSV, see bench/csv.js) back into its status blocks, and those into
+// samples the way the live console makes them. Returns the usual result,
+// with format 'console-csv', or null when the text isn't one of these files.
+export function parseConsoleCsv(text, fileName = '', options = {}) {
+  const read = readCsvBlocks(stripBom(text));
+  if (!read) return null;
+  const result = newResult('console-csv', fileName);
+  const rocketId = options.defaultRocketId ?? DEFAULT_ROCKET.id;
+  const records = [];
+  read.blocks.forEach((block, i) => {
+    const sample = blockToSample(block, rocketId);
+    if (sample) records.push({ out: { kind: 'sample', sample }, line: i + 2 });
+    else addBad(result, i + 2, 'the row has no TIME RUNNING');
+  });
+  followBoardClocks(result, records, fileName);
+  for (const { out } of records) pushRecord(result, out);
+  return finish(result);
+}
+
+// The header row's start that only the console's own CSV file has.
+const CONSOLE_CSV_START = 'PC time (UTC),HEARTBEAT #,TIME RUNNING (s),';
 
 // Times in these logs come from the board's own clock (ms since power-up).
 // If a board restarts mid-log (bench_rx prints REBOOTED, often a brownout),
@@ -543,13 +604,18 @@ function parseBenchLine(line, options) {
 // carry no rocket ID.
 export function parseFile(text, fileName = '', options = {}) {
   const name = String(fileName).toLowerCase();
+  // The console's own CSV file is known by its header, whatever its name.
+  if (stripBom(text).startsWith(CONSOLE_CSV_START)) {
+    const own = parseConsoleCsv(text, fileName, options);
+    if (own) return own;
+  }
   if (name.endsWith('.csv')) return parseCsv(text, fileName, options);
   if (name.endsWith('.jsonl') || name.endsWith('.ndjson')) return parseJsonLines(text, fileName, options);
   // Look at the lines with PlatformIO's time prefix removed. Any firmware
   // data line (or the firmware's banner) means a serial log. A "#" line on
   // its own decides nothing, since CSV files can have comments too.
   const lines = stripBom(text).split(/\r?\n/).map((l) => l.replace(MONITOR_TIME_PREFIX, '').trim());
-  if (lines.some((l) => /^(SIM PKT|PKT |BAD |DOGTOOTH_V1_FIRMWARE)/.test(l))) {
+  if (lines.some((l) => /^(SIM PKT|PKT |BAD |DOGTOOTH_V1_FIRMWARE|=+ *HEARTBEAT #)/.test(l))) {
     return parseSerialLog(text, fileName, options);
   }
   const firstLine = lines.find((l) => l !== '' && !l.startsWith('#')) ?? '';

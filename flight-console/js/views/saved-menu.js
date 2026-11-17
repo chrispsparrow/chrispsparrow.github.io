@@ -4,6 +4,12 @@
 // and flight time, plus a LIVE line at the top for the live console. The
 // line for what is on screen now is marked (aria-current).
 //
+// Under the library's flights come the LOCAL ones, the flights this browser
+// keeps (recordings and loaded files, see js/local/). Each is tagged LOCAL
+// and has EXPORT RAW LOG, EXPORT CSV and DELETE under it. DELETE asks first,
+// in place. Then a short note that they live in this browser only, and
+// LOAD FILE. local-console.js gives them to it with setLocal().
+//
 // Every line is a real link, so a middle click or Ctrl+click still opens a
 // new tab. A plain click opens the replay (or goes back to live) in place,
 // through onOpen(id) or onLive().
@@ -14,7 +20,7 @@
 // out of it or clicking anywhere else closes it too.
 //
 // It only ever reads the manifest, never a flight's data files.
-// Used by: main.js.
+// Used by: main.js and js/views/local-console.js.
 
 import { h, setChildren } from './dom.js?v=2';
 import { formatDuration } from '../geo.js?v=3';
@@ -29,6 +35,10 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
   const menu = root.querySelector('.fc-dd-menu');
   let shown = null;        // the manifest on screen now
   let current = 'live';    // 'live' or the id of the open flight
+  // The LOCAL flights and what their buttons do (see setLocal()). null
+  // until local-console.js has read them.
+  let local = null;
+  let confirming = null;   // the LOCAL flight whose DELETE is asking, or null
 
   // ------------------------------------------------------------------
   // Contents
@@ -36,12 +46,46 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
   function renderLoading() {
     if (shown && !shown.error) return;
     shown = null;
-    setChildren(menu, list([liveItem()]), h('p', { class: 'fc-dd-note' }, 'Loading the saved flights...'));
+    draw();
   }
 
   function render(manifest) {
     if (manifest === shown) return;
     shown = manifest;
+    draw();
+  }
+
+  // The LOCAL flights:
+  //   flights     their records, newest first (js/local/flight-db.js)
+  //   persistent  false when this browser won't store them (memory only)
+  //   exports(record) -> { rawLog, csv }: which exports it can have
+  //   onExport(id, kind)  kind is 'raw' or 'csv'
+  //   onDelete(id)        after DELETE was confirmed
+  //   onLoadFile()        LOAD FILE
+  function setLocal(next) {
+    local = next;
+    if (confirming && !local.flights.some((f) => f.id === confirming)) confirming = null;
+    draw();
+  }
+
+  // Everything in the menu, from the manifest (or "Loading") and the LOCAL
+  // flights. Focus stays on the same control when it can.
+  function draw() {
+    const focusKey = keyOf(document.activeElement);
+    const builtIn = shown ? libraryPart(shown) : { items: [], notes: ['Loading the saved flights...'] };
+    setChildren(menu,
+      list([liveItem(), ...builtIn.items]),
+      builtIn.notes.map((text) => h('p', { class: 'fc-dd-note' }, text)),
+      localPart());
+    markCurrent();
+    // A control that went away (a deleted flight's) hands focus to LOAD
+    // FILE, so it stays in the open menu.
+    if (focusKey && isOpen()) (menu.querySelector(`[data-key="${CSS.escape(focusKey)}"]`) ?? menu.querySelector('.fc-dd-load'))?.focus();
+  }
+
+  const keyOf = (el) => (el instanceof Element && menu.contains(el) ? el.dataset.key ?? null : null);
+
+  function libraryPart(manifest) {
     const flights = manifest.error ? [] : (manifest.flights ?? []);
     const notes = [];
     if (manifest.error) {
@@ -58,10 +102,50 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
         ? 'One flight in the library couldn\'t be read, so it\'s hidden for now.'
         : `${skipped} flights in the library couldn't be read, so they're hidden for now.`);
     }
-    setChildren(menu,
-      list([liveItem(), ...flights.map(flightItem)]),
-      notes.map((text) => h('p', { class: 'fc-dd-note' }, text)));
-    markCurrent();
+    return { items: flights.map(flightItem), notes };
+  }
+
+  // The LOCAL flights, the note about where they're kept, and LOAD FILE.
+  function localPart() {
+    if (!local) return null;
+    const note = local.persistent
+      ? 'LOCAL FLIGHTS ARE STORED IN THIS BROWSER ONLY. EXPORT A RAW LOG TO KEEP ONE.'
+      : 'THIS BROWSER WON\'T STORE FLIGHTS, SO LOCAL FLIGHTS LAST UNTIL THE PAGE CLOSES. EXPORT A RAW LOG TO KEEP ONE.';
+    return h('div', { class: 'fc-dd-local' },
+      local.flights.length ? h('ul', { class: 'fc-dd-list', 'aria-label': 'Local flights' }, local.flights.map(localItem)) : null,
+      h('p', { class: 'fc-dd-fine' }, note),
+      h('p', { class: 'fc-dd-load-row' },
+        h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm fc-dd-load', 'data-key': 'load', onclick: () => local.onLoadFile() }, 'LOAD FILE')));
+  }
+
+  // A LOCAL flight: its line, tagged LOCAL, then its buttons.
+  function localItem(record) {
+    const id = record.id;
+    const date = shortDate(localIsoDate(record.createdAt));
+    const time = Number.isFinite(record.durationS) ? formatDuration(record.durationS) : null;
+    const label = [record.title, 'local', date, time ? `${time} long` : null].filter(Boolean).join(', ');
+    const can = local.exports(record);
+    const button = (key, text, onclick, extra = {}) => h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'data-key': `${key}:${id}`, onclick, ...extra }, text);
+    const actions = confirming === id
+      ? h('div', { class: 'fc-dd-actions is-asking', role: 'group', 'aria-label': `Delete ${record.title}?` },
+        h('span', { class: 'fc-dd-ask' }, 'DELETE THIS FLIGHT?'),
+        button('yes', 'DELETE', () => { confirming = null; local.onDelete(id); }),
+        button('no', 'KEEP', () => { confirming = null; draw(); focusKey(`del:${id}`); }))
+      : h('div', { class: 'fc-dd-actions', role: 'group', 'aria-label': record.title },
+        can.rawLog ? button('raw', 'EXPORT RAW LOG', () => local.onExport(id, 'raw')) : null,
+        can.csv ? button('csv', 'EXPORT CSV', () => local.onExport(id, 'csv')) : null,
+        button('del', 'DELETE', () => { confirming = id; draw(); focusKey(`yes:${id}`); }));
+    return h('li', { class: 'fc-dd-local-item' },
+      link(hrefFor(id), () => onOpen(id), { class: 'fc-dd-item', 'data-id': id, 'data-key': `open:${id}`, 'aria-label': label },
+        h('span', { class: 'fc-dd-mark', 'aria-hidden': 'true' }),
+        h('span', { class: 'fc-dd-name' }, record.title, ' ', h('span', { class: 'fc-dd-tag' }, 'LOCAL')),
+        h('span', { class: 'fc-dd-date' }, date),
+        h('span', { class: 'fc-dd-time' }, time ?? '')),
+      actions);
+  }
+
+  function focusKey(key) {
+    menu.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus();
   }
 
   function list(items) {
@@ -69,7 +153,7 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
   }
 
   function liveItem() {
-    return h('li', {}, link(liveHref, () => onLive(), { class: 'fc-dd-item fc-dd-item--live', 'data-id': 'live', 'aria-label': 'Live console' },
+    return h('li', {}, link(liveHref, () => onLive(), { class: 'fc-dd-item fc-dd-item--live', 'data-id': 'live', 'data-key': 'open:live', 'aria-label': 'Live console' },
       h('span', { class: 'fc-dd-mark', 'aria-hidden': 'true' }),
       h('span', { class: 'fc-dd-name' }, 'LIVE')));
   }
@@ -80,7 +164,7 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
     const date = shortDate(entry.date);
     const time = Number.isFinite(s.flightDurationS) ? formatDuration(s.flightDurationS) : null;
     const label = [entry.title, date, time ? `${time} flight` : null].filter(Boolean).join(', ');
-    return h('li', {}, link(hrefFor(entry.id), () => onOpen(entry.id), { class: 'fc-dd-item', 'data-id': entry.id, 'aria-label': label },
+    return h('li', {}, link(hrefFor(entry.id), () => onOpen(entry.id), { class: 'fc-dd-item', 'data-id': entry.id, 'data-key': `open:${entry.id}`, 'aria-label': label },
       h('span', { class: 'fc-dd-mark', 'aria-hidden': 'true' }),
       h('span', { class: 'fc-dd-name' }, entry.title),
       h('span', { class: 'fc-dd-date' }, date),
@@ -113,7 +197,8 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
     }
   }
 
-  const items = () => [...menu.querySelectorAll('.fc-dd-item')];
+  // What the arrow keys move between: the flights, then LOAD FILE.
+  const items = () => [...menu.querySelectorAll('.fc-dd-item, .fc-dd-load')];
 
   // ------------------------------------------------------------------
   // Opening and closing
@@ -135,6 +220,10 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
   function close({ focus = true } = {}) {
     if (!isOpen()) return;
     const inside = root.contains(document.activeElement);
+    if (confirming) {
+      confirming = null;
+      draw();
+    }
     menu.hidden = true;
     button.setAttribute('aria-expanded', 'false');
     root.classList.remove('is-open');
@@ -189,8 +278,10 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
   return {
     render,
     renderLoading,
+    setLocal,
     setCurrent,
     close,
+    open,
     destroy() {
       button.removeEventListener('click', onButtonClick);
       button.removeEventListener('keydown', onButtonKey);
@@ -199,6 +290,13 @@ export function createSavedMenu(root, { hrefFor, liveHref, onOpen, onLive }) {
       document.removeEventListener('pointerdown', onPointerDown);
     },
   };
+}
+
+// "2026-11-17" for a time in ms, on this computer's clock.
+function localIsoDate(ms) {
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 // "Sep 30, 2026".

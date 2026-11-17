@@ -5,6 +5,9 @@
 //   /flight-console/?track        Track a Rocket, live. Connect a board (or,
 //                                 later, the ground station) and watch it.
 //   /flight-console/?flight=<id>  Track a Rocket, playing a saved flight
+//                                 (a LOCAL flight's id starts with "local-":
+//                                 a recording or a loaded file, kept in this
+//                                 browser, see js/views/local-console.js)
 // plus a friendly message if a flight is unknown or its data didn't load.
 //
 // Track a Rocket (#fc-console) fills the window under the nav with no page
@@ -64,7 +67,7 @@
 // file that imports a module uses the same query, or the browser would
 // load it twice.
 import * as config from './config.js?v=3';
-import { loadManifest, loadFlight } from './library.js?v=4';
+import { loadManifest, loadFlight } from './library.js?v=5';
 import { createStore } from './store.js?v=4';
 import { createStoreSwitch } from './store-switch.js?v=2';
 import { createPlayer } from './player.js?v=3';
@@ -72,7 +75,9 @@ import { createFleet } from './fleet.js?v=3';
 import { STATE } from './flight-state.js?v=3';
 import { h, setChildren } from './views/dom.js?v=2';
 import { createLanding } from './views/launcher.js?v=7';
-import { createSavedMenu } from './views/saved-menu.js?v=3';
+import { createSavedMenu } from './views/saved-menu.js?v=4';
+import { createLocalConsole } from './views/local-console.js';
+import { isLocalId } from './local/local-flights.js';
 import { createPanels } from './views/panels.js?v=2';
 import { createHud } from './views/hud.js?v=3';
 import { createRocketBar } from './views/rocket-bar.js?v=3';
@@ -82,7 +87,7 @@ import { createTimeline } from './views/timeline.js?v=5';
 import { createDataPanel } from './views/data-panel.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
 import { createSourceDetector } from './live/sources.js?v=2';
-import { createBenchPanel } from './live/bench-panel.js?v=5';
+import { createBenchPanel } from './live/bench-panel.js?v=6';
 import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=3';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
@@ -290,6 +295,10 @@ const savedMenu = createSavedMenu($('fc-saved'), {
   onOpen: (id) => navigate({ flight: id }),
   onLive: () => navigate({ track: true }),
 });
+
+// LOCAL flights: recording the board, loading a file, and the LOCAL lines
+// in SAVED FLIGHTS (js/views/local-console.js).
+const localConsole = createLocalConsole({ savedMenu, navigate, announce });
 
 // The replay's name in the bar. null hides it (live). loading adds a
 // blinking LOADING after the name while the flight's data downloads.
@@ -587,39 +596,17 @@ async function openFlight(id, token) {
   document.title = TITLE_CONSOLE;
   ensureStage();
 
-  const manifest = await getManifest();
-  if (token !== routeToken) return;
-  savedMenu.render(manifest);
-  if (manifest.error) {
-    console.warn('Flight library did not load:', manifest.error);
-    const why = {
-      network: 'Check your internet connection and try again.',
-      server: 'The site had a problem sending it. Try again in a moment.',
-    }[manifest.errorKind] ?? 'The flight list on the site is missing or damaged. That\'s on my end, not yours.';
-    showMessage('The flight library didn\'t load', [
-      'I couldn\'t load the list of flights, so this flight can\'t open right now.',
-      why,
-    ], { retry: true });
-    return;
-  }
-
-  const entry = manifest.flights.find((f) => f.id === id);
-  if (!entry) {
-    const broken = manifest.problems.find((p) => p.id === id);
-    if (broken) {
-      showMessage('This flight can\'t open', [`The library entry for "${id}" has a problem, so it can't open.`, 'The other flights still work.']);
-    } else {
-      showMessage('Flight not found', [`There's no flight called "${id}" in the library. It may have been renamed or removed.`]);
-    }
-    return;
-  }
+  const found = isLocalId(id) ? await findLocalFlight(id, token) : await findLibraryFlight(id, token);
+  if (!found) return;
+  const { entry, load } = found;
   setReplayChip({ name: entry.title, loading: true });
   savedMenu.setCurrent(entry.id);
 
   // The flight's store, made now so the map can fly to the site while the
   // data downloads. Its ground station is Manta's position for this flight
-  // when the library has one, otherwise the demo position in config.js.
-  const store = createStore({ fleet: createFleet(), ...(entry.groundStation ? { groundStation: entry.groundStation } : {}) });
+  // when the library has one, otherwise the demo position in config.js. A
+  // LOCAL flight has none (groundStation: null), like the live console.
+  const store = createStore({ fleet: createFleet(), ...(entry.groundStation !== undefined ? { groundStation: entry.groundStation } : {}) });
   for (const r of entry.rockets) store.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
   const rp = { id: entry.id, entry, store, player: null, flight: null, views: [] };
   replay = rp;
@@ -632,7 +619,7 @@ async function openFlight(id, token) {
   // meanwhile. (If the 3D view fails, or the viewer goes to the map, it
   // waits no longer. See whenSettled() in js/views/map-view.js.) If the
   // download fails first, the message says so at once.
-  const download = loadFlight(entry).then((flight) => ({ flight }), (error) => ({ error: error ?? new Error('The flight data did not load') }));
+  const download = load().then((flight) => ({ flight }), (error) => ({ error: error ?? new Error('The flight data did not load') }));
   const settled = stage?.mapView?.whenSettled() ?? Promise.resolve();
   await Promise.race([settled, download.then((r) => (r.error ? r : settled))]);
   if (token !== routeToken) return;
@@ -647,8 +634,9 @@ async function openFlight(id, token) {
       server: [`The site had a problem sending the data for "${entry.title}".`, 'Try again in a moment.'],
       missing: [`The data file for "${entry.title}" is missing from the site. That's on my end, not yours.`],
       damaged: [`The data for "${entry.title}" downloaded but couldn't be read.`],
+      local: [`The data for "${entry.title}" couldn't be read from this browser's storage.`, 'If it was exported, load the exported file to see it again.'],
     }[err?.kind] ?? [`The data for "${entry.title}" couldn't be loaded.`];
-    showMessage('This flight\'s data didn\'t load', why, { retry: err?.kind === 'network' || err?.kind === 'server' });
+    showMessage('This flight\'s data didn\'t load', why, { retry: err?.kind === 'network' || err?.kind === 'server' || err?.kind === 'local' });
     return;
   }
 
@@ -659,6 +647,61 @@ async function openFlight(id, token) {
     return;
   }
   startReplay(rp, flight);
+}
+
+// A LOCAL flight, from this browser's storage: { entry, load } or null
+// (after showing why). The library's list still loads for SAVED FLIGHTS,
+// but nothing waits for it, so a LOCAL flight opens with no internet.
+async function findLocalFlight(id, token) {
+  getManifest().then((manifest) => {
+    if (token === routeToken) savedMenu.render(manifest);
+  });
+  let local = null;
+  try {
+    local = await localConsole.find(id);
+  } catch (err) {
+    console.warn('Flight Console: the local flight could not be read', err);
+  }
+  if (token !== routeToken) return null;
+  if (!local) {
+    showMessage('Flight not found', [
+      'There\'s no LOCAL flight with this address in this browser.',
+      'It may have been deleted, or it was saved in a different browser. LOCAL flights stay in the browser that made them.',
+    ]);
+    return null;
+  }
+  return { entry: local.entry, load: () => local.load() };
+}
+
+// A flight in the library: { entry, load } or null (after showing why).
+async function findLibraryFlight(id, token) {
+  const manifest = await getManifest();
+  if (token !== routeToken) return null;
+  savedMenu.render(manifest);
+  if (manifest.error) {
+    console.warn('Flight library did not load:', manifest.error);
+    const why = {
+      network: 'Check your internet connection and try again.',
+      server: 'The site had a problem sending it. Try again in a moment.',
+    }[manifest.errorKind] ?? 'The flight list on the site is missing or damaged. That\'s on my end, not yours.';
+    showMessage('The flight library didn\'t load', [
+      'I couldn\'t load the list of flights, so this flight can\'t open right now.',
+      why,
+    ], { retry: true });
+    return null;
+  }
+
+  const entry = manifest.flights.find((f) => f.id === id);
+  if (!entry) {
+    const broken = manifest.problems.find((p) => p.id === id);
+    if (broken) {
+      showMessage('This flight can\'t open', [`The library entry for "${id}" has a problem, so it can't open.`, 'The other flights still work.']);
+    } else {
+      showMessage('Flight not found', [`There's no flight called "${id}" in the library. It may have been renamed or removed.`]);
+    }
+    return null;
+  }
+  return { entry, load: () => loadFlight(entry) };
 }
 
 // The flight's data is in: the pre-scan, the player, the timeline and
@@ -806,7 +849,7 @@ function ensureLive() {
       },
       onDisconnect: () => next.link?.disconnect(),
     });
-    next.link = createSerialLink({
+    next.link = createSerialLink(localConsole.wrapLink({
       onLine(line, t) {
         const before = next.source;
         const source = next.detector.push(line);
@@ -838,7 +881,7 @@ function ensureLive() {
         setUnknown(false);
         next.panel.closed({ lost });
       },
-    });
+    }));
   } catch (err) {
     console.error('Flight Console: the live console failed to start', err);
     const note = $('bc-link-note');
@@ -853,9 +896,11 @@ function ensureLive() {
   live = next;
   // Leaving the page closes the port and drops every block, so the browser
   // asks first while there are blocks that weren't saved as a CSV file.
-  // (The landing and the replays are on this page, so they keep them.)
+  // (The landing and the replays are on this page, so they keep them.) It
+  // doesn't ask when every connection was recorded into the browser's
+  // storage from start to end, since nothing is lost then.
   window.addEventListener('beforeunload', (e) => {
-    if (!live?.panel?.hasUnsaved()) return;
+    if (!live?.panel?.hasUnsaved() || localConsole.coversLive()) return;
     e.preventDefault();
     e.returnValue = '';
   });
