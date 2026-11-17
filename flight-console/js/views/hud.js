@@ -318,7 +318,7 @@ export function createHud(root, ctx) {
     // Where the data comes from, and anything the console had to estimate.
     const session = ctx.session ?? {};
     const words = [];
-    if (session.kind === 'replay') words.push(session.entry?.kind === 'real' ? 'REAL FLIGHT' : 'SIMULATED FLIGHT');
+    if (session.kind === 'replay') words.push(replaySourceWords(session.entry));
     else words.push('LIVE DATA');
     if (d?.liftoffEstimated && Number.isFinite(d.liftoffT)) words.push('LIFTOFF TIME ESTIMATED');
     if (d?.startedInFlight) words.push('DATA STARTS IN FLIGHT');
@@ -679,4 +679,12 @@ function channelValue(channel, value) {
 function joinList(items) {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+// Where a replay's data came from. A LOCAL flight (js/local/) says how it
+// got into this browser, RECORDED or LOADED FILE, and never claims to be a
+// real flight. A library flight says simulated or real.
+function replaySourceWords(entry) {
+  if (entry?.local) return entry.source === 'file' ? 'LOADED FILE' : 'RECORDED';
+  return entry?.kind === 'real' ? 'REAL FLIGHT' : 'SIMULATED FLIGHT';
 }

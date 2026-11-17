@@ -7,6 +7,7 @@
 //   createRecorder()      records a connection's lines, a chunk every 2 s
 //   saveRecording()       names a finished (or recovered) recording
 //   findUnfinished()      recordings a crash or a closed tab left behind
+//   findBusy()            recordings a tab still holds (still recording, or reloading)
 //   readFlightFile()      checks a loaded file and turns it into a flight
 //   openLocalFlight()     a LOCAL flight's entry and its loader, for main.js
 //   rawLogText(), csvText(), exportFileName()  the two exports
@@ -71,7 +72,7 @@ export function cleanName(text, createdAt) {
 
 // A recording's lock name. The tab that is recording holds it, so another
 // tab knows the recording isn't left behind.
-const lockName = (id) => `fc-recording-${id}`;
+export const lockName = (id) => `fc-recording-${id}`;
 
 // Splits text into lines and remembers its line ending, so the lines can be
 // put back together exactly as they were.
@@ -327,6 +328,23 @@ export async function findUnfinished(db, { locks = globalThis.navigator?.locks ?
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+// Recordings still marked 'recording' that a tab holds right now: one that
+// is still recording, or a page that is still closing (a reload). The page
+// waits for each to be let go and then looks again (local-console.js).
+// Without Web Locks, the ones touched in the last STALE_MS.
+export async function findBusy(db, { locks = globalThis.navigator?.locks ?? null, now = Date.now(), except = null } = {}) {
+  const all = (await db.listFlights()).filter((r) => r.status === 'recording' && r.id !== except);
+  if (!all.length) return [];
+  if (!locks?.query) return all.filter((r) => now - (r.updatedAt ?? 0) <= STALE_MS);
+  try {
+    const q = await locks.query();
+    const held = new Set((q.held ?? []).map((l) => l.name));
+    return all.filter((r) => held.has(lockName(r.id)));
+  } catch {
+    return [];
+  }
+}
+
 // Every saved LOCAL flight, newest first.
 export async function listSaved(db) {
   return (await db.listFlights()).filter((r) => r.status === 'saved').sort((a, b) => b.createdAt - a.createdAt);
@@ -402,14 +420,16 @@ export async function storeFile(db, record, lines, chunkLines = 20000) {
 // library.js gives), so main.js opens it like any other. It has no ground
 // station, like the live console (a board on the bench has none, and a
 // real ground station sends its own position), so the demo position in
-// config.js is never used for it.
+// config.js is never used for it. Its kind is 'local', never 'real': the
+// HUD and "About this flight" call it RECORDED or LOADED FILE from
+// `source`, and show `fileLabel` as its file's name.
 export function localEntry(record) {
   const board = KNOWN_ROCKETS.find((r) => r.id === DEFAULT_ROCKET.id) ?? KNOWN_ROCKETS[0];
   return {
     id: record.id,
     title: record.title || defaultName(record.createdAt),
     date: localDate(record.createdAt),
-    kind: 'real',
+    kind: 'local',
     featured: false,
     description: '',
     site: null,
@@ -417,6 +437,7 @@ export function localEntry(record) {
     groundStation: null,
     local: true,
     source: record.source,
+    fileLabel: record.source === 'file' && record.originalName ? record.originalName : exportFileName(record, record.kind === 'csv' ? 'csv' : 'log'),
     rockets: [{ rocketId: DEFAULT_ROCKET.id, name: board.name, board: board.board ?? null, file: PARSE_NAME[record.kind] ?? PARSE_NAME.log, timeOffsetS: 0 }],
     summary: {
       rocketCount: 1,
@@ -495,11 +516,17 @@ export function exportsFor(record) {
 }
 
 // "dogtooth-flight-2026-11-17-1432.log", or the flight's own name when it
-// was given one: "dogtooth-komodo-test-2.csv".
+// was given one: "dogtooth-komodo-test-2.csv". A loaded file exports under
+// the name it came in with: "pc_sim_flight.log", "pc_sim_flight.csv".
 export function exportFileName(record, ext) {
+  if (record.source === 'file' && record.originalName) {
+    const base = record.originalName.replace(/\.[A-Za-z0-9]{1,5}$/, '');
+    if (base) return `${base}.${ext}`;
+  }
   const d = new Date(record.createdAt);
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
   const named = record.title && record.title !== defaultName(record.createdAt);
   const slug = named ? record.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '') : '';
-  return `dogtooth-${slug || `flight-${stamp}`}.${ext}`;
+  const name = slug || `flight-${stamp}`;
+  return `${name.startsWith('dogtooth-') ? '' : 'dogtooth-'}${name}.${ext}`;
 }

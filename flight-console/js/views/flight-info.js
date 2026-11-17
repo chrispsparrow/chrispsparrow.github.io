@@ -3,7 +3,9 @@
 // compact strip in panel 2, under the mission timeline.
 //
 // Closed, it is one line that still says where the data came from:
-// simulated or real, and the data file (or how many files). Open, it
+// simulated or real, and the data file (or how many files). A LOCAL flight
+// (js/local/) says RECORDED or LOADED FILE instead, never real, and shows
+// the file's own name (a loaded file's, or the name its raw log exports as). Open, it
 // shows the flight's title and description, the date and launch site, the
 // board each rocket carried, each data file with how many readings it
 // held and how many bad lines were skipped, and anything the parser had
@@ -30,7 +32,11 @@ let nextId = 0;
 export function createFlightInfo(root, ctx) {
   const { flight, store, config } = ctx;
   const entry = flight.entry;
-  const real = entry.kind === 'real';
+  const real = entry.kind === 'real' && !entry.local;
+  const kindText = entry.local ? (entry.source === 'file' ? 'Loaded file' : 'Recorded') : real ? 'Real flight' : 'Simulated flight';
+  // A LOCAL flight is read under a stand-in name (local.log), so it shows
+  // the name it really has.
+  const fileName = (f) => (entry.local && entry.fileLabel ? entry.fileLabel : f.file);
   const id = `fc-info-${++nextId}`;
   const files = flight.files ?? [];
 
@@ -61,7 +67,7 @@ export function createFlightInfo(root, ctx) {
       // Each part stays on one line, so a wrap only falls between parts.
       const counts = [countText(f.sampleCount, 'reading', 'readings'), badLinesText(f.badRows)].filter(Boolean);
       return h('span', { class: 'fc-info-line' },
-        h('span', { class: 'fc-info-strong' }, f.file),
+        h('span', { class: 'fc-info-strong' }, fileName(f)),
         counts.map((text) => [', ', h('span', { class: 'fc-info-keep' }, text)]));
     }));
   }
@@ -71,7 +77,7 @@ export function createFlightInfo(root, ctx) {
   if (notes.length) row('Notes', notes.map((note) => h('span', { class: 'fc-info-line fc-info-note' }, note)));
 
   // The closed line: simulated or real, and the file.
-  const fileText = files.length === 1 ? files[0].file : files.length ? `${files.length} data files` : '';
+  const fileText = files.length === 1 ? fileName(files[0]) : files.length ? `${files.length} data files` : '';
 
   // COPY LINK keeps both labels stacked in the same spot and shows one, so
   // it never changes width when LINK COPIED appears.
@@ -89,7 +95,7 @@ export function createFlightInfo(root, ctx) {
   h('span', { class: 'fc-strip-caret', 'aria-hidden': 'true' }),
   h('span', { class: 'fc-strip-name' }, 'About this flight'),
   h('span', { class: 'fc-strip-latest' },
-    h('span', { class: `fc-info-kind${real ? ' fc-info-kind--real' : ''}` }, real ? 'Real flight' : 'Simulated flight'),
+    h('span', { class: `fc-info-kind${real ? ' fc-info-kind--real' : ''}` }, kindText),
     fileText ? h('span', { class: 'fc-strip-msg fc-info-file' }, fileText) : null));
 
   const body = h('div', { class: 'fc-strip-body fc-info-body', id: `${id}-body`, hidden: true },

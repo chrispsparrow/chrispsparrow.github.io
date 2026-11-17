@@ -182,7 +182,7 @@ How it stays readable over bright ground:
 
 The four blocks:
 
-- **Top left**: the flight time and the phase on one line (`T+0:56  DROGUE`), then small honest labels: SIMULATED FLIGHT or REAL FLIGHT in a replay, LIVE DATA live, plus LIFTOFF TIME ESTIMATED, DATA STARTS IN FLIGHT and GROUND LEVEL ESTIMATED when they apply. Under them goes the pad checklist or the recovery block. In `pad` there is no clock, only PAD.
+- **Top left**: the flight time and the phase on one line (`T+0:56  DROGUE`), then small honest labels: SIMULATED FLIGHT or REAL FLIGHT in a replay of a library flight, RECORDED or LOADED FILE in a replay of a LOCAL flight (never REAL FLIGHT, see "LOCAL flights"), LIVE DATA live, plus LIFTOFF TIME ESTIMATED, DATA STARTS IN FLIGHT and GROUND LEVEL ESTIMATED when they apply. Under them goes the pad checklist or the recovery block. In `pad` there is no clock, only PAD.
 - **Top right**: ALT in meters AGL (the largest number on the screen, with `M AGL` and the feet or the age of an old reading under it), VS with ▲ or ▼, GS, and `[ MORE ]`.
 - **MORE**: every reading, as a column under the top right block that scrolls inside itself. It has the position (latitude, longitude, ALT MSL, LAST FIX and the distance and bearing from Manta, marked as the demo spot when it is the demo position. In `recovery` that row gives the recovery block's own answer, and reads LAUNCH POINT when there is no Manta position), an altitude section (the highest so far, where the altitude comes from, the last reading and the ground level), one section per sensor group the board really sent (built from `js/schema.js`), and any fields the console has no place for yet. It is plain HUD text with no box or border. Where the list is scrolled out of sight at the top or bottom, the lines at that edge fade out (hud.js adds `is-cut-top` and `is-cut-bottom`), so a cut never shows half a line. Opening it moves keyboard focus into the list, where the arrow keys scroll it, and the cue for that focus is the first heading turning amber, not a box. Escape closes it and puts focus back on `[ MORE ]`.
 - **Bottom left**: GPS (satellites and fix), HDOP and PKT (the last packet's age). GPS is amber with no fix or with fewer than `MIN_SATS` (6) satellites, and HDOP is amber over `MAX_HDOP` (3). Those are the map's quality gate, so whenever the map draws a fix as a hollow grey dot, one of the two lines is amber.
@@ -482,7 +482,7 @@ Panel 2 has one layout, live and in a replay. Across the top are one-line strips
 
 - The strips are the mission timeline (`js/views/event-log.js`) and About this flight (`js/views/flight-info.js`).
 - The mission timeline's closed line shows the newest event with its flight time, its mark and the event count. Open, it lists every rocket's events in time order with a filled dot (reported by the board), a ring (detected from altitude) or a dashed ring (inferred, or a time that was estimated). The message says the same in words. A lost GPS fix is a warning, so its mark is amber. The newest entry is lit, with a NOW tag for `EVENT_NOW_S` after it. Screen readers hear new events from a hidden log during normal playback only. A seek rebuilds the list quietly.
-- About this flight's closed line still says simulated or real and names the data file, with `[ COPY LINK ]`. Open, it shows the title, description, date, launch site, each rocket's board, each data file with its reading and bad line counts, and the parser's notes. If the browser blocks copying, the link shows selected in a field.
+- About this flight's closed line still says simulated or real (recorded or loaded file for a LOCAL flight) and names the data file, with `[ COPY LINK ]`. Open, it shows the title, description, date, launch site, each rocket's board, each data file with its reading and bad line counts, and the parser's notes. If the browser blocks copying, the link shows selected in a field.
 - Six graphs: ALT AGL, VS, GS, GPS SATS, HDOP and PKT (received, and missed from jumps in the packets' sequence numbers, in amber). They are on flight time, with zero at liftoff from the pre-scan. The time axis spans the whole flight, and the lines fill in up to the playhead.
 - `js/views/data-series.js` (no DOM) works out the points from the store. VS is worked out the way the detector does it, the change over `VSPEED_AVG_S`. GS is the board's own GPS speed, or else the distance between two good fixes in a row. HDOP breaks where the receiver reports its 99.99 "no HDOP" value. Nothing goes through the map's quality gate, outlier filter or smoothing, so the graphs show what the board sent.
 - `js/views/data-readings.js` builds the full readings list at the playhead. It starts with the flight (phase, flight time, ALT AGL, the highest so far, VS with an up or down arrow, GS, ground level and the last PKT). Then comes one group per sensor group the board sent, built from `js/schema.js`, and last any values the console has no place for yet. Missing values show `--`. Old values are dimmed with their age, and position rows come from the last good fix while there is no fix. It warns the way the HUD does: the GPS fix row is amber with no fix, Sats is amber under `MIN_SATS` (6) and HDOP over `MAX_HDOP` (3), and Last PKT is amber once the packets stop. The "From Manta" row comes from `rangeReading()` in `js/flight-state.js`: from Manta to the newest good fix, and in `recovery` the HUD's own distance and bearing to the recovery position (labeled "From launch point" when there is no Manta position).
@@ -504,7 +504,9 @@ A short graph (with strips open on a small window, say) takes bigger value steps
 
 The live session (the link, the panel, the source detector and the live stores) is made the first time the console opens and is kept for the whole visit. So a trip to a replay and back keeps the connection open and keeps every block for the CSV.
 
-Leaving the page for real (a link in the nav, or closing the tab) closes the port and drops every block. So while there are blocks that weren't saved as a CSV file, the browser asks before it leaves. After SAVE AS CSV it only asks again once new blocks come in.
+Leaving the page for real (a link in the nav, or closing the tab) closes the port and drops every block. So while there are blocks that weren't saved as a CSV file, the browser asks before it leaves. After SAVE AS CSV it only asks again once new blocks come in. It doesn't ask when every connection of the visit was recorded from start to end into the browser's storage (see "Recording a flight"), since nothing is lost then. A STOP in the middle of a connection, or storage that stopped working, brings the question back.
+
+Every line is also handed to the recorder before anything else sees it (`wrapLink()` in `js/views/local-console.js`). See "LOCAL flights".
 
 If a line makes the code that reads it throw, `serial-link.js` logs the error and goes on with the next line, so one bad line can't stop the reading.
 
@@ -604,7 +606,9 @@ This block format dates from 2026-11-13. Before that, the flight firmware in `DO
 - One column per field, in the order of `FIELDS`, holding the value as the board printed it. `LOCK QUALITY` splits into `LOCK QUALITY (%)` and `HDOP`. `GPS DATA RATE` splits into `GPS DATA RATE STATUS` and `GPS DATA RATE (char/s)`. The motion model columns start with `GPS MOTION MODEL`, so `AIRBORNE 4G` makes sense on its own. A header's unit is the first unit the board sent for it.
 - `ERRORS`: every `Error:` message from the block's banner until the next banner, split by ` | ` when there's more than one. An error before the first banner of a connection belongs to no block, so it's only in the errors strip.
 
-The CSV is completely raw. `js/bench/csv.js` only reads the board's blocks from `js/bench/parse.js`, never the map's trail, so a wild position jump or a SEARCHING block comes out exactly as printed. Lines outside a block, like the startup banner, aren't in the CSV. Nothing is uploaded. Everything stays in the tab until it's closed or reloaded.
+The CSV is completely raw. `js/bench/csv.js` only reads the board's blocks from `js/bench/parse.js`, never the map's trail, so a wild position jump or a SEARCHING block comes out exactly as printed. Lines outside a block, like the startup banner, aren't in the CSV. Nothing is uploaded. The blocks stay in the tab until it's closed or reloaded, and the recording keeps every line in the browser's storage (see "LOCAL flights").
+
+`readCsvBlocks()` in the same file reads one of these files back into the blocks it came from. Written out again, they make the same file byte for byte, which is how a loaded CSV replays and exports (see "Loading a flight file"). A cell left empty means the board didn't print that value. A block with no PC time (one read from a loaded raw log, which has none) gets an empty `PC time (UTC)` cell.
 
 ### The old Bench Console address
 
@@ -678,6 +682,78 @@ When a flight opens, `main.js` also runs the whole flight once through a second,
 
 A seek resets the store and feeds it every sample again up to the new time, so the detectors and the views end up exactly where they would have been.
 
+## LOCAL flights
+
+LOCAL flights are the ones this browser keeps: recordings of a board on the USB cable, and flight files loaded from the computer. They show in SAVED FLIGHTS under the library's flights, tagged LOCAL, and replay exactly like a library flight (the 3D replay, the breadcrumbs, the HUD, the events, the timeline, panel 2's graphs and the PAD, FLIGHT and RECOVERY states). Nothing is ever uploaded. They live in this browser's IndexedDB until they're deleted, so they aren't on any other computer or in any other browser, and clearing the site's data deletes them. EXPORT RAW LOG keeps one for good.
+
+The code is in three files. `js/local/flight-db.js` stores them, `js/local/local-flights.js` records, reads, replays and exports them (no DOM, so Node tests it), and `js/views/local-console.js` is the page side: the REC readout, the name box, the recovery line, LOAD FILE, the drop overlay and the downloads. `main.js` makes it once (`createLocalConsole()`), passes the serial link's callbacks through it, and asks it for a LOCAL flight when the address is `?flight=local-...`.
+
+### Recording a flight
+
+CONNECT starts a recording as soon as the port opens. The bar shows an amber dot, `REC` and how long it has run (`REC 02:14`), and `[ STOP ]`. Every line the board sends is kept exactly as it arrived, with the time the computer got it.
+
+The recording is crash proof. Every 2 s (`FLUSH_MS`) the new lines go to storage as one chunk, together with the flight's record, so a crash, a closed tab or a dead laptop loses at most the last 2 s. A write that fails is tried again on the next one, in order, so no line is lost or doubled. If storing keeps failing (the disk is full, say), the line under the bar says so and the newest lines wait on the page until it works again.
+
+`[ STOP ]`, or the board disconnecting or being unplugged, ends the recording and opens the name box. The name starts as the date and time (`Nov 17, 2026, 2:32 PM`) and can be anything up to 80 characters. `[ SAVE ]` (or Enter) saves it, and so does Escape, with the name in the box, so a recording is never lost by backing out. `[ DISCARD ]` asks first, in the box. A recording where nothing came in is thrown away without asking. After a save, the line under the bar says where it went, with `[ OPEN ]` to replay it.
+
+After a STOP while the board is still connected, `[ RECORD ]` sits where REC was and starts a new recording. The lines in between aren't recorded.
+
+### A recording left unfinished
+
+A recording that a crash or a closed tab left behind is still marked `recording` in storage. The next time the console opens, the line under the bar says `UNSAVED RECORDING FOUND`, when it started and about how long it ran, with `[ RECOVER ]` and `[ DISCARD ]`. RECOVER opens the name box, and DISCARD asks first. When there are several, they come one at a time, newest first.
+
+A tab that is recording holds a Web Lock named after its recording, until its recording is saved or thrown away. So a second tab never offers to recover a recording that is still running, or one whose name box is still open. When a recording's lock is held, the page waits for it to be let go and looks again. That covers a reload in the middle of a recording, where the old page hasn't quite let go when the new one starts. Without Web Locks, a recording counts as left behind once its record hasn't been touched for 15 s (`STALE_MS`).
+
+### LOCAL flights in SAVED FLIGHTS
+
+Each LOCAL line has its name, the LOCAL tag, its date and how long its data runs, and three buttons under it:
+
+- `[ EXPORT RAW LOG ]` downloads the board's serial output exactly as it arrived: every line in order, each ending in CRLF, the same format as `data/flights/komodo-sim-01/pc_sim_flight.log`. A loaded raw log comes back exactly as it was, with its own line endings. A loaded CSV file has no raw log, so it has no button.
+- `[ EXPORT CSV ]` downloads the same CSV file SAVE AS CSV in panel 2 writes (see "The CSV file"), made from the flight's status blocks with the times they arrived. A loaded CSV comes back byte for byte. A log with only packet lines (`SIM PKT` or `PKT`) has no status blocks, so it has no button.
+- `[ DELETE ]` asks in place (`DELETE THIS FLIGHT? [ DELETE ] [ KEEP ]`). Deleting the flight on screen goes back to live.
+
+A recording exports as `dogtooth-flight-2026-11-17-1432.log`, or with its own name when it was given one (`dogtooth-komodo-test-2.log`). A loaded file exports under the name it came in with.
+
+Under the list, a small note says `LOCAL FLIGHTS ARE STORED IN THIS BROWSER ONLY. EXPORT A RAW LOG TO KEEP ONE.` In a browser that won't open IndexedDB (some private windows), everything still works on a copy in memory, and the note says they last until the page closes.
+
+The HUD says RECORDED or LOADED FILE for a LOCAL flight, never REAL FLIGHT, since the page can't know whether a recording was a flight, a bench test or the PC sim. About this flight says the same and shows the flight's file name. A LOCAL flight has no ground station (like the live console), so the recovery block measures from the launch point, never from the demo position in `config.js`.
+
+### Loading a flight file
+
+`[ LOAD FILE ]` at the bottom of SAVED FLIGHTS opens the computer's file picker. A file dragged anywhere onto the page works too, with a quiet `DROP FLIGHT FILE` overlay while it's over the page. Only the first of several dropped files is loaded.
+
+It takes two kinds of file, told apart by what's in them, never only by the name:
+
+- a raw serial log from the board, like `pc_sim_flight.log` or an exported raw log. Any line my firmware prints (`SIM PKT`, `PKT`, `BAD`, the startup banner or a `HEARTBEAT` banner) makes it one. So a raw log named `.csv` still loads as a raw log.
+- the console's own CSV file (SAVE AS CSV or EXPORT CSV), known by its exact header row.
+
+The file is read in the browser and kept there as a LOCAL flight named after the file (`bench day 3.log` becomes `bench day 3`), then it opens. A file that is empty, isn't one of these, or has no reading the console can replay says so on the line under the bar, and nothing is kept. Files over 64 MB (`MAX_FILE_BYTES`) aren't loaded.
+
+A log with packet lines replays from them, like the library's flights. A log with only status blocks (what a board on USB prints) replays from the blocks, each turned into a sample by the same `blockToSample()` the live console uses (`serial-log-blocks` in `js/parser.js`). A loaded CSV is read back into those same blocks (`console-csv`), so it replays exactly like the recording it came from: the same readings, events, apogee and recovery position.
+
+### How LOCAL flights are stored
+
+IndexedDB database `dogtooth-flight-console`, version 1, with two stores:
+
+- `flights`: one record per flight, keyed by its id (`local-` and then letters and numbers), with its status (`recording` or `saved`), name, when it was made, where it came from (`recording` or `file`), its kind (`log` or `csv`), its line ending, and its counts.
+- `chunks`: its lines, keyed by `[id, seq]`. Each chunk has its lines and when each one arrived (none for a loaded file).
+
+A LOCAL flight's address is `?flight=local-...`. It only opens in the browser that made it. Anywhere else the console says it isn't in this browser.
+
+### Putting a recording in the library for everyone
+
+A LOCAL flight is only in one browser. To put one in SAVED FLIGHTS for every visitor:
+
+1. In SAVED FLIGHTS, press `[ EXPORT RAW LOG ]` under it. (For a loaded raw log, the original file works too.)
+2. Add it with the library tool, exactly like any other log (see "Adding a flight"):
+
+   `node flight-console/tools/add_flight.mjs --id first-flight-01 --title "First flight" --kind real --date 2026-11-17 --file "C:\path\to\dogtooth-first-flight.log" --rocket-name "GPS and radio board" --board "SAMD21, SAM-M8Q GPS and E22 LoRa radio" --site "Launch site name"`
+
+   Use `--kind real` only for a real flight and `--kind simulated` for anything else. Add `--gs-lat` and `--gs-lon` for where I stood with Manta. Without them the replay measures recovery distances from the demo position in `config.js`, which is nowhere near the flight. A log with only status blocks works, since the tool reads it the same way the page does.
+3. Check the events with `node flight-console/tools/check_detection.mjs first-flight-01`, then commit the new folder in `data/flights/` and `index.json`. The log is copied byte for byte, and `data/flights/.gitattributes` keeps Git from changing its line endings.
+
+Once it's in the library, the LOCAL copy can be deleted.
+
 ## Tests
 
 From the website folder, with Node 22 or newer:
@@ -700,6 +776,7 @@ node --test "flight-console/test/*.test.mjs"
 - `test/esri-layer.test.mjs` checks the satellite layer's own versions of Leaflet's tile methods (`js/views/esri.js`) with a small stand-in for Leaflet: a zoom keeps the old level's finished photos and drops only the ones still loading, a dropped tile's download is cancelled (or never asked for, if it was still waiting on the tilemap), and a dropped tile's late answer is ignored.
 - `test/idle-earth.test.mjs` checks `js/views/idle-earth.js`: the idle camera's fit is the same as before it moved there, the Earth's outline on screen matches a direct projection of a sphere for a tilted camera, and the poster's warp leaves a matching view alone, never touches anything outside the Earth, and moves a ring to where the new view draws it.
 - `test/hero-fish.test.mjs` checks the landing's two tuna in `js/hero-currents.js`: the anatomy field has a crisp edge, every part of the anatomy (the four fins, the pectoral fin and the two tail lobes) has its zone and a point to run into, the outline glows most and runs slowest at the teeth, and for a big and a small fish the flow lines cover about the fish's area, the first lines hug the outline, the fin lines run into the fin points and nothing crosses the eye's calm middle.
+- `test/local-flights.test.mjs` checks LOCAL flights with the Komodo log, on the in-memory copy of the storage: lines come back in order, a recording's raw log is the board's output byte for byte and its CSV is what SAVE AS CSV writes, a saved recording replays like the library's copy and is never `kind: 'real'`, a recording a tab still holds isn't offered for recovery and a let-go one is, a failed write is tried again with no line lost, files are told apart by their contents, and a loaded CSV or raw log exports back byte for byte (with a CSV's byte order mark, and a log's own line endings).
 - `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, and the Manta hook is there but switched off.
 
 `test/synthetic.mjs` isn't a test itself. It makes seeded, repeatable GPS data for the tests: a still board's wander (what my bench board did, about 15 m by 30 m sideways with worse altitude, plus single wild fixes, steps, lost fixes and a cold start) and whole flights that land into it.
@@ -732,7 +809,7 @@ node --test "flight-console/test/*.test.mjs"
 - `js/config.js`: every number and setting I might want to change: detection thresholds, the trail's quality gate, the pad checklist, the demo ground station position, playback speeds, redraw rates, the map tile addresses, keys and credits, the 3D camera, timeouts and the colors. Each one has a short comment.
 - `js/config.local.js`: my local CARTO map key, only on my laptop. Git ignores it (see "Map keys").
 - `js/schema.js`: the channel registry. It lists every value a board can send, which sensor group it belongs to, its label and unit, and the names different files use for it. It also has `hasGoodPosition()`, the test every rocket position goes through before the page trusts it. Ground station packets use a lighter check (a fix plus latitude and longitude) because they may not carry an altitude.
-- `js/parser.js`: the only code that understands flight file formats. It reads CSV files, JSON lines (including ground station position packets), and my firmware's serial output: `SIM PKT` hex lines from the simulator and `PKT` key=value lines from the bench_rx receiver. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that About this flight shows.
+- `js/parser.js`: the only code that understands flight file formats. It reads CSV files, JSON lines (including ground station position packets), the console's own CSV file, and my firmware's serial output: `SIM PKT` hex lines from the simulator, `PKT` key=value lines from the bench_rx receiver, and, in a log with neither, the status blocks. A bench_rx line missing any of its fields counts as a bad line, since those text lines have no checksum and a cut-off number would otherwise look real. If a board restarts mid-log, its clock starts over, so the parser shifts the later times to follow on and adds a note that About this flight shows.
 - `js/library.js`: loads and checks `index.json`, skipping broken entries without breaking the rest, and loads one flight's files. It also checks an entry's optional `groundStation`.
 - `js/fleet.js`: who each rocket is: name, short name (`callsign`), color and board. A rocket ID nobody registered gets the next color and a plain name.
 - `js/geo.js`: distance and bearing between two positions, compass names, and number, time and distance formatting.
@@ -744,7 +821,9 @@ node --test "flight-console/test/*.test.mjs"
 - `js/player.js`: the playback clock for saved flights: play, pause, speed, seek and replay.
 - `js/truth-check.js`: compares detected events with the simulator's true phases. Only the check tool and the tests use it. The page never loads it, and the detector never does.
 - `js/bench/parse.js`: the Dogtooth status block format and every name the console matches (see "Names the console knows").
-- `js/bench/csv.js`: builds the CSV file.
+- `js/bench/csv.js`: builds the CSV file, and reads one back into its blocks (`readCsvBlocks()`).
+- `js/local/flight-db.js`: where LOCAL flights are stored (IndexedDB, or a copy in memory). See "How LOCAL flights are stored".
+- `js/local/local-flights.js`: the recorder, recovery, reading a loaded file, a LOCAL flight's entry for the replay, and the two exports.
 - `js/live/sources.js`: the source detector, and the Manta hook.
 - `js/live/bench-feed.js`: turns the board's blocks into samples for the live store. It also holds the live stores' options (`BENCH_DETECTOR` and `LIVE_STORE_OPTIONS`).
 - `js/views/data-series.js`: the points for panel 2's graphs in a replay (see "Panel 2: graphs and readings").
@@ -764,7 +843,8 @@ node --test "flight-console/test/*.test.mjs"
 - `js/views/markers.js`: the look of everything the map and the 3D view draw: the breadcrumb dots and line, the board marker, the launch point, Manta's dish, the event diamond, the recovery crosshair, the packet ring, the radio link and its traveling dot, the ground shadow's sizes, and the small samples of each for the KEY (the gap and the packet ring included).
 - `js/views/map-labels.js`: the label layer both views share (DOGTOOTH, MANTA, LAUNCH POINT, APOGEE).
 - `js/views/launcher.js`: types the landing's title and starts its ocean currents (`js/hero-currents.js`).
-- `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped.
+- `js/views/saved-menu.js`: the SAVED FLIGHTS dropdown: one line per flight (name, date, flight time), a LIVE line, the keyboard, and notes when the library didn't load or an entry had to be skipped. Then the LOCAL flights with their buttons, the note about where they're kept, and LOAD FILE.
+- `js/views/local-console.js`: the page side of LOCAL flights: the REC readout, STOP and RECORD, the name box, the recovery line, LOAD FILE, the drop overlay and the downloads (see "LOCAL flights").
 - `js/views/panels.js`: the two panels: the `[ GRAPHS ]` and `[ MAP ]` switches, the left and right arrow keys (and where they belong to something else), keeping the panel off screen inert, and putting back any sideways scroll of the panel track.
 - `js/views/esri.js`: asks Esri once whether it accepts the satellite key, and makes the satellite tile layer, which checks how deep Esri's photos go at each place before asking for a tile. Every map in the visit shares both.
 - `js/views/hud.js`: the HUD over the 3D view (see "The HUD").

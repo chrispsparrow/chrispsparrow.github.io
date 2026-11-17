@@ -31,9 +31,9 @@ import { h, setChildren } from './dom.js?v=2';
 import { formatDuration } from '../geo.js?v=3';
 import { openFlightDb } from '../local/flight-db.js';
 import {
-  createRecorder, saveRecording, findUnfinished, listSaved, readFlightFile, storeFile,
+  createRecorder, saveRecording, findUnfinished, findBusy, listSaved, readFlightFile, storeFile,
   openLocalFlight, rawLogText, csvText, exportsFor, exportFileName, defaultName, cleanName,
-  isLocalId, MAX_FILE_BYTES, MAX_NAME,
+  isLocalId, lockName, MAX_FILE_BYTES, MAX_NAME, STALE_MS,
 } from '../local/local-flights.js';
 
 const $ = (id) => document.getElementById(id);
@@ -283,6 +283,33 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
     }
     recoverAsking = false;
     drawRecover();
+    watchBusy();
+  }
+
+  // A recording that a tab still holds isn't offered yet. That's another
+  // tab still recording, or, after a reload, the old page that hasn't quite
+  // let go. Each is looked at again as soon as its lock is free (without
+  // Web Locks, once it has gone stale), and offered then if it was left
+  // unfinished.
+  const watching = new Set();
+  async function watchBusy() {
+    let busy;
+    try {
+      busy = await findBusy(lazyDb, { except: recorder.record?.id ?? null });
+    } catch {
+      return;
+    }
+    const locks = globalThis.navigator?.locks;
+    for (const rec of busy) {
+      if (watching.has(rec.id)) continue;
+      watching.add(rec.id);
+      const again = () => {
+        watching.delete(rec.id);
+        checkUnfinished();
+      };
+      if (locks?.request) locks.request(lockName(rec.id), () => {}).then(again, again);
+      else setTimeout(again, STALE_MS + 1000);
+    }
   }
 
   function drawRecover() {
@@ -429,7 +456,9 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
       fileNote('FILE', `Reading ${name}...`);
       let text;
       try {
-        text = await file.text();
+        // Decoded by hand so a byte order mark stays (file.text() drops
+        // it), and the file exports back exactly as it came in.
+        text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(await file.arrayBuffer());
       } catch (err) {
         console.warn('Flight Console: could not read the file', err);
         fileNote('FILE', `${name} couldn't be read. Try saving it again and loading the new copy.`, 'warn');

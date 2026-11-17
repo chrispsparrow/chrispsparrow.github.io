@@ -1401,6 +1401,10 @@ html:has(body[data-fc-screen="console"]) { overflow: hidden; }
   .fc-page .fc-rec { font-size: 0.76rem; }
   .fc-page .fc-bar .fc-bkt.fc-rec-stop,
   .fc-page .fc-bar .fc-bkt.fc-rec-start { font-size: 0.72rem; }
+  /* The unsaved recording and file lines put their buttons on a row of
+     their own under the text, so the sentence keeps the full width. */
+  .fc-page :is(#fc-recover, #fc-file-note) { flex-wrap: wrap; column-gap: 1.2rem; }
+  .fc-page :is(#fc-recover, #fc-file-note) .fc-status-text { flex-basis: 100%; }
   /* The replay's name takes its own row under the buttons. */
   .fc-page .fc-replay-chip { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 0 0.8rem; }
   .fc-page .fc-replay-name { font-size: 0.8rem; }

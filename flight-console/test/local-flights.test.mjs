@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openFlightDb } from '../js/local/flight-db.js';
 import {
-  createRecorder, saveRecording, findUnfinished, listSaved, readFlightFile, storeFile,
+  createRecorder, saveRecording, findUnfinished, findBusy, listSaved, readFlightFile, storeFile,
   openLocalFlight, rawLogText, csvText, exportsFor, exportFileName, defaultName,
   detectFlightFile, linesToBlocks, isLocalId, cleanName, STALE_MS,
 } from '../js/local/local-flights.js';
@@ -125,6 +125,7 @@ test('a saved recording is named, summed up, and its CSV is what SAVE AS CSV wri
   const named = await saveRecording(db, stopped, '  Komodo   test #2 ');
   assert.equal(named.title, 'Komodo test #2');
   assert.equal(exportFileName(named, 'csv'), 'dogtooth-komodo-test-2.csv');
+  assert.equal(exportFileName(await saveRecording(db, stopped, 'Dogtooth test'), 'log'), 'dogtooth-test.log', 'no doubled prefix');
   assert.equal(cleanName('x'.repeat(200), 0).length, 80);
 });
 
@@ -135,6 +136,14 @@ test('a saved recording replays like the library\'s copy of the same log', async
   const local = await openLocalFlight(db, saved.id);
   assert.equal(local.entry.groundStation, null);
   assert.equal(local.entry.title, 'Komodo');
+  // Never claimed as a real flight: the HUD says RECORDED from `source`.
+  assert.equal(local.entry.kind, 'local');
+  assert.equal(local.entry.source, 'recording');
+  assert.equal(local.entry.fileLabel, 'dogtooth-komodo.log');
+  const file = readFlightFile(LOG, 'bench day 3.log');
+  await storeFile(db, file.record, file.lines);
+  const fileEntry = (await openLocalFlight(db, file.record.id)).entry;
+  assert.deepEqual([fileEntry.kind, fileEntry.source, fileEntry.fileLabel, fileEntry.title], ['local', 'file', 'bench day 3.log', 'bench day 3']);
   const flight = await local.load();
   const library = parseFile(LOG, 'pc_sim_flight.log', { defaultRocketId: '1' });
   assert.equal(flight.samples.length, library.samples.length);
@@ -159,10 +168,12 @@ test('a recording left behind is found, unless another tab still holds it', asyn
   await live.flush();
   // Still running in "another tab": its lock is held.
   assert.deepEqual(await findUnfinished(db, { locks }), []);
+  assert.equal((await findBusy(db, { locks })).length, 1, 'held, so the page waits for it');
   await live.stop();
   assert.deepEqual(await findUnfinished(db, { locks }), [], 'the name box is still open, so the lock is held');
   live.release();
   await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(await findBusy(db, { locks }), [], 'let go, so it is no longer busy');
   assert.deepEqual((await findUnfinished(db, { locks })).map((r) => r.id), [live.record?.id ?? (await db.listFlights())[0].id]);
   // Without Web Locks, it counts once it hasn't been touched for a while.
   const rec = (await db.listFlights())[0];
@@ -217,6 +228,8 @@ test('a loaded CSV file replays, and exports back byte for byte', async () => {
   assert.equal(loaded.record.kind, 'csv');
   assert.equal(loaded.record.title, 'dogtooth-bench-2026-11-17-0600');
   assert.deepEqual(exportsFor(loaded.record), { rawLog: false, csv: true });
+  assert.equal(exportFileName(loaded.record, 'csv'), 'dogtooth-bench-2026-11-17-0600.csv', 'a loaded file keeps its own name');
+  assert.equal(loaded.lines[0].charCodeAt(0), 0xfeff, 'the byte order mark is kept');
   await storeFile(db, loaded.record, loaded.lines, 50);
   const data = await db.readLines(loaded.record.id);
   assert.equal(csvText(loaded.record, data), csv);
