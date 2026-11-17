@@ -35,7 +35,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=32">
+  <link rel="stylesheet" href="css/style.css?v=33">
 </head>
 <body>
   <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
@@ -134,39 +134,45 @@
     <h2 class="sr-only">Projects</h2>
 
     <!-- ── COMING SOON (inside the Projects band, above the panels) ──
-         No visible title, since each card shows its own status. On wide
-         screens the cards keep a two-across size in a row that runs the full
-         width of the window. With two cards the row is exactly full. A third
-         card would make it scroll sideways, but only when the visitor scrolls
-         it (trackpad or Shift+wheel while over it). -->
+         No visible title, since the card shows its own status. One full-width
+         card (.soon-card--wide) for the ground station, Manta and Remora
+         together: text on the left, the two drawings on the right. On phones
+         the drawings go under the text. The row could still hold more cards
+         later, and then it would scroll sideways when the visitor scrolls it
+         (trackpad or Shift+wheel while over it).
+         The drawings are cropped web copies of assets/manta/manta-three-yagi.png
+         and remora-pan-tilt.png, with the same #F3F1EC background as the page.
+         The ground station page (ground-station/) uses the same two files. -->
     <section class="coming-soon" aria-label="Coming soon">
       <div class="coming-soon-grid">
-        <article class="soon-card reveal reveal-d1" id="ground-station">
+        <article class="soon-card soon-card--wide reveal reveal-d1" id="ground-station">
           <!-- Dashed border drawn in SVG so the dashes can march clockwise around the rounded corners -->
           <svg class="soon-border" aria-hidden="true" focusable="false">
             <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
           </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span><span class="soon-codename">MANTA</span>In progress</p>
-          <h3 class="soon-title">Ground Station Telemetry Receiver</h3>
-          <p class="soon-meta">AerospaceNU, project lead, started September 2026</p>
-          <ul class="soon-list">
-            <li>Ground station that tracks up to 3 rockets live at once</li>
-            <li>Streams data to a laptop or phone over Bluetooth and logs it to an SD card</li>
-          </ul>
-        </article>
-
-        <article class="soon-card reveal reveal-d2" id="antenna-tracker">
-          <svg class="soon-border" aria-hidden="true" focusable="false">
-            <rect x="0" y="0" width="100%" height="100%" rx="6" ry="6" pathLength="1000"/>
-          </svg>
-          <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span><span class="soon-codename">REMORA</span>Up next</p>
-          <h3 class="soon-title">Antenna Tracker</h3>
-          <p class="soon-meta">Solo project, waiting on Manta</p>
-          <ul class="soon-list">
-            <li>Antenna tracker that rides on Manta</li>
-            <li>Drives motors that aim a Yagi antenna at the rocket by comparing GPS positions</li>
-            <li>Plugs into Manta's tracker port</li>
-          </ul>
+          <div class="soon-text">
+            <p class="soon-status"><span class="soon-dot" aria-hidden="true"></span><span class="soon-codename">GROUND STATION</span>In progress</p>
+            <h3 class="soon-title">Manta and Remora</h3>
+            <p class="soon-meta">AerospaceNU, project lead, started September 2026</p>
+            <ul class="soon-list">
+              <li>Manta tracks up to 3 rockets live at once</li>
+              <li>Streams data to a laptop or phone over Bluetooth and logs it to an SD card</li>
+              <li>Remora rides on Manta and aims a Yagi antenna at the rocket by comparing GPS positions</li>
+            </ul>
+            <p class="soon-link-row"><a class="soon-link" href="ground-station/">See the design</a></p>
+          </div>
+          <div class="soon-figs">
+            <figure class="soon-fig soon-fig--manta">
+              <img src="assets/manta/manta-three-yagi.webp" width="1000" height="718" loading="lazy" decoding="async"
+                   alt="Drawing of Manta, a box in the middle of three arms, with a Yagi antenna on a Remora at the end of each arm">
+              <figcaption class="soon-fig-cap"><span class="soon-dot" aria-hidden="true"></span>MANTA</figcaption>
+            </figure>
+            <figure class="soon-fig soon-fig--remora">
+              <img src="assets/manta/remora-pan-tilt.webp" width="1000" height="1045" loading="lazy" decoding="async"
+                   alt="Drawing of Remora holding a Yagi antenna, with arrows showing it turns left and right and tilts up and down">
+              <figcaption class="soon-fig-cap"><span class="soon-dot" aria-hidden="true"></span>REMORA</figcaption>
+            </figure>
+          </div>
         </article>
       </div>
     </section>
@@ -549,7 +555,7 @@
     const card = document.getElementById('av-viewer');
     if (card) applyLookToModelViewer(card);
   </script>
-  <script src="js/main.js?v=18"></script>
+  <script src="js/main.js?v=19"></script>
   <script src="js/fish-logo.js?v=2"></script>
   <script src="js/flight-replay.js?v=2"></script>
 </body>

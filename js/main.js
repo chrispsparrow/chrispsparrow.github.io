@@ -54,14 +54,15 @@ const SOON    = {};
 
   /* Only play the intro on a fresh entry or a reload of the main page — never
      when returning from one of our own project pages (e.g. clicking the name or
-     "← Selected Work"). We detect that via the referrer being a /projects/ page
-     or the Flight Console. */
+     "← Selected Work"). We detect that via the referrer being a /projects/ page,
+     the Flight Console or the ground station page. */
   let cameFromProject = false;
   try {
     if (document.referrer) {
       const ref = new URL(document.referrer);
       cameFromProject = ref.origin === location.origin &&
-        (ref.pathname.includes('/projects/') || ref.pathname.includes('/flight-console/'));
+        (ref.pathname.includes('/projects/') || ref.pathname.includes('/flight-console/') ||
+         ref.pathname.includes('/ground-station/'));
     }
   } catch (_) { /* malformed referrer — treat as fresh entry */ }
   if (cameFromProject) { skipNow(); return; }

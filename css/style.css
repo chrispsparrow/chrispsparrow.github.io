@@ -1259,6 +1259,69 @@ body.intro-active { overflow: hidden; background: var(--hero-bg); }
   .soon-dot, .soon-border rect { animation: none; }
 }
 
+/* The full-width ground station card: text on the left (about 40%) and the
+   Manta and Remora drawings on the right (about 60%), both centered up and
+   down. It spans the whole row, with or without .soon-scroll. */
+.soon-card--wide {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  column-gap: clamp(1.5rem, 3vw, 2.5rem);
+  --soon-fig-h: 300px;     /* how tall both drawings show */
+  --soon-fig-gap: 1.5rem;
+}
+#work.soon-scroll .soon-card--wide { flex: 0 0 100%; }
+.soon-text { min-width: 0; }
+/* The two drawings side by side at the same height. Each one's share of the
+   width matches its own width-to-height ratio (Manta 1000 x 718 = 1.3928,
+   Remora 1000 x 1045 = 0.9569), and the row is never wider than the pair at
+   --soon-fig-h, so a narrower card shrinks both together. The drawings'
+   background is the page's own #F3F1EC, so they show with no box around them. */
+.soon-figs {
+  display: flex;
+  gap: var(--soon-fig-gap);
+  width: 100%;
+  max-width: calc(var(--soon-fig-h) * 2.3497 + var(--soon-fig-gap));
+  margin-inline: auto;
+}
+.soon-fig { margin: 0; min-width: 0; }
+.soon-fig--manta  { flex: 1.3928 1 0px; }
+.soon-fig--remora { flex: 0.9569 1 0px; }
+.soon-fig img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+/* The Remora crop cuts through Manta's frame tubes on its right edge, so that
+   edge fades out into the page */
+.soon-fig--remora img {
+  -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 98%);
+          mask-image: linear-gradient(to right, #000 72%, transparent 98%);
+}
+/* Under each drawing: the pulsing dot and the codename, nothing else */
+.soon-fig-cap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--soon-text);
+}
+/* Stacked: text first, then the drawings side by side under it */
+@media (max-width: 900px) {
+  .soon-card--wide { grid-template-columns: minmax(0, 1fr); row-gap: 1.6rem; --soon-fig-h: 220px; }
+}
+/* Phones: a little less side padding, so the two drawings get more of the
+   width. Side by side at 150px tall they'd need about 365px, so on most
+   phones they come out a bit shorter than that. */
+@media (max-width: 640px) {
+  .soon-card--wide { padding-inline: 1.25rem; --soon-fig-h: 150px; --soon-fig-gap: 0.75rem; }
+}
+
 /* Card: full flex column, no background */
 .project-card {
   display: flex;

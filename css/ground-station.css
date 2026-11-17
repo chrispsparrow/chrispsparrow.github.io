@@ -1,0 +1,200 @@
+/* ============================================================
+   GROUND STATION PAGE  (ground-station/index.html)
+   A short concept page for Manta and Remora. Loads after style.css and
+   uses its tokens, nav, footer, .container and .soon-dot. The page stays
+   on the cream --bg (the drawings have the same background) with the
+   salmon --soon-accent and --soon-text accents from the home page card.
+   ============================================================ */
+
+/* ── 1. Top: title left, cycling renders right ─────────────── */
+.gs-top { padding: 6.75rem 0 3.5rem; }
+.gs-top-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+.gs-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--soon-text);
+  margin-bottom: 1.1rem;
+}
+.gs-title {
+  font-size: clamp(3rem, 7vw, 6rem);
+  font-weight: 700;
+  line-height: 0.95;
+  color: var(--text);
+  margin-bottom: 1.5rem;
+}
+.gs-lede {
+  font-size: clamp(1.1rem, 1.5vw, 1.3rem);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 32rem;
+}
+
+/* The renders (900 x 1380). The box sets the section's height: as tall as the
+   window allows under the nav, and never so wide that the title gets squeezed.
+   The three frames sit on top of each other. The one showing (.is-on) fades in
+   over the last one (.is-prev), which stays fully shown underneath until the
+   fade ends, so the switch never dips toward a blank frame. */
+.gs-cycle {
+  position: relative;
+  width: clamp(280px, min(44vw, calc((100svh - 10.25rem) * 0.6522)), 540px);
+  aspect-ratio: 900 / 1380;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2);   /* only seen before the first render loads */
+}
+.gs-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 150ms linear;
+}
+.gs-frame.is-on   { opacity: 1; z-index: 2; }
+.gs-frame.is-prev { opacity: 1; z-index: 1; transition: none; }
+/* Reduced motion: no switching, only the starter render */
+@media (prefers-reduced-motion: reduce) {
+  .gs-frame { opacity: 0 !important; transition: none; }
+  .gs-frame[data-frame="starter"] { opacity: 1 !important; }
+}
+
+/* ── 2. Intro ──────────────────────────────────────────────── */
+.gs-intro { padding: 2rem 0 3.5rem; }
+.gs-intro p {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: clamp(1.05rem, 1.35vw, 1.2rem);
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+/* An inline link underlined in the salmon accent, like the card's .soon-link */
+.gs-link {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--soon-accent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.gs-link:hover { color: var(--soon-text); }
+.gs-link:focus-visible { outline: 2px solid var(--soon-text); outline-offset: 2px; }
+
+/* ── 3 and 4. Manta and Remora ─────────────────────────────── */
+/* The drawing comes first in the markup, so on a phone it shows above the
+   text for both parts. On wide screens Manta has it on the left and Remora
+   (.gs-part--flip) on the right. */
+.gs-part { padding: 2.5rem 0; }
+.gs-part-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+.gs-part--flip .gs-part-inner { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.gs-part--flip .gs-fig { order: 2; }
+
+.gs-fig { margin: 0; justify-self: center; width: 100%; }
+.gs-fig img { width: 100%; height: auto; object-fit: contain; }
+.gs-fig--manta  { max-width: 680px; }
+.gs-fig--remora { max-width: 500px; }
+/* Same fade as the card: the crop's right edge cuts through Manta's frame tubes */
+.gs-fig--remora img {
+  -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 98%);
+          mask-image: linear-gradient(to right, #000 72%, transparent 98%);
+}
+
+.gs-part-text h2 {
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 0.65rem;
+}
+.gs-part-sub {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--soon-text);
+  margin-bottom: 1.4rem;
+}
+.gs-part-text p:not(.gs-part-sub) {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  max-width: 33rem;
+}
+.gs-part-text p:not(.gs-part-sub) + p { margin-top: 1rem; }
+
+/* ── 5. Close ──────────────────────────────────────────────── */
+.gs-close { padding: 3rem 0 6rem; }
+/* Dashed salmon line, with dashes close to the card border's size */
+.gs-divider {
+  height: 1.5px;
+  background: repeating-linear-gradient(90deg, var(--soon-accent) 0 9px, transparent 9px 16px);
+}
+.gs-close-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem 3rem;
+  padding-top: 2.25rem;
+}
+.gs-close-row p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 34rem;
+}
+.gs-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; flex-shrink: 0; }
+.gs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.4rem;
+  border: 1.5px solid;
+  border-radius: 3px;
+  font-family: var(--font-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.gs-btn--salmon { border-color: var(--soon-accent); color: var(--soon-text); }
+.gs-btn--salmon:hover { background: rgba(255,140,105,0.14); border-color: var(--soon-text); }
+.gs-btn--dark { border-color: var(--text); color: var(--text); }
+.gs-btn--dark:hover { background: rgba(23,21,15,0.06); }
+.gs-btn:focus-visible { outline: 2px solid var(--soon-text); outline-offset: 3px; }
+
+/* ── Narrow screens ────────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Renders on top, text under them */
+  .gs-top { padding: 5.5rem 0 2.5rem; }
+  .gs-top-inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  .gs-cycle { order: -1; justify-self: center; width: min(100%, calc(66svh * 0.6522)); }
+  .gs-top-text { justify-self: center; width: 100%; max-width: 36rem; }
+
+  .gs-part-inner,
+  .gs-part--flip .gs-part-inner { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
+  .gs-part--flip .gs-fig { order: 0; }
+  .gs-part-text { justify-self: center; width: 100%; max-width: 36rem; }
+
+  .gs-close-row { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 640px) {
+  .gs-top { padding-top: 5rem; }
+  .gs-intro { padding: 1.5rem 0 2.5rem; }
+  .gs-part { padding: 2rem 0; }
+  .gs-close { padding-bottom: 4.5rem; }
+  .gs-actions { width: 100%; }
+  .gs-btn { flex: 1 1 auto; }
+}
