@@ -330,6 +330,7 @@ export function createMapView(root, ctx) {
   let retryTimer = 0;
   let globe = null;         // the 3D view once it is running (globe-view.js)
   let revealing = false;    // the 3D view is fading in over the poster
+  let posterGlide = 0;      // 0: the poster lands at once, 1: about to glide, 2: glides (see placePoster)
   let revealTimer = 0;
   let settleWaiters = [];   // whenSettled() calls waiting (see there)
   let body = canvas;        // what the 2D side shows: the map or the no-map panel
@@ -774,7 +775,32 @@ export function createMapView(root, ctx) {
     if (posterCredit.hidden === credit) posterCredit.hidden = !credit;
     threePanel.classList.toggle('is-under', on);
     if (on) placePoster();
-    else threePanel.style.removeProperty('--fc-msg-top');
+    else {
+      threePanel.style.removeProperty('--fc-msg-top');
+      setPosterGlide(false);
+    }
+  }
+
+  // After its first placement, the poster and the message under it glide
+  // to a new place (is-gliding, flight-console-map.css) instead of jumping,
+  // as when the web fonts arrive and the controls row takes a little more or
+  // less room. The first placement is never a glide: the glide starts two
+  // frames later, once that has been drawn.
+  function setPosterGlide(on) {
+    if (!on) {
+      posterGlide = 0;
+      poster?.classList.remove('is-gliding');
+      threePanel.classList.remove('is-gliding');
+      return;
+    }
+    if (posterGlide) return;
+    posterGlide = 1;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (destroyed || posterGlide !== 1) return;
+      posterGlide = 2;
+      poster.classList.add('is-gliding');
+      threePanel.classList.add('is-gliding');
+    }));
   }
 
   // Lays the poster exactly over the Earth the 3D view will draw (see
@@ -791,6 +817,7 @@ export function createMapView(root, ctx) {
     const hgt = frame.clientHeight;
     if (!(w > 0 && hgt > 0)) return;
     const earth = posterApi.place(w, hgt, bottomBand(frame), placePoster);
+    setPosterGlide(true);
     const box = threePanel.firstElementChild;
     if (!box || threePanel.hidden) return;
     const blocks = rectsOver(frame, [...coverElements(), corner], []);

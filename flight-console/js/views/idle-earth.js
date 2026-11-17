@@ -145,14 +145,30 @@ export function warpEarth(src, n, earthPx, scale, faceShift = 0) {
   const lo = Math.max(0, Math.floor(c - earthPx));
   const hi = Math.min(n, Math.ceil(c + earthPx));
   const row = n * 4;
+  const e2 = earthPx * earthPx;
+  const d2 = faceShift * faceShift;
   for (let y = lo; y < hi; y++) {
     const dyOutline = y + 0.5 - c;
     const dy = dyOutline - faceShift;
     for (let x = lo; x < hi; x++) {
       const dx = x + 0.5 - c;
       if ((dx * dx + dyOutline * dyOutline) * inv >= 1) continue;
-      const q = Math.min(1, (dx * dx + dy * dy) * inv);
-      const s = lut[(q * LUT) | 0];
+      // How far out the point is, from the face's middle toward the
+      // outline (0 to 1): its distance over the distance from the face's
+      // middle to the outline in its direction. So the outline always maps
+      // onto the picture's own outline, however far the face's middle sits
+      // below the outline's center.
+      const r = Math.sqrt(dx * dx + dy * dy);
+      let s;
+      if (r < 1e-6) s = lut[0];
+      else {
+        const uy = dy / r;
+        const reach = -uy * faceShift + Math.sqrt(Math.max(0, uy * uy * d2 - d2 + e2));
+        const rho = Math.min(1, r / reach);
+        // The picture's radius for that point, earthPx * rho * scale(rho),
+        // turned into a factor on (dx, dy).
+        s = (lut[(rho * rho * LUT) | 0] * rho * earthPx) / r;
+      }
       const sx = Math.min(n - 1.001, Math.max(0, c + dx * s - 0.5));
       const sy = Math.min(n - 1.001, Math.max(0, c + dy * s - 0.5));
       const ix = sx | 0;

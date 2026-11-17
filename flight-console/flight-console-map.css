@@ -64,6 +64,14 @@
   -webkit-user-drag: none;
 }
 .fc-page .fc-globe-poster[hidden] { display: none; }
+/* Before the 3D view is in, the poster and the message under it glide to a
+   new place over 0.3 s instead of jumping, as when the web fonts arrive and
+   the controls row takes a little more or less room. map-view.js adds
+   is-gliding once the poster has landed in its first place. */
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-map-frame .fc-globe-poster.is-gliding { transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease; }
+  .fc-page .fc-globe-panel.is-under.is-gliding .fc-globe-msgbox { transition: top 0.3s ease; }
+}
 
 /* The early poster (js/views/globe-poster.js). On the console's addresses,
    before the page's code has shown a screen, the console is laid out but
