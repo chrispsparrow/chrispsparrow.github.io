@@ -9,7 +9,10 @@
              hero's ripple pulse reaches its widest ring, every fish appears
              on that ring (in the direction of its home from the logo's
              center) and swims in to its home spot, then the SVG logo fades
-             in. The footer logo has no intro. It is just there, waiting.
+             in. The cursor and touches are ignored until every fish is
+             home, so the logo always forms. Input from the intro isn't
+             kept: the first move after it is checked like any other.
+             The footer logo has no intro. It is just there, waiting.
    Idle      The crisp SVG logo shows. The fish canvas is hidden and no
              animation loop runs.
    Vibrate   Like an old TV with a crack in it: now and then a glitch spell
@@ -539,10 +542,7 @@
       simTime += dt;
       if (state === VIBRATE) stepVibrate();
       else if (state === SCHOOL) stepSchool(dt);
-      else if (state === REFORM || (state === INTRO && introPhase === 'swim')) {
-        stepReform(dt);
-        if (state === INTRO) checkIntroTouch();
-      }
+      else if (state === REFORM || (state === INTRO && introPhase === 'swim')) stepReform(dt);
       if (state === VIBRATE || state === SCHOOL || state === REFORM || (state === INTRO && introPhase === 'swim')) {
         matchDpr();
         draw();
@@ -670,7 +670,7 @@
         by[i] = Math.sin(a) * speed;
         fear[i] = Math.max(fear[i], k);
         wand[i] = (Math.random() - 0.5) * 0.8;
-        const swimming = (from === REFORM || from === INTRO) && (x[i] !== hx[i] || y[i] !== hy[i]);
+        const swimming = from === REFORM && (x[i] !== hx[i] || y[i] !== hy[i]);
         if (swimming) {
           held[i] = 0;
           vx[i] += bx[i]; vy[i] += by[i];
@@ -968,8 +968,8 @@
         let nx = x[i] + nvx * dt, ny = y[i] + nvy * dt;
         /* Last resort if a fast fish overshoots: stop it at the frame and turn
            it back in. The edge push above normally keeps this from happening. */
-        /* A fish still outside the frame (broken mid-intro) is not snapped in;
-           the edge push brings it in. */
+        /* A fish already outside the frame is not snapped in; the edge push
+           brings it in. */
         if (nx < minX) { if (x[i] >= minX) { nx = minX; if (nvx < 0) nvx = -nvx * 0.3; } }
         else if (nx > maxX) { if (x[i] <= maxX) { nx = maxX; if (nvx > 0) nvx = -nvx * 0.3; } }
         if (ny < minY) { if (y[i] >= minY) { ny = minY; if (nvy < 0) nvy = -nvy * 0.3; } }
@@ -1162,17 +1162,14 @@
     /* ── Input ─────────────────────────────────────────────── */
     /* Mouse or pen. Hover hits are tested once per frame against the logo
        masks, including the points between the last check and now, so a quick
-       flick across the logo still counts. */
+       flick across the logo still counts. During the intro every move is
+       dropped, and the last checked point stays unset, so the first check
+       after it looks at where the cursor is then and nowhere else. */
     function checkPointer() {
       checkRaf = 0;
-      if (!canRun() || state === SCHOOL || ptr.kind !== 'mouse' || !ptr.inWindow) { lastCheckX = NaN; return; }
+      if (!canRun() || state === SCHOOL || state === INTRO || ptr.kind !== 'mouse' || !ptr.inWindow) { lastCheckX = NaN; return; }
       toCanvas(ptr.cx, ptr.cy);
       const px = CP[0], py = CP[1];
-      if (state === INTRO) {
-        if (introPhase === 'swim' && touchesFish(px, py, 6) && rootUnder(ptr.cx, ptr.cy, false)) breakLogo(px, py);
-        lastCheckX = px; lastCheckY = py;
-        return;
-      }
       let hit = false, hitX = px, hitY = py;
       if (lastCheckX === lastCheckX) {
         const dx = px - lastCheckX, dy = py - lastCheckY;
@@ -1189,7 +1186,7 @@
     }
 
     document.addEventListener('pointermove', (e) => {
-      if (e.pointerType === 'touch') return;
+      if (e.pointerType === 'touch' || state === INTRO) return;
       ptr.kind = 'mouse';
       ptr.cx = e.clientX; ptr.cy = e.clientY;
       ptr.inWindow = true;
@@ -1235,18 +1232,8 @@
       if (ptr.captured && e.cancelable && findTouch(e.changedTouches, ptr.touchId)) e.preventDefault();
     }, { passive: false });
     root.addEventListener('touchstart', (e) => {
-      if (!canRun() || ptr.touchId !== null) return;
-      const t = e.changedTouches[0];
-      if (state === INTRO && introPhase === 'swim') {
-        // a finger landing on the incoming fish breaks the logo like a normal break
-        toCanvas(t.clientX, t.clientY);
-        if (!touchesFish(CP[0], CP[1], 14)) return;
-        startTouch(t, false);
-        breakLogo(CP[0], CP[1]);
-        return;
-      }
-      if (state !== SCHOOL) return;
-      startTouch(t, false);
+      if (!canRun() || ptr.touchId !== null || state !== SCHOOL) return;
+      startTouch(e.changedTouches[0], false);
     }, { passive: true });
     root.addEventListener('touchmove', (e) => {
       if (ptr.touchId === null) return;
@@ -1428,23 +1415,6 @@
       buildPaths(INTRO_DURATION / 1000, INTRO_STAGGER / 1000);
       showFish();
       startLoop();
-    }
-    /* Every frame of the intro: if the cursor is on an incoming fish (moving
-       or not), the logo breaks like a normal break. */
-    function checkIntroTouch() {
-      if (ptr.kind !== 'mouse' || !ptr.inWindow) return;
-      toCanvas(ptr.cx, ptr.cy);
-      const px = CP[0], py = CP[1];
-      if (touchesFish(px, py, 8) && rootUnder(ptr.cx, ptr.cy, false)) breakLogo(px, py);
-    }
-    /* Is any fish within r px of this point? */
-    function touchesFish(px, py, r) {
-      const r2 = r * r;
-      for (let i = 0; i < N; i++) {
-        const dx = x[i] - px, dy = y[i] - py;
-        if (dx * dx + dy * dy < r2) return true;
-      }
-      return false;
     }
   } // end of fishLogo
 
