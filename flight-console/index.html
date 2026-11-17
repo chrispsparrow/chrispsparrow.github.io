@@ -59,11 +59,35 @@
        console, the landing's hero, the map and 3D view, and the graphs panel. -->
   <link rel="stylesheet" href="flight-console.css?v=13">
   <link rel="stylesheet" href="flight-console-hero.css?v=2">
-  <link rel="stylesheet" href="flight-console-map.css?v=3">
+  <link rel="stylesheet" href="flight-console-map.css?v=4">
   <link rel="stylesheet" href="flight-console-data.css?v=2">
   <!-- With JavaScript off, hide the "Loading..." line (the noscript note
        explains) and show the landing, which is plain HTML. -->
   <noscript><style>.fc-page #fc-message { display: none; } .fc-page #fc-landing[hidden] { display: block !important; }</style></noscript>
+  <!-- Track a Rocket's 3D view starts on a still of the globe
+       (#fc-globe-poster below, see js/views/globe-poster.js). On the
+       console's own addresses the browser fetches the picture and the three
+       small files that put it up first thing, so it shows long before the
+       rest of the page's code arrives on a slow connection. The picture's
+       sources and sizes match the img's, and the files' addresses match
+       their imports (?v= included), or they would be fetched twice. -->
+  <script>
+    if (/[?&](track|flight)\b/.test(location.search)) {
+      var fcPoster = document.createElement('link');
+      fcPoster.rel = 'preload';
+      fcPoster.as = 'image';
+      fcPoster.setAttribute('imagesrcset', '../assets/flight-console/globe-poster.webp?v=1 550w, ../assets/flight-console/globe-poster@2x.webp?v=1 1100w');
+      fcPoster.setAttribute('imagesizes', 'min(94vw, calc(94vh - 160px))');
+      fcPoster.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(fcPoster);
+      ['js/views/globe-poster.js', 'js/views/idle-earth.js', 'js/views/map-controls.js'].forEach(function (href) {
+        var link = document.createElement('link');
+        link.rel = 'modulepreload';
+        link.href = href;
+        document.head.appendChild(link);
+      });
+    }
+  </script>
 </head>
 <body class="fc-page fc-theme">
 
@@ -217,6 +241,12 @@
                of the view they leave free. -->
           <section id="fc-panel-globe" class="fc-screen fc-stage" data-screen="globe" aria-label="3D view">
             <div id="fc-map" class="fc-stage-map"></div>
+            <!-- The globe's poster, a still of the 3D view's idle Earth. It
+                 stays hidden here. map-view.js draws it on a canvas in the
+                 map's frame while Cesium loads. Being in the page means the
+                 browser fetches it with the page (on the landing too, at
+                 low priority), so TRACK A ROCKET finds it ready. -->
+            <img id="fc-globe-poster" class="fc-globe-poster" src="../assets/flight-console/globe-poster.webp?v=1" srcset="../assets/flight-console/globe-poster.webp?v=1 550w, ../assets/flight-console/globe-poster@2x.webp?v=1 1100w" sizes="min(94vw, calc(94vh - 160px))" width="550" height="550" alt="" hidden>
             <div class="fc-overlay">
               <div id="fc-hud" class="fc-hud"></div>
               <div class="fc-ov-top" data-fc-cover>
@@ -351,6 +381,12 @@
       <p class="fc-wait">Loading the Flight Console...</p>
     </section>
 
+    <!-- The globe's poster, on its own, as soon as it can: on the console's
+         addresses it shows the poster where the 3D view will be while the
+         rest of the page's code downloads (see js/views/globe-poster.js).
+         On the landing it does nothing. -->
+    <script type="module" async src="js/views/globe-poster.js"></script>
+
     <noscript>
       <p class="fc-noscript">The Flight Console needs JavaScript to connect to a board and play flights.</p>
     </noscript>
@@ -387,12 +423,14 @@
           integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
           crossorigin="anonymous" referrerpolicy="no-referrer"
           onload="this.dataset.state='loaded'" onerror="this.dataset.state='failed'"></script>
-  <script type="module" src="js/main.js?v=11" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
+  <script type="module" src="js/main.js?v=12" onerror="fcLoadProblem('The Flight Console didn\'t load. Refresh the page to try again.')"></script>
   <!-- If the page's code fails to download, or is still missing after 15 s,
        say so instead of leaving an empty page. -->
   <script>
     function fcLoadProblem(text) {
       if (window.fcStarted) return;
+      // The early globe poster steps aside so the problem shows.
+      delete document.body.dataset.fcBoot;
       var box = document.getElementById('fc-message');
       box.hidden = false;
       box.innerHTML = '';

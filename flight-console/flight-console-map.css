@@ -36,9 +36,64 @@
 }
 
 /* The 3D view fills the frame. While it loads it is in the page (so
-   Cesium has a size to draw at) but out of sight. */
+   Cesium has a size to draw at) but out of sight. When its first picture
+   is in, it fades in over the globe's poster (is-revealing, for
+   POSTER_FADE_MS in map-view.js) and the loading message fades out. */
 .fc-page .fc-globe { position: absolute; inset: 0; z-index: 1; background: var(--fc-bg); }
 .fc-page .fc-globe.is-waiting { visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page .fc-globe.is-revealing { animation: fc-globe-in 0.4s ease both; }
+  .fc-page .fc-globe-panel.is-leaving { animation: fc-globe-msg-out 0.4s ease both; }
+  @keyframes fc-globe-in { from { opacity: 0; } }
+  @keyframes fc-globe-msg-out { to { opacity: 0; } }
+}
+
+/* The globe's poster: a still of the idle Earth
+   (assets/flight-console/globe-poster.webp) under the 3D view while it
+   loads. map-view.js sets its place and size so it lies exactly where the
+   real Earth will draw. The same picture sits hidden in index.html (with
+   the same class) so the browser fetches it with the page. The site's
+   img rule would show a hidden one, so [hidden] is spelled out. */
+.fc-page .fc-globe-poster {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.fc-page .fc-globe-poster[hidden] { display: none; }
+
+/* The early poster (js/views/globe-poster.js). On the console's addresses,
+   before the page's code has shown a screen, the console is laid out but
+   invisible, so the poster lands exactly where the 3D view will be, and
+   only the poster, the loading message under it and the poster's credit
+   show. The page's "Loading the Flight Console..." line steps aside.
+   main.js ends it when it shows a screen. */
+.fc-page[data-fc-boot="globe"] #fc-message { display: none; }
+.fc-page[data-fc-boot="globe"] #fc-console[hidden] { display: flex !important; }
+.fc-page[data-fc-boot="globe"] #fc-console { visibility: hidden; }
+.fc-page[data-fc-boot="globe"] #fc-console :is(.fc-globe-poster, .fc-boot-msg, .fc-boot-credit) { visibility: visible; }
+.fc-page[data-fc-boot="globe"] footer { display: none; }
+html:has(body[data-fc-boot="globe"]) { overflow: hidden; }
+.fc-page:not([data-fc-boot="globe"]) :is(.fc-boot-msg, .fc-boot-credit) { display: none; }
+/* The section's fonts can arrive after the early poster shows, and the
+   stand-in controls row then takes a little more or less room, so the Earth
+   moves a few px. It glides there instead of jumping. (Only here: once the
+   page's code runs, the poster follows the window at once.) */
+@media (prefers-reduced-motion: no-preference) {
+  .fc-page[data-fc-boot="globe"] .fc-globe-poster { transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease; }
+  .fc-page[data-fc-boot="globe"] .fc-boot-msg .fc-globe-msgbox { transition: top 0.3s ease; }
+}
+/* Its credit sits where the map's corner will put the real credits. */
+.fc-page .fc-boot-credit {
+  position: absolute;
+  right: calc(var(--fc-tab-w, 0px) + 12px);
+  bottom: 8px;
+  z-index: 5;
+  max-width: min(30rem, calc(100% - 24px - var(--fc-tab-w, 0px)));
+}
 .fc-page .fc-globe-canvas { position: absolute; inset: 0; }
 /* Cesium's own stylesheet sizes its canvas and stops touches on it from
    scrolling. Both are repeated here, so the view still fits and a drag
@@ -94,6 +149,18 @@
   text-shadow: var(--fc-text-outline);
 }
 .fc-page .fc-globe-msgbox .fc-bkt { text-shadow: var(--fc-text-outline); }
+/* Under the globe's poster, the message sits just under the Earth,
+   centered on it (map-view.js works out --fc-msg-top). */
+.fc-page .fc-globe-panel.is-under { display: block; padding: 0; }
+.fc-page .fc-globe-panel.is-under .fc-globe-msgbox {
+  position: absolute;
+  top: var(--fc-msg-top, 70%);
+  left: 50%;
+  width: max-content;
+  max-width: min(34rem, calc(100% - 2.5rem));
+  padding: 0.35rem 1.2rem;
+  transform: translateX(-50%);
+}
 
 /* ============================================================
    Bottom right: the map's notes, the scale bar and the credits, kept
@@ -183,6 +250,9 @@
   color: inherit;
   text-shadow: inherit;
 }
+/* The globe's poster's own credit, only while the poster shows. */
+.fc-page .fc-main .fc-poster-credit { margin: 0; text-align: right; }
+.fc-page .fc-poster-credit[hidden] { display: none; }
 .fc-page .fc-globe-credits img { display: block; max-height: 16px; width: auto; filter: drop-shadow(0 0 1px var(--fc-black-deep)) drop-shadow(0 0 2px var(--fc-black-deep)); }
 .fc-page .fc-main .fc-globe-credits a,
 .fc-page .fc-main .fc-map-credits a { color: var(--fc-offwhite); text-underline-offset: 2px; }

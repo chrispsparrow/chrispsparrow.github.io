@@ -13,12 +13,19 @@
 // HUD, the scale bar or the credits.
 //
 // The 3D view is where every visit starts (DEFAULT_VIEW in config.js).
-// While it loads, the frame says "3D VIEWER LOADING..." with a blinking
-// cursor. After THREE_SLOW_MS, or as soon as it fails, it adds "CHECK YOUR
-// INTERNET CONNECTION" and a [ BACK TO THE MAP ] button. If the 3D view
-// still turns up after that, it takes over. While it loads, the frame
-// keeps showing what it already showed (the 2D map, when the viewer came
-// from it).
+// While it loads, the frame shows the globe's poster (globe-poster.js): a
+// still of the idle Earth, laid exactly where Cesium will draw the Earth,
+// with "3D VIEWER LOADING..." and a blinking cursor under it. (On a slow
+// connection globe-poster.js puts it up before this file has even
+// arrived, and this view takes over the same canvas.) After THREE_SLOW_MS, or as soon as the
+// download fails, the message adds "CHECK YOUR INTERNET CONNECTION" and a
+// [ BACK TO THE MAP ] button, and the poster stays. When the 3D view's
+// first picture is in (its imagery included), it fades in over the poster
+// in POSTER_FADE_MS and the poster goes, so the Earth seems to just come
+// alive. The poster only shows when the view will open on the idle Earth
+// (live data). Over a replay, or when the viewer came from the 2D map
+// (which then stays in sight while the 3D view loads), the message shows
+// on its own.
 //
 // The 2D map (Leaflet) has the same things on it as the 3D view, minus
 // the ground shadow (the 2D path is already flat): the breadcrumbs (a dot
@@ -72,6 +79,8 @@ import {
 import { checkEsriKey, createSatelliteLayer } from './esri.js?v=2';
 import { loadCesium } from './cesium-loader.js?v=3';
 import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
+import { globePoster, endBoot, bandUnder, messageTop, LOADING_TEXT, POSTER_CREDIT } from './globe-poster.js';
+import { buildMapControls } from './map-controls.js';
 import { speedColor } from '../track.js?v=3';
 import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=3';
 
@@ -83,6 +92,9 @@ const THREE_SLOW_MS = 10000;
 // After the 3D view failed to download, it is tried again this often (ms)
 // while the viewer stays on it, so it takes over once the internet is back.
 const THREE_RETRY_MS = 15000;
+// How long (ms) the real 3D view takes to fade in over the poster. The CSS
+// animation (fc-globe-in in flight-console-map.css) lasts as long.
+const POSTER_FADE_MS = 400;
 // The events that get a diamond. Liftoff has none, since the launch point
 // marks it.
 const EVENT_TYPES = ['apogee', 'drogue', 'main', 'landed'];
@@ -162,19 +174,18 @@ export function createMapView(root, ctx) {
   const canvas = h('div', { class: 'fc-map-canvas', role: 'region', 'aria-label': 'Map of the board\'s path' });
   const waitBox = h('div', { class: 'fc-map-wait' }, 'LOADING THE MAP...');
 
-  // The controls row. Satellite and Dark map are the two map backgrounds,
-  // and 3D swaps the map for the 3D view.
-  const satelliteBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectLayer('satellite') }, 'SATELLITE');
-  const darkBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectLayer('dark') }, 'DARK MAP');
-  const threeBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => selectThree() }, '3D');
-  const viewPick = h('div', { class: 'fc-map-ctl-group', role: 'group', 'aria-label': 'Map view' }, satelliteBtn, darkBtn, threeBtn);
-  // FOLLOW BOARD: one setting for both views.
-  const followBox = h('input', { type: 'checkbox', checked: true, onchange: () => { setFollow(followBox.checked); scheduler.schedule(); } });
-  const followLabel = h('label', { class: 'fc-bkt-check' }, followBox, h('span', {}, 'FOLLOW BOARD'));
-  // The camera buttons, only while a saved flight is on screen.
-  const wholeBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', 'aria-pressed': 'false', onclick: () => showWholeFlight() }, 'WHOLE FLIGHT');
-  const resetBtn = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => resetView() }, 'RESET VIEW');
-  const cameraPick = h('div', { class: 'fc-map-ctl-group', role: 'group', 'aria-label': 'Camera', hidden: true }, wholeBtn, resetBtn);
+  // The controls row (map-controls.js builds it, so the globe's poster can
+  // measure an exact copy before this file arrives). Satellite and Dark map
+  // are the two map backgrounds, and 3D swaps the map for the 3D view.
+  // FOLLOW BOARD is one setting for both views. The camera buttons show
+  // only while a saved flight is on screen.
+  const { controls, satelliteBtn, darkBtn, threeBtn, followBox, keyBox, keyToggle, cameraPick, wholeBtn, resetBtn } = buildMapControls();
+  satelliteBtn.addEventListener('click', () => selectLayer('satellite'));
+  darkBtn.addEventListener('click', () => selectLayer('dark'));
+  threeBtn.addEventListener('click', () => selectThree());
+  followBox.addEventListener('change', () => { setFollow(followBox.checked); scheduler.schedule(); });
+  wholeBtn.addEventListener('click', () => showWholeFlight());
+  resetBtn.addEventListener('click', () => resetView());
 
   // The KEY: a legend for every marker and line, behind a toggle. Closed
   // at first. It opens upward from the row, into the free part of the view
@@ -205,20 +216,20 @@ export function createMapView(root, ctx) {
   // its end, a hint that there is more.
   const markCut = () => legendList.classList.toggle('is-cut', legendList.scrollTop + legendList.clientHeight < legendList.scrollHeight - 2);
   legendList.addEventListener('scroll', markCut, { passive: true });
-  const keyToggle = h('summary', { class: 'fc-bkt fc-bkt--sm fc-map-key-toggle' }, 'KEY');
-  const keyBox = h('details', { class: 'fc-map-key' }, keyToggle, legend);
+  keyBox.append(legend);
   // Opening the KEY places the legend at once. Closing it forgets the spot.
   keyBox.addEventListener('toggle', () => {
     if (keyBox.open) placeLegend();
     else legend.classList.remove('is-placed', 'is-sheet');
   });
 
-  const controls = h('div', { class: 'fc-map-ctl' }, viewPick, followLabel, keyBox, cameraPick);
-  // The row goes in the HUD layer's mount. Without one, it goes in the
-  // frame's own bottom left corner.
+  // The row goes in the HUD layer's mount (in place of the poster's copy of
+  // it, if that is there). Without one, it goes in the frame's own bottom
+  // left corner.
   const mount = document.getElementById('fc-map-controls');
   const ownCorner = mount ? null : h('div', { class: 'fc-map-ctl-own' });
-  (mount ?? ownCorner).append(controls);
+  if (mount) mount.replaceChildren(controls);
+  else ownCorner.append(controls);
 
   // The 3D view's box. It fills the same frame as the map. globeCanvas
   // holds Cesium's own elements. (It can take keyboard focus: the arrow
@@ -230,6 +241,11 @@ export function createMapView(root, ctx) {
     'aria-label': '3D view of the board\'s path. The arrow keys move the camera around, and plus and minus zoom.',
   });
   const globeBox = h('div', { class: 'fc-globe', hidden: true }, globeCanvas);
+  // The globe's poster, under the 3D view: the page's one poster canvas
+  // (globe-poster.js), moved into this frame. It may already be up, put
+  // there before this file arrived, in the same place.
+  const posterApi = globePoster();
+  const poster = posterApi?.canvas ?? null;
   // The 3D view's loading and failure messages, over whatever the frame
   // shows.
   const threePanel = h('div', { class: 'fc-globe-panel', hidden: true });
@@ -248,16 +264,20 @@ export function createMapView(root, ctx) {
   const scaleBox = h('div', { class: 'fc-scale', hidden: true, 'aria-hidden': 'true' }, scaleText, scaleBar);
   const globeCredits = h('div', { class: 'fc-globe-credits' });
   const mapCredits = h('div', { class: 'fc-map-credits' });
-  const corner = h('div', { class: 'fc-map-corner' }, status, scaleBox, globeCredits, mapCredits);
+  const posterCredit = h('p', { class: 'fc-globe-credits fc-poster-credit', hidden: true }, POSTER_CREDIT);
+  const corner = h('div', { class: 'fc-map-corner' }, status, scaleBox, globeCredits, posterCredit, mapCredits);
 
   // The labels sit over both views, under the messages and the corner.
   const labelHost = h('div', { class: 'fc-map-labels' });
 
-  const frame = h('div', { class: 'fc-map-frame' }, canvas, waitBox, globeBox, labelHost, threePanel, corner, ownCorner, globeSay);
+  const frame = h('div', { class: 'fc-map-frame' }, canvas, waitBox, poster, globeBox, labelHost, threePanel, corner, ownCorner, globeSay);
   setChildren(root, h('section', { class: 'fc-mapbox', 'aria-labelledby': 'fc-map-title' },
     h('h2', { class: 'sr-only', id: 'fc-map-title' }, 'Map and 3D view'),
     frame));
   const labels = createLabelLayer(labelHost);
+  // The early poster's own message, credit and controls copy go now. This
+  // frame's take their places.
+  endBoot();
 
   function legendRow(key, text) {
     return h('div', { class: 'fc-legend-row' }, h('span', { class: 'fc-legend-key' }, key), h('span', { class: 'fc-legend-text' }, text));
@@ -309,6 +329,9 @@ export function createMapView(root, ctx) {
   let slowTimer = 0;
   let retryTimer = 0;
   let globe = null;         // the 3D view once it is running (globe-view.js)
+  let revealing = false;    // the 3D view is fading in over the poster
+  let revealTimer = 0;
+  let settleWaiters = [];   // whenSettled() calls waiting (see there)
   let body = canvas;        // what the 2D side shows: the map or the no-map panel
   let retryBox = null;      // where the background buttons' note sits in the no-map panel
 
@@ -702,12 +725,14 @@ export function createMapView(root, ctx) {
     globeBox.hidden = !in3d;
     globeBox.classList.toggle('is-waiting', in3d && !ready);
     // While the 3D view loads, the map stays in sight if the viewer came
-    // from it. Otherwise the frame shows the page's near-black and the
-    // loading message.
+    // from it. Otherwise the frame shows the globe's poster (or the page's
+    // near-black) and the loading message. Both stay while the 3D view
+    // fades in over them.
     const mapUnder = in3d && !ready && threeOverMap;
     body.hidden = in3d && !mapUnder;
     waitBox.hidden = in3d && !mapUnder;
-    threePanel.hidden = !in3d || ready;
+    threePanel.hidden = !in3d || (ready && !revealing);
+    showPoster(posterWanted());
     // Cesium's credits show with the 3D view, and Leaflet's with the map.
     globeCredits.hidden = !(in3d && ready);
     mapCredits.hidden = (in3d && !mapUnder) || mode !== 'leaflet';
@@ -720,6 +745,99 @@ export function createMapView(root, ctx) {
     }
     updateLayerControls();
     updateCameraButtons();
+    checkSettled();
+  }
+
+  // ------------------------------------------------------------------
+  // The globe's poster
+  // ------------------------------------------------------------------
+
+  // The poster shows while the 3D view is on screen and still on its way
+  // (downloading, or waiting to try the download again) and will open on
+  // the idle Earth: with live data on the stage (a replay opens on its
+  // site), and not over the 2D map. It stays while the 3D view fades in.
+  function posterWanted() {
+    if (!poster || view !== '3d' || threeOverMap) return false;
+    if (revealing) return true;
+    const waiting = three === 'loading' || (three === 'failed' && threeKind === 'load');
+    return waiting && session().kind !== 'replay';
+  }
+
+  // on: the poster is wanted. The picture itself shows once it is in, but
+  // the message goes under where the Earth will be right away.
+  function showPoster(on) {
+    if (!poster) return;
+    const shown = on && posterApi.ready();
+    if (poster.hidden === shown) poster.hidden = !shown;
+    // Its credit goes as soon as Cesium's own credits show.
+    const credit = shown && three !== 'ready';
+    if (posterCredit.hidden === credit) posterCredit.hidden = !credit;
+    threePanel.classList.toggle('is-under', on);
+    if (on) placePoster();
+    else threePanel.style.removeProperty('--fc-msg-top');
+  }
+
+  // Lays the poster exactly over the Earth the 3D view will draw (see
+  // place() in globe-poster.js), from the frame's size and the band the
+  // controls take along its bottom. Then the loading message goes just
+  // under the Earth, centered, and moves up only as far as it must to
+  // clear the map's controls, the HUD and the corner.
+  function placePoster() {
+    // While the 3D view fades in, everything stays put. (Cesium's credits
+    // take the poster's place in the corner right then, which would move
+    // the fading message.)
+    if (!poster || destroyed || revealing || !threePanel.classList.contains('is-under')) return;
+    const w = frame.clientWidth;
+    const hgt = frame.clientHeight;
+    if (!(w > 0 && hgt > 0)) return;
+    const earth = posterApi.place(w, hgt, bottomBand(frame), placePoster);
+    const box = threePanel.firstElementChild;
+    if (!box || threePanel.hidden) return;
+    const blocks = rectsOver(frame, [...coverElements(), corner], []);
+    threePanel.style.setProperty('--fc-msg-top', `${Math.round(messageTop(earth, box.offsetWidth, box.offsetHeight, hgt, blocks))}px`);
+  }
+
+  // The poster's picture is in: show it, if it is wanted.
+  posterApi?.onReady(() => {
+    if (!destroyed) showPoster(posterWanted());
+  });
+
+  // The 3D view's first picture is in. If the poster was up, the view
+  // fades in over it (and the message fades out) before both go.
+  // Otherwise, or with less motion asked for, it just shows.
+  function startReveal() {
+    if (!poster || poster.hidden || prefersReducedMotion()) return;
+    revealing = true;
+    globeBox.classList.add('is-revealing');
+    threePanel.classList.add('is-leaving');
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(endReveal, POSTER_FADE_MS + 50);
+  }
+
+  function endReveal() {
+    clearTimeout(revealTimer);
+    if (!revealing) return;
+    revealing = false;
+    globeBox.classList.remove('is-revealing');
+    threePanel.classList.remove('is-leaving');
+    applyView();
+  }
+
+  // main.js holds back a saved flight that is picked while the 3D view is
+  // still on its way to its first picture, so the view opens on the idle
+  // Earth under the poster and then flies to the flight, just like a
+  // flight picked later. whenSettled() resolves once there is nothing to
+  // hold it for: the 3D view is in and done fading in, it failed, or the
+  // frame shows the map (the viewer went back to it, or came from it).
+  function settling() {
+    return !destroyed && view === '3d' && !threeOverMap && (three === 'loading' || revealing);
+  }
+
+  function checkSettled() {
+    if (settling() || settleWaiters.length === 0) return;
+    const waiting = settleWaiters;
+    settleWaiters = [];
+    for (const resolve of waiting) resolve();
   }
 
   // FOLLOW BOARD is one setting, shared by the map and the 3D view.
@@ -806,6 +924,7 @@ export function createMapView(root, ctx) {
   // paused, so coming back to it is instant.
   function showMap() {
     if (view === 'map') return;
+    endReveal();
     view = 'map';
     chosenView = 'map';
     globe?.setActive(false);
@@ -846,7 +965,7 @@ export function createMapView(root, ctx) {
       }, THREE_SLOW_MS);
     }
     showThreePanel();
-    Promise.all([loadCesium(), import('./globe-view.js?v=7')]).then(([Cesium, module]) => {
+    Promise.all([loadCesium(), import('./globe-view.js?v=8')]).then(([Cesium, module]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -874,6 +993,7 @@ export function createMapView(root, ctx) {
             threeOverMap = false;
             clearTimeout(slowTimer);
             setText(globeSay, '');
+            startReveal();
             applyView();
             scheduler.schedule();
           },
@@ -898,6 +1018,10 @@ export function createMapView(root, ctx) {
     console.warn('Flight Console: the 3D view is not available', err);
     threeGen += 1;
     clearTimeout(slowTimer);
+    revealing = false;
+    clearTimeout(revealTimer);
+    globeBox.classList.remove('is-revealing');
+    threePanel.classList.remove('is-leaving');
     destroyGlobe();
     three = 'failed';
     threeKind = kind;
@@ -938,7 +1062,7 @@ export function createMapView(root, ctx) {
     let say;
     let action = null;
     if (three === 'loading' && !threeSlow) {
-      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER LOADING...', h('span', { class: 'fc-cursor', 'aria-hidden': 'true' }, '_'));
+      line = h('p', { class: 'fc-globe-msg' }, LOADING_TEXT, h('span', { class: 'fc-cursor', 'aria-hidden': 'true' }, '_'));
       say = '3D viewer loading.';
     } else if (three === 'failed' && threeKind === 'start') {
       line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER CAN\'T RUN IN THIS BROWSER');
@@ -955,6 +1079,7 @@ export function createMapView(root, ctx) {
     }
     setChildren(threePanel, h('div', { class: 'fc-globe-msgbox' }, line, action));
     setText(globeSay, say);
+    placePoster();
   }
 
   // ------------------------------------------------------------------
@@ -1065,18 +1190,16 @@ export function createMapView(root, ctx) {
     return { ins: { left: free.left + sx, right: free.right + sx, top: free.top + sy, bottom: free.bottom + sy }, free };
   }
 
-  // The height (px) of the band the controls row and the corner take
-  // along the bottom of a view, so the idle Earth can sit above it.
-  // (The panel switches halfway up the sides don't count.)
+  // The height (px) of the band the controls row (and any other HUD block
+  // down there) takes along the bottom of a view, so the idle Earth can
+  // sit above it. The panel switches halfway up the sides don't count, and
+  // neither does this frame's corner: its scale bar and Cesium's credits
+  // only show once the 3D view is in, and counting them would shrink and
+  // move the Earth right as it fades in over the globe's poster. The
+  // corner sits at the bottom right, clear of the idle Earth. (bandUnder in
+  // globe-poster.js does the measuring, the same way for the early poster.)
   function bottomBand(boxEl) {
-    const box = boxEl.getBoundingClientRect();
-    let band = 0;
-    for (const el of [...coverElements(), corner]) {
-      const r = el.getBoundingClientRect();
-      if (r.width < 1 || r.height < 1 || r.top < box.top + box.height * 0.6 || r.top >= box.bottom) continue;
-      band = Math.max(band, box.bottom - r.top);
-    }
-    return band;
+    return bandUnder(boxEl, coverElements());
   }
 
   // Where the covered areas were at the last look, as one string. When any
@@ -2165,6 +2288,9 @@ export function createMapView(root, ctx) {
     } else if (mode === 'leaflet') drawLeaflet();
     else if (mode === 'fallback') drawFallback();
     watchCovers();
+    // The stage can switch between live data and a replay while the 3D
+    // view loads, which decides whether the poster shows.
+    showPoster(posterWanted());
     placeCorner();
     placeLegend();
     checkCovers();
@@ -2237,6 +2363,7 @@ export function createMapView(root, ctx) {
   if ('ResizeObserver' in window) {
     coverObserver = new ResizeObserver(() => {
       coversChanged();
+      placePoster();
       scheduler.schedule();
     });
     watchCovers();
@@ -2253,6 +2380,7 @@ export function createMapView(root, ctx) {
   const recheck = () => {
     if (destroyed) return;
     watchCovers();
+    placePoster();
     placeCorner();
     placeLegend();
     checkCovers();
@@ -2330,11 +2458,19 @@ export function createMapView(root, ctx) {
   if ((chosenView ?? config.DEFAULT_VIEW) === '3d') openThree();
 
   return {
+    // See settling() above. main.js waits on this before it puts a saved
+    // flight on the stage.
+    whenSettled() {
+      if (!settling()) return Promise.resolve();
+      return new Promise((resolve) => settleWaiters.push(resolve));
+    },
     destroy() {
       destroyed = true;
       threeGen += 1;
       clearTimeout(slowTimer);
       clearTimeout(retryTimer);
+      clearTimeout(revealTimer);
+      checkSettled();
       coverObserver?.disconnect();
       stateObserver?.disconnect();
       unsubscribe();

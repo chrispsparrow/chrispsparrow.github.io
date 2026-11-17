@@ -341,14 +341,33 @@ It has no box. It is mono text with the HUD's outline over a soft dark fade.
 
 - A flight opens on the 3D view. That is `DEFAULT_VIEW` in `js/config.js`. Set it to `'map'` and a flight opens on the map instead.
 - CesiumJS is a big download (about 1.8 MB), so the landing never loads it. `js/views/cesium-loader.js` adds Cesium's script and stylesheet when the 3D view opens. It comes from Cesium's own release CDN, pinned to version 1.146 (`CESIUM_VERSION`).
-- While it loads, the frame says "3D VIEWER LOADING..." with the blinking cursor. After 10 s (`THREE_SLOW_MS` in `map-view.js`), or as soon as loading fails, it adds "CHECK YOUR INTERNET CONNECTION" and `[ BACK TO THE MAP ]`. A failed download is tried again every 15 s while the viewer stays on 3D, so the 3D view takes over once the internet is back. A slow download isn't thrown away when the wait runs out. If the viewer came from the map, the map stays visible under the message.
+- While it loads, the frame shows the globe's poster, a still of the idle Earth exactly where Cesium will draw it, with "3D VIEWER LOADING..." and the blinking cursor under it (see "The globe's poster"). After 10 s (`THREE_SLOW_MS` in `map-view.js`), or as soon as loading fails, the message adds "CHECK YOUR INTERNET CONNECTION" and `[ BACK TO THE MAP ]`, and the poster stays. A failed download is tried again every 15 s while the viewer stays on 3D, so the 3D view takes over once the internet is back. A slow download isn't thrown away when the wait runs out. If the viewer came from the map, the map stays visible under the message instead of the poster.
+- The 3D view counts as ready when Cesium has started, the terrain and the aerial imagery layer are in (or failed), and every ground tile for the starting view has loaded with its imagery. Then it fades in over the poster in 0.4 s (`POSTER_FADE_MS`, at once with reduced motion) and the poster and the message go. If that takes more than 8 s after Cesium starts (`GLOBE_READY_TIMEOUT_MS`), it shows as it is.
+- The top bar works the whole time. A saved flight picked while the 3D view is still loading (or opened straight from its `?flight=` address) waits for it: the bar shows its name and LOADING while its data downloads, the 3D view opens on the idle Earth the poster shows, fades in, and then flies to the flight. If the 3D view fails, or the viewer goes to the map, the flight stops waiting. (`whenSettled()` in `map-view.js`, used by `openFlight()` in `main.js`.)
 - With no WebGL it says "3D VIEWER CAN'T RUN IN THIS BROWSER". If the browser takes the 3D view's graphics away while it runs (a phone left in the background can do this), it says "3D VIEWER STOPPED. PRESS 3D TO START IT AGAIN". Both have `[ BACK TO THE MAP ]`.
 - Once a viewer goes to the map, later screens in the same visit open on it. The choice isn't kept between visits.
 - If Leaflet or the map tiles fail, a NO MAP panel lists each board's position, distance and bearing from Manta. The distance and bearing are the HUD's own (`rangeReading()` in `js/flight-state.js`), so in `recovery` they are measured to the recovery position, not the newest fix. Tracking keeps working either way.
 
+### The globe's poster
+
+`assets/flight-console/globe-poster.webp` (550 px) and `globe-poster@2x.webp` (1100 px) are a still of the 3D view's idle Earth, made from the real view with nothing over it and the page's near-black around it. They fill the 3D view while Cesium downloads.
+
+- **Exactly where the real Earth will be.** `js/views/idle-earth.js` has the sums the idle camera uses (`idleFit()`), and `idleOutline()` works out where the Earth's outline lands on screen from them, a touch taller than wide when the camera tilts to clear the controls row. The poster is laid over that outline at any window size. Measured in headless Chrome, its outline and the real one agree within 1 px at 1440 by 732 and at 390 by 844.
+- **The inside lines up too.** A window of another shape sees the Earth from a little closer or farther, which makes the middle of its face look bigger or smaller. So the poster is warped for the view before it shows (`warpEarth()`): every pixel inside the Earth moves to where the real view will draw that spot. It takes about 30 ms on a laptop, once per window size. Without it, the coastlines slid up to 7 px as the real view faded in.
+- **As early as possible.** `index.html` holds the picture as a hidden img with both files, so the browser fetches it with the page and picks one for the screen. On `?track` and `?flight=` addresses a small script in the head preloads it, along with the three small modules that show it. `js/views/globe-poster.js` loads on its own (an async module) and puts the poster up before the rest of the page's code has arrived. Until then the console is laid out but invisible (`data-fc-boot="globe"` on the body), with an unwired copy of the controls row (`js/views/map-controls.js` builds both) so the Earth's place comes out the same. Only the poster, its message and its credit show, and the top bar appears with the real console, when its buttons work. `map-view.js` then takes over the same canvas without moving it. On a throttled Slow 4G connection (from this computer's own server, without compression) the poster showed after about 3.8 s and the console after about 9.8 s. Before this, the page said "Loading the Flight Console..." until 9.8 s.
+- **Its credit.** It is a picture of Cesium ion's imagery, so while it shows, the corner says so (`POSTER_CREDIT` in `globe-poster.js`, copied from "Data attribution" for the idle view). Cesium's own credits take over with the real view.
+
+To make the poster again (say, after changing the idle view or Cesium's imagery):
+
+1. Serve the site on `http://localhost:8000` (the ion key only works there).
+2. In headless Chrome at a device pixel ratio of 2, open `/flight-console/?track` with the map's frame pinned to 1440 by 582 px at the window's top left, and the HUD, the controls, the corner, the labels, the panel switches, the nav, the bar and the stage's top fade hidden. With nothing along its bottom, the camera looks straight down and the Earth's outline is a circle of radius 0.45 x 582 px in the middle. That view is `POSTER_ANGLE_DEG` in `idle-earth.js`.
+3. Wait for the 3D view to say it is ready, then a few more seconds until no more tiles load, and screenshot the frame.
+4. Crop a square 1.05 times the outline's diameter around the middle (1100 px at 2x), save it as WebP quality 85 (`globe-poster@2x.webp`), and a half-size copy at quality 90 (`globe-poster.webp`). Check that the corners are #07060D.
+5. Bump the `?v=` on both files in `index.html` (the img and the preload), and update `POSTER_CREDIT` from "Data attribution" if it changed. If the view's size or the crop changed, update `POSTER_ANGLE_DEG` or `POSTER_EARTH_SHARE` to match.
+
 ### Idle and switching stores
 
-- With nothing connected, the camera looks straight down at the whole Earth, sized to fit the part of the stage above the controls and credits at any window size, and fitted again on resize. `aimIdle()` sets the camera's position, direction and up by hand. Cesium's `setView` turns a view this close to straight down into a heading taken from "up", which used to tilt the camera the wrong way and push the Earth down into the controls.
+- With nothing connected, the camera looks straight down at the whole Earth, sized to fit the part of the stage above the controls row at any window size, and fitted again on resize (`idleFit()` in `js/views/idle-earth.js`). The bottom right corner (scale bar and credits) doesn't count: it only fills in once Cesium runs, and counting it would move the Earth right as it fades in over the poster. `aimIdle()` sets the camera's position, direction and up by hand. Cesium's `setView` turns a view this close to straight down into a heading taken from "up", which used to tilt the camera the wrong way and push the Earth down into the controls.
 - A `'source'` change from the store switch drops everything drawn, every ground height and the camera mode, then flies to the new site. While a saved flight is still downloading, the camera heads for its launch point from the library entry. Going back to live with nothing connected flies out to the whole Earth.
 - Leaving for the landing destroys the Cesium viewer and lets go of its WebGL context, so opening many flights doesn't use more and more memory.
 
@@ -680,6 +699,7 @@ node --test "flight-console/test/*.test.mjs"
 - `test/library.test.mjs` checks the optional `groundStation` in `index.json`: `library.js` checks it and passes it through, a store made with it starts there, and `add_flight.mjs` takes `--gs-lat`, `--gs-lon` and `--gs-alt` (run on a copy of the library in the system's temp folder, so the real `index.json` is never touched).
 - `test/serial-link.test.mjs` checks the serial link with a fake port: lines split across USB chunks come out whole, and a listener that throws on one line doesn't stop the reading or send the same lines again.
 - `test/esri-layer.test.mjs` checks the satellite layer's own versions of Leaflet's tile methods (`js/views/esri.js`) with a small stand-in for Leaflet: a zoom keeps the old level's finished photos and drops only the ones still loading, a dropped tile's download is cancelled (or never asked for, if it was still waiting on the tilemap), and a dropped tile's late answer is ignored.
+- `test/idle-earth.test.mjs` checks `js/views/idle-earth.js`: the idle camera's fit is the same as before it moved there, the Earth's outline on screen matches a direct projection of a sphere for a tilted camera, and the poster's warp leaves a matching view alone, never touches anything outside the Earth, and moves a ring to where the new view draws it.
 - `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, and the Manta hook is there but switched off.
 
 `test/synthetic.mjs` isn't a test itself. It makes seeded, repeatable GPS data for the tests: a still board's wander (what my bench board did, about 15 m by 30 m sideways with worse altitude, plus single wild fixes, steps, lost fixes and a cold start) and whole flights that land into it.
@@ -704,6 +724,7 @@ node --test "flight-console/test/*.test.mjs"
 - `data/flights/komodo-sim-01/pc_sim_flight.log`: the Komodo flight, a byte-for-byte copy of the log my firmware's PC sim dump wrote with the Komodo flight switched on. See "The saved flights".
 - `data/flights/gps-board-sim-01/pc_sim_flight.log`: my first simulated flight. It is a byte-for-byte copy of the log my firmware's PC sim dump program wrote.
 - `data/flights/gps-board-sim-01/cover-3d.webp`: that flight's cover picture. The home page's Flight Console slide shows it. See "A flight's cover picture".
+- `../assets/flight-console/globe-poster.webp` and `globe-poster@2x.webp`: the globe's poster (see "The globe's poster").
 - `data/flights/.gitattributes`: tells Git to leave the log files' line endings alone, so the copies stay exact.
 
 ### Code that works without a page (Node can run it too)
@@ -750,6 +771,9 @@ node --test "flight-console/test/*.test.mjs"
 - `js/views/hud-text.js`: only `hudAge()`, the HUD's short ages ("4 S", "2 MIN"). `hud.js` and `test/bench-feed.test.mjs` use it.
 - `js/views/rocket-bar.js`: one chip per rocket, only for flights with two or more rockets. Click one to focus it.
 - `js/views/phase-strip.js`: the phase bar (see "The phase bar and the rocket chips").
+- `js/views/idle-earth.js`: where the whole Earth sits in the 3D view while nothing is connected (`idleFit()`, `idleOutline()`), and the warp that fits the globe's poster to any shape of view. No DOM, so Node tests it.
+- `js/views/globe-poster.js`: the globe's poster: its canvas, placing and warping it, the loading message's spot under it, and its early start before the rest of the page's code arrives (see "The globe's poster").
+- `js/views/map-controls.js`: builds the map's controls row with no behavior. `map-view.js` wires it up, and `globe-poster.js` measures a copy of it early.
 - `js/views/map-view.js`: the map's frame, the controls row, the KEY and where it opens, the loading and failure messages, the bottom right corner and where it sits, watching the HUD's covers, the 2D map with its FOLLOW BOARD, and the NO MAP panel (see "The map and 3D view").
 - `js/views/globe-view.js`: the 3D view. It makes the Cesium viewer, draws the breadcrumbs, the ground shadow, the markers and the radio link, looks up ground heights and moves the camera, the follow camera included (see "FOLLOW BOARD").
 - `js/views/cesium-loader.js`: downloads CesiumJS when the 3D view opens.
@@ -774,6 +798,7 @@ GitHub Pages lets a browser keep a file for 10 minutes. So when a file changes, 
 - A new file starts with no query, and gets one the first time it changes after that.
 - `js/config.js` is imported with no query by most files, so an old cached copy can meet new code. New code is only safe with an unversioned `config.js` as long as it only uses settings an old copy also has. A new setting that other files need either goes in the file that uses it (the way the marker sizes live in `markers.js`), or `config.js` gets a query on every import at once.
 - The How it works page versions its own `../css/flight-console-overview.css` and `../js/flight-console-overview.js` the same way.
+- `index.html` also names some modules itself: the async `js/views/globe-poster.js` script tag and the head script's preloads of `globe-poster.js`, `idle-earth.js` and `map-controls.js`. Their addresses must match the imports exactly (query included), or the browser fetches them twice. The same goes for the poster's picture: the head script's preload and the hidden img list the same files and sizes.
 
 ## The library file, index.json
 

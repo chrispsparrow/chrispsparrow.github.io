@@ -88,6 +88,7 @@ import {
   LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js?v=3';
 import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
+import { idleFit } from './idle-earth.js';
 
 // The events that get a diamond. Liftoff has none, since the launch point
 // marks it.
@@ -111,10 +112,12 @@ const STATION_KEEP_M = 100;
 const LINK_DISH_RISE_M = 3;
 // With no ground station and nothing to look at, the camera looks straight
 // down at this spot from far enough out to fit the whole Earth in the view
-// (see idleCamera), leaving IDLE_MARGIN of the view's smaller side free.
+// (see idleCamera and idle-earth.js). The globe's poster
+// (assets/flight-console/globe-poster.webp) is a still of that view, so
+// these two stay as they are unless the poster is made again (see the
+// README).
 const WAIT_FAR_LAT = 25;
 const WAIT_FAR_LON = -40;
-const IDLE_MARGIN = 0.1;
 // How long (s) the camera takes to fly from far away to a site. A flight
 // with more to cover (from one side of the Earth to the other, or up from
 // one site and down onto another) takes a little longer, up to FLY_IN_MAX_S.
@@ -1538,16 +1541,10 @@ export function createGlobeView(container, ctx, options) {
   // down at the whole Earth with north up. It is as far out as it takes
   // for the Earth to fit the free part of the view (the view minus the
   // band the controls and credits take at the bottom, from
-  // options.idleBottom) with IDLE_MARGIN to spare, and it looks a touch
-  // south of straight down, so the Earth's middle lands in the middle of
-  // that free part.
-  //   Cesium's field of view (frustum.fov) spans the view's wider side. A
-  //   pixel at the middle of the view is 1 / f radians, with f worked out
-  //   from the view's height and its vertical field of view. The Earth's
-  //   outline is f * tan(a) px across its middle from distance d, where
-  //   sin(a) = R / d. So for an outline radius r px, a = atan(r / f) and
-  //   d = R / sin(a). Tilting the camera b = atan(s / f) moves the Earth's
-  //   middle s px up the screen.
+  // options.idleBottom), and it looks a touch south of straight down, so
+  // the Earth's middle lands in the middle of that free part. idleFit()
+  // in idle-earth.js works out how far and how much, and map-view.js
+  // places the globe's poster with the same sums.
   function idleCamera() {
     const w = scene.canvas.clientWidth;
     const hgt = scene.canvas.clientHeight;
@@ -1559,14 +1556,9 @@ export function createGlobeView(container, ctx, options) {
     let distance = 20000000 + R;
     let tilt = 0;
     if (w > 0 && hgt > 0) {
-      const bottom = Math.min(hgt * 0.4, Math.max(0, options.idleBottom?.() ?? 0));
-      const freeH = hgt - bottom;
-      const fov = camera.frustum.fov ?? C.Math.toRadians(60);
-      const fovy = w > hgt ? 2 * Math.atan(Math.tan(fov / 2) * hgt / w) : fov;
-      const f = (hgt / 2) / Math.tan(fovy / 2);
-      const radius = (Math.min(w, freeH) / 2) * (1 - IDLE_MARGIN);
-      distance = R / Math.sin(Math.atan(radius / f));
-      tilt = Math.atan((hgt / 2 - freeH / 2) / f);
+      const fit = idleFit(w, hgt, options.idleBottom?.() ?? 0, camera.frustum.fov);
+      distance = R / Math.sin(fit.angle);
+      tilt = fit.tilt;
     }
     const along = (v, k) => C.Cartesian3.multiplyByScalar(v, k, new C.Cartesian3());
     const plus = (a, b) => C.Cartesian3.add(a, b, new C.Cartesian3());
@@ -3003,8 +2995,11 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // Tells map-view.js when the first picture is in, so its loading message
-  // can go: the icons and terrain are loaded, no ground height is still
-  // being looked up, and the ground in view has drawn. If that takes too
+  // and the globe's poster can go: the icons and terrain are loaded, no
+  // ground height is still being looked up, the aerial imagery is ready
+  // (or failed), and the ground in view has drawn with it. (Until the
+  // imagery is ready, Cesium counts the ground as loaded with no imagery
+  // on it at all, so tilesLoaded alone isn't enough.) If that takes too
   // long, the view shows as it is.
   let announced = false;
   function announceReady() {
@@ -3014,8 +3009,9 @@ export function createGlobeView(container, ctx, options) {
     stopWatchingReady();
     onReady();
   }
+  const imageryReady = () => imagery.ready || view.imageryFailed;
   const stopWatchingReady = scene.postRender.addEventListener(() => {
-    if (assetsReady && view.terrain !== 'loading' && !spots.some((s) => s.state === 'pending') && scene.globe.tilesLoaded) announceReady();
+    if (assetsReady && view.terrain !== 'loading' && imageryReady() && !spots.some((s) => s.state === 'pending') && scene.globe.tilesLoaded) announceReady();
   });
   const readyTimer = setTimeout(announceReady, config.GLOBE_READY_TIMEOUT_MS);
 

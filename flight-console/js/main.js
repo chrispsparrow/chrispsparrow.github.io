@@ -77,7 +77,7 @@ import { createPanels } from './views/panels.js?v=2';
 import { createHud } from './views/hud.js?v=3';
 import { createRocketBar } from './views/rocket-bar.js?v=3';
 import { createPhaseStrip } from './views/phase-strip.js?v=3';
-import { createMapView } from './views/map-view.js?v=8';
+import { createMapView } from './views/map-view.js?v=9';
 import { createTimeline } from './views/timeline.js?v=5';
 import { createDataPanel } from './views/data-panel.js?v=3';
 import { createSerialLink } from './live/serial-link.js';
@@ -259,6 +259,9 @@ document.addEventListener('click', (e) => {
 function show(name) {
   for (const [key, el] of Object.entries(sections)) el.hidden = key !== name;
   document.body.dataset.fcScreen = name;
+  // The early globe poster's stand-in console (js/views/globe-poster.js)
+  // ends here. The real screen takes over.
+  delete document.body.dataset.fcBoot;
 }
 
 // The console's source: 'idle', 'bench', 'flight' or 'replay'.
@@ -522,7 +525,9 @@ function ensureStage() {
     ['fc-rocketbar', createRocketBar],
   ], ctx);
   const [hud] = startViews([['fc-hud', createHud]], ctx);
-  stage = { store, session, ctx, views: [...views, hud], hud };
+  // The map view, for whenSettled() (see openFlight).
+  const mapView = views.find((v) => typeof v?.whenSettled === 'function') ?? null;
+  stage = { store, session, ctx, views: [...views, hud], hud, mapView };
   spaces?.findCorner();
   return stage;
 }
@@ -618,13 +623,24 @@ async function openFlight(id, token) {
   for (const r of entry.rockets) store.registerRocket({ id: r.rocketId, name: r.name, board: r.board });
   const rp = { id: entry.id, entry, store, player: null, flight: null, views: [] };
   replay = rp;
+
+  // The data starts downloading now. A flight picked while the 3D view is
+  // still on its way to its first picture (or opened straight from its
+  // address) waits for the view before it goes on the stage, so the view
+  // opens on the idle Earth that the poster shows and then flies to the
+  // flight, as it does for a flight picked later. The bar says LOADING
+  // meanwhile. (If the 3D view fails, or the viewer goes to the map, it
+  // waits no longer. See whenSettled() in js/views/map-view.js.) If the
+  // download fails first, the message says so at once.
+  const download = loadFlight(entry).then((flight) => ({ flight }), (error) => ({ error: error ?? new Error('The flight data did not load') }));
+  const settled = stage?.mapView?.whenSettled() ?? Promise.resolve();
+  await Promise.race([settled, download.then((r) => (r.error ? r : settled))]);
+  if (token !== routeToken) return;
   showOnStage(store, { kind: 'replay', loading: true, entry, prescan: new Map(), player: null });
 
-  let flight;
-  try {
-    flight = await loadFlight(entry);
-  } catch (err) {
-    if (token !== routeToken) return;
+  const { flight, error: err } = await download;
+  if (token !== routeToken) return;
+  if (err) {
     console.warn('Flight data did not load:', err);
     const why = {
       network: [`The data for "${entry.title}" couldn't be downloaded.`, 'Check your internet connection and try again.'],
@@ -635,7 +651,6 @@ async function openFlight(id, token) {
     showMessage('This flight\'s data didn\'t load', why, { retry: err?.kind === 'network' || err?.kind === 'server' });
     return;
   }
-  if (token !== routeToken) return;
 
   if (!flight.samples.some((s) => s.type !== 'gs')) {
     showMessage('No readable data', [
