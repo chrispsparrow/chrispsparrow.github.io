@@ -100,12 +100,14 @@
   font-weight: 700;
   line-height: 1;
   color: var(--hero-text);
-  margin-bottom: 1rem;
+  margin-bottom: 0.7rem;
 }
-.gs-lede {
-  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
-  line-height: 1.5;
-  color: rgba(244,242,237,0.93);
+/* The small line under the title */
+.gs-hero-sub {
+  font-size: clamp(0.98rem, 1.1vw, 1.1rem);
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(244,242,237,0.9);
 }
 /* Phones held upright. The antennas span 74% of the tall render's width, so
    a hero taller than twice the screen's width would cut the outer Yagi tips.
@@ -134,16 +136,7 @@
   .gs-nav-hero .nav-links a.nav-resume:hover { background: rgba(244,242,237,0.12); border-color: var(--hero-text); }
 }
 
-/* ── 2. Intro ──────────────────────────────────────────────── */
-.gs-intro { padding: 4.5rem 0 3.5rem; }
-.gs-intro p {
-  max-width: 760px;
-  margin: 0 auto;
-  text-align: center;
-  font-size: clamp(1.05rem, 1.35vw, 1.2rem);
-  line-height: 1.7;
-  color: var(--text-muted);
-}
+/* ── 2 and 3. Manta and Remora ─────────────────────────────── */
 /* An inline link underlined in the salmon accent, like the card's .soon-link */
 .gs-link {
   color: var(--text);
@@ -157,11 +150,12 @@
 .gs-link:hover { color: var(--soon-text); }
 .gs-link:focus-visible { outline: 2px solid var(--soon-text); outline-offset: 2px; }
 
-/* ── 3 and 4. Manta and Remora ─────────────────────────────── */
 /* The drawing comes first in the markup, so on a phone it shows above the
    text for both parts. On wide screens Manta has it on the left and Remora
-   (.gs-part--flip) on the right. */
+   (.gs-part--flip) on the right. Manta comes straight after the hero, so it
+   gets more room on top. */
 .gs-part { padding: 2.5rem 0; }
+.gs-hero + .gs-part { padding-top: 5rem; }
 .gs-part-inner {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
@@ -202,19 +196,13 @@
 }
 .gs-part-text p:not(.gs-part-sub) + p { margin-top: 1rem; }
 
-/* ── 5. Close ──────────────────────────────────────────────── */
-.gs-close { padding: 3rem 0 6rem; }
-/* Dashed salmon line, with dashes close to the card border's size */
-.gs-divider {
-  height: 1.5px;
-  background: repeating-linear-gradient(90deg, var(--soon-accent) 0 9px, transparent 9px 16px);
-}
+/* ── 4. Close ──────────────────────────────────────────────── */
+.gs-close { padding: 3.5rem 0 6rem; }
 .gs-close-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem 3rem;
-  padding-top: 2.25rem;
 }
 .gs-close-row p {
   font-size: 1.1rem;
@@ -252,8 +240,8 @@
   .gs-close-row { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 640px) {
-  .gs-intro { padding: 3rem 0 2.5rem; }
   .gs-part { padding: 2rem 0; }
+  .gs-hero + .gs-part { padding-top: 3rem; }
   .gs-close { padding-bottom: 4.5rem; }
   .gs-actions { width: 100%; }
   .gs-btn { flex: 1 1 auto; }

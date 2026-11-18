@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Funnel+Sans:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css?v=33">
-  <link rel="stylesheet" href="../css/ground-station.css?v=2">
+  <link rel="stylesheet" href="../css/ground-station.css?v=3">
 </head>
 <body class="gs-page gs-nav-hero">
   <!-- A short concept page for the ground station (Manta and Remora). The home
@@ -97,18 +97,11 @@
       <div class="gs-hero-text">
         <p class="gs-status"><span class="soon-dot" aria-hidden="true"></span>In progress</p>
         <h1 class="gs-title" id="gs-title">Ground Station</h1>
-        <p class="gs-lede">Manta and Remora, the gear on the ground that catches my rockets' signals and points an antenna at them.</p>
+        <p class="gs-hero-sub">Project lead, AerospaceNU</p>
       </div>
     </section>
 
-    <!-- 2. Short intro -->
-    <section class="gs-intro reveal" aria-label="About this page">
-      <div class="container">
-        <p>My <a class="gs-link" href="../projects/avionics-pcb.html">Dogtooth board</a> rides in the rocket and sends its GPS position over a LoRa radio. This is what listens on the other end. It's still being designed, so everything here is a concept for now. These are drawings, not photos.</p>
-      </div>
-    </section>
-
-    <!-- 3. Manta: drawing left, text right. The drawing is the same cropped file
+    <!-- 2. Manta: drawing left, text right. The drawing is the same cropped file
          as the home page card (assets/manta/manta-three-yagi.webp), shown larger. -->
     <section class="gs-part reveal" aria-labelledby="gs-manta">
       <div class="container gs-part-inner">
@@ -118,14 +111,14 @@
         </figure>
         <div class="gs-part-text">
           <h2 id="gs-manta">Manta</h2>
-          <p class="gs-part-sub">The receiver, AerospaceNU, project lead</p>
-          <p>The box in the middle holds my custom printed circuit board and three radios, so it can follow up to 3 rockets at once.</p>
-          <p>It sends everything to a laptop or phone over Bluetooth and saves it to an SD card. It sits on a surveyor tripod with three arms, and each arm takes either a simple antenna or a Remora.</p>
+          <p class="gs-part-sub">Three-channel LoRa telemetry receiver</p>
+          <p>Manta tracks up to 3 rockets at once, with three radios on my custom printed circuit board. It works with any rocket that has GPS and a radio, including my <a class="gs-link" href="../projects/avionics-pcb.html">Dogtooth board</a>.</p>
+          <p>It streams data to a laptop or phone over Bluetooth and logs it to an SD card. Each arm holds a simple antenna or a Remora.</p>
         </div>
       </div>
     </section>
 
-    <!-- 4. Remora: text left, drawing right (drawing on top on a phone, like Manta).
+    <!-- 3. Remora: text left, drawing right (drawing on top on a phone, like Manta).
          Same cropped file and right-edge fade as the home page card. -->
     <section class="gs-part gs-part--flip reveal" aria-labelledby="gs-remora">
       <div class="container gs-part-inner">
@@ -135,19 +128,17 @@
         </figure>
         <div class="gs-part-text">
           <h2 id="gs-remora">Remora</h2>
-          <p class="gs-part-sub">The antenna tracker, up next</p>
-          <p>A small motor unit that bolts onto one of Manta's arms. It turns left and right and tilts up and down to keep a Yagi antenna pointed at the rocket.</p>
-          <p>It knows where to point by comparing the rocket's GPS position with its own.</p>
+          <p class="gs-part-sub">Azimuth-elevation antenna tracker</p>
+          <p>Remora bolts onto one of Manta's arms and keeps a Yagi antenna pointed at the rocket. It turns and tilts by comparing the rocket's GPS position with its own.</p>
         </div>
       </div>
     </section>
 
-    <!-- 5. Close: dashed salmon line, one sentence on the left, two buttons on the right -->
+    <!-- 4. Close: one sentence on the left, two buttons on the right -->
     <section class="gs-close reveal" aria-label="Where to go next">
       <div class="container">
-        <div class="gs-divider" aria-hidden="true"></div>
         <div class="gs-close-row">
-          <p>Want to see the data side? The Flight Console is where Manta's data will show up.</p>
+          <p>Data will stream live into the Flight Console.</p>
           <div class="gs-actions">
             <a class="gs-btn gs-btn--salmon" href="../flight-console/">Open the Flight Console</a>
             <a class="gs-btn gs-btn--dark" href="../index.html#work">Back to projects</a>
