@@ -2,8 +2,8 @@
 // The page's starting point. It reads the address and shows one of three
 // screens:
 //   /flight-console/              the landing: one full-screen hero
-//   /flight-console/?track        Track a Rocket, live. Connect a board (or,
-//                                 later, the ground station) and watch it.
+//   /flight-console/?track        Track a Rocket, live. Connect a board or
+//                                 a radio receiver and watch it.
 //   /flight-console/?flight=<id>  Track a Rocket, playing a saved flight
 //                                 (a LOCAL flight's id starts with "local-":
 //                                 a recording or a loaded file, kept in this
@@ -18,7 +18,9 @@
 //   data-mode   which source is on screen:
 //     idle      nothing found on the serial link yet
 //     bench     a Dogtooth board's status block came in over USB
-//     flight    a flight source (the Manta ground station, not built yet)
+//     flight    a flight source: the radio board receiver, which prints a
+//               line for each radio packet from the rocket (later, the
+//               Manta ground station too)
 //     replay    a saved flight
 //   data-state  where the flight is, worked out from the data alone
 //               (flightState() in js/flight-state.js, through the HUD):
@@ -52,9 +54,12 @@
 // port. sources.js works out what is talking from those lines. Every line
 // goes to the bench panel (readings, graphs, raw output and the CSV), and
 // its finished blocks go to the bench feed, which turns them into samples
-// for the live store. The live session (link, panel, stores) is made the
-// first time the console opens and is never thrown away, so the connection
-// and every block for the CSV survive a trip to a replay and back.
+// for the live store. A flight source's lines (the radio board receiver's
+// PKT lines) go through its parse() to the flight feed, which puts the
+// samples in the flight store and keeps its clock moving. The live session
+// (link, panel, stores) is made the first time the console opens and is
+// never thrown away, so the connection and every block for the CSV survive
+// a trip to a replay and back.
 //
 // Links change the address with history.pushState, and the browser's back
 // and forward buttons fire "popstate", which runs route() again.
@@ -86,9 +91,10 @@ import { createMapView } from './views/map-view.js?v=10';
 import { createTimeline } from './views/timeline.js?v=5';
 import { createDataPanel } from './views/data-panel.js?v=4';
 import { createSerialLink } from './live/serial-link.js';
-import { createSourceDetector } from './live/sources.js?v=2';
+import { createSourceDetector } from './live/sources.js?v=3';
 import { createBenchPanel } from './live/bench-panel.js?v=6';
 import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=3';
+import { createFlightFeed, waitingNote } from './live/flight-feed.js';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
 const TITLE_CONSOLE = 'Track a Rocket | Dogtooth Systems';
@@ -820,6 +826,9 @@ let live = null;        // the live session, see ensureLive()
 //   unknown    lines arrive but none match a source
 //   stores     { bench, flight }: the live stores, made on first use
 //   feed       the bench feed into stores.bench (bench-feed.js)
+//   flightFeed the flight feed into stores.flight (flight-feed.js)
+//   flightNote the line this page last put under the bar for a flight
+//              source ("found, no packets yet"), or ''
 //   panel      the bench panel: CONNECT, readings, graphs, raw output, CSV
 //   link       the serial port (serial-link.js)
 //   linkState  the link's state ('idle', 'picking', 'opening', 'open', ...)
@@ -832,6 +841,8 @@ function ensureLive() {
     unknown: false,
     stores: {},
     feed: null,
+    flightFeed: null,
+    flightNote: '',
     panel: null,
     link: null,
     linkState: 'idle',
@@ -857,7 +868,7 @@ function ensureLive() {
         // panel, so the bench feed is there to take it.
         if (source && source !== before) useSource(source);
         else if (!source) setUnknown(next.detector.unknown);
-        if (source?.mode === 'flight') feedFlightLine(source, line);
+        if (source?.mode === 'flight') feedFlightLine(source, line, t);
         next.panel.handleLine(line, t);
       },
       onLink: (state, text) => {
@@ -873,12 +884,15 @@ function ensureLive() {
         next.detector.reset();
         next.source = null;
         setUnknown(false);
+        next.flightFeed?.newConnection();
         next.panel.connected();
       },
       // Nothing comes in once the port closes, so the "not recognized"
       // line goes away with it.
       onClose: ({ lost }) => {
         setUnknown(false);
+        // "Found, no packets yet" is only true while connected.
+        setFlightNote('');
         next.panel.closed({ lost });
       },
     }));
@@ -939,39 +953,57 @@ function useSource(source) {
 
 // The live store for a mode, made the first time it is needed. The bench
 // store gets the bench feed, which registers the board as its one rocket.
+// The flight store gets the flight feed. Its rockets come from the packets.
 function liveStore(mode) {
   if (!live) ensureLive();
   if (!live.stores[mode]) {
     const store = createStore({ fleet: createFleet(), ...LIVE_STORE_OPTIONS[mode] });
     live.stores[mode] = store;
     if (mode === 'bench') live.feed = createLiveFeed({ store });
+    else live.flightFeed = createFlightFeed({ store });
   }
   return live.stores[mode];
 }
 
 // ------------------------------------------------------------------
-// MANTA HOOK. A flight source, like the Manta ground station (see the
-// commented-out entry in js/live/sources.js), has mode 'flight' and a
-// parse(line) that gives back { kind: 'sample', sample } for a line with a
-// reading, the way parseSerialLine() in js/parser.js does. Each sample goes
-// into the flight store, and the 3D view and the HUD show it.
-// Nothing calls this yet. Before something does, the flight store's clock
-// also has to keep moving between packets (store.setTime), the way
-// createLiveFeed() in js/live/bench-feed.js does it for the board, or the
-// views never say the data is old.
+// FLIGHT SOURCES (also the MANTA HOOK). A flight source, like the radio
+// board receiver or later the Manta ground station (see js/live/sources.js),
+// has mode 'flight' and a parse(line) that gives back
+// { kind: 'sample', sample } for a line with a reading, the way
+// parseSerialLine() in js/parser.js does. Each result goes to the flight
+// feed (js/live/flight-feed.js). The feed puts the samples in the flight
+// store, where the 3D view and the HUD show them, and keeps the store's
+// clock moving between packets, so the views say when the data is old.
+// t is when the line arrived, in ms on the computer's clock.
 // ------------------------------------------------------------------
-function feedFlightLine(source, line) {
+function feedFlightLine(source, line, t) {
   if (typeof source.parse !== 'function') return;
-  let result;
+  liveStore('flight');
+  const feed = live.flightFeed;
+  if (!feed) return;
+  feed.noteLine(line);
   try {
-    result = source.parse(line);
+    feed.push(source.parse(line), t);
   } catch (err) {
     // A line the parser can't handle is skipped. The raw output still
     // shows it.
     console.error(`Flight Console: ${source.name} couldn't read a line`, err);
-    return;
   }
-  if (result?.kind === 'sample') live.stores.flight?.addSample(result.sample);
+  const note = waitingNote(feed, source.name);
+  setFlightNote(note.text, note.kind);
+}
+
+// The line under the bar for a flight source: that it was found and no
+// packets have come in yet, or that its radio didn't start. '' takes it
+// away, but only if the line on screen is still this one, so a note from
+// the serial link (a lost port, a read error) is never wiped.
+function setFlightNote(text, kind = 'info') {
+  if (!live?.panel || text === live.flightNote) return;
+  const shown = $('bc-link-note')?.textContent ?? '';
+  const mineIsShown = live.flightNote !== '' && shown === live.flightNote;
+  live.flightNote = text;
+  if (text) live.panel.note(text, kind);
+  else if (mineIsShown) live.panel.note('');
 }
 
 // Lines arrive and none match a source: say so (the line under the bar)

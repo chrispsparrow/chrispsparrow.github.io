@@ -1,0 +1,253 @@
+# DEKEL_RX listening good=728 bad=0 last_good_s_ago=0.9 rx_up_s=729.0
+PKT node=1 seq=806 up_s=807.0 fix=yes sats=12 hdop=0.84 lat=35.1234567 lon=-117.1234567 alt_m=59.70 spd_mps=0.13 crs_deg=140.74 utc=05:57:22.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=729 bad=0 last_good_s_ago=0.9 rx_up_s=730.0
+PKT node=1 seq=807 up_s=808.0 fix=yes sats=12 hdop=0.84 lat=35.1234540 lon=-117.1234526 alt_m=59.40 spd_mps=0.20 crs_deg=140.74 utc=05:57:23.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=730 bad=0 last_good_s_ago=0.9 rx_up_s=731.0
+PKT node=1 seq=808 up_s=809.0 fix=yes sats=12 hdop=0.84 lat=35.1234514 lon=-117.1234491 alt_m=59.10 spd_mps=0.21 crs_deg=140.74 utc=05:57:24.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=731 bad=0 last_good_s_ago=0.9 rx_up_s=732.0
+PKT node=1 seq=809 up_s=810.0 fix=yes sats=12 hdop=0.84 lat=35.1234495 lon=-117.1234467 alt_m=58.60 spd_mps=0.25 crs_deg=140.74 utc=05:57:25.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=732 bad=0 last_good_s_ago=0.9 rx_up_s=733.0
+PKT node=1 seq=810 up_s=811.0 fix=yes sats=12 hdop=0.84 lat=35.1234484 lon=-117.1234442 alt_m=58.10 spd_mps=0.26 crs_deg=140.74 utc=05:57:26.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=733 bad=0 last_good_s_ago=0.9 rx_up_s=734.0
+PKT node=1 seq=811 up_s=812.0 fix=yes sats=12 hdop=0.83 lat=35.1234472 lon=-117.1234404 alt_m=57.40 spd_mps=0.12 crs_deg=140.74 utc=05:57:27.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=734 bad=0 last_good_s_ago=0.9 rx_up_s=735.0
+PKT node=1 seq=812 up_s=813.0 fix=yes sats=12 hdop=0.83 lat=35.1234457 lon=-117.1234357 alt_m=57.00 spd_mps=0.12 crs_deg=140.74 utc=05:57:28.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=735 bad=0 last_good_s_ago=0.9 rx_up_s=736.0
+PKT node=1 seq=813 up_s=814.0 fix=yes sats=12 hdop=0.83 lat=35.1234457 lon=-117.1234321 alt_m=56.60 spd_mps=0.08 crs_deg=140.74 utc=05:57:29.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=736 bad=0 last_good_s_ago=0.9 rx_up_s=737.0
+PKT node=1 seq=814 up_s=815.0 fix=yes sats=12 hdop=0.84 lat=35.1234455 lon=-117.1234309 alt_m=56.40 spd_mps=0.15 crs_deg=140.74 utc=05:57:30.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=737 bad=0 last_good_s_ago=0.9 rx_up_s=738.0
+PKT node=1 seq=815 up_s=816.0 fix=yes sats=12 hdop=0.84 lat=35.1234447 lon=-117.1234304 alt_m=56.20 spd_mps=0.24 crs_deg=140.74 utc=05:57:31.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=738 bad=0 last_good_s_ago=0.9 rx_up_s=739.0
+PKT node=1 seq=816 up_s=817.0 fix=yes sats=12 hdop=0.81 lat=35.1234422 lon=-117.1234277 alt_m=55.70 spd_mps=0.13 crs_deg=140.74 utc=05:57:32.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=739 bad=0 last_good_s_ago=0.9 rx_up_s=740.0
+PKT node=1 seq=817 up_s=818.0 fix=yes sats=12 hdop=1.07 lat=35.1234424 lon=-117.1234292 alt_m=55.50 spd_mps=0.18 crs_deg=140.74 utc=05:57:33.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=740 bad=0 last_good_s_ago=0.9 rx_up_s=741.0
+PKT node=1 seq=818 up_s=819.0 fix=yes sats=12 hdop=1.07 lat=35.1234425 lon=-117.1234306 alt_m=55.20 spd_mps=0.22 crs_deg=140.74 utc=05:57:34.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=741 bad=0 last_good_s_ago=0.9 rx_up_s=742.0
+PKT node=1 seq=819 up_s=820.0 fix=yes sats=12 hdop=1.07 lat=35.1234425 lon=-117.1234299 alt_m=55.00 spd_mps=0.10 crs_deg=140.74 utc=05:57:35.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=742 bad=0 last_good_s_ago=0.9 rx_up_s=743.0
+PKT node=1 seq=820 up_s=821.0 fix=yes sats=12 hdop=1.07 lat=35.1234415 lon=-117.1234282 alt_m=54.70 spd_mps=0.24 crs_deg=140.74 utc=05:57:36.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=743 bad=0 last_good_s_ago=0.9 rx_up_s=744.0
+PKT node=1 seq=821 up_s=822.0 fix=yes sats=12 hdop=1.06 lat=35.1234394 lon=-117.1234261 alt_m=54.30 spd_mps=0.17 crs_deg=140.74 utc=05:57:37.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=744 bad=0 last_good_s_ago=0.9 rx_up_s=745.0
+PKT node=1 seq=822 up_s=823.0 fix=yes sats=12 hdop=1.07 lat=35.1234385 lon=-117.1234244 alt_m=53.90 spd_mps=0.09 crs_deg=140.74 utc=05:57:38.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=745 bad=0 last_good_s_ago=0.9 rx_up_s=746.0
+PKT node=1 seq=823 up_s=824.0 fix=yes sats=12 hdop=1.07 lat=35.1234384 lon=-117.1234226 alt_m=53.40 spd_mps=0.16 crs_deg=140.74 utc=05:57:39.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=746 bad=0 last_good_s_ago=0.9 rx_up_s=747.0
+PKT node=1 seq=824 up_s=825.0 fix=yes sats=12 hdop=0.98 lat=35.1234390 lon=-117.1234199 alt_m=52.80 spd_mps=0.17 crs_deg=140.74 utc=05:57:40.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=747 bad=0 last_good_s_ago=0.9 rx_up_s=748.0
+PKT node=1 seq=825 up_s=826.0 fix=yes sats=12 hdop=0.98 lat=35.1234379 lon=-117.1234174 alt_m=52.40 spd_mps=0.17 crs_deg=140.74 utc=05:57:41.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=748 bad=0 last_good_s_ago=0.9 rx_up_s=749.0
+PKT node=1 seq=826 up_s=827.0 fix=yes sats=12 hdop=0.98 lat=35.1234355 lon=-117.1234142 alt_m=52.30 spd_mps=0.21 crs_deg=140.74 utc=05:57:42.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=749 bad=0 last_good_s_ago=0.9 rx_up_s=750.0
+PKT node=1 seq=827 up_s=828.0 fix=yes sats=12 hdop=0.98 lat=35.1234337 lon=-117.1234109 alt_m=51.90 spd_mps=0.23 crs_deg=140.74 utc=05:57:43.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=750 bad=0 last_good_s_ago=0.9 rx_up_s=751.0
+PKT node=1 seq=828 up_s=829.0 fix=yes sats=12 hdop=0.98 lat=35.1234277 lon=-117.1234081 alt_m=51.90 spd_mps=0.64 crs_deg=140.74 utc=05:57:44.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=751 bad=0 last_good_s_ago=0.9 rx_up_s=752.0
+PKT node=1 seq=829 up_s=830.0 fix=yes sats=12 hdop=0.98 lat=35.1234232 lon=-117.1234022 alt_m=51.60 spd_mps=0.54 crs_deg=140.74 utc=05:57:45.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=752 bad=0 last_good_s_ago=0.9 rx_up_s=753.0
+PKT node=1 seq=830 up_s=831.0 fix=yes sats=12 hdop=1.08 lat=35.1234165 lon=-117.1233979 alt_m=51.70 spd_mps=0.43 crs_deg=140.74 utc=05:57:46.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=753 bad=0 last_good_s_ago=0.9 rx_up_s=754.0
+PKT node=1 seq=831 up_s=832.0 fix=yes sats=12 hdop=1.08 lat=35.1234130 lon=-117.1233949 alt_m=51.70 spd_mps=0.30 crs_deg=140.74 utc=05:57:47.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=754 bad=0 last_good_s_ago=0.9 rx_up_s=755.0
+PKT node=1 seq=832 up_s=833.0 fix=yes sats=12 hdop=1.34 lat=35.1234090 lon=-117.1233936 alt_m=51.70 spd_mps=0.50 crs_deg=140.74 utc=05:57:48.000 airborne=yes rssi_dbm=-79.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=755 bad=0 last_good_s_ago=0.9 rx_up_s=756.0
+PKT node=1 seq=833 up_s=834.0 fix=yes sats=12 hdop=1.59 lat=35.1234042 lon=-117.1233926 alt_m=51.70 spd_mps=0.45 crs_deg=140.74 utc=05:57:49.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=756 bad=0 last_good_s_ago=0.9 rx_up_s=757.0
+PKT node=1 seq=834 up_s=835.0 fix=yes sats=12 hdop=1.59 lat=35.1234015 lon=-117.1233932 alt_m=51.80 spd_mps=0.31 crs_deg=140.74 utc=05:57:50.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=757 bad=0 last_good_s_ago=0.9 rx_up_s=758.0
+PKT node=1 seq=835 up_s=836.0 fix=yes sats=12 hdop=1.17 lat=35.1233967 lon=-117.1233946 alt_m=52.10 spd_mps=0.41 crs_deg=140.74 utc=05:57:51.000 airborne=yes rssi_dbm=-79.0 snr_db=10.25 missed=0
+# DEKEL_RX listening good=758 bad=0 last_good_s_ago=0.9 rx_up_s=759.0
+PKT node=1 seq=836 up_s=837.0 fix=yes sats=12 hdop=0.89 lat=35.1234122 lon=-117.1233959 alt_m=50.50 spd_mps=0.12 crs_deg=140.74 utc=05:57:52.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=759 bad=0 last_good_s_ago=0.9 rx_up_s=760.0
+PKT node=1 seq=837 up_s=838.0 fix=yes sats=12 hdop=0.89 lat=35.1234234 lon=-117.1233992 alt_m=49.60 spd_mps=0.10 crs_deg=140.74 utc=05:57:53.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=760 bad=0 last_good_s_ago=0.9 rx_up_s=761.0
+PKT node=1 seq=838 up_s=839.0 fix=yes sats=12 hdop=0.89 lat=35.1234319 lon=-117.1234011 alt_m=48.90 spd_mps=0.08 crs_deg=140.74 utc=05:57:54.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=761 bad=0 last_good_s_ago=0.9 rx_up_s=762.0
+PKT node=1 seq=839 up_s=840.0 fix=yes sats=12 hdop=0.89 lat=35.1234404 lon=-117.1234032 alt_m=48.20 spd_mps=0.07 crs_deg=140.74 utc=05:57:55.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=762 bad=0 last_good_s_ago=0.9 rx_up_s=763.0
+PKT node=1 seq=840 up_s=841.0 fix=yes sats=12 hdop=0.89 lat=35.1234470 lon=-117.1234061 alt_m=47.80 spd_mps=0.06 crs_deg=140.74 utc=05:57:56.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=763 bad=0 last_good_s_ago=0.9 rx_up_s=764.0
+PKT node=1 seq=841 up_s=842.0 fix=yes sats=12 hdop=0.89 lat=35.1234530 lon=-117.1234096 alt_m=47.30 spd_mps=0.10 crs_deg=140.74 utc=05:57:57.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=764 bad=0 last_good_s_ago=0.9 rx_up_s=765.0
+PKT node=1 seq=842 up_s=843.0 fix=yes sats=12 hdop=0.89 lat=35.1234590 lon=-117.1234141 alt_m=46.80 spd_mps=0.12 crs_deg=140.74 utc=05:57:58.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=765 bad=0 last_good_s_ago=0.9 rx_up_s=766.0
+PKT node=1 seq=843 up_s=844.0 fix=yes sats=12 hdop=0.84 lat=35.1234644 lon=-117.1234169 alt_m=46.40 spd_mps=0.09 crs_deg=140.74 utc=05:57:59.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=766 bad=0 last_good_s_ago=0.9 rx_up_s=767.0
+PKT node=1 seq=844 up_s=845.0 fix=yes sats=12 hdop=0.84 lat=35.1234694 lon=-117.1234189 alt_m=45.90 spd_mps=0.01 crs_deg=140.74 utc=05:58:00.000 airborne=yes rssi_dbm=-79.0 snr_db=11.75 missed=0
+# DEKEL_RX listening good=767 bad=0 last_good_s_ago=0.9 rx_up_s=768.0
+PKT node=1 seq=845 up_s=846.0 fix=yes sats=12 hdop=0.88 lat=35.1234745 lon=-117.1234214 alt_m=45.50 spd_mps=0.08 crs_deg=140.74 utc=05:58:01.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=768 bad=0 last_good_s_ago=0.9 rx_up_s=769.0
+PKT node=1 seq=846 up_s=847.0 fix=yes sats=12 hdop=0.86 lat=35.1234690 lon=-117.1234209 alt_m=45.70 spd_mps=0.04 crs_deg=140.74 utc=05:58:02.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=769 bad=0 last_good_s_ago=0.9 rx_up_s=770.0
+PKT node=1 seq=847 up_s=848.0 fix=yes sats=12 hdop=0.82 lat=35.1234632 lon=-117.1234189 alt_m=45.90 spd_mps=0.07 crs_deg=140.74 utc=05:58:03.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=770 bad=0 last_good_s_ago=0.9 rx_up_s=771.0
+PKT node=1 seq=848 up_s=849.0 fix=yes sats=12 hdop=0.81 lat=35.1234539 lon=-117.1234156 alt_m=46.00 spd_mps=0.15 crs_deg=140.74 utc=05:58:04.000 airborne=yes rssi_dbm=-79.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=771 bad=0 last_good_s_ago=0.9 rx_up_s=772.0
+PKT node=1 seq=849 up_s=850.0 fix=yes sats=12 hdop=0.79 lat=35.1234447 lon=-117.1234137 alt_m=45.90 spd_mps=0.04 crs_deg=140.74 utc=05:58:05.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=772 bad=0 last_good_s_ago=0.9 rx_up_s=773.0
+PKT node=1 seq=850 up_s=851.0 fix=yes sats=12 hdop=0.82 lat=35.1234337 lon=-117.1234169 alt_m=45.60 spd_mps=0.04 crs_deg=140.74 utc=05:58:06.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=773 bad=0 last_good_s_ago=0.9 rx_up_s=774.0
+PKT node=1 seq=851 up_s=852.0 fix=yes sats=12 hdop=0.79 lat=35.1234257 lon=-117.1234171 alt_m=45.70 spd_mps=0.16 crs_deg=140.74 utc=05:58:07.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=774 bad=0 last_good_s_ago=0.9 rx_up_s=775.0
+PKT node=1 seq=852 up_s=853.0 fix=yes sats=12 hdop=0.79 lat=35.1234195 lon=-117.1234169 alt_m=45.70 spd_mps=0.03 crs_deg=140.74 utc=05:58:08.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=775 bad=0 last_good_s_ago=0.9 rx_up_s=776.0
+PKT node=1 seq=853 up_s=854.0 fix=yes sats=12 hdop=0.79 lat=35.1234142 lon=-117.1234171 alt_m=45.70 spd_mps=0.04 crs_deg=140.74 utc=05:58:09.000 airborne=yes rssi_dbm=-79.0 snr_db=12.00 missed=0
+# DEKEL_RX listening good=776 bad=0 last_good_s_ago=0.9 rx_up_s=777.0
+PKT node=1 seq=854 up_s=855.0 fix=yes sats=12 hdop=0.98 lat=35.1234057 lon=-117.1234162 alt_m=46.10 spd_mps=0.06 crs_deg=140.74 utc=05:58:10.000 airborne=yes rssi_dbm=-80.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=777 bad=0 last_good_s_ago=0.9 rx_up_s=778.0
+PKT node=1 seq=855 up_s=856.0 fix=yes sats=12 hdop=0.93 lat=35.1233982 lon=-117.1234144 alt_m=46.60 spd_mps=0.04 crs_deg=140.74 utc=05:58:11.000 airborne=yes rssi_dbm=-81.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=778 bad=0 last_good_s_ago=0.9 rx_up_s=779.0
+PKT node=1 seq=856 up_s=857.0 fix=yes sats=12 hdop=0.93 lat=35.1233939 lon=-117.1234142 alt_m=46.60 spd_mps=0.03 crs_deg=140.74 utc=05:58:12.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=779 bad=0 last_good_s_ago=0.9 rx_up_s=780.0
+PKT node=1 seq=857 up_s=858.0 fix=yes sats=12 hdop=0.99 lat=35.1233904 lon=-117.1234174 alt_m=46.20 spd_mps=0.04 crs_deg=140.74 utc=05:58:13.000 airborne=yes rssi_dbm=-80.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=780 bad=0 last_good_s_ago=0.9 rx_up_s=781.0
+PKT node=1 seq=858 up_s=859.0 fix=yes sats=12 hdop=0.95 lat=35.1233872 lon=-117.1234202 alt_m=45.80 spd_mps=0.03 crs_deg=140.74 utc=05:58:14.000 airborne=yes rssi_dbm=-80.0 snr_db=10.25 missed=0
+# DEKEL_RX listening good=781 bad=0 last_good_s_ago=0.9 rx_up_s=782.0
+PKT node=1 seq=859 up_s=860.0 fix=yes sats=12 hdop=0.99 lat=35.1233850 lon=-117.1234181 alt_m=45.70 spd_mps=0.03 crs_deg=140.74 utc=05:58:15.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=782 bad=0 last_good_s_ago=0.9 rx_up_s=783.0
+PKT node=1 seq=860 up_s=861.0 fix=yes sats=12 hdop=0.99 lat=35.1233817 lon=-117.1234151 alt_m=45.70 spd_mps=0.09 crs_deg=140.74 utc=05:58:16.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=783 bad=0 last_good_s_ago=0.9 rx_up_s=784.0
+PKT node=1 seq=861 up_s=862.0 fix=yes sats=12 hdop=0.95 lat=35.1233774 lon=-117.1234116 alt_m=45.80 spd_mps=0.03 crs_deg=140.74 utc=05:58:17.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=784 bad=0 last_good_s_ago=0.9 rx_up_s=785.0
+PKT node=1 seq=862 up_s=863.0 fix=yes sats=12 hdop=0.95 lat=35.1233735 lon=-117.1234087 alt_m=45.80 spd_mps=0.08 crs_deg=140.74 utc=05:58:18.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=785 bad=0 last_good_s_ago=0.9 rx_up_s=786.0
+PKT node=1 seq=863 up_s=864.0 fix=yes sats=12 hdop=1.04 lat=35.1233694 lon=-117.1234056 alt_m=45.80 spd_mps=0.10 crs_deg=140.74 utc=05:58:19.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=786 bad=0 last_good_s_ago=0.9 rx_up_s=787.0
+PKT node=1 seq=864 up_s=865.0 fix=yes sats=12 hdop=0.97 lat=35.1233654 lon=-117.1234052 alt_m=45.30 spd_mps=0.09 crs_deg=140.74 utc=05:58:20.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=787 bad=0 last_good_s_ago=0.9 rx_up_s=788.0
+PKT node=1 seq=865 up_s=866.0 fix=yes sats=12 hdop=0.95 lat=35.1233597 lon=-117.1234009 alt_m=45.30 spd_mps=0.19 crs_deg=140.74 utc=05:58:21.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=788 bad=0 last_good_s_ago=0.9 rx_up_s=789.0
+PKT node=1 seq=866 up_s=867.0 fix=yes sats=12 hdop=0.99 lat=35.1233537 lon=-117.1233979 alt_m=45.50 spd_mps=0.03 crs_deg=140.74 utc=05:58:22.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=789 bad=0 last_good_s_ago=0.9 rx_up_s=790.0
+PKT node=1 seq=867 up_s=868.0 fix=yes sats=12 hdop=0.95 lat=35.1233497 lon=-117.1233964 alt_m=45.80 spd_mps=0.04 crs_deg=140.74 utc=05:58:23.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=790 bad=0 last_good_s_ago=0.9 rx_up_s=791.0
+PKT node=1 seq=868 up_s=869.0 fix=yes sats=12 hdop=0.95 lat=35.1233480 lon=-117.1233937 alt_m=45.60 spd_mps=0.01 crs_deg=140.74 utc=05:58:24.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=791 bad=0 last_good_s_ago=0.9 rx_up_s=792.0
+PKT node=1 seq=869 up_s=870.0 fix=yes sats=12 hdop=1.04 lat=35.1233465 lon=-117.1233929 alt_m=45.60 spd_mps=0.10 crs_deg=140.74 utc=05:58:25.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=792 bad=0 last_good_s_ago=0.9 rx_up_s=793.0
+PKT node=1 seq=870 up_s=871.0 fix=yes sats=12 hdop=1.05 lat=35.1233514 lon=-117.1233924 alt_m=45.00 spd_mps=0.10 crs_deg=140.74 utc=05:58:26.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=793 bad=0 last_good_s_ago=0.9 rx_up_s=794.0
+PKT node=1 seq=871 up_s=872.0 fix=yes sats=12 hdop=0.99 lat=35.1233552 lon=-117.1233912 alt_m=44.40 spd_mps=0.06 crs_deg=140.74 utc=05:58:27.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=794 bad=0 last_good_s_ago=0.9 rx_up_s=795.0
+PKT node=1 seq=872 up_s=873.0 fix=yes sats=12 hdop=1.65 lat=35.1233605 lon=-117.1233917 alt_m=43.70 spd_mps=0.19 crs_deg=140.74 utc=05:58:28.000 airborne=yes rssi_dbm=-80.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=795 bad=0 last_good_s_ago=0.9 rx_up_s=796.0
+PKT node=1 seq=873 up_s=874.0 fix=yes sats=12 hdop=1.65 lat=35.1233650 lon=-117.1233907 alt_m=43.30 spd_mps=0.23 crs_deg=140.74 utc=05:58:29.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=796 bad=0 last_good_s_ago=0.9 rx_up_s=797.0
+PKT node=1 seq=874 up_s=875.0 fix=yes sats=12 hdop=1.53 lat=35.1233719 lon=-117.1233901 alt_m=42.70 spd_mps=0.01 crs_deg=140.74 utc=05:58:30.000 airborne=yes rssi_dbm=-81.0 snr_db=11.75 missed=0
+# DEKEL_RX listening good=797 bad=0 last_good_s_ago=0.9 rx_up_s=798.0
+PKT node=1 seq=875 up_s=876.0 fix=yes sats=12 hdop=1.66 lat=35.1233790 lon=-117.1233896 alt_m=42.20 spd_mps=0.23 crs_deg=140.74 utc=05:58:31.000 airborne=yes rssi_dbm=-80.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=798 bad=0 last_good_s_ago=0.9 rx_up_s=799.0
+PKT node=1 seq=876 up_s=877.0 fix=yes sats=12 hdop=1.59 lat=35.1233849 lon=-117.1233904 alt_m=41.80 spd_mps=0.04 crs_deg=140.74 utc=05:58:32.000 airborne=yes rssi_dbm=-80.0 snr_db=12.00 missed=0
+# DEKEL_RX listening good=799 bad=0 last_good_s_ago=0.9 rx_up_s=800.0
+PKT node=1 seq=877 up_s=878.0 fix=yes sats=12 hdop=1.58 lat=35.1233917 lon=-117.1233916 alt_m=40.90 spd_mps=0.17 crs_deg=140.74 utc=05:58:33.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=800 bad=0 last_good_s_ago=0.9 rx_up_s=801.0
+PKT node=1 seq=878 up_s=879.0 fix=yes sats=12 hdop=1.66 lat=35.1233979 lon=-117.1233924 alt_m=40.40 spd_mps=0.17 crs_deg=140.74 utc=05:58:34.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=801 bad=0 last_good_s_ago=0.9 rx_up_s=802.0
+PKT node=1 seq=879 up_s=880.0 fix=yes sats=12 hdop=1.58 lat=35.1234029 lon=-117.1233926 alt_m=39.70 spd_mps=0.23 crs_deg=140.74 utc=05:58:35.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=802 bad=0 last_good_s_ago=0.9 rx_up_s=803.0
+PKT node=1 seq=880 up_s=881.0 fix=yes sats=12 hdop=1.58 lat=35.1234064 lon=-117.1233911 alt_m=39.20 spd_mps=0.18 crs_deg=140.74 utc=05:58:36.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=803 bad=0 last_good_s_ago=0.9 rx_up_s=804.0
+PKT node=1 seq=881 up_s=882.0 fix=yes sats=12 hdop=1.58 lat=35.1234050 lon=-117.1233934 alt_m=39.30 spd_mps=0.12 crs_deg=140.74 utc=05:58:37.000 airborne=yes rssi_dbm=-80.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=804 bad=0 last_good_s_ago=0.9 rx_up_s=805.0
+PKT node=1 seq=882 up_s=883.0 fix=yes sats=12 hdop=1.72 lat=35.1233987 lon=-117.1233961 alt_m=40.30 spd_mps=0.05 crs_deg=140.74 utc=05:58:38.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=805 bad=0 last_good_s_ago=0.9 rx_up_s=806.0
+PKT node=1 seq=883 up_s=884.0 fix=yes sats=12 hdop=1.82 lat=35.1233922 lon=-117.1233981 alt_m=41.30 spd_mps=0.06 crs_deg=140.74 utc=05:58:39.000 airborne=yes rssi_dbm=-79.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=806 bad=0 last_good_s_ago=0.9 rx_up_s=807.0
+PKT node=1 seq=884 up_s=885.0 fix=yes sats=12 hdop=1.82 lat=35.1233879 lon=-117.1234011 alt_m=42.10 spd_mps=0.17 crs_deg=140.74 utc=05:58:40.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=807 bad=0 last_good_s_ago=0.9 rx_up_s=808.0
+PKT node=1 seq=885 up_s=886.0 fix=yes sats=12 hdop=1.83 lat=35.1233860 lon=-117.1234031 alt_m=42.30 spd_mps=0.03 crs_deg=140.74 utc=05:58:41.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=808 bad=0 last_good_s_ago=0.9 rx_up_s=809.0
+PKT node=1 seq=886 up_s=887.0 fix=yes sats=12 hdop=1.83 lat=35.1233814 lon=-117.1234064 alt_m=42.80 spd_mps=0.06 crs_deg=140.74 utc=05:58:42.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=809 bad=0 last_good_s_ago=0.9 rx_up_s=810.0
+PKT node=1 seq=887 up_s=888.0 fix=yes sats=12 hdop=1.83 lat=35.1233772 lon=-117.1234114 alt_m=43.50 spd_mps=0.09 crs_deg=140.74 utc=05:58:43.000 airborne=yes rssi_dbm=-79.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=810 bad=0 last_good_s_ago=0.9 rx_up_s=811.0
+PKT node=1 seq=888 up_s=889.0 fix=yes sats=12 hdop=1.68 lat=35.1233732 lon=-117.1234157 alt_m=44.30 spd_mps=0.06 crs_deg=140.74 utc=05:58:44.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=811 bad=0 last_good_s_ago=0.9 rx_up_s=812.0
+PKT node=1 seq=889 up_s=890.0 fix=yes sats=12 hdop=1.68 lat=35.1233689 lon=-117.1234216 alt_m=45.20 spd_mps=0.07 crs_deg=140.74 utc=05:58:45.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=812 bad=0 last_good_s_ago=0.9 rx_up_s=813.0
+PKT node=1 seq=890 up_s=891.0 fix=yes sats=12 hdop=1.68 lat=35.1233624 lon=-117.1234234 alt_m=46.10 spd_mps=0.28 crs_deg=140.74 utc=05:58:46.000 airborne=yes rssi_dbm=-79.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=813 bad=0 last_good_s_ago=0.9 rx_up_s=814.0
+PKT node=1 seq=891 up_s=892.0 fix=yes sats=12 hdop=1.68 lat=35.1233572 lon=-117.1234236 alt_m=47.00 spd_mps=0.05 crs_deg=140.74 utc=05:58:47.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=814 bad=0 last_good_s_ago=0.9 rx_up_s=815.0
+PKT node=1 seq=892 up_s=893.0 fix=yes sats=12 hdop=1.74 lat=35.1233512 lon=-117.1234241 alt_m=48.00 spd_mps=0.12 crs_deg=140.74 utc=05:58:48.000 airborne=yes rssi_dbm=-79.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=815 bad=0 last_good_s_ago=0.9 rx_up_s=816.0
+PKT node=1 seq=893 up_s=894.0 fix=yes sats=12 hdop=1.84 lat=35.1233457 lon=-117.1234296 alt_m=49.10 spd_mps=0.30 crs_deg=140.74 utc=05:58:49.000 airborne=yes rssi_dbm=-79.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=816 bad=0 last_good_s_ago=0.9 rx_up_s=817.0
+PKT node=1 seq=894 up_s=895.0 fix=yes sats=12 hdop=1.74 lat=35.1233409 lon=-117.1234312 alt_m=50.20 spd_mps=0.28 crs_deg=140.74 utc=05:58:50.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=817 bad=0 last_good_s_ago=0.9 rx_up_s=818.0
+PKT node=1 seq=895 up_s=896.0 fix=yes sats=12 hdop=1.74 lat=35.1233355 lon=-117.1234281 alt_m=51.10 spd_mps=0.16 crs_deg=140.74 utc=05:58:51.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=818 bad=0 last_good_s_ago=0.9 rx_up_s=819.0
+PKT node=1 seq=896 up_s=897.0 fix=yes sats=12 hdop=1.74 lat=35.1233305 lon=-117.1234232 alt_m=51.80 spd_mps=0.21 crs_deg=140.74 utc=05:58:52.000 airborne=yes rssi_dbm=-80.0 snr_db=11.75 missed=0
+# DEKEL_RX listening good=819 bad=0 last_good_s_ago=0.9 rx_up_s=820.0
+PKT node=1 seq=897 up_s=898.0 fix=yes sats=12 hdop=1.74 lat=35.1233255 lon=-117.1234191 alt_m=52.50 spd_mps=0.14 crs_deg=140.74 utc=05:58:53.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=820 bad=0 last_good_s_ago=0.9 rx_up_s=821.0
+PKT node=1 seq=898 up_s=899.0 fix=yes sats=12 hdop=1.74 lat=35.1233215 lon=-117.1234146 alt_m=53.30 spd_mps=0.05 crs_deg=140.74 utc=05:58:54.000 airborne=yes rssi_dbm=-80.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=821 bad=0 last_good_s_ago=0.9 rx_up_s=822.0
+PKT node=1 seq=899 up_s=900.0 fix=yes sats=12 hdop=1.74 lat=35.1233187 lon=-117.1234104 alt_m=54.10 spd_mps=0.02 crs_deg=140.74 utc=05:58:55.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=822 bad=0 last_good_s_ago=0.9 rx_up_s=823.0
+PKT node=1 seq=900 up_s=901.0 fix=yes sats=12 hdop=1.70 lat=35.1233149 lon=-117.1234056 alt_m=55.20 spd_mps=0.23 crs_deg=140.74 utc=05:58:56.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=823 bad=0 last_good_s_ago=0.9 rx_up_s=824.0
+PKT node=1 seq=901 up_s=902.0 fix=yes sats=12 hdop=1.70 lat=35.1233124 lon=-117.1233984 alt_m=55.80 spd_mps=0.04 crs_deg=140.74 utc=05:58:57.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=824 bad=0 last_good_s_ago=0.9 rx_up_s=825.0
+PKT node=1 seq=902 up_s=903.0 fix=yes sats=12 hdop=1.70 lat=35.1233090 lon=-117.1233922 alt_m=56.60 spd_mps=0.23 crs_deg=140.74 utc=05:58:58.000 airborne=yes rssi_dbm=-80.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=825 bad=0 last_good_s_ago=0.9 rx_up_s=826.0
+PKT node=1 seq=903 up_s=904.0 fix=yes sats=12 hdop=1.70 lat=35.1233049 lon=-117.1233866 alt_m=57.60 spd_mps=0.11 crs_deg=140.74 utc=05:58:59.000 airborne=yes rssi_dbm=-82.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=826 bad=0 last_good_s_ago=0.9 rx_up_s=827.0
+PKT node=1 seq=904 up_s=905.0 fix=yes sats=12 hdop=1.56 lat=35.1233072 lon=-117.1233849 alt_m=58.00 spd_mps=0.15 crs_deg=140.74 utc=05:59:00.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=827 bad=0 last_good_s_ago=0.9 rx_up_s=828.0
+PKT node=1 seq=905 up_s=906.0 fix=yes sats=12 hdop=1.56 lat=35.1233085 lon=-117.1233814 alt_m=58.60 spd_mps=0.33 crs_deg=140.74 utc=05:59:01.000 airborne=yes rssi_dbm=-80.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=828 bad=0 last_good_s_ago=0.9 rx_up_s=829.0
+PKT node=1 seq=906 up_s=907.0 fix=yes sats=12 hdop=0.94 lat=35.1233115 lon=-117.1233712 alt_m=58.40 spd_mps=0.10 crs_deg=140.74 utc=05:59:02.000 airborne=yes rssi_dbm=-81.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=829 bad=0 last_good_s_ago=0.9 rx_up_s=830.0
+PKT node=1 seq=907 up_s=908.0 fix=yes sats=12 hdop=0.94 lat=35.1233145 lon=-117.1233652 alt_m=58.40 spd_mps=0.09 crs_deg=140.74 utc=05:59:03.000 airborne=yes rssi_dbm=-80.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=830 bad=0 last_good_s_ago=0.9 rx_up_s=831.0
+PKT node=1 seq=908 up_s=909.0 fix=yes sats=12 hdop=0.94 lat=35.1233160 lon=-117.1233614 alt_m=58.60 spd_mps=0.09 crs_deg=140.74 utc=05:59:04.000 airborne=yes rssi_dbm=-81.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=831 bad=0 last_good_s_ago=0.9 rx_up_s=832.0
+PKT node=1 seq=909 up_s=910.0 fix=yes sats=12 hdop=0.94 lat=35.1233182 lon=-117.1233564 alt_m=58.60 spd_mps=0.07 crs_deg=140.74 utc=05:59:05.000 airborne=yes rssi_dbm=-80.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=832 bad=0 last_good_s_ago=0.9 rx_up_s=833.0
+PKT node=1 seq=910 up_s=911.0 fix=yes sats=12 hdop=0.94 lat=35.1233190 lon=-117.1233532 alt_m=58.70 spd_mps=0.09 crs_deg=140.74 utc=05:59:06.000 airborne=yes rssi_dbm=-80.0 snr_db=10.50 missed=0
+# DEKEL_RX listening good=833 bad=0 last_good_s_ago=0.9 rx_up_s=834.0
+PKT node=1 seq=911 up_s=912.0 fix=yes sats=12 hdop=0.95 lat=35.1233214 lon=-117.1233502 alt_m=58.90 spd_mps=0.12 crs_deg=140.74 utc=05:59:07.000 airborne=yes rssi_dbm=-81.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=834 bad=0 last_good_s_ago=0.9 rx_up_s=835.0
+PKT node=1 seq=912 up_s=913.0 fix=yes sats=12 hdop=0.96 lat=35.1233240 lon=-117.1233464 alt_m=59.30 spd_mps=0.14 crs_deg=140.74 utc=05:59:08.000 airborne=yes rssi_dbm=-80.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=835 bad=0 last_good_s_ago=0.9 rx_up_s=836.0
+PKT node=1 seq=913 up_s=914.0 fix=yes sats=12 hdop=1.09 lat=35.1233237 lon=-117.1233434 alt_m=59.90 spd_mps=0.07 crs_deg=140.74 utc=05:59:09.000 airborne=yes rssi_dbm=-81.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=836 bad=0 last_good_s_ago=0.9 rx_up_s=837.0
+PKT node=1 seq=914 up_s=915.0 fix=yes sats=12 hdop=1.01 lat=35.1233244 lon=-117.1233442 alt_m=60.50 spd_mps=0.18 crs_deg=140.74 utc=05:59:10.000 airborne=yes rssi_dbm=-81.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=837 bad=0 last_good_s_ago=0.9 rx_up_s=838.0
+PKT node=1 seq=915 up_s=916.0 fix=yes sats=12 hdop=1.09 lat=35.1233212 lon=-117.1233444 alt_m=61.40 spd_mps=0.12 crs_deg=140.74 utc=05:59:11.000 airborne=yes rssi_dbm=-81.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=838 bad=0 last_good_s_ago=0.9 rx_up_s=839.0
+PKT node=1 seq=916 up_s=917.0 fix=yes sats=12 hdop=1.09 lat=35.1233164 lon=-117.1233484 alt_m=62.80 spd_mps=0.10 crs_deg=140.74 utc=05:59:12.000 airborne=yes rssi_dbm=-81.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=839 bad=0 last_good_s_ago=0.9 rx_up_s=840.0
+PKT node=1 seq=917 up_s=918.0 fix=yes sats=12 hdop=1.09 lat=35.1233129 lon=-117.1233529 alt_m=63.70 spd_mps=0.19 crs_deg=140.74 utc=05:59:13.000 airborne=yes rssi_dbm=-80.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=840 bad=0 last_good_s_ago=0.9 rx_up_s=841.0
+PKT node=1 seq=918 up_s=919.0 fix=yes sats=12 hdop=1.03 lat=35.1233084 lon=-117.1233576 alt_m=64.80 spd_mps=0.14 crs_deg=140.74 utc=05:59:14.000 airborne=yes rssi_dbm=-81.0 snr_db=12.00 missed=0
+# DEKEL_RX listening good=841 bad=0 last_good_s_ago=0.9 rx_up_s=842.0
+PKT node=1 seq=919 up_s=920.0 fix=yes sats=12 hdop=1.11 lat=35.1233040 lon=-117.1233621 alt_m=65.80 spd_mps=0.18 crs_deg=140.74 utc=05:59:15.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=842 bad=0 last_good_s_ago=0.9 rx_up_s=843.0
+PKT node=1 seq=920 up_s=921.0 fix=yes sats=12 hdop=1.19 lat=35.1232979 lon=-117.1233669 alt_m=67.30 spd_mps=0.04 crs_deg=140.74 utc=05:59:16.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=843 bad=0 last_good_s_ago=0.9 rx_up_s=844.0
+PKT node=1 seq=921 up_s=922.0 fix=yes sats=12 hdop=1.11 lat=35.1232930 lon=-117.1233716 alt_m=68.40 spd_mps=0.30 crs_deg=140.74 utc=05:59:17.000 airborne=yes rssi_dbm=-80.0 snr_db=11.50 missed=0
+# DEKEL_RX listening good=844 bad=0 last_good_s_ago=0.9 rx_up_s=845.0
+PKT node=1 seq=922 up_s=923.0 fix=yes sats=12 hdop=1.21 lat=35.1232887 lon=-117.1233741 alt_m=69.20 spd_mps=0.14 crs_deg=140.74 utc=05:59:18.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=845 bad=0 last_good_s_ago=0.9 rx_up_s=846.0
+PKT node=1 seq=923 up_s=924.0 fix=yes sats=12 hdop=1.19 lat=35.1232849 lon=-117.1233767 alt_m=69.80 spd_mps=0.17 crs_deg=140.74 utc=05:59:19.000 airborne=yes rssi_dbm=-82.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=846 bad=0 last_good_s_ago=0.9 rx_up_s=847.0
+PKT node=1 seq=924 up_s=925.0 fix=yes sats=12 hdop=1.35 lat=35.1232830 lon=-117.1233797 alt_m=70.20 spd_mps=0.14 crs_deg=140.74 utc=05:59:20.000 airborne=yes rssi_dbm=-81.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=847 bad=0 last_good_s_ago=0.9 rx_up_s=848.0
+PKT node=1 seq=925 up_s=926.0 fix=yes sats=12 hdop=1.09 lat=35.1232807 lon=-117.1233832 alt_m=70.80 spd_mps=0.13 crs_deg=140.74 utc=05:59:21.000 airborne=yes rssi_dbm=-82.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=848 bad=0 last_good_s_ago=0.9 rx_up_s=849.0
+PKT node=1 seq=926 up_s=927.0 fix=yes sats=12 hdop=1.09 lat=35.1232789 lon=-117.1233841 alt_m=71.20 spd_mps=0.04 crs_deg=140.74 utc=05:59:22.000 airborne=yes rssi_dbm=-81.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=849 bad=0 last_good_s_ago=0.9 rx_up_s=850.0
+PKT node=1 seq=927 up_s=928.0 fix=yes sats=12 hdop=0.98 lat=35.1232769 lon=-117.1233842 alt_m=71.60 spd_mps=0.07 crs_deg=140.74 utc=05:59:23.000 airborne=yes rssi_dbm=-82.0 snr_db=11.25 missed=0
+# DEKEL_RX listening good=850 bad=0 last_good_s_ago=0.9 rx_up_s=851.0
+PKT node=1 seq=928 up_s=929.0 fix=yes sats=12 hdop=0.98 lat=35.1232735 lon=-117.1233827 alt_m=72.20 spd_mps=0.10 crs_deg=140.74 utc=05:59:24.000 airborne=yes rssi_dbm=-82.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=851 bad=0 last_good_s_ago=0.9 rx_up_s=852.0
+PKT node=1 seq=929 up_s=930.0 fix=yes sats=12 hdop=1.09 lat=35.1232709 lon=-117.1233812 alt_m=72.70 spd_mps=0.16 crs_deg=140.74 utc=05:59:25.000 airborne=yes rssi_dbm=-81.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=852 bad=0 last_good_s_ago=0.9 rx_up_s=853.0
+PKT node=1 seq=930 up_s=931.0 fix=yes sats=12 hdop=0.98 lat=35.1232695 lon=-117.1233797 alt_m=73.00 spd_mps=0.24 crs_deg=140.74 utc=05:59:26.000 airborne=yes rssi_dbm=-82.0 snr_db=11.00 missed=0
+# DEKEL_RX listening good=853 bad=0 last_good_s_ago=0.9 rx_up_s=854.0
+PKT node=1 seq=931 up_s=932.0 fix=yes sats=12 hdop=0.98 lat=35.1232697 lon=-117.1233786 alt_m=73.20 spd_mps=0.09 crs_deg=140.74 utc=05:59:27.000 airborne=yes rssi_dbm=-82.0 snr_db=10.75 missed=0
+# DEKEL_RX listening good=854 bad=0 last_good_s_ago=0.9 rx_up_s=855.0

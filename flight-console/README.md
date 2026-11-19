@@ -142,7 +142,7 @@ Two attributes on `#fc-console` tell the CSS what to show.
 
 - `idle`: nothing found on the serial link yet.
 - `bench`: a Dogtooth board's status block came in over USB.
-- `flight`: a flight source, like the Manta ground station. Nothing makes this mode yet. It goes by the source's `mode` in `main.js`, so a future source with `mode: 'flight'` just works.
+- `flight`: a flight source. Today that is the radio board receiver, which prints a line for each radio packet from the rocket (see "The radio board receiver"). Later it is the Manta ground station too. It goes by the source's `mode` in `main.js`, so a future source with `mode: 'flight'` just works.
 - `replay`: a saved flight.
 
 Panel 2 uses it to pick the live parts or the replay's parts.
@@ -501,7 +501,8 @@ A short graph (with strips open on a small window, say) takes bigger value steps
 2. `js/live/sources.js` works out what is talking from the lines that arrive. The first line that matches a source decides it for the rest of that connection. A new connection starts over, since a different board may be plugged in. After 60 lines with text in them and no match, it calls the data unknown, and the console says NOT RECOGNIZED.
 3. Every line also goes to `js/live/bench-panel.js`, panel 2 for a board on USB. It finds the status blocks in the lines (`BlockParser` in `js/bench/parse.js`), keeps every block for the CSV, counts heartbeats and lost blocks, collects errors, and draws the readings, the graphs and the raw output.
 4. Each finished block goes to `js/live/bench-feed.js`, which turns it into one normalized sample (`{ rocketId, t, type, gps, ... }`, see `js/schema.js`) for the live store. Its clock is the board's own TIME RUNNING, and it keeps moving between blocks, so the views can tell when the data gets old. A board restart (TIME RUNNING or the heartbeat number going back) clears the store and starts over.
-5. The live store (`js/store.js`) is the same kind of store the replays use. The stage reads it through the store switch.
+5. A flight source takes its own path. `main.js` gives each of its lines to the source's `parse()` and the result to `js/live/flight-feed.js`, which puts the samples in the flight store and keeps that store's clock moving between packets. See "The radio board receiver".
+6. The live store (`js/store.js`) is the same kind of store the replays use. The stage reads it through the store switch.
 
 The live session (the link, the panel, the source detector and the live stores) is made the first time the console opens and is kept for the whole visit. So a trip to a replay and back keeps the connection open and keeps every block for the CSV.
 
@@ -518,12 +519,35 @@ The live stores are made with the options in `LIVE_STORE_OPTIONS` in `js/live/be
 - They use the normal detector, liftoff and landing included. `BENCH_DETECTOR` there is just `DETECTOR_DEFAULTS` now, kept as its own name so code that imports it keeps working. A board on a desk stays on its pad however much its GPS wanders (`test/bench-wander.test.mjs` checks it). The pad is still found, and the 3D view needs it to place the board.
 - They have no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California, which would be thousands of kilometers from a board on my desk. So `getGroundStation()` returns null, and the map, the 3D view and the HUD leave out the dish, the radio link and every distance to Manta. The KEY drops those rows, and the recovery block measures from the launch point. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one.
 
+### The radio board receiver
+
+For launches before Manta exists, a club radio board runs my receiver firmware (`DEKEL_RX_FIRMWARE`, a separate project). It listens for a Dogtooth board's radio packets and prints text over USB at 115,200 baud:
+
+- A header each time the port opens. Its first line starts with `# DEKEL_RX_FIRMWARE`.
+- A status line every second, like `# DEKEL_RX listening good=12 bad=3 last_good_s_ago=0.4 rx_up_s=73.0`, or `# DEKEL_RX radio-failed error=-2 good=0 bad=0 rx_up_s=5.0` when its radio didn't start.
+- A `PKT node=1 seq=.. up_s=.. ...` line for each good packet, the same line the bench_rx firmware prints, with ` REBOOTED` on the end when the flight board restarted.
+- A `BAD reason=...` line for anything it heard that wasn't a good Dogtooth packet. Other radios on the field show up here.
+
+How the console reads it:
+
+- `js/live/sources.js` has its entry, `radio-board-rx`, with `mode: 'flight'`. Its `test(line)` is true for a line that starts with `RECEIVER_MARKER` (`# DEKEL_RX`, which must stay the same as `Config::kStatusMarker` in the firmware) or with `PKT `. A Dogtooth board on USB never prints either. Its flight_sim build prints `SIM PKT` lines, which start with SIM. The Dogtooth entry comes first in the list. A Dogtooth board running bench_rx prints the same `PKT` lines, so it is picked up as a receiver too.
+- Its `parse(line)` is `parseSerialLine()` from `js/parser.js`. A `PKT` line becomes a sample, with the rocket ID from `node=`. A `BAD` line is counted. Lines that start with `#` are ignored, and a `SIM PKT` line is turned away.
+- `js/live/flight-feed.js` takes each result. The first board heard keeps its own clock (`up_s`), and the feed keeps the store's clock moving with the computer's clock between packets (every `TICK_MS`), so after `LINK_STALE_S` with no packet the HUD and the map show the data as old. A second board is shifted onto that clock when it is first heard.
+- A flight board that restarts in flight starts its clock again, and the store would turn its packets away as late. The feed shifts the new times to follow on (the shift is kept in `extra.time_shift_s`), so the track carries on and nothing is cleared. The same happens when a board's clock goes back, or leaps more than `CLOCK_JUMP_S` ahead of real time, without the REBOOTED word.
+- Before the first packet, the line under the bar says the receiver was found and is listening, and how many packets from other radios it heard (`waitingNote()` in `flight-feed.js`, shown by `setFlightNote()` in `main.js`). It turns into a warning when the status line says the radio didn't start. It goes away at the first packet, when the pad checklist takes over.
+- RSSI and SNR are on every `PKT` line, and the schema already has them (`radio.rssi` and `radio.snr`). They show in the HUD's MORE column under RADIO LINK.
+- A new connection keeps the flight. The rockets, their tracks and the clock stay, so a cable that was bumped costs nothing but the packets missed.
+
+What it doesn't do yet. Panel 2's graphs and readings are filled from Dogtooth status blocks, so they stay empty for the receiver. Its raw output and mission timeline do work. The square on the CONNECT button only follows status blocks too.
+
+`test/radio-board-rx.test.mjs` checks all of it with a session of the receiver's lines. That session is hand-built from the firmware's print code, since the firmware hadn't run on its board when the test was written. A real capture should replace it.
+
 ### The Manta hook
 
-The ground station isn't built yet, so nothing on the page reads it. There are two marked spots for it:
+The ground station isn't built yet. The radio board receiver already takes the path it will take, so there is less to fill in:
 
 - `js/live/sources.js` has a commented-out entry for "Manta ground station" with what to fill in: a `test(line)` that is true only for the ground station's own lines, a `parse(line)` that gives back `{ kind: 'sample', sample }` (`parseSerialLine()` in `js/parser.js` is a good start), and `mode: 'flight'`.
-- `main.js` has a "MANTA HOOK" comment over `feedFlightLine()`. It already passes each line of a flight source to its `parse()` (a line that makes it throw is skipped) and puts the samples in a flight store with the normal detector and no demo ground station. Before it is used, that store's clock also has to keep moving between packets (`store.setTime`), the way `bench-feed.js` does it for the board. The square on the CONNECT button also only follows the Dogtooth status blocks (`data-beat` in `bench-panel.js`), so Manta needs its own on-time check there.
+- `main.js` has a "FLIGHT SOURCES" comment over `feedFlightLine()`. It passes each line of a flight source to its `parse()` (a line that makes it throw is skipped) and the result to the flight feed, which fills a flight store with the normal detector and no demo ground station and keeps its clock moving. Manta can use the same feed. The square on the CONNECT button only follows the Dogtooth status blocks (`data-beat` in `bench-panel.js`), so a flight source needs its own on-time check there.
 
 When a source with `mode: 'flight'` is found, the console switches to flight mode and the stage shows the flight store. Panel 2's `data-panel.js` already works with no player, but today its mount, `#fc-data-replay`, only shows in a replay, so a live flight source needs its own spot for it.
 
@@ -778,7 +802,8 @@ node --test "flight-console/test/*.test.mjs"
 - `test/idle-earth.test.mjs` checks `js/views/idle-earth.js`: the idle camera's fit is the same as before it moved there, the Earth's outline on screen matches a direct projection of a sphere for a tilted camera, and the poster's warp leaves a matching view alone, never touches anything outside the Earth, and moves a ring to where the new view draws it.
 - `test/hero-fish.test.mjs` checks the landing's two tuna in `js/hero-currents.js`: the anatomy field has a crisp edge, every part of the anatomy (the four fins, the pectoral fin and the two tail lobes) has its zone and a point to run into, the outline glows most and runs slowest at the teeth, and for a big and a small fish the flow lines cover about the fish's area, the first lines hug the outline, the fin lines run into the fin points and nothing crosses the eye's calm middle.
 - `test/local-flights.test.mjs` checks LOCAL flights with the Komodo log, on the in-memory copy of the storage: lines come back in order, a recording's raw log is the board's output byte for byte and its CSV is what SAVE AS CSV writes, a saved recording replays like the library's copy and is never `kind: 'real'`, a recording a tab still holds isn't offered for recovery and a let-go one is, a failed write is tried again with no line lost, files are told apart by their contents, and a loaded CSV or raw log exports back byte for byte (with a CSV's byte order mark, and a log's own line endings).
-- `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, and the Manta hook is there but switched off.
+- `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, the radio board receiver is the one flight source, and the Manta hook is there but switched off.
+- `test/radio-board-rx.test.mjs` checks the radio board receiver from its lines to the store: its header, status line or a `PKT` line names it, a Dogtooth board's output (status blocks and `SIM PKT` lines) never does, `PKT` lines become samples with the rocket ID from `node=` and RSSI and SNR in the radio group, `BAD` lines are counted, the store's clock keeps moving so the data goes old, a REBOOTED board's track carries on, a second board joins the same clock, and the line under the bar says what it should before the first packet.
 
 `test/synthetic.mjs` isn't a test itself. It makes seeded, repeatable GPS data for the tests: a still board's wander (what my bench board did, about 15 m by 30 m sideways with worse altitude, plus single wild fixes, steps, lost fixes and a cold start) and whole flights that land into it.
 
@@ -825,7 +850,8 @@ node --test "flight-console/test/*.test.mjs"
 - `js/bench/csv.js`: builds the CSV file, and reads one back into its blocks (`readCsvBlocks()`).
 - `js/local/flight-db.js`: where LOCAL flights are stored (IndexedDB, or a copy in memory). See "How LOCAL flights are stored".
 - `js/local/local-flights.js`: the recorder, recovery, reading a loaded file, a LOCAL flight's entry for the replay, and the two exports.
-- `js/live/sources.js`: the source detector, and the Manta hook.
+- `js/live/sources.js`: the source detector, the radio board receiver's entry and the Manta hook.
+- `js/live/flight-feed.js`: puts a flight source's samples in the flight store, keeps that store's clock moving, follows a board that restarts, and reads the receiver's status line.
 - `js/live/bench-feed.js`: turns the board's blocks into samples for the live store. It also holds the live stores' options (`BENCH_DETECTOR` and `LIVE_STORE_OPTIONS`).
 - `js/views/data-series.js`: the points for panel 2's graphs in a replay (see "Panel 2: graphs and readings").
 
@@ -1072,7 +1098,7 @@ The laptop's screen is still a placeholder. The HTML comment next to it says how
 
 ## Where later features plug in
 
-- The Manta ground station over Web Serial: see "The Manta hook". Its lines go to its `parse()`, and its samples go to the flight store with `store.addSample()`. The player isn't needed for live data. The stage reads the same kind of store, so it follows live data too. Board restarts in a file are only handled by `parseSerialLog()`, so a live source needs its own check for that, the way `bench-feed.js` has one. Panel 2 for a live flight source would use `data-panel.js` with no player, in a spot of its own.
+- The Manta ground station over Web Serial: see "The Manta hook". Its lines go to its `parse()`, and its samples go through `js/live/flight-feed.js` to the flight store, the way the radio board receiver's do. The player isn't needed for live data. The stage reads the same kind of store, so it follows live data too. The feed already follows a board that restarts. Panel 2 for a live flight source would use `data-panel.js` with no player, in a spot of its own.
 - Web Bluetooth: a second link next to `serial-link.js` with the same callbacks (`onLine`, `onLink`, `onNote`, `onOpen`, `onClose`), so the same source detection and panels work on it.
 - Ground station position: `parseJsonLine()` already accepts `{"type":"gs","lat":..,"lon":..,"alt":..,"fix":1}`, and the store uses it as soon as one arrives, live or in a replay. For a saved flight, `groundStation` in `index.json` does the same from the start.
 - Ground speed on USB: see "Ground speed" under "Detection".

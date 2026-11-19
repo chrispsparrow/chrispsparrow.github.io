@@ -88,24 +88,32 @@ test('lines that never match turn into "unknown data" after enough of them', () 
 });
 
 test('the Manta ground station hook is there but switched off', () => {
-  // Only the Dogtooth board is a source today.
-  assert.deepEqual(SOURCES.map((s) => s.id), ['dogtooth-usb']);
+  // The Dogtooth board and the radio board receiver are the sources today.
+  // (test/radio-board-rx.test.mjs checks the receiver.)
+  assert.deepEqual(SOURCES.map((s) => s.id), ['dogtooth-usb', 'radio-board-rx']);
   for (const s of SOURCES) {
     assert.ok(['bench', 'flight'].includes(s.mode), s.id);
     assert.equal(typeof s.test, 'function');
     assert.ok(s.name);
   }
-  assert.ok(!SOURCES.some((s) => s.mode === 'flight'), 'no flight-mode source is active');
+  // The receiver is the one flight-mode source, and it can read its lines.
+  const flightSources = SOURCES.filter((s) => s.mode === 'flight');
+  assert.deepEqual(flightSources.map((s) => s.id), ['radio-board-rx']);
+  assert.equal(typeof flightSources[0].parse, 'function');
 
-  // Receiver and simulator packet lines aren't picked up by mistake.
+  // A receiver's packet line is picked up as the receiver. A simulator
+  // packet line (a Dogtooth board's flight_sim build) is no source's.
   const d = createSourceDetector();
-  assert.equal(d.push('PKT node=1 seq=12 up_s=12.0 fix=yes sats=11 hdop=0.99 lat=42.3386255 lon=-71.0896268 alt_m=17.3 spd_mps=0.0 crs_deg=0 utc=19:42:13.000 airborne=yes rssi_dbm=-41.0 snr_db=9.5 missed=0'), null);
   assert.equal(d.push('SIM PKT seq=1 len=34 sim_s=0.10 phase=pad hex=01 01 00'), null);
+  assert.equal(d.push('PKT node=1 seq=12 up_s=12.0 fix=yes sats=11 hdop=0.99 lat=42.3386255 lon=-71.0896268 alt_m=17.3 spd_mps=0.0 crs_deg=0 utc=19:42:13.000 airborne=yes rssi_dbm=-41.0 snr_db=9.5 missed=0')?.id, 'radio-board-rx');
 
-  // The hook itself is in the file, commented out, with mode 'flight'.
-  const text = readFileSync(new URL('../js/live/sources.js', import.meta.url), 'utf8');
-  const hookLines = text.split('\n').filter((l) => l.includes("'manta-ground-station'") || l.includes("mode: 'flight'"));
-  assert.ok(hookLines.length >= 2, 'the hook entry is in sources.js');
+  // The Manta hook itself is in the file, commented out, with mode 'flight'.
+  const lines = readFileSync(new URL('../js/live/sources.js', import.meta.url), 'utf8').split('\n');
+  const start = lines.findIndex((l) => l.includes("'manta-ground-station'"));
+  assert.ok(start > 0, 'the hook entry is in sources.js');
+  const hookLines = lines.slice(start - 1, start + 5);
+  assert.ok(hookLines.some((l) => l.includes("mode: 'flight'")), 'the hook has mode flight');
   assert.ok(hookLines.every((l) => l.trimStart().startsWith('//')), 'and every line of it is commented out');
-  assert.match(text, /parseSerialLine\(\) in js\/parser\.js/, 'the hook says where to start');
+  assert.ok(!SOURCES.some((s) => s.id === 'manta-ground-station'), 'so it is not a source');
+  assert.match(lines.join('\n'), /parseSerialLine\(\) in js\/parser\.js/, 'the hook says where to start');
 });
