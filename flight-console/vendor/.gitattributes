@@ -1,0 +1,4 @@
+# Everything in this folder is a copy of a file somebody else published.
+# Git keeps each one byte for byte, with no line ending changes, so the
+# hashes in README.md and in test/launch-page.test.mjs keep matching.
+* -text
