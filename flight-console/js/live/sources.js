@@ -35,7 +35,7 @@
 // No DOM here, so Node can run it too.
 
 import { parseLine } from '../bench/parse.js?v=5';
-import { parseSerialLine } from '../parser.js?v=3';
+import { parseSerialLine } from '../parser.js?v=4';
 
 // What the radio board receiver starts its lines with. Its status line is
 // "# DEKEL_RX listening good=12 bad=3 last_good_s_ago=0.4 rx_up_s=73.0"

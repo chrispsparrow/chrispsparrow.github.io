@@ -20,6 +20,14 @@
 // (warpEarth in idle-earth.js): the picture was made for one shape of
 // window, and other shapes see the Earth from a little closer or farther.
 //
+// The launch page (launch.html) has no poster. Its 3D view opens on the
+// launch field, not on the idle Earth, and the poster is a picture of the
+// idle Earth. So when window.FC_LAUNCH is true, globePoster() returns null:
+// nothing is put up early, and map-view.js shows its loading message on its
+// own in the middle of the frame, as it does over a replay. (The flag is
+// read straight from the page here, not from js/launch/launch-mode.js,
+// because this file runs before the rest of the page's code.)
+//
 // Used by: index.html (the early start) and map-view.js.
 
 import { idleFit, idleOutline, posterScale, warpEarth, POSTER_ANGLE_DEG, POSTER_EARTH_SHARE } from './idle-earth.js';
@@ -83,6 +91,8 @@ export function globePoster() {
 }
 
 function makePoster() {
+  // No poster on the launch page (see the top of this file).
+  if (window.FC_LAUNCH === true) return null;
   const img = document.getElementById('fc-globe-poster');
   if (!(img instanceof HTMLImageElement)) return null;
   const canvas = document.createElement('canvas');

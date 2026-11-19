@@ -47,10 +47,12 @@
 import { FIELD, FIELDS, SECTIONS, BlockParser, readLock, readPosition } from '../bench/parse.js?v=5';
 import { buildCsv, csvFileName } from '../bench/csv.js?v=6';
 import { TimeChart, TrackPlot, readTheme, formatClock, formatRunning } from '../bench/charts.js?v=5';
-import { LINK_TEXT, serialSupported } from './serial-link.js';
+import { LINK_TEXT, serialSupported } from './serial-link.js?v=1';
 import { createEventLog } from '../views/event-log.js?v=4';
 import { createStoreSwitch } from '../store-switch.js?v=2';
 import * as config from '../config.js?v=3';
+// Launch mode (launch.html only): the map link follows the internet.
+import { LAUNCH, hub } from '../launch/launch-mode.js';
 
 const WINDOW_MS = 10 * 60 * 1000;   // the graphs and the trace keep the last 10 minutes
 const GAP_MS = 6000;                // graph lines break across longer gaps (the board prints every second)
@@ -116,6 +118,8 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
   // The Position trace is optional. The Flight Console's 3D view shows
   // the position, so a page can leave it out.
   const hasTrack = Boolean(el.trackCanvas && el.trackInfo && el.trackLink);
+  // On the launch page the trace's map link comes and goes with the internet.
+  if (LAUNCH && hasTrack) hub.online.onChange(() => scheduleRender());
 
   const state = {
     link: 'idle',
@@ -600,7 +604,9 @@ export function createBenchPanel({ onBlock, onRestart, onConnect, onDisconnect, 
     const latest = lat?.raw && lon?.raw ? `${lat.raw}, ${lon.raw}` : `${last.lat}, ${last.lon}`;
     el.trackInfo.textContent = `Latest fix ${latest}. The trace covers ${size} over ${pts.length.toLocaleString()} fixes.`;
     el.trackLink.href = `https://www.openstreetmap.org/?mlat=${last.lat}&mlon=${last.lon}#map=18/${last.lat}/${last.lon}`;
-    el.trackLink.hidden = false;
+    // On the launch page (launch.html) the link shows only while the
+    // internet answers. OpenStreetMap can't open at a field with no signal.
+    el.trackLink.hidden = LAUNCH && !hub.online.get();
     el.trackCanvas.setAttribute('aria-label', `Position trace, last 10 minutes. ${pts.length} fixes covering ${size}.`);
   }
 

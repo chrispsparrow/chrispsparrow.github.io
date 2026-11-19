@@ -1,0 +1,313 @@
+/* flight-console-launch.css
+   Styles for launch mode only. The launch page (launch.html) links this
+   file after the Flight Console's own styles. The normal page (index.html)
+   never loads it, so nothing here can change the live site.
+
+   One section per part of launch mode. Colors, fonts and spacing come from
+   the tokens in ../css/flight-console-theme.css and flight-console.css. */
+
+/* ============================================================
+   The 3D view (js/views/globe-view.js and js/launch/offline-globe.js)
+   ============================================================ */
+/* Plain ground: what the 3D view draws where it has no imagery. On the
+   launch page that is normal (everything outside the saved map when there
+   is no internet), so it is a calm slate, lighter than the page's
+   near-black, and reads as empty ground instead of a picture that failed
+   to load. The 3D view reads this variable when it starts. */
+.fc-page { --fc-launch-ground: color-mix(in srgb, var(--fc-black) 76%, var(--fc-offwhite)); }
+
+/* ============================================================
+   The launch panel (js/launch/launch-panel.js)
+
+   A column down the right side of Track a Rocket, beside the two panels
+   (the 3D view and the graphs) and never over them. So it hides nothing on
+   the map, and the last good fix stays on screen whichever panel shows.
+   The console becomes a grid for it:
+
+     the bar                    (the whole width)
+     the status lines           (the whole width)
+     the two panels  |  the launch panel
+
+   The column is kept from the start, before the panel is built, so the
+   map opens at its final size. In a window narrower than a laptop's the
+   panel goes under the panels and scrolls inside itself.
+
+   Top to bottom: the last good fix (the largest text here, for reading in
+   daylight at arm's length), the ground station's two boxes, then the
+   slots the flight log and the test capture fill in. Plain text on the
+   page's background, thin lines between the parts, no boxes. Amber marks
+   a fix that is old or saved, and a value that was refused.
+   ============================================================ */
+.fc-page .fc-console {
+  --fcl-w: clamp(19.5rem, 25vw, 23rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--fcl-w);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.fc-page .fc-console > * { grid-column: 1 / -1; }
+.fc-page .fc-console > .fc-screens { grid-column: 1; grid-row: 3; }
+.fc-page .fc-console > .fcl-panel { grid-column: 2; grid-row: 3; }
+
+.fc-page .fcl-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-border) transparent;
+  padding: 0.1rem 0.9rem 0.6rem;
+  border-left: 1px solid var(--fc-divider);
+  background: var(--fc-bg);
+  color: var(--fc-text);
+  font-family: var(--fc-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.fc-page .fcl-sec { padding: 0.55rem 0 0.65rem; }
+.fc-page .fcl-sec + .fcl-sec { border-top: 1px solid var(--fc-divider); }
+/* The last good fix stays at the top of the panel while the parts under it
+   scroll (with the flight log and the test capture the panel is taller
+   than a laptop's window). The scroll padding keeps a box that gets focus
+   from hiding under it. launch-panel.js keeps --fcl-rec-h at the readout's
+   height. */
+.fc-page .fcl-panel { scroll-padding-top: var(--fcl-rec-h, 0px); }
+.fc-page .fcl-recovery {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--fc-bg);
+  border-bottom: 1px solid var(--fc-divider);
+}
+.fc-page .fcl-recovery + .fcl-sec { border-top: 0; }
+/* In a very short window the readout could fill the panel, so it scrolls
+   with the rest there. */
+@media (max-height: 539.98px) {
+  .fc-page .fcl-panel { scroll-padding-top: 0; }
+  .fc-page .fcl-recovery { position: static; }
+}
+/* A slot nothing was put in takes no room. */
+.fc-page .fcl-slot-sec:has(> .fcl-slot:empty) { display: none; }
+
+/* A part's name on the left, a short note about it on the right. */
+.fc-page .fcl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+.fc-page .fcl-title {
+  margin: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  color: var(--fc-text-2);
+}
+.fc-page .fcl-rocket,
+.fc-page .fcl-head-note {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  color: var(--fc-text);
+}
+.fc-page .fcl-station[data-position="none"] .fcl-head-note { color: var(--fc-warn); }
+
+/* Shown only while a saved flight is on screen. */
+.fc-page .fc-main .fcl-replay-note {
+  display: none;
+  margin: 0.2rem 0 0;
+  font-family: var(--fc-font-sentence);
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--fc-warn);
+}
+.fc-page .fc-console[data-mode="replay"] .fcl-replay-note { display: block; }
+
+/* The coordinates. Both have 6 decimals and sit right aligned in one
+   field, so the points line up. They stay white when the fix is old: the
+   line under them says so, and the numbers are still what I walk to. */
+.fc-page .fcl-coords { display: grid; gap: 0; margin: 0.3rem 0 0; }
+.fc-page .fcl-coord { display: grid; grid-template-columns: 2.6rem auto; justify-content: start; align-items: baseline; }
+.fc-page .fcl-coord dt { font-size: 0.8rem; letter-spacing: 0.08em; color: var(--fc-text-2); }
+.fc-page .fcl-coord-value {
+  min-width: 11ch;
+  margin: 0;
+  font-size: clamp(1.9rem, 2.55vw, 2.45rem);
+  line-height: 1.14;
+  letter-spacing: 0;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--fc-text);
+}
+.fc-page .fcl-recovery[data-fix="none"] .fcl-coord-value { text-align: left; color: var(--fc-text-2); }
+
+/* Current, old or saved, and one plain sentence saying why. */
+.fc-page .fc-main .fcl-state {
+  margin: 0.35rem 0 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.98rem;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  color: var(--fc-text);
+}
+.fc-page .fc-main .fcl-recovery:is([data-fix="old"], [data-fix="saved"]) .fcl-state { color: var(--fc-warn); }
+.fc-page .fc-main .fcl-recovery[data-fix="none"] .fcl-state { color: var(--fc-text-2); }
+.fc-page .fc-main .fcl-detail {
+  margin: 0.05rem 0 0;
+  font-family: var(--fc-font-sentence);
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--fc-text);
+}
+
+/* The readings under them. The range is the one I steer by, so it is
+   larger and has its line to itself. */
+.fc-page .fcl-rows { display: grid; gap: 0.12rem; margin: 0.45rem 0 0; }
+/* The label column fits the longest label ("GPS ALTITUDE") on one line. */
+.fc-page .fcl-row { display: grid; grid-template-columns: 14ch minmax(0, 1fr); align-items: baseline; column-gap: 0.6ch; font-size: 0.82rem; line-height: 1.35; }
+.fc-page .fcl-row dt { letter-spacing: 0.06em; color: var(--fc-text-2); white-space: nowrap; }
+.fc-page .fcl-row dd { margin: 0; color: var(--fc-text); overflow-wrap: anywhere; }
+.fc-page .fcl-row--range { grid-template-columns: minmax(0, 1fr); margin-bottom: 0.2rem; }
+.fc-page .fcl-row--range dd { font-size: 1.32rem; line-height: 1.2; white-space: nowrap; }
+
+/* Rows of bracket buttons, and what a button just did. */
+.fc-page .fc-main .fcl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 1.2rem;
+  margin: 0.4rem 0 0 -0.15em;
+  font-family: var(--fc-font-mono);
+}
+.fc-page .fcl-copied,
+.fc-page .fcl-clear-q { font-size: 0.76rem; letter-spacing: 0.05em; color: var(--fc-text); }
+.fc-page .fcl-clear-ask { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 1.2rem; }
+.fc-page .fcl-clear-q { color: var(--fc-warn); padding-left: 0.15em; }
+
+/* The boxes: the ground station's two, and the one the coordinates show in
+   when the browser blocks copying. */
+.fc-page .fcl-form { margin: 0; }
+.fc-page .fcl-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.6rem; margin-top: 0.35rem; }
+.fc-page .fcl-field { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.fc-page .fcl-field-name { font-size: 0.72rem; letter-spacing: 0.06em; color: var(--fc-text-2); }
+.fc-page .fcl-input,
+.fc-page .fcl-copy-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.45rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.98rem;
+  letter-spacing: 0;
+  color: var(--fc-text);
+  background: var(--fc-black-deep);
+  border: 1px solid var(--fc-border);
+  border-radius: 0;
+}
+.fc-page .fcl-copy-field { display: block; margin-top: 0.35rem; }
+.fc-page .fc-main :is(.fcl-input, .fcl-copy-field):focus-visible { outline: none; border-color: var(--fc-accent); }
+.fc-page .fcl-input[aria-invalid="true"] { border-color: var(--fc-warn); }
+.fc-page .fc-main .fcl-msg {
+  min-height: 1.3em;
+  margin: 0.3rem 0 0;
+  font-family: var(--fc-font-sentence);
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--fc-text-2);
+}
+.fc-page .fc-main .fcl-msg[data-kind="warn"] { color: var(--fc-warn); }
+
+/* The other parts' slots: plain console text until their own styles say more. */
+.fc-page .fcl-slot { margin-top: 0.3rem; font-size: 0.82rem; line-height: 1.35; color: var(--fc-text); overflow-wrap: anywhere; }
+
+/* A window narrower than a laptop's: the panel goes under the two panels,
+   its parts side by side where there is room, and scrolls inside itself. */
+@media (max-width: 1099.98px) {
+  .fc-page .fc-console {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+  .fc-page .fc-console > .fcl-panel {
+    grid-column: 1;
+    grid-row: 4;
+    max-height: 44vh;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    column-gap: 1.4rem;
+    border-left: 0;
+    border-top: 1px solid var(--fc-divider);
+    scroll-padding-top: 0;
+  }
+  .fc-page .fcl-sec + .fcl-sec { border-top: 0; }
+  /* Side by side, the last good fix is the first part and needs no pin. */
+  .fc-page .fcl-recovery { position: static; border-bottom: 0; }
+}
+
+/* ============================================================
+   The 2D map (js/views/map-view.js and js/launch/offline-leaflet.js)
+
+   Plain ground under the saved imagery: the same calm slate the 3D view
+   uses (--fc-launch-ground, in the 3D view's section above), so both
+   views look alike outside the saved box. With no internet that is most
+   of the map once it is zoomed out, so it should read as empty ground,
+   not as a picture that failed to load. If the variable is ever missing,
+   the map keeps its normal background. The saved photos' tiles are boxes
+   like Esri's, so .fc-sat-tiles in flight-console-map.css already sizes
+   them.
+   ============================================================ */
+.fc-page .fc-map-canvas.leaflet-container { background: var(--fc-launch-ground, var(--fc-well)); }
+
+/* ============================================================
+   The flight log and the test capture (js/launch/flight-log.js and
+   js/launch/capture.js)
+
+   Both fill a slot in the launch panel. The log is the line count, then
+   one row per copy (the disk file, the browser and the local server), in
+   the panel's own rows. A copy that is not saving turns amber, so a
+   problem shows from a meter away. The line count is larger than the rows
+   and ticks while data arrives. The test capture's controls sit under it,
+   and while one plays a status line under the bar says so in amber
+   (#fcl-test-banner, in the console's own status lines).
+   ============================================================ */
+.fc-page .fcl-log-rows { margin-top: 0.15rem; }
+.fc-page .fcl-log-row--lines dd { font-size: 1.32rem; line-height: 1.2; }
+/* The copy's state first, its file's name small under it. */
+.fc-page .fcl-log-file { display: block; font-size: 0.72rem; line-height: 1.3; color: var(--fc-text-2); }
+.fc-page .fcl-log-row[data-state="warn"] dt,
+.fc-page .fcl-log-row[data-state="warn"] dd { color: var(--fc-warn); }
+.fc-page .fc-main .fcl-log-kind {
+  margin: 0.1rem 0 0.2rem;
+  font-family: var(--fc-font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--fc-warn);
+}
+.fc-page .fc-main :is(.fcl-log-msg, .fcl-cap-msg)[data-kind="info"] { color: var(--fc-text); }
+.fc-page .fc-main .fcl-log-actions:has(> [hidden]:only-child) { display: none; }
+
+.fc-page .fc-main .fcl-cap-about { min-height: 0; margin-top: 0; color: var(--fc-text-2); }
+.fc-page .fcl-cap-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem 1.2rem;
+  margin-top: 0.45rem;
+}
+.fc-page .fcl-cap-field { flex: none; }
+.fc-page .fcl-cap-select { width: auto; min-width: 9.5rem; padding: 0.25rem 0.4rem; font-size: 0.86rem; }
+.fc-page .fcl-cap-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5ch;
+  padding-bottom: 0.3rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--fc-text);
+  cursor: pointer;
+}
+.fc-page .fcl-cap-check input { margin: 0; accent-color: var(--fc-accent); }
+.fc-page .fcl-cap-check:has(input:disabled) { color: var(--fc-text-2); cursor: default; }
+.fc-page .fc-main .fcl-cap-state { margin: 0.35rem 0 0; font-size: 0.82rem; letter-spacing: 0.04em; color: var(--fc-text); }
+.fc-page .fc-main .fcl-cap-state[data-kind="warn"] { color: var(--fc-warn); }
+.fc-page .fcl-test-banner .fc-status-text { color: var(--fc-warn); }

@@ -4,7 +4,10 @@
 //
 // The controls. One row, the same in every view: [ SATELLITE ] [ DARK MAP ]
 // [ 3D ], [x] FOLLOW BOARD and [ KEY ], plus [ WHOLE FLIGHT ] and
-// [ RESET VIEW ] while a saved flight is on screen. The active view is
+// [ RESET VIEW ] while a saved flight is on screen. On the launch page
+// RESET VIEW also shows with live data, so the camera can always get back
+// to the field, and WHOLE FLIGHT joins it once there is a path or a launch
+// point to frame (see updateCameraButtons). The active view is
 // amber. This file builds the row and puts it in #fc-map-controls, the
 // mount in the HUD layer (main.js and the HUD's CSS decide where it sits).
 // If the page has no such mount, the row goes in the bottom left corner of
@@ -42,7 +45,9 @@
 //
 // The names next to the markers ("DOGTOOTH", "MANTA", "LAUNCH POINT",
 // "APOGEE 3,012 M") are drawn by one label layer (map-labels.js) that both
-// views feed.
+// views feed. The ground station's name comes from stationLabel() there:
+// "GROUND STATION" for a position typed in on the launch page, "MANTA"
+// everywhere else. The KEY and the no-map panel use the same name.
 //
 // Bottom right belongs to this frame: the map's notes, the scale bar and
 // the map credits (Cesium's or Leaflet's, both required), kept above the
@@ -76,13 +81,16 @@ import {
   DOT_PX, DOT_OUTLINE_PX, WEAK_DOT_PX, WEAK_LINE_PX, WEAK_COLOR, LINE_PX, LINE_OUTLINE_PX, OTHER_LINE_PX, OTHER_DOT_PX,
   NEAR_BLACK, WHITE, RING_MS, RING_FROM_SCALE, LINK_COLOR, LINK_ALPHA, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS,
 } from './markers.js?v=3';
-import { checkEsriKey, createSatelliteLayer } from './esri.js?v=2';
-import { loadCesium } from './cesium-loader.js?v=3';
-import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
+import { checkEsriKey, createSatelliteLayer } from './esri.js?v=3';
+import { loadCesium } from './cesium-loader.js?v=4';
+import { createLabelLayer, LABEL_NAMES, LABEL_PRIORITY, apogeeLabel, stationLabel } from './map-labels.js?v=4';
 import { globePoster, endBoot, bandUnder, messageTop, LOADING_TEXT, POSTER_CREDIT } from './globe-poster.js';
 import { buildMapControls } from './map-controls.js';
 import { speedColor } from '../track.js?v=3';
-import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=3';
+import { flightState, eventCrumb, recoveryInfo, rangeReading, STATE } from '../flight-state.js?v=4';
+// Launch mode: LAUNCH is true only on the launch page (launch.html), and
+// hub is what launch mode's parts share (js/launch/launch-mode.js).
+import { LAUNCH, hub } from '../launch/launch-mode.js';
 
 // Leaflet's own separator between credits.
 const CREDIT_SEP = ' <span aria-hidden="true">|</span> ';
@@ -156,6 +164,18 @@ const LEGEND_STEP_PX = 24;
 
 const isLayer = (value) => value === 'satellite' || value === 'dark';
 
+// The launch page's 2D map background (js/launch/offline-leaflet.js): the
+// imagery saved on this laptop, with the online imagery as an extra. Its
+// code is only fetched on the launch page. It starts downloading with this
+// file, so it is there when the map opens. null if it couldn't be loaded
+// (the map then shows plain ground).
+const launchMapCode = LAUNCH
+  ? import('../launch/offline-leaflet.js').catch((err) => {
+    console.warn('Flight Console: the launch page\'s map background did not load', err);
+    return null;
+  })
+  : null;
+
 // The view the viewer last picked, 'map' or '3d', or null before they have
 // picked one. It lasts for this visit only, so every visit starts on
 // DEFAULT_VIEW.
@@ -178,10 +198,14 @@ export function createMapView(root, ctx) {
   // measure an exact copy before this file arrives). Satellite and Dark map
   // are the two map backgrounds, and 3D swaps the map for the 3D view.
   // FOLLOW BOARD is one setting for both views. The camera buttons show
-  // only while a saved flight is on screen.
+  // while a saved flight is on screen, and on the launch page with live
+  // data too (updateCameraButtons).
   const { controls, satelliteBtn, darkBtn, threeBtn, followBox, keyBox, keyToggle, cameraPick, wholeBtn, resetBtn } = buildMapControls();
   satelliteBtn.addEventListener('click', () => selectLayer('satellite'));
   darkBtn.addEventListener('click', () => selectLayer('dark'));
+  // The launch page has no dark map (CARTO's tiles may not be saved for a
+  // field with no internet), so its button is left out of the row.
+  if (LAUNCH) darkBtn.hidden = true;
   threeBtn.addEventListener('click', () => selectThree());
   followBox.addEventListener('change', () => { setFollow(followBox.checked); scheduler.schedule(); });
   wholeBtn.addEventListener('click', () => showWholeFlight());
@@ -191,13 +215,15 @@ export function createMapView(root, ctx) {
   // at first. It opens upward from the row, into the free part of the view
   // (placeLegend() picks the spot), and scrolls inside itself when that
   // part is short.
-  const legendStationText = h('span', {}, LABEL_NAMES.station);
+  // The ground station's two rows name it as the maps do (updateLegend).
+  const legendStationText = h('span', {}, stationLabel(store.getGroundStation()));
+  const legendLinkText = h('span', {}, `RADIO LINK TO ${stationLabel(store.getGroundStation())}`);
   const legendShadowRow = legendRow(iconNode(shadowKeySvg()), 'GROUND SHADOW (3D)');
   // The packet ring only runs for viewers who haven't asked for less motion.
   const legendRingRow = legendRow(iconNode(ringKeySvg()), 'RING, A PACKET JUST ARRIVED');
   const legendStationRows = [
     legendRow(iconNode(dishSvg()), legendStationText),
-    legendRow(iconNode(linkKeySvg()), 'RADIO LINK TO MANTA'),
+    legendRow(iconNode(linkKeySvg()), legendLinkText),
   ];
   const legendList = h('div', { class: 'fc-legend-list' },
     legendRow(iconNode(boardSvg(BOARD_FOCUSED)), 'DOGTOOTH BOARD'),
@@ -337,8 +363,9 @@ export function createMapView(root, ctx) {
   let body = canvas;        // what the 2D side shows: the map or the no-map panel
   let retryBox = null;      // where the background buttons' note sits in the no-map panel
 
-  // Map background
-  let chosenLayer = readSavedLayer() ?? (isLayer(config.DEFAULT_MAP_LAYER) ? config.DEFAULT_MAP_LAYER : 'satellite');
+  // Map background. (The launch page only has SATELLITE, whatever choice
+  // the browser remembers for the normal page.)
+  let chosenLayer = LAUNCH ? 'satellite' : readSavedLayer() ?? (isLayer(config.DEFAULT_MAP_LAYER) ? config.DEFAULT_MAP_LAYER : 'satellite');
   let shownLayer = null;    // 'satellite' or 'dark' while the map is up
   let baseTiles = null;
   let labelTiles = null;
@@ -349,6 +376,9 @@ export function createMapView(root, ctx) {
   let satelliteNote = '';
   let labelsNote = '';
   let noTilesNote = '';
+  // The launch page only (see "The launch page's background" below).
+  let launchBg = null;      // its background while the map is up (offline-leaflet.js)
+  let homeKey = '';         // the ground station position the map last waited on
 
   libs.leaflet.ready.then((leaflet) => {
     if (destroyed) return;
@@ -437,7 +467,7 @@ export function createMapView(root, ctx) {
       // Dragging the map means you want to look around: stop following.
       map.on('dragstart', () => {
         viewTouched = true;
-        whole2d = null;
+        viewerLeftWhole();
         updateCameraButtons();
         if (!follow) return;
         setFollow(false);
@@ -446,7 +476,7 @@ export function createMapView(root, ctx) {
       map.on('zoomstart', () => {
         if (ownMove || performance.now() < ownMoveUntil) return;
         viewTouched = true;
-        whole2d = null;
+        viewerLeftWhole();
         updateCameraButtons();
       });
       if ('ResizeObserver' in window) {
@@ -478,6 +508,10 @@ export function createMapView(root, ctx) {
     fitted = false;
     fitPads = 0;
     viewTouched = false;
+    homeKey = '';
+    // The rest of launch mode, and its test tools, can ask this map things
+    // while it exists.
+    if (LAUNCH) hub.parts.map2d = launchPart;
     applyView();
     showLayer(chosenLayer);
     redrawAll();
@@ -494,6 +528,11 @@ export function createMapView(root, ctx) {
     resizeObserver?.disconnect();
     resizeObserver = null;
     stopTravel();
+    // The launch page's background lets go of its layers and stops
+    // listening for the internet.
+    launchBg?.destroy();
+    launchBg = null;
+    if (LAUNCH && hub.parts.map2d === launchPart) delete hub.parts.map2d;
     if (map) {
       map.off();
       map.remove();
@@ -534,6 +573,9 @@ export function createMapView(root, ctx) {
   }
 
   function saveLayer(which) {
+    // The launch page has one background and remembers nothing, so the
+    // choice kept for the normal page stays as it was.
+    if (LAUNCH) return;
     try {
       window.localStorage.setItem(config.MAP_LAYER_STORAGE_KEY, which);
     } catch {
@@ -544,6 +586,12 @@ export function createMapView(root, ctx) {
   // A click on SATELLITE or DARK MAP. From the 3D view it goes back to the
   // map. In the no-map panel it tries the map again.
   function selectLayer(which) {
+    // The launch page has no dark map (its button is hidden).
+    if (LAUNCH && which !== 'satellite') return;
+    // On the launch page, a press on SATELLITE while the map is already
+    // showing asks for the online imagery again (below). A press that only
+    // brings the map back from 3D asks the internet nothing.
+    const askAgain = LAUNCH && view === 'map';
     chosenLayer = which;
     saveLayer(which);
     satelliteNote = '';
@@ -557,7 +605,11 @@ export function createMapView(root, ctx) {
       return;
     }
     if (which !== shownLayer) showLayer(which);
-    else scheduler.schedule();
+    else {
+      // (retryOnline does nothing while the online imagery is on.)
+      if (askAgain) launchBg?.retryOnline();
+      scheduler.schedule();
+    }
   }
 
   // Puts one background on the map. Everything about the old one goes: its
@@ -571,10 +623,15 @@ export function createMapView(root, ctx) {
     labelTiles = null;
     labelsNote = '';
     noTilesNote = '';
+    launchBg?.destroy();
+    launchBg = null;
     shownLayer = which;
     updateCredit();
     updateLayerControls();
-    if (which === 'satellite') startSatellite(tileGen);
+    // The launch page has its own background, which never leads to the
+    // dark map or the no-map panel.
+    if (LAUNCH) startLaunchLayers(tileGen);
+    else if (which === 'satellite') startSatellite(tileGen);
     else startDark(tileGen);
     scheduler.schedule();
   }
@@ -688,7 +745,11 @@ export function createMapView(root, ctx) {
   // "Powered by Esri" plus each Esri layer's data credit.
   function updateCredit() {
     let text = null;
-    if (map && baseTiles && shownLayer === 'satellite') {
+    if (LAUNCH) {
+      // The launch page: the saved imagery's credit while it is on, and
+      // Esri's only while Esri's layers are.
+      text = (map && launchBg ? launchBg.credits().join(CREDIT_SEP) : '') || null;
+    } else if (map && baseTiles && shownLayer === 'satellite') {
       text = [config.ESRI_POWERED_BY, config.SATELLITE_ATTRIBUTION, labelTiles ? config.SATELLITE_LABELS_ATTRIBUTION : null]
         .filter(Boolean).join(CREDIT_SEP);
     } else if (map && baseTiles && shownLayer === 'dark') {
@@ -710,6 +771,102 @@ export function createMapView(root, ctx) {
     darkBtn.setAttribute('aria-pressed', String(shown === 'dark'));
     threeBtn.setAttribute('aria-pressed', String(in3d));
   }
+
+  // ------------------------------------------------------------------
+  // The launch page's background (LAUNCH only). The imagery saved on this
+  // laptop goes on as soon as the map is up and never waits on the
+  // network. Esri's photos and place names are extras that come and go
+  // with the internet (js/launch/offline-leaflet.js has the rules). None
+  // of it can lead to the dark map or the no-map panel.
+  // ------------------------------------------------------------------
+  function startLaunchLayers(gen) {
+    launchMapCode.then((code) => {
+      if (!code || gen !== tileGen || mode !== 'leaflet' || !map) return;
+      try {
+        launchBg = code.createLaunchBackground({
+          L,
+          map,
+          config,
+          hub,
+          labelsPane: 'fc-labels',
+          // The layers, the credits or the note changed.
+          onChange: () => {
+            if (gen !== tileGen) return;
+            updateCredit();
+            scheduler.schedule();
+          },
+        });
+      } catch (err) {
+        console.warn('Flight Console: the launch page\'s map background did not start', err);
+        launchBg = null;
+      }
+      updateCredit();
+      scheduler.schedule();
+    });
+  }
+
+  // The launch page's waiting view. With no board or launch point on the
+  // map there is nothing for the first view to fit, so the map waits on
+  // the ground station (the launch field, where the saved imagery is). That
+  // also holds after coming back from a saved flight, and when the position
+  // typed in at the field changes. Once the viewer has moved the map it is
+  // left alone, and the first view still fits everything when the board
+  // shows up.
+  function launchHome(gs) {
+    if (fitted || viewTouched || whole2d || !gs) return;
+    const key = `${gs.lat},${gs.lon}`;
+    if (key === homeKey) return;
+    homeKey = key;
+    ownMove = true;
+    map.setView([gs.lat, gs.lon], config.MAP_DEFAULT_ZOOM, { animate: false });
+    ownMove = false;
+    ownMoveUntil = performance.now() + OWN_MOVE_MS;
+  }
+
+  // What the 2D map tells the rest of launch mode and its test tools
+  // (hub.parts.map2d, while a map exists).
+  const launchPart = {
+    // The background's layers and tile counts since the map opened
+    // (offline-leaflet.js's status()), where the map is looking, and the
+    // layer buttons.
+    status() {
+      const center = map ? map.getCenter() : null;
+      return {
+        savedLayerOn: false,
+        savedLoaded: 0,
+        savedFailed: 0,
+        savedEmpty: 0,
+        onlineLayerOn: false,
+        onlineLoaded: 0,
+        onlineFailed: 0,
+        labelsOn: false,
+        ...(launchBg ? launchBg.status() : {}),
+        view,
+        zoom: map ? map.getZoom() : null,
+        center: center ? { lat: center.lat, lon: center.lng } : null,
+        layerButtons: [satelliteBtn, darkBtn, threeBtn].map((button) => ({
+          text: button.textContent,
+          hidden: button.hidden,
+          pressed: button.getAttribute('aria-pressed') === 'true',
+        })),
+        credit: credit ?? '',
+        note: launchBg ? launchBg.note() : '',
+      };
+    },
+    // Moves the map, at once. It counts as the viewer's own move, like a
+    // drag: FOLLOW BOARD goes off and the first view leaves the map alone.
+    // zoom can be left out to keep the zoom. Returns false with no map.
+    setView(lat, lon, zoom) {
+      if (!map || !Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+      viewTouched = true;
+      viewerLeftWhole();
+      if (follow) setFollow(false);
+      map.setView([lat, lon], Number.isFinite(zoom) ? zoom : map.getZoom(), { animate: false });
+      updateCameraButtons();
+      scheduler.schedule();
+      return true;
+    },
+  };
 
   // ------------------------------------------------------------------
   // Map or 3D. The frame shows one of them. The map (or the no-map panel)
@@ -909,13 +1066,26 @@ export function createMapView(root, ctx) {
   }
 
   // WHOLE FLIGHT and RESET VIEW show while a saved flight is on screen.
+  // On the launch page RESET VIEW shows with live data too, so the camera
+  // can always get back to the field after it was moved. WHOLE FLIGHT
+  // joins it there once a board has a fix or a launch point on the map
+  // (hasPath). Before that it would only zoom in on the dish.
   // WHOLE FLIGHT stays amber while the camera keeps the whole flight
   // framed.
   function updateCameraButtons() {
     const replay = isReplay();
-    if (cameraPick.hidden === replay) cameraPick.hidden = !replay;
+    const shown = replay || LAUNCH;
+    if (cameraPick.hidden === shown) cameraPick.hidden = !shown;
+    const wholeShown = !LAUNCH || replay || hasPath();
+    if (wholeBtn.hidden === wholeShown) wholeBtn.hidden = !wholeShown;
     const whole = view === '3d' ? globe?.cameraMode() === 'whole' : Boolean(whole2d);
     wholeBtn.setAttribute('aria-pressed', String(!follow && whole));
+  }
+
+  // True when a board has a fix drawn or a launch point, so WHOLE FLIGHT
+  // has more to frame than the dish.
+  function hasPath() {
+    return store.getRockets().some((r) => r.padPosition || (r.crumbs ?? []).some((c) => c.quality !== 'outlier'));
   }
 
   function showWholeFlight() {
@@ -929,10 +1099,14 @@ export function createMapView(root, ctx) {
     if (view === '3d') globe?.resetView();
     else if (mode === 'leaflet') {
       // Back to the first view: the launch points, the board and Manta.
+      // On the launch page with live data and nothing to fit yet, that is
+      // the ground station at the field: launchHome() moves there again,
+      // since the spot it last waited on is forgotten here.
       whole2d = null;
       fitted = false;
       viewTouched = false;
       flyNext = true;
+      homeKey = '';
       scheduler.schedule();
     }
     updateCameraButtons();
@@ -1024,7 +1198,10 @@ export function createMapView(root, ctx) {
       }, THREE_SLOW_MS);
     }
     showThreePanel();
-    Promise.all([loadCesium(), import('./globe-view.js?v=9')]).then(([Cesium, module]) => {
+    // (On the launch page the 3D view's ground is the saved map, built by
+    // js/launch/offline-globe.js. That file is only fetched there.)
+    const launchGround = LAUNCH ? import('../launch/offline-globe.js') : null;
+    Promise.all([loadCesium(), import('./globe-view.js?v=10'), launchGround]).then(([Cesium, module, launchGroundCode]) => {
       if (destroyed || gen !== threeGen) return;
       // They went back to the map while it loaded. The next click on 3D
       // starts it, with no download left to wait for.
@@ -1044,6 +1221,8 @@ export function createMapView(root, ctx) {
           covers: () => rectsOver(globeCanvas, coverElements(), []),
           freeInsets: () => freeInsets(globeCanvas),
           idleBottom: () => bottomBand(globeCanvas),
+          // The launch page's ground (null on the normal page).
+          launchGround: launchGroundCode,
           onScale: (mpp) => { if (view === '3d' && three === 'ready') setScale(mpp); },
           onReady: () => {
             if (destroyed || gen !== threeGen) return;
@@ -1130,6 +1309,17 @@ export function createMapView(root, ctx) {
     } else if (three === 'failed' && threeKind === 'stopped') {
       line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER STOPPED. PRESS 3D TO START IT AGAIN');
       say = 'The 3D viewer stopped. The map still works.';
+      action = back();
+    } else if (LAUNCH && three === 'failed') {
+      // On the launch page the 3D view comes from this laptop (launch
+      // mode's own server), never from the internet, so the internet is
+      // not what to check.
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER DID NOT LOAD. CHECK THAT THE LAUNCH MODE SERVER IS STILL RUNNING');
+      say = 'The 3D viewer did not load. Check that the launch mode server is still running. The map still works.';
+      action = back();
+    } else if (LAUNCH) {
+      line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER STILL LOADING...');
+      say = '3D viewer still loading. The map still works.';
       action = back();
     } else {
       line = h('p', { class: 'fc-globe-msg' }, '3D VIEWER LOADING... CHECK YOUR INTERNET CONNECTION');
@@ -1677,15 +1867,22 @@ export function createMapView(root, ctx) {
     gsParts = null;
   }
 
-  // The KEY names Manta's demo position while the ground station is the
-  // config placeholder, and leaves out Manta and the radio link when there
-  // is no ground station. It runs for both views.
+  // The KEY names the ground station as the maps do (stationLabel(): MANTA,
+  // or GROUND STATION for a position typed in on the launch page), names
+  // Manta's demo position while the ground station is the config
+  // placeholder, and leaves out the station and the radio link when there
+  // is no ground station. It runs for both views, and reads the store's
+  // ground station every time, so it follows a new position or store.
   function updateLegend() {
     const gs = store.getGroundStation();
     for (const row of legendStationRows) {
       if (row.hidden !== !gs) row.hidden = !gs;
     }
-    if (gs) setText(legendStationText, gs.source === 'config' ? `${LABEL_NAMES.station}, DEMO POSITION` : LABEL_NAMES.station);
+    if (gs) {
+      const name = stationLabel(gs);
+      setText(legendStationText, gs.source === 'config' ? `${name}, DEMO POSITION` : name);
+      setText(legendLinkText, `RADIO LINK TO ${name}`);
+    }
     // No packet ring is drawn for viewers who asked for less motion.
     const still = prefersReducedMotion();
     if (legendRingRow.hidden !== still) legendRingRow.hidden = still;
@@ -1890,6 +2087,9 @@ export function createMapView(root, ctx) {
         justFitted = true;
       }
     }
+    // The launch page, with live data: until there is a board or a launch
+    // point to fit, the map waits on the ground station at the field.
+    if (LAUNCH && usable && !isReplay() && !target && padMarkers.size === 0) launchHome(gs);
 
     // WHOLE FLIGHT keeps the whole path framed as it grows.
     if (whole2d && !justFitted) {
@@ -1901,6 +2101,9 @@ export function createMapView(root, ctx) {
 
     placeLabels2d();
     updateScale2d();
+    // The launch page's one note about the background depends on what is in
+    // view (offline-leaflet.js), so it is asked for on every draw.
+    if (LAUNCH) noTilesNote = launchBg ? launchBg.note() : '';
     setText(status, statusText());
   }
 
@@ -2009,7 +2212,7 @@ export function createMapView(root, ctx) {
     }
     if (gsMarker) {
       const p = at(gsMarker.getLatLng());
-      items.push({ id: 'station', text: LABEL_NAMES.station, x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
+      items.push({ id: 'station', text: stationLabel(store.getGroundStation()), x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
     }
     const pad = focused ? padMarkers.get(focused.id) : null;
     if (pad) {
@@ -2057,6 +2260,19 @@ export function createMapView(root, ctx) {
     ownMoveUntil = performance.now() + OWN_MOVE_MS;
     whole2d = { bounds };
     updateCameraButtons();
+  }
+
+  // The viewer moved the map away from WHOLE FLIGHT's framing. On the
+  // launch page the map has had its framing, so the first view counts as
+  // done and doesn't pull the map back. (While WHOLE FLIGHT is on the first
+  // view waits. A trip to the 3D view hides the map, and the size observer
+  // can take that for a new size, so the first view may be waiting to fit
+  // again.) The normal page keeps its old behavior until this is checked
+  // there too: there, WHOLE FLIGHT on the 2D map, a trip to 3D and back,
+  // then a drag, still snaps the map back to its first view.
+  function viewerLeftWhole() {
+    if (whole2d && LAUNCH) fitted = true;
+    whole2d = null;
   }
 
   // ------------------------------------------------------------------
@@ -2220,10 +2436,13 @@ export function createMapView(root, ctx) {
     retryBox = reason === 'tiles'
       ? h('p', { class: 'fc-nomap-note' }, 'Press SATELLITE or DARK MAP to try the map again, or 3D for the 3D view.')
       : null;
+    // On the launch page the map library and the imagery come from this
+    // laptop, so the internet is not what to check.
+    const hint = LAUNCH ? 'Check that the launch mode server is still running.' : 'Map tiles need internet.';
     const panel = h('div', { class: 'fc-nomap' },
       h('div', { class: 'fc-nomap-head' },
         h('h3', { class: 'fc-nomap-title' }, 'NO MAP'),
-        h('p', { class: 'fc-nomap-note' }, `${message} Map tiles need internet. Tracking still works.`),
+        h('p', { class: 'fc-nomap-note' }, `${message} ${hint} Tracking still works.`),
         retryBox),
       nomapList);
     showBody(panel);
@@ -2304,7 +2523,7 @@ export function createMapView(root, ctx) {
       else if (rocket.lastPacketT === null) position = 'NO DATA YET';
       else if (rocket.sensorGroups.has('gps')) position = 'NO GPS FIX YET';
       setText(row.position, position);
-      setText(row.range, rb ? `${formatRangeBearing(rb)} from Manta` : MISSING);
+      setText(row.range, rb ? `${formatRangeBearing(rb)} from ${stationWords(gs)}` : MISSING);
       if (row.range.hidden !== !gs) row.range.hidden = !gs;
       let note = '';
       if (fix && store.isSilent(rocket)) note = `No recent packets. Last good fix ${formatAge(store.ageOf(fix.t))}`;
@@ -2319,7 +2538,18 @@ export function createMapView(root, ctx) {
       row.arrow.style.display = rb ? '' : 'none';
     }
     gsRow.hidden = !gs;
-    if (gs) setText(gsRow, `Manta at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
+    if (gs) {
+      const words = stationWords(gs);
+      setText(gsRow, `${words[0].toUpperCase()}${words.slice(1)} at ${formatNumber(gs.lat, 5)}, ${formatNumber(gs.lon, 5)}${gs.source === 'config' ? ' (demo position)' : ''}`);
+    }
+  }
+
+  // The ground station's name in the no-map panel's sentences: "Manta",
+  // or "the ground station" for a position typed in on the launch page
+  // (the maps' stationLabel(), in sentence case).
+  function stationWords(gs) {
+    const name = stationLabel(gs);
+    return name === 'MANTA' ? 'Manta' : `the ${name.toLowerCase()}`;
   }
 
   // ------------------------------------------------------------------
@@ -2345,7 +2575,13 @@ export function createMapView(root, ctx) {
       updateLegend();
       if (threeOverMap && three !== 'ready' && mode === 'leaflet') drawLeaflet();
     } else if (mode === 'leaflet') drawLeaflet();
-    else if (mode === 'fallback') drawFallback();
+    else if (mode === 'fallback') {
+      // On the launch page the KEY keeps the ground station's name right
+      // in the no-map panel too, where the station can be typed in or a
+      // saved flight with its own Manta opened.
+      if (LAUNCH) updateLegend();
+      drawFallback();
+    }
     watchCovers();
     // The stage can switch between live data and a replay while the 3D
     // view loads, which decides whether the poster shows.
@@ -2372,6 +2608,7 @@ export function createMapView(root, ctx) {
       fitPads = 0;
       viewTouched = false;
       flyNext = true;
+      homeKey = '';
       // A saved flight still downloading: head for its launch point now.
       const s = session();
       const padPoint = s.loading ? s.entry?.summary?.padPoint : null;

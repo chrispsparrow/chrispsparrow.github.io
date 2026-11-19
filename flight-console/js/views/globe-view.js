@@ -72,13 +72,30 @@
 // scene.requestRender(). The packet ring and the traveling dot ask for
 // frames only while they move (under a second after each packet).
 //
+// Launch mode. On the launch page (launch.html, LAUNCH is true) the view
+// has to work with no internet, so it is set up differently:
+//   - Nothing comes from Cesium ion. The token is emptied and neither ion's
+//     imagery nor Cesium World Terrain is asked for.
+//   - The ground is flat (Cesium's plain ellipsoid) from the start, which
+//     is the same path this file takes when the terrain doesn't load.
+//     Heights above ground are measured from it, and the note says so.
+//   - The imagery is the saved map tiles over plain ground, with Esri's
+//     photos under them when there is internet. js/launch/offline-globe.js
+//     builds those layers (map-view.js loads it and passes it in as
+//     options.launchGround).
+//   - The first picture is ready when the saved map has drawn. No internet
+//     never counts as failed imagery.
+//   - The view opens on the launch field (see homeLook), and it puts
+//     itself in hub.parts.globe for the rest of launch mode and the tests.
+// With LAUNCH false none of that runs.
+//
 // Used by: map-view.js, which loads Cesium first and owns the buttons.
 // Reads the store, never other views.
 
 import { createScheduler, prefersReducedMotion } from './dom.js?v=2';
 import { distanceM } from '../geo.js?v=3';
 import { speedColor } from '../track.js?v=3';
-import { eventCrumb, recoveryInfo, flightState, STATE } from '../flight-state.js?v=3';
+import { eventCrumb, recoveryInfo, flightState, STATE } from '../flight-state.js?v=4';
 import {
   boardSvg, BOARD_FOCUSED, BOARD_OTHER, startSvg, START_SIZE, dishSvg, DISH_SIZE, DISH_ANCHOR,
   diamondSvg, DIAMOND_SIZE, crosshairSvg, CROSSHAIR_SIZE,
@@ -87,8 +104,12 @@ import {
   RING_PX, RING_MS, RING_LINE_PX, RING_FROM_SCALE,
   LINK_SOLID, LINK_PX, LINK_DASH_PX, LINK_TRAVEL_MS, LINK_DOT_PX,
 } from './markers.js?v=3';
-import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel } from './map-labels.js?v=3';
+import { LABEL_NAMES, LABEL_PRIORITY, apogeeLabel, stationLabel } from './map-labels.js?v=4';
 import { idleFit } from './idle-earth.js';
+// Launch mode: LAUNCH is true only when the page is launch.html (see
+// js/launch/launch-mode.js). The Esri key check is the one map-view.js uses.
+import { LAUNCH, hub } from '../launch/launch-mode.js';
+import { checkEsriKey } from './esri.js?v=3';
 
 // The events that get a diamond. Liftoff has none, since the launch point
 // marks it.
@@ -235,6 +256,9 @@ const FOLLOW_FREE_MS = 300;
 // and the DOGTOOTH label stand out on the ground.
 const RECOVERY_RANGE_M = 1500;
 const RECOVERY_PITCH_DEG = -35;
+// The note the map shows on the launch page, where the ground is drawn flat
+// on purpose. It takes the place of "3D ground height is approximate."
+const FLAT_GROUND_NOTE = 'Launch mode draws the 3D ground flat. Heights are above the launch pad.';
 
 export function createGlobeView(container, ctx, options) {
   const { Cesium: C, credits, dialogs, covers, freeInsets, labels, onScale, onReady, onChange, onFail, onFollowOff } = options;
@@ -260,8 +284,11 @@ export function createGlobeView(container, ctx, options) {
   // The viewer. Every built-in widget is off. Cesium's logo and data
   // credits stay (they are required) and go in the box map-view.js made.
   // ------------------------------------------------------------------
-  C.Ion.defaultAccessToken = config.CESIUM_ION_TOKEN;
-  const view = { imageryFailed: false, terrain: 'loading' }; // terrain: 'loading', 'ok' or 'failed'
+  // (On the launch page the token is emptied, so nothing can use ion.)
+  C.Ion.defaultAccessToken = LAUNCH ? '' : config.CESIUM_ION_TOKEN;
+  // terrain: 'loading', 'ok' or 'failed', or 'flat' on the launch page,
+  // where the ground is flat on purpose (see noTerrain).
+  const view = { imageryFailed: false, terrain: LAUNCH ? 'flat' : 'loading' };
   let destroyed = false;
   let active = true;
 
@@ -271,10 +298,11 @@ export function createGlobeView(container, ctx, options) {
   // stays, and the imagery counts as failed too when the first picture is
   // in with tiles failed and none loaded (see announceReady). Either way
   // it stays failed until the page loads again: Cesium doesn't ask for a
-  // failed tile twice.
-  const imagery = C.ImageryLayer.fromWorldImagery();
+  // failed tile twice. (The launch page has no ion imagery. Its layers are
+  // made further down, see "ground".)
+  const imagery = LAUNCH ? null : C.ImageryLayer.fromWorldImagery();
   const tiles = { loaded: 0, failed: 0 };
-  imagery.errorEvent.addEventListener((err) => {
+  imagery?.errorEvent.addEventListener((err) => {
     if (destroyed) return;
     console.warn('Flight Console: the 3D imagery did not load', err);
     view.imageryFailed = true;
@@ -282,7 +310,7 @@ export function createGlobeView(container, ctx, options) {
     viewer?.scene.requestRender();
     onChange();
   });
-  imagery.readyEvent.addEventListener((provider) => {
+  imagery?.readyEvent.addEventListener((provider) => {
     if (destroyed) return;
     countTiles(provider);
     viewer?.scene.requestRender();
@@ -323,7 +351,8 @@ export function createGlobeView(container, ctx, options) {
       selectionIndicator: false,
       scene3DOnly: true,
       skyBox: false,
-      baseLayer: imagery,
+      // (false means no base layer at all. Left out, Cesium would add ion's.)
+      baseLayer: LAUNCH ? false : imagery,
       creditContainer: credits,
       // Cesium's "Data attribution" dialog opens in this box, which
       // map-view.js stacks above the HUD floating over the view.
@@ -358,7 +387,35 @@ export function createGlobeView(container, ctx, options) {
   // The breadcrumbs and markers are never hidden (see ALWAYS and NO_DEPTH).
   scene.globe.depthTestAgainstTerrain = true;
   // The ground's color where there is no imagery: the theme's raised near-black.
-  scene.globe.baseColor = rgba(color('--fc-black-raised', '#1E1D24'));
+  // On the launch page it is launch mode's plain ground color, a lighter
+  // slate, because ground with no imagery is normal there (everything
+  // outside the saved map with no internet) and shouldn't look like a
+  // picture that failed to load.
+  const launchGround = LAUNCH ? options.launchGround ?? null : null;
+  const groundCss = launchGround
+    ? color(launchGround.GROUND_COLOR_VAR, launchGround.GROUND_COLOR_FALLBACK)
+    : color('--fc-black-raised', '#1E1D24');
+  scene.globe.baseColor = rgba(groundCss);
+  // The launch page's ground: plain ground, Esri's photos when there is
+  // internet, and the saved map tiles on top (js/launch/offline-globe.js).
+  // If it can't be built, the view still runs, on plain ground.
+  let ground = null;
+  if (launchGround) {
+    try {
+      ground = launchGround.createGlobeGround({
+        C,
+        viewer,
+        settings: hub.settings,
+        online: hub.online,
+        config,
+        checkEsriKey,
+        groundColor: groundCss,
+        onChange: () => { if (!destroyed) scene.requestRender(); },
+      });
+    } catch (err) {
+      console.warn('Launch mode: the 3D view\'s saved map could not be set up', err);
+    }
+  }
   // The page's near-black all around the Earth, with no stars, sun or moon.
   scene.backgroundColor = rgba(PAGE);
   if (scene.skyBox) scene.skyBox.show = false;
@@ -678,6 +735,10 @@ export function createGlobeView(container, ctx, options) {
   let terrain = null;
   let spots = []; // { lat, lon, state: 'pending' | 'ok' | 'failed', height }
 
+  // True when the ground is drawn flat: Cesium World Terrain didn't load,
+  // or this is the launch page, which never asks for it.
+  const noTerrain = () => view.terrain === 'failed' || view.terrain === 'flat';
+
   // No terrain at all: the ground is drawn flat, and heights are measured
   // from it (see heightModel). Nothing waits on a ground height any more.
   function terrainFailed(err) {
@@ -689,7 +750,10 @@ export function createGlobeView(container, ctx, options) {
     refresh();
   }
 
-  C.createWorldTerrainAsync().then((provider) => {
+  // (Not on the launch page: the viewer's own flat ground stays, and
+  // view.terrain is 'flat' from the start, so nothing waits here.)
+  const worldTerrain = LAUNCH ? null : C.createWorldTerrainAsync();
+  worldTerrain?.then((provider) => {
     clearTimeout(terrainTimer);
     if (destroyed) return;
     // It may arrive after the time limit below. Then the flat ground gives
@@ -709,7 +773,7 @@ export function createGlobeView(container, ctx, options) {
   // Cesium puts no time limit on its own requests, so a stalled one would
   // keep every rocket waiting for a ground height. After this long the
   // view carries on without terrain.
-  const terrainTimer = setTimeout(() => {
+  const terrainTimer = LAUNCH ? 0 : setTimeout(() => {
     if (!destroyed && view.terrain === 'loading') terrainFailed(new Error('Cesium World Terrain took too long to load'));
   }, config.TERRAIN_SAMPLE_TIMEOUT_MS);
 
@@ -719,7 +783,7 @@ export function createGlobeView(container, ctx, options) {
       spot = { lat, lon, state: 'pending', height: null };
       spots.push(spot);
       if (terrain) lookUp(spot);
-      else if (view.terrain === 'failed') spot.state = 'failed';
+      else if (noTerrain()) spot.state = 'failed';
     }
     return spot;
   }
@@ -759,7 +823,7 @@ export function createGlobeView(container, ctx, options) {
     // So a rocket with no pad by then has no pad at all: the data started
     // in flight, or the GPS only got its first fix after launch.
     const noPad = !pad && Number.isFinite(d?.liftoffT);
-    if (view.terrain === 'failed') {
+    if (noTerrain()) {
       // The ground is flat at height 0, so heights above ground go on that.
       if (pad || noPad) return { kind: 'ground', base: 0, approx: true };
       return { kind: 'wait' };
@@ -1250,7 +1314,7 @@ export function createGlobeView(container, ctx, options) {
     station.approx = false;
     if (!gs) {
       // No ground station at all: nothing to draw.
-    } else if (view.terrain === 'failed') {
+    } else if (noTerrain()) {
       height = 0;
     } else {
       const spot = groundAt(gs.lat, gs.lon);
@@ -1426,9 +1490,11 @@ export function createGlobeView(container, ctx, options) {
   }
 
   // ------------------------------------------------------------------
-  // Labels: "DOGTOOTH", "MANTA", "LAUNCH POINT" and "APOGEE 3,012 M", drawn
-  // by the label layer map-view.js shares. Their screen spots are worked
-  // out after every frame, so they follow the camera.
+  // Labels: "DOGTOOTH", the ground station's name ("MANTA", or "GROUND
+  // STATION" on the launch page, from stationLabel() in map-labels.js),
+  // "LAUNCH POINT" and "APOGEE 3,012 M", drawn by the label layer
+  // map-view.js shares. Their screen spots are worked out after every
+  // frame, so they follow the camera.
   // ------------------------------------------------------------------
   const scratch2 = new C.Cartesian2();
   function screenOf(position) {
@@ -1462,7 +1528,7 @@ export function createGlobeView(container, ctx, options) {
     if (station.icon?.show) {
       const p = screenOf(station.position);
       // The dish stands above its foot, so the label points at its bowl.
-      if (p) items.push({ id: 'station', text: LABEL_NAMES.station, x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
+      if (p) items.push({ id: 'station', text: stationLabel(store.getGroundStation()), x: p.x, y: p.y - DISH_ANCHOR[1] / 2, r: DISH_SIZE[0] / 2, priority: LABEL_PRIORITY.station });
     }
     if (parts?.pad?.show) {
       const p = screenOf(parts.padAt);
@@ -1641,11 +1707,35 @@ export function createGlobeView(container, ctx, options) {
   // there is real data to look at, it waits over the ground station, so
   // the ground there starts loading. With no ground station it waits far
   // out, looking straight down at the whole Earth (idle).
-  let waitFar = !store.getGroundStation();
-  const look = waitFar ? idleLook() : stationLook(store.getGroundStation());
+  const home = homeLook();
+  let waitFar = !home;
+  const look = home ?? idleLook();
 
   function stationLook(gs) {
     return { pivot: C.Cartesian3.fromDegrees(gs.lon, gs.lat, Number.isFinite(gs.altMsl) ? gs.altMsl : 0), ...startOrbit() };
+  }
+
+  // Where the camera waits before there is a rocket to look at: over the
+  // ground station, or null when there is none (it then waits far out).
+  // On the launch page it is the opening view of the launch field instead
+  // (openingView in js/launch/offline-globe.js): the pad area and a
+  // kilometer or two around it, tilted, on flat ground at height 0. That
+  // holds with no ground station too (a board on the bench), because the
+  // whole Earth has no picture to show there without internet. A saved
+  // flight played on the launch page waits over its own ground station,
+  // as on the normal page.
+  function homeLook() {
+    const gs = store.getGroundStation();
+    const at = session().kind === 'replay' ? null : launchGround?.openingView(hub.settings, gs);
+    if (at) {
+      return {
+        pivot: C.Cartesian3.fromDegrees(at.lon, at.lat, 0),
+        heading: C.Math.toRadians(at.headingDeg),
+        pitch: C.Math.toRadians(at.pitchDeg),
+        range: at.rangeM,
+      };
+    }
+    return gs ? stationLook(gs) : null;
   }
 
   // True while the camera should sit in the idle view.
@@ -2696,8 +2786,10 @@ export function createGlobeView(container, ctx, options) {
   }
   // True until the first view is set on the view's first store. That one
   // starts in place over the ground station (or flies down from the idle
-  // view). Later sources always fly or glide.
-  let fresh = !waitFar;
+  // view). Later sources always fly or glide. (So does the launch page's
+  // first view: it opens on the field with no rocket yet, and the first
+  // position arrives later, anywhere, while someone is watching.)
+  let fresh = !waitFar && !LAUNCH;
 
   // Zooming or sliding the view in 'whole' means the viewer took over.
   // (Orbiting doesn't: everything stays framed from any side.)
@@ -2732,10 +2824,10 @@ export function createGlobeView(container, ctx, options) {
     fresh = false;
     chaseReset();
     cameraMode = followOn ? 'follow' : 'free';
-    const gs = store.getGroundStation();
+    const homeNow = homeLook();
     const s = session();
     const padPoint = s.loading ? s.entry?.summary?.padPoint : null;
-    waitFar = !gs;
+    waitFar = !homeNow;
     if (Array.isArray(padPoint) && Number.isFinite(padPoint[0]) && Number.isFinite(padPoint[1])) {
       // A saved flight is downloading: head for its launch point now. The
       // ground there is only known roughly yet. Seen from far away the
@@ -2752,8 +2844,9 @@ export function createGlobeView(container, ctx, options) {
         pitch: C.Math.toRadians(LOADING_PITCH_DEG),
         range: LOADING_RANGE_M,
       });
-    } else if (gs) {
-      goTo(stationLook(gs));
+    } else if (homeNow) {
+      // Over the ground station (on the launch page, the launch field).
+      goTo(homeNow);
     } else if (!store.getRockets().some((r) => r.crumbs?.length)) {
       // Nothing to look at (live, nothing connected): back out to the
       // whole Earth.
@@ -3013,8 +3106,16 @@ export function createGlobeView(container, ctx, options) {
   function notes() {
     const out = [];
     const parts = [...drawn.values()];
-    if (parts.some((p) => p.waiting)) out.push('The board shows in 3D once the ground height at its launch point is known.');
-    if (parts.some((p) => p.approx) || station.approx || view.terrain === 'failed') out.push('3D ground height is approximate.');
+    // (On the launch page's flat ground there is no ground height to wait
+    // for, only the launch point itself.)
+    if (parts.some((p) => p.waiting)) {
+      out.push(view.terrain === 'flat'
+        ? 'The board shows in 3D once its launch point is known.'
+        : 'The board shows in 3D once the ground height at its launch point is known.');
+    }
+    // (The launch page's ground is flat on purpose, and its note says that.)
+    if (view.terrain === 'flat') out.push(FLAT_GROUND_NOTE);
+    else if (parts.some((p) => p.approx) || station.approx || view.terrain === 'failed') out.push('3D ground height is approximate.');
     if (view.imageryFailed) out.push('The 3D imagery didn\'t load, so the ground is plain.');
     return out;
   }
@@ -3026,6 +3127,14 @@ export function createGlobeView(container, ctx, options) {
   // imagery is ready, Cesium counts the ground as loaded with no imagery
   // on it at all, so tilesLoaded alone isn't enough.) If that takes too
   // long, the view shows as it is.
+  //
+  // On the launch page the layers are all made when the view starts, and
+  // every tile in them comes from this laptop, so the first picture is in
+  // as soon as the ground in view has drawn with the saved map (at once if
+  // nothing is saved). Only after that may Esri's layer be added
+  // (ground.allowOnline), so the first picture never waits for a tile from
+  // the internet. No internet is not a failure there: imageryFailed stays
+  // false.
   let announced = false;
   function announceReady() {
     if (announced || destroyed) return;
@@ -3037,6 +3146,7 @@ export function createGlobeView(container, ctx, options) {
       view.imageryFailed = true;
     }
     onReady();
+    ground?.allowOnline();
   }
 
   // The idle Earth, drawn plain because the imagery didn't load.
@@ -3049,7 +3159,7 @@ export function createGlobeView(container, ctx, options) {
     wasPlainIdle = !wasPlainIdle;
     onChange();
   });
-  const imageryReady = () => imagery.ready || view.imageryFailed;
+  const imageryReady = () => (imagery ? imagery.ready || view.imageryFailed : true);
   const stopWatchingReady = scene.postRender.addEventListener(() => {
     if (assetsReady && view.terrain !== 'loading' && imageryReady() && !spots.some((s) => s.state === 'pending') && scene.globe.tilesLoaded) announceReady();
   });
@@ -3076,7 +3186,75 @@ export function createGlobeView(container, ctx, options) {
   });
   scheduler.schedule();
 
-  return {
+  // ------------------------------------------------------------------
+  // Launch mode's handle on this view (hub.parts.globe, set further down):
+  // what the ground is made of and where the camera is, and a way to point
+  // the camera at a spot. The rest of launch mode and its tests use it.
+  // ------------------------------------------------------------------
+  function launchStatus() {
+    const at = camera.positionCartographic;
+    const aimed = C.Cartographic.fromCartesian(look.pivot);
+    return {
+      // The first picture is in (map-view.js has been told).
+      ready: announced,
+      // 'flat' on the launch page.
+      terrain: view.terrain,
+      // True if this view made ion's imagery or asked for ion's terrain.
+      ionUsed: Boolean(imagery || worldTerrain),
+      // The layers: how many saved ones, their tiles, and Esri's.
+      plainGround: false,
+      savedLayers: 0, savedMaxLevels: [], savedLoaded: 0, savedFailed: 0, savedSkipped: 0, savedPending: 0,
+      onlineKey: 'none', onlineLayerOn: false, onlineLoaded: 0, onlineFailed: 0, onlinePending: 0,
+      ...(ground?.status() ?? {}),
+      layers: viewer.imageryLayers.length,
+      // Nothing in view is still loading.
+      tilesLoaded: scene.globe.tilesLoaded,
+      cameraMode,
+      moving: Boolean(glide || flying || chase.frame),
+      // Where the camera is, and the spot on the ground it looks at.
+      camera: { lat: C.Math.toDegrees(at.latitude), lon: C.Math.toDegrees(at.longitude), heightM: at.height },
+      lookingAt: {
+        lat: C.Math.toDegrees(aimed.latitude),
+        lon: C.Math.toDegrees(aimed.longitude),
+        rangeM: look.range,
+        pitchDeg: C.Math.toDegrees(look.pitch),
+        headingDeg: C.Math.toDegrees(look.heading),
+      },
+      notes: notes(),
+    };
+  }
+
+  // Points the camera at a spot on the ground (lat, lon in degrees) from
+  // heightM above it: straight down with north up, unless a pitch or a
+  // heading (degrees) is given. It moves at once, or flies there with
+  // animate. Like a hand sliding the view, it switches FOLLOW BOARD off.
+  // Returns false, and moves nothing, for a position that makes no sense.
+  function launchLookAt({ lat, lon, heightM = 2000, pitchDeg = -90, headingDeg = 0, animate = false } = {}) {
+    if (destroyed) return false;
+    if (![lat, lon, heightM, pitchDeg, headingDeg].every(Number.isFinite)) return false;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || !(heightM > 0)) return false;
+    stopGlide();
+    if (cameraMode === 'follow') {
+      cameraMode = 'free';
+      onFollowOff();
+    }
+    leaveWhole();
+    // (A view still waiting far out has somewhere to look now.)
+    waitFar = false;
+    // Always looking down at least a little, so there is a height to keep.
+    const pitch = clamp(C.Math.toRadians(pitchDeg), PITCH_MIN, C.Math.toRadians(-5));
+    const to = {
+      pivot: C.Cartesian3.fromDegrees(lon, lat, 0),
+      heading: C.Math.toRadians(headingDeg),
+      pitch,
+      range: heightM / Math.sin(-pitch),
+    };
+    if (animate) goTo(to);
+    else moveTo(to, { animate: false });
+    return true;
+  }
+
+  const api = {
     // The shared FOLLOW BOARD setting.
     setFollow(on) {
       if (destroyed) return;
@@ -3129,7 +3307,11 @@ export function createGlobeView(container, ctx, options) {
         if (cameraMode === 'whole') cameraMode = 'free';
         const pad = firstPad();
         const spot = pad ? abovePad(pad) : target ?? station.position;
-        if (spot) moveTo({ pivot: spot, ...startOrbit() }, { animate: true });
+        // On the launch page, with no rocket on screen yet, it goes back to
+        // the opening view of the launch field.
+        const field = LAUNCH && !pad && !target ? homeLook() : null;
+        if (field) moveTo(field, { animate: true });
+        else if (spot) moveTo({ pivot: spot, ...startOrbit() }, { animate: true });
       }
       scene.requestRender();
     },
@@ -3238,6 +3420,9 @@ export function createGlobeView(container, ctx, options) {
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      // Launch mode lets go of this view.
+      if (launchPart && hub.parts.globe === launchPart) delete hub.parts.globe;
+      ground?.destroy();
       unsubscribe();
       scheduler.cancel();
       clearTimeout(readyTimer);
@@ -3277,6 +3462,13 @@ export function createGlobeView(container, ctx, options) {
       }
     },
   };
+
+  // On the launch page the view is in hub.parts.globe while it exists.
+  // resetView is RESET VIEW (back to the opening view of the field while no
+  // rocket is on screen).
+  const launchPart = LAUNCH ? { status: launchStatus, lookAt: launchLookAt, resetView: () => api.resetView() } : null;
+  if (launchPart) hub.parts.globe = launchPart;
+  return api;
 }
 
 // A CSS color variable as an rgba() string Cesium can read. The browser

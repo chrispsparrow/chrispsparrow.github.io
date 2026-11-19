@@ -23,7 +23,12 @@
 //    The answers are kept for the visit, so each part of the map is asked
 //    about once per zoom level.
 //
-// Used by: map-view.js.
+// The layer's tiles are boxes around one photo. The parts of that which
+// don't care where the photo comes from (placePhoto and boxTileMethods) are
+// exported, because launch mode's saved imagery layer
+// (js/launch/offline-leaflet.js) builds its tiles the same way.
+//
+// Used by: map-view.js, and js/launch/offline-leaflet.js on the launch page.
 
 let acceptedKey = null; // the key Esri said yes to in this visit
 let pending = null;     // { key, promise } while a check is on its way
@@ -176,16 +181,7 @@ export function createSatelliteLayer(L, config, options) {
       box.fcTile = tile;
       const show = (z) => {
         if (tile.dropped) return;
-        // How many of this tile fit across the photo it borrows from (1
-        // when it has its own), and which one it is.
-        const scale = 2 ** (coords.z - z);
-        const x = Math.floor(coords.x / scale);
-        const y = Math.floor(coords.y / scale);
-        const size = this.getTileSize();
-        img.style.width = `${size.x * scale + 0.5}px`;
-        img.style.height = `${size.y * scale + 0.5}px`;
-        img.style.left = `${-(coords.x - x * scale) * size.x}px`;
-        img.style.top = `${-(coords.y - y * scale) * size.y}px`;
+        const { x, y } = placePhoto(img, coords, z, this.getTileSize());
         img.onload = () => { tile.finished = true; done(null, box); };
         img.onerror = (e) => { tile.finished = true; done(e, box); };
         img.src = L.Util.template(this._url, L.Util.extend({ r: '', s: '' }, this.options, { x, y, z }));
@@ -196,6 +192,36 @@ export function createSatelliteLayer(L, config, options) {
       return box;
     },
 
+    ...boxTileMethods(L),
+  });
+  return new SatelliteLayer(config.SATELLITE_URL, options);
+}
+
+// Sizes and moves a tile's photo so the right part of it fills the tile's
+// box. The photo is the one at zoom z over the tile at coords: the tile's
+// own when z is its zoom, or one above it, scaled up. size is the layer's
+// tile size (Leaflet's getTileSize()). Returns which photo that is: its x
+// and y at zoom z.
+export function placePhoto(img, coords, z, size) {
+  // How many of this tile fit across the photo it borrows from (1 when it
+  // has its own), and which one it is.
+  const scale = 2 ** (coords.z - z);
+  const x = Math.floor(coords.x / scale);
+  const y = Math.floor(coords.y / scale);
+  img.style.width = `${size.x * scale + 0.5}px`;
+  img.style.height = `${size.y * scale + 0.5}px`;
+  img.style.left = `${-(coords.x - x * scale) * size.x}px`;
+  img.style.top = `${-(coords.y - y * scale) * size.y}px`;
+  return { x, y };
+}
+
+// The three Leaflet methods a layer of box tiles has to redo (see above
+// createSatelliteLayer for why), ready to spread into L.GridLayer.extend()
+// or L.TileLayer.extend(). A box keeps its state in box.fcTile:
+// { img, finished, dropped }. A box without one (an empty tile) is left to
+// Leaflet.
+export function boxTileMethods(L) {
+  return {
     // Leaflet's _abortLoading, for boxes: when the zoom level changes, the
     // tiles of other levels that are still loading go. Finished ones stay
     // until Leaflet's pruning takes them away, once the new level covers
@@ -225,8 +251,7 @@ export function createSatelliteLayer(L, config, options) {
       if (!this._map || box?.fcTile?.dropped) return;
       return L.GridLayer.prototype._tileReady.call(this, coords, err, box);
     },
-  });
-  return new SatelliteLayer(config.SATELLITE_URL, options);
+  };
 }
 
 // Lets go of a tile's photo: it never reports back, and a download still

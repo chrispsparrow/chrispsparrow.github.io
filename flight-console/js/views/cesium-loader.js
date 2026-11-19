@@ -12,9 +12,27 @@
 // the download really fails, its tags are removed and the next call starts
 // over.
 //
+// Where it comes from: Cesium's own release CDN (the addresses in
+// config.js), except on the launch page (launch.html), which has to work
+// with no internet. There it is the copy of the same release saved in
+// flight-console/vendor/cesium/ (see cesiumSource() below).
+//
 // Used by: map-view.js.
 
 import { CESIUM_JS_URL, CESIUM_CSS_URL, CESIUM_BASE_URL, CESIUM_LOAD_TIMEOUT_MS } from '../config.js?v=3';
+// Launch mode: true only when the page is launch.html (see js/launch/launch-mode.js).
+import { LAUNCH } from '../launch/launch-mode.js';
+
+// The three addresses a download needs: the script, the stylesheet, and the
+// folder Cesium fetches its own workers and assets from. On the launch page
+// they point into flight-console/vendor/cesium/. That folder's address is
+// worked out from this file's own address, so it is right whatever port or
+// folder the site is served from. On any other page they are the CDN's.
+export function cesiumSource(launch = LAUNCH) {
+  if (!launch) return { baseUrl: CESIUM_BASE_URL, jsUrl: CESIUM_JS_URL, cssUrl: CESIUM_CSS_URL };
+  const baseUrl = new URL('../../vendor/cesium/', import.meta.url).href;
+  return { baseUrl, jsUrl: `${baseUrl}Cesium.js`, cssUrl: `${baseUrl}Widgets/widgets.css` };
+}
 
 // The download in progress. It settles only when the script itself loads
 // or fails, never because a caller ran out of patience.
@@ -37,16 +55,17 @@ export function loadCesium() {
 
 function startDownload() {
   const started = new Promise((resolve, reject) => {
+    const source = cesiumSource();
     // Cesium fetches its workers and assets from this folder. It has to be
     // set before the script runs.
-    window.CESIUM_BASE_URL = CESIUM_BASE_URL;
+    window.CESIUM_BASE_URL = source.baseUrl;
 
     const style = document.createElement('link');
     style.rel = 'stylesheet';
-    style.href = CESIUM_CSS_URL;
+    style.href = source.cssUrl;
 
     const script = document.createElement('script');
-    script.src = CESIUM_JS_URL;
+    script.src = source.jsUrl;
     script.async = true;
 
     // Leave nothing behind, so a later try starts clean.

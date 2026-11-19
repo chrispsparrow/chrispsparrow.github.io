@@ -17,6 +17,11 @@
 //   link.supported                 // false in browsers without Web Serial
 //   button.onclick = () => link.connect();
 //
+// Launch mode (js/launch/flight-log.js) also opens a port the browser
+// already has leave to use, with no picker:
+//   const ports = await link.granted();
+//   link.connect({ port: ports[0] });
+//
 // No DOM here. It needs navigator.serial only when connect() runs.
 
 export const BAUD = 115200;
@@ -66,19 +71,23 @@ export function createSerialLink({ onLine, onLink, onNote, onOpen, onClose } = {
 
   const restingState = () => (state.wasOpen ? 'closed' : 'idle');
 
-  async function connect() {
+  // Opens a port. With no port given, the browser's picker asks for one,
+  // which needs a click. A port from granted() opens without the picker.
+  async function connect({ port: given = null } = {}) {
     if (!supported || state.port || state.link === 'picking' || state.link === 'opening') return;
     note('');
-    setLink('picking');
-    let port;
-    try {
-      port = await navigator.serial.requestPort();
-    } catch (err) {
-      setLink(restingState());
-      if (err.name === 'NotFoundError') note('No port was picked, so nothing changed.');
-      else if (err.name === 'SecurityError') note('The browser blocked access to serial ports on this page.', 'warn');
-      else note(`The port list didn't open (${err.message}).`, 'warn');
-      return;
+    let port = given;
+    if (!port) {
+      setLink('picking');
+      try {
+        port = await navigator.serial.requestPort();
+      } catch (err) {
+        setLink(restingState());
+        if (err.name === 'NotFoundError') note('No port was picked, so nothing changed.');
+        else if (err.name === 'SecurityError') note('The browser blocked access to serial ports on this page.', 'warn');
+        else note(`The port list didn't open (${err.message}).`, 'warn');
+        return;
+      }
     }
 
     setLink('opening');
@@ -101,6 +110,17 @@ export function createSerialLink({ onLine, onLink, onNote, onOpen, onClose } = {
     onOpen?.();
     setLink('open');
     state.loop = readLoop(port);
+  }
+
+  // The ports this page was given leave to open on an earlier CONNECT and
+  // that are plugged in now. Opening one of them needs no click.
+  async function granted() {
+    if (!supported) return [];
+    try {
+      return await navigator.serial.getPorts();
+    } catch {
+      return [];
+    }
   }
 
   async function disconnect() {
@@ -191,8 +211,11 @@ export function createSerialLink({ onLine, onLink, onNote, onOpen, onClose } = {
   return {
     connect,
     disconnect,
+    granted,
     get link() { return state.link; },
     get open() { return state.link === 'open'; },
+    // The open port, or null.
+    get port() { return state.port; },
     supported,
     // Stops listening for unplugged boards. Call it when the page is done
     // with this link (after disconnect()).

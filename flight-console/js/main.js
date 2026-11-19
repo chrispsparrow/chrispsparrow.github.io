@@ -72,29 +72,31 @@
 // file that imports a module uses the same query, or the browser would
 // load it twice.
 import * as config from './config.js?v=3';
-import { loadManifest, loadFlight } from './library.js?v=5';
-import { createStore } from './store.js?v=4';
+import { loadManifest, loadFlight } from './library.js?v=6';
+import { createStore } from './store.js?v=5';
 import { createStoreSwitch } from './store-switch.js?v=2';
 import { createPlayer } from './player.js?v=3';
 import { createFleet } from './fleet.js?v=3';
-import { STATE } from './flight-state.js?v=3';
+import { STATE } from './flight-state.js?v=4';
 import { h, setChildren } from './views/dom.js?v=2';
 import { createLanding } from './views/launcher.js?v=7';
 import { createSavedMenu } from './views/saved-menu.js?v=4';
-import { createLocalConsole } from './views/local-console.js';
-import { isLocalId } from './local/local-flights.js';
+import { createLocalConsole } from './views/local-console.js?v=1';
+import { isLocalId } from './local/local-flights.js?v=1';
 import { createPanels } from './views/panels.js?v=2';
-import { createHud } from './views/hud.js?v=4';
+import { createHud } from './views/hud.js?v=5';
 import { createRocketBar } from './views/rocket-bar.js?v=3';
 import { createPhaseStrip } from './views/phase-strip.js?v=3';
-import { createMapView } from './views/map-view.js?v=10';
+import { createMapView } from './views/map-view.js?v=11';
 import { createTimeline } from './views/timeline.js?v=5';
-import { createDataPanel } from './views/data-panel.js?v=4';
-import { createSerialLink } from './live/serial-link.js';
+import { createDataPanel } from './views/data-panel.js?v=5';
+import { createSerialLink } from './live/serial-link.js?v=1';
 import { createSourceDetector } from './live/sources.js?v=3';
-import { createBenchPanel } from './live/bench-panel.js?v=6';
+import { createBenchPanel } from './live/bench-panel.js?v=7';
 import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=3';
 import { createFlightFeed, waitingNote } from './live/flight-feed.js';
+// Launch mode: only on when the page is launch.html (see js/launch/launch-mode.js).
+import { LAUNCH, launchReady, launchGroundStation, startLaunchMode, tapLink } from './launch/launch-mode.js';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
 const TITLE_CONSOLE = 'Track a Rocket | Dogtooth Systems';
@@ -832,6 +834,10 @@ let live = null;        // the live session, see ensureLive()
 //   panel      the bench panel: CONNECT, readings, graphs, raw output, CSV
 //   link       the serial port (serial-link.js)
 //   linkState  the link's state ('idle', 'picking', 'opening', 'open', ...)
+//   handlers   what the link calls for each event (below)
+//   consoleHandlers  the same, without the recorder and the flight log
+//   connect, disconnect   launch page only: what CONNECT and DISCONNECT
+//              do instead of the link's own (js/launch/flight-log.js)
 function ensureLive() {
   if (live) return live;
   const next = {
@@ -854,13 +860,22 @@ function ensureLive() {
       onRestart: () => next.feed?.restart(),
       onConnect: () => {
         // CONNECT in a replay goes back to live first. The port picker
-        // opens right away, still inside the click.
+        // opens right away, still inside the click. On the launch page
+        // the flight log asks where to save first (next.connect, set by
+        // js/launch/flight-log.js).
         if (screen !== 'track') navigate({ track: true });
-        next.link?.connect();
+        if (next.connect) next.connect();
+        else next.link?.connect();
       },
-      onDisconnect: () => next.link?.disconnect(),
+      // On the launch page DISCONNECT also stops a playing test capture.
+      onDisconnect: () => (next.disconnect ? next.disconnect() : next.link?.disconnect()),
     });
-    next.link = createSerialLink(localConsole.wrapLink({
+    // The handlers every serial line goes through. They are kept on the
+    // session so launch mode can log each line and play a saved capture
+    // through the same path (js/launch/). consoleHandlers are the same
+    // without the recorder and the flight log, so launch mode can put a
+    // recovered recording back on screen without storing it twice.
+    next.consoleHandlers = {
       onLine(line, t) {
         const before = next.source;
         const source = next.detector.push(line);
@@ -895,7 +910,11 @@ function ensureLive() {
         setFlightNote('');
         next.panel.closed({ lost });
       },
-    }));
+    };
+    next.handlers = localConsole.wrapLink(next.consoleHandlers);
+    // On the launch page the flight log hears every line first.
+    if (LAUNCH) next.handlers = tapLink(next.handlers);
+    next.link = createSerialLink(next.handlers);
   } catch (err) {
     console.error('Flight Console: the live console failed to start', err);
     const note = $('bc-link-note');
@@ -908,6 +927,21 @@ function ensureLive() {
     next.failed = true;
   }
   live = next;
+  // On the launch page, the launch panel, the flight log and the test
+  // capture start with the live console.
+  if (LAUNCH && !next.failed) {
+    startLaunchMode({
+      root: sections.console,
+      live: next,
+      liveStore,
+      getStage: () => stage,
+      getScreen: () => screen,
+      navigate,
+      announce,
+      localConsole,
+      config,
+    });
+  }
   // Leaving the page closes the port and drops every block, so the browser
   // asks first while there are blocks that weren't saved as a CSV file.
   // (The landing and the replays are on this page, so they keep them.) It
@@ -925,6 +959,10 @@ function ensureLive() {
 // any source (it has no ground station and nothing in it yet, so the 3D
 // view waits looking at the whole Earth).
 function liveMode() {
+  // On the launch page the flight store is up from the start, so the maps
+  // open on the launch field and its ground station instead of the whole
+  // Earth. A Dogtooth board on the USB cable still gets the bench store.
+  if (LAUNCH && live?.mode !== 'bench') return 'flight';
   return live?.mode === 'flight' ? 'flight' : 'bench';
 }
 
@@ -957,7 +995,12 @@ function useSource(source) {
 function liveStore(mode) {
   if (!live) ensureLive();
   if (!live.stores[mode]) {
-    const store = createStore({ fleet: createFleet(), ...LIVE_STORE_OPTIONS[mode] });
+    // On the launch page the flight store starts with the ground station
+    // position typed in at the field (the field's center until then).
+    const options = LAUNCH && mode === 'flight'
+      ? { ...LIVE_STORE_OPTIONS[mode], groundStation: launchGroundStation() }
+      : LIVE_STORE_OPTIONS[mode];
+    const store = createStore({ fleet: createFleet(), ...options });
     live.stores[mode] = store;
     if (mode === 'bench') live.feed = createLiveFeed({ store });
     else live.flightFeed = createFlightFeed({ store });
@@ -1026,4 +1069,7 @@ window.addEventListener('popstate', () => {
   moveFocus = true;
   route();
 });
-route();
+// The launch page reads its field settings first (a small local file), so
+// everything built after this can use them. The normal page starts at once.
+if (LAUNCH) launchReady.then(() => route());
+else route();

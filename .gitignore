@@ -16,3 +16,7 @@ assets/Avionics PCB Files x2/
 assets/Board photos/
 assets/more PCB photos x2/
 assets/console/
+
+# Launch mode. The saved map tiles and the flight logs stay on this laptop.
+offline-maps/
+flight-logs/

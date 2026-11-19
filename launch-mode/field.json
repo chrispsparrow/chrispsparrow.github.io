@@ -1,0 +1,13 @@
+{
+  "name": "CRMRC launch field",
+  "center": { "lat": 44.825278, "lon": -73.171727 },
+  "boxHalfKm": 15,
+  "tiles": {
+    "folder": "offline-maps/crmrc",
+    "levels": [
+      { "zoomMin": 0, "zoomMax": 16, "halfKm": "box", "source": "usgs-imagery-only" },
+      { "zoomMin": 17, "zoomMax": 17, "halfKm": 5, "source": "usgs-naip" },
+      { "zoomMin": 18, "zoomMax": 18, "halfKm": 2, "source": "usgs-naip" }
+    ]
+  }
+}

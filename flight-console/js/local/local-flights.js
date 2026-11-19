@@ -5,6 +5,7 @@
 //
 // Here:
 //   createRecorder()      records a connection's lines, a chunk every 2 s
+//                         (four times a second on the launch page)
 //   saveRecording()       names a finished (or recovered) recording
 //   findUnfinished()      recordings a crash or a closed tab left behind
 //   findBusy()            recordings a tab still holds (still recording, or reloading)
@@ -14,8 +15,8 @@
 //
 // No DOM here, so Node can test it.
 
-import { buildFlight, LibraryError } from '../library.js?v=5';
-import { parseFile } from '../parser.js?v=3';
+import { buildFlight, LibraryError } from '../library.js?v=6';
+import { parseFile, readFlightLogLine } from '../parser.js?v=4';
 import { BlockParser } from '../bench/parse.js?v=5';
 import { buildCsv, blockUnits, readCsvBlocks } from '../bench/csv.js?v=6';
 import { DEFAULT_ROCKET } from '../live/bench-feed.js?v=3';
@@ -26,6 +27,10 @@ export const isLocalId = (id) => typeof id === 'string' && id.startsWith(LOCAL_P
 
 // How often a running recording is written to the browser's storage, in ms.
 export const FLUSH_MS = 2000;
+// The same on the launch page (launch.html), where a crash in the middle of
+// a flight should lose next to nothing. The receiver sends about two lines a
+// second, so this is still only a few small writes a second.
+export const LAUNCH_FLUSH_MS = 250;
 // Without Web Locks, a recording whose record hasn't been touched for this
 // long (ms) is taken as left behind rather than still running in another tab.
 export const STALE_MS = 15000;
@@ -43,6 +48,14 @@ const CONSOLE_CSV_START = 'PC time (UTC),HEARTBEAT #,TIME RUNNING (s),';
 // A line only my firmware prints (the same test parseFile() uses).
 const SERIAL_LINE = /^(SIM PKT|PKT |BAD |DOGTOOTH_V1_FIRMWARE|=+ *HEARTBEAT #)/;
 const MONITOR_TIME_PREFIX = /^\d{2}:\d{2}:\d{2}\.\d{3}\s*>\s?/;
+// The first line of a flight log from launch mode (js/launch/log-format.js).
+// A log where the receiver heard no packets has no line above in it, and is
+// still a raw log, so this line names the file too.
+const FLIGHT_LOG_START = '# Dogtooth flight log';
+
+// A line as the board sent it: a flight log's time prefix taken off, or
+// PlatformIO's monitor time.
+const bareLine = (raw) => (readFlightLogLine(raw)?.line ?? raw.replace(MONITOR_TIME_PREFIX, ''));
 
 const stripBom = (text) => String(text ?? '').replace(/^﻿/, '');
 const pad = (n) => String(n).padStart(2, '0');
@@ -85,12 +98,15 @@ export function splitText(text) {
 }
 
 // The lines' status blocks (bench/parse.js), with the time each banner
-// arrived when the lines have times.
+// arrived when the lines have times. A loaded flight log has the time in
+// front of each line (see readFlightLogLine() in parser.js), so it is taken
+// off there and used.
 export function linesToBlocks(lines, times = null) {
   const parser = new BlockParser();
   const blocks = [];
   for (let i = 0; i < lines.length; i++) {
-    const r = parser.push(lines[i], times ? times[i] : null);
+    const logged = readFlightLogLine(lines[i]);
+    const r = parser.push(logged ? logged.line : lines[i], times ? times[i] : logged?.t ?? null);
     if (r.done) blocks.push(r.done);
   }
   const last = parser.finish();
@@ -140,12 +156,28 @@ export function summarize(record, { lines, times }) {
 // local-console.js). So a tab that closes while the name is being typed
 // leaves it to be recovered on the next visit.
 //
+// A new recording may start while the last one is still being stored and
+// saved (on the launch page a port can be opened again right after it was
+// lost). Each chunk and each lock belongs to its own recording, so the two
+// never mix.
+//
+//   flushMs           how often the new lines are written
+//   touchMs           with no new lines, the record alone is written again
+//                     only this long after the last write. 0 writes it on
+//                     every flush, which is what the normal page does.
+//   flushOnLine       a line that arrives flushMs or more after the last
+//                     write is written at once, without waiting for the
+//                     timer. Browsers slow a hidden tab's timers down to
+//                     once a minute, and the lines keep arriving, so this
+//                     keeps the copy close behind them (the launch page).
 //   onState(rec)      the recording started, stopped or was released
 //   onProblem(err)    storing failed (err), or works again (null)
 export function createRecorder({
   db,
   now = () => Date.now(),
   flushMs = FLUSH_MS,
+  touchMs = 0,
+  flushOnLine = false,
   locks = globalThis.navigator?.locks ?? null,
   onState = () => {},
   onProblem = () => {},
@@ -153,18 +185,26 @@ export function createRecorder({
   let rec = null;            // the record of the running recording
   let stopped = null;        // the record after stop(), until released
   let buffer = { lines: [], times: [] };
-  const queue = [];          // chunks not stored yet, in order
+  const queue = [];          // chunks not stored yet, in order: { id, seq, lines, times }
   let seq = 0;
   let timer = null;
   let writing = Promise.resolve();
   let failing = false;
-  let unlock = null;         // releases this recording's lock
+  const unlocks = new Map(); // recording id -> the function that lets go of its lock
+  const letGo = new Set();   // recordings released before their lock arrived
   let startedAt = 0;
+  let lastTouch = 0;         // when the record was last handed to storage
+  let lastFlush = 0;         // when the last flush ran
+  let stored = { id: null, lines: 0 };   // the newest recording, and how many of its lines are in storage
 
-  function start() {
+  // fields: extra things to keep on the record. Launch mode marks a played
+  // test capture with { test: true }.
+  function start(fields = null) {
     if (rec) return rec;
     const t = now();
     startedAt = t;
+    lastTouch = t;
+    lastFlush = t;
     seq = 0;
     buffer = { lines: [], times: [] };
     rec = {
@@ -183,7 +223,9 @@ export function createRecorder({
       durationS: null,
       sampleCount: null,
       blockCount: null,
+      ...(fields ?? {}),
     };
+    stored = { id: rec.id, lines: 0 };
     // The lock comes first, so another tab never sees this recording
     // without it and offers to recover it.
     const locked = takeLock(rec.id);
@@ -199,7 +241,9 @@ export function createRecorder({
     return new Promise((resolve) => {
       locks.request(lockName(id), { mode: 'exclusive' }, () => {
         resolve();
-        return new Promise((release) => { unlock = release; });
+        // Already saved or thrown away before the lock arrived: let it go.
+        if (letGo.delete(id)) return undefined;
+        return new Promise((release) => { unlocks.set(id, release); });
       }).catch(() => resolve());
     });
   }
@@ -208,19 +252,25 @@ export function createRecorder({
     if (!rec) return;
     buffer.lines.push(text);
     buffer.times.push(Number.isFinite(t) ? t : now());
+    if (flushOnLine && now() - lastFlush >= flushMs) flush();
   }
 
   // Writes what came in since the last write. Returns a promise that is
   // done when it's stored (or has failed and will be tried again).
   function flush() {
     if (!rec) return writing;
+    lastFlush = now();
     if (buffer.lines.length) {
-      queue.push({ seq: seq++, lines: buffer.lines, times: buffer.times });
+      queue.push({ id: rec.id, seq: seq++, lines: buffer.lines, times: buffer.times });
       rec.lineCount += buffer.lines.length;
       for (const l of buffer.lines) rec.byteCount += l.length + 2;
       buffer = { lines: [], times: [] };
+    } else if (touchMs > 0 && !queue.length && now() - lastTouch < touchMs) {
+      // Nothing new, and the record was written a moment ago.
+      return writing;
     }
     rec.updatedAt = now();
+    lastTouch = rec.updatedAt;
     const snapshot = { ...rec };
     writing = writing.then(() => writeQueue(snapshot));
     return writing;
@@ -231,8 +281,10 @@ export function createRecorder({
       if (!queue.length) await db.putFlight(snapshot);
       while (queue.length) {
         const c = queue[0];
-        await db.addChunk(snapshot.id, c.seq, c.lines, c.times, snapshot);
+        // The record goes in with its own recording's chunks only.
+        await db.addChunk(c.id, c.seq, c.lines, c.times, c.id === snapshot.id ? snapshot : null);
         queue.shift();
+        if (c.id === stored.id) stored.lines += c.lines.length;
       }
       setFailing(null);
     } catch (err) {
@@ -253,6 +305,7 @@ export function createRecorder({
     if (!rec) return stopped;
     clearInterval(timer);
     timer = null;
+    lastTouch = -Infinity;   // the last write always carries the record
     flush();
     const done = rec;
     rec = null;
@@ -267,10 +320,16 @@ export function createRecorder({
   }
 
   // Lets go of the stopped recording's lock (after it's saved or discarded).
-  function release() {
-    stopped = null;
-    unlock?.();
-    unlock = null;
+  // id says which recording, when a newer one may have stopped since.
+  function release(id = stopped?.id ?? null) {
+    if (stopped?.id === id) stopped = null;
+    const unlock = unlocks.get(id);
+    if (unlock) {
+      unlocks.delete(id);
+      unlock();
+    } else if (id && locks?.request) {
+      letGo.add(id);
+    }
     onState(null);
   }
 
@@ -289,6 +348,10 @@ export function createRecorder({
     // True when every line so far is in storage.
     stored: () => !queue.length && !failing,
     get failing() { return failing; },
+    // The newest recording's id, and how many of its lines are in storage
+    // (launch mode's log status shows them).
+    get storedId() { return stored.id; },
+    get storedLines() { return stored.lines; },
   };
 }
 
@@ -356,13 +419,16 @@ export async function listSaved(db) {
 
 // What a file holds, from its contents (never only its name):
 //   'csv'  the console's own CSV file (SAVE AS CSV or EXPORT CSV)
-//   'log'  my firmware's serial output (a raw log, pc_sim_flight.log)
+//   'log'  my firmware's serial output (a raw log, pc_sim_flight.log), with
+//          or without a time in front of each line. A flight log from
+//          launch mode is one of these.
 //   null   neither
 export function detectFlightFile(text) {
   const body = stripBom(text);
   if (body.startsWith(CONSOLE_CSV_START)) return readCsvBlocks(body) ? 'csv' : null;
+  if (body.startsWith(FLIGHT_LOG_START)) return 'log';
   for (const raw of body.split(/\r?\n/)) {
-    if (SERIAL_LINE.test(raw.replace(MONITOR_TIME_PREFIX, '').trim())) return 'log';
+    if (SERIAL_LINE.test(bareLine(raw).trim())) return 'log';
   }
   return null;
 }
@@ -373,8 +439,11 @@ export function nameFromFile(fileName) {
 }
 
 // Checks a loaded file's text and makes its LOCAL flight. Returns
-// { record, lines } (the record is ready to store, already 'saved'), or
-// { error } with error one of:
+// { record, lines, times } (the record is ready to store, already 'saved'),
+// or { error }. times is when each line arrived, read from a flight log's
+// time prefixes, or null for a file that has none. The lines stay as they
+// are in the file, prefixes and all, so the file exports back unchanged.
+// error is one of:
 //   'empty'    nothing in it
 //   'unknown'  not a raw log or the console's CSV file
 //   'no-data'  the right kind of file, but no readings in it
@@ -398,15 +467,21 @@ export function readFlightFile(text, originalName = '', now = Date.now()) {
     lineCount: lines.length,
     byteCount: body.length,
   };
-  const summary = summarize(record, { lines, times: null });
+  let times = null;
+  if (kind === 'log') {
+    const read = lines.map((l) => readFlightLogLine(l)?.t ?? null);
+    if (read.some((t) => t !== null)) times = read;
+  }
+  const summary = summarize(record, { lines, times });
   if (!summary.sampleCount) return { error: 'no-data', kind };
-  return { record: { ...record, ...summary }, lines };
+  return { record: { ...record, ...summary }, lines, times };
 }
 
 // Stores a loaded file's lines and record. Big files go in as several chunks.
-export async function storeFile(db, record, lines, chunkLines = 20000) {
+// times is readFlightFile()'s (a flight log's arrival times), or null.
+export async function storeFile(db, record, lines, chunkLines = 20000, times = null) {
   for (let seq = 0, i = 0; i < lines.length || seq === 0; seq++, i += chunkLines) {
-    await db.addChunk(record.id, seq, lines.slice(i, i + chunkLines), null);
+    await db.addChunk(record.id, seq, lines.slice(i, i + chunkLines), times ? times.slice(i, i + chunkLines) : null);
   }
   await db.putFlight(record);
   return record;

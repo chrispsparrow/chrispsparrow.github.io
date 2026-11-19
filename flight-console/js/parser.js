@@ -17,6 +17,10 @@
 //                                  has no packet lines, each block becoming
 //                                  a sample the way the live console makes
 //                                  one (blockToSample in live/bench-feed.js)
+//     a time in front of each line PlatformIO's monitor time, or the date and
+//                                  time launch mode's flight log writes. It
+//                                  is taken off first (readFlightLogLine()
+//                                  gives a flight log's time back).
 //   parseConsoleCsv(text, fileName) the console's own SAVE AS CSV file, read
 //                                  back into the status blocks it came from
 //   parseFile(text, fileName)       picks one of the above
@@ -352,8 +356,28 @@ function keyValuePairs(text) {
 }
 
 // PlatformIO's "time" monitor filter puts "HH:MM:SS.mmm > " in front of
-// every line. The laptop clock is not flight data, so it is dropped.
-const MONITOR_TIME_PREFIX = /^\d{2}:\d{2}:\d{2}\.\d{3}\s*>\s?/;
+// every line. Launch mode's flight log (the launch page's log and the
+// backup logger, see js/launch/log-format.js) puts the whole date and time
+// there: "2026-11-21T14:03:22.123-05:00 > ". The laptop clock is not flight
+// data, so either one is dropped before a line is read.
+const MONITOR_TIME_PREFIX = /^(?:\d{4}-\d{2}-\d{2}T)?\d{2}:\d{2}:\d{2}\.\d{3}(?:Z|[+-]\d{2}:\d{2})?\s*>\s?/;
+
+// A flight log's prefix exactly as it is written: the time the line arrived
+// on the computer (local time, milliseconds, UTC offset), then " > ".
+const FLIGHT_LOG_PREFIX = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}) > /;
+
+// One line of a flight log: { line, t } with the receiver's line as it came
+// and when it arrived (ms on the computer's clock). null for a line without
+// the flight log's prefix, like the "# ..." lines the logger adds itself.
+// LOCAL flights use it to keep the arrival times of a loaded log
+// (js/local/local-flights.js).
+export function readFlightLogLine(rawLine) {
+  const text = String(rawLine ?? '');
+  const m = FLIGHT_LOG_PREFIX.exec(text);
+  if (!m) return null;
+  const t = Date.parse(m[1]);
+  return { line: text.slice(m[0].length), t: Number.isFinite(t) ? t : null };
+}
 
 // Reads text my firmware printed over USB. Returns
 // { samples, truth, badRows, badRowDetails, format, ignoredLines, meta }.

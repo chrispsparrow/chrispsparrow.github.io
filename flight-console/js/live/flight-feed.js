@@ -38,6 +38,7 @@
 //   each line:  feed.noteLine(line);
 //               feed.push(source.parse(line), t);    // t: when it arrived, ms
 //   leaving:    feed.stop()
+//   store cleared: feed.reset()
 //
 // No DOM here, so Node can run it too.
 
@@ -205,12 +206,36 @@ export function createFlightFeed({ store, clock = () => Date.now(), every = ever
     stopTimer = null;
   }
 
+  // Forgets every board, the clock and the counts, for when the store
+  // itself is cleared. Launch mode does that when a real connection follows
+  // a played test capture (js/launch/flight-log.js), so the test's track
+  // never joins the flight's.
+  function reset() {
+    stop();
+    anchor = null;
+    boards.clear();
+    receiver = null;
+    counts.samples = 0;
+    counts.bad = 0;
+    counts.restarts = 0;
+  }
+
+  // When the newest packet from a board arrived, in ms on the computer's
+  // clock (the t its line came with), or null. A recovered recording that
+  // launch mode plays back keeps its lines' own arrival times, so this is
+  // when the packet really came in, not when it was put back on screen.
+  function lastArrival(rocketId) {
+    return boards.get(String(rocketId))?.lastRealMs ?? null;
+  }
+
   return {
     push,
     noteLine,
     newConnection,
     tick,
     stop,
+    reset,
+    lastArrival,
     counts,
     get receiver() { return receiver; },
   };

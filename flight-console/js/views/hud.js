@@ -45,15 +45,22 @@
 // display: contents (#fc-hud), so the four blocks are grid items of the
 // overlay.
 //
+// On the launch page (launch.html, see js/launch/launch-mode.js) two things
+// differ. OPEN IN MAPS shows only while the internet answers, since Google
+// Maps can't open at a field with no signal. And the ground station is
+// called GROUND STATION instead of MANTA, because its position is one typed
+// in at the field (stationName() in js/flight-state.js).
+//
 // Used by: main.js. Reads the store, never other views.
 
 import { h, setText, setChildren, createScheduler, copyText } from './dom.js?v=2';
 import { hudAge, gpsLineWarn } from './hud-text.js?v=5';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
-import { flightState, padChecklist, recoveryInfo, rangeReading, groundSpeed, STATE } from '../flight-state.js?v=3';
+import { flightState, padChecklist, recoveryInfo, rangeReading, groundSpeed, stationName, STATE } from '../flight-state.js?v=4';
 import {
   formatNumber, formatFlightClock, formatRangeBearing, metersToFeet, MISSING,
 } from '../geo.js?v=3';
+import { LAUNCH, hub } from '../launch/launch-mode.js';
 
 // The phase word next to the flight time, for each detector phase.
 const PHASE_WORDS = Object.freeze({
@@ -353,6 +360,8 @@ export function createHud(root, ctx) {
       mapsLink.removeAttribute('href');
       mapsLink.setAttribute('aria-disabled', 'true');
     }
+    // On the launch page the link shows only while the internet answers.
+    if (LAUNCH) mapsLink.hidden = !hub.online.get();
     if (!copyField.hidden && copyField.value !== coords) copyField.value = coords;
   }
 
@@ -510,7 +519,7 @@ export function createHud(root, ctx) {
           // bench with no Manta position). No small line in recovery: the
           // small line here is amber, and this is no warning.
           ...(range ? [{
-            label: range.from === 'launch' ? 'LAUNCH POINT' : range.demo ? 'MANTA (DEMO SPOT)' : 'MANTA',
+            label: range.from === 'launch' ? 'LAUNCH POINT' : range.demo ? 'MANTA (DEMO SPOT)' : stationName(store.getGroundStation()),
             value: Number.isFinite(range.distanceM) ? formatRangeBearing(range).toUpperCase() : MISSING,
           }] : []),
           // Any other GPS channel this board sent (new ones in the schema
@@ -625,6 +634,8 @@ export function createHud(root, ctx) {
     if (change.quiet) quietDraw = true;
     scheduler.schedule();
   });
+  // On the launch page OPEN IN MAPS comes and goes with the internet.
+  const stopOnline = LAUNCH ? hub.online.onChange(() => scheduler.schedule()) : null;
   render();
 
   return {
@@ -633,6 +644,7 @@ export function createHud(root, ctx) {
     refresh() { scheduler.flush(); },
     destroy() {
       unsubscribe();
+      stopOnline?.();
       moreResize?.disconnect();
       scheduler.cancel();
       clearTimeout(copyTimer);

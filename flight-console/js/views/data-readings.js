@@ -27,7 +27,7 @@
 
 import { h, setText, setChildren } from './dom.js?v=2';
 import { GROUPS, GROUP_LABELS, channelsInGroup } from '../schema.js?v=2';
-import { groundSpeed, rangeReading } from '../flight-state.js?v=3';
+import { groundSpeed, rangeReading } from '../flight-state.js?v=4';
 import {
   formatNumber, formatAge as ageText, formatFlightClock, formatDistance, formatBearing, MISSING,
 } from '../geo.js?v=3';

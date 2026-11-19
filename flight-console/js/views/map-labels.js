@@ -1,8 +1,9 @@
 // map-labels.js
 // The small names next to things on the map, drone-camera style: white
 // Share Tech Mono with a thin dark outline, joined to what they name by a
-// short leader line. "DOGTOOTH" moves with the board, and "MANTA",
-// "LAUNCH POINT" and "APOGEE 3,012 M" sit by their markers.
+// short leader line. "DOGTOOTH" moves with the board, and the ground
+// station's name ("MANTA", or "GROUND STATION" on the launch page, see
+// stationLabel), "LAUNCH POINT" and "APOGEE 3,012 M" sit by their markers.
 //
 // Both views use the same layer. Each view works out where its things are
 // on screen with its own projection (the 3D view with Cesium's
@@ -25,13 +26,22 @@
 
 import { h, svg } from './dom.js?v=2';
 import { formatNumber } from '../geo.js?v=3';
+import { stationName } from '../flight-state.js?v=4';
 
-// The fixed names.
+// The fixed names. The ground station's name is not fixed (stationLabel).
 export const LABEL_NAMES = Object.freeze({
   board: 'DOGTOOTH',
-  station: 'MANTA',
   pad: 'LAUNCH POINT',
 });
+
+// The ground station's name by its dish, for the store's ground station
+// gs: "MANTA", or "GROUND STATION" for a position typed in on the launch
+// page. It is stationName() in flight-state.js, so the maps say what the
+// HUD and the launch panel say. The views read it on every draw, so it
+// follows the store when the ground station or the store changes.
+export function stationLabel(gs) {
+  return stationName(gs);
+}
 
 // "APOGEE 3,012 M": the real apogee in whole meters above the ground.
 export function apogeeLabel(aglM) {

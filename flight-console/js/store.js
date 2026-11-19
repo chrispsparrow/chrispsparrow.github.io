@@ -10,7 +10,9 @@
 // with groundStation: null has none (a board on the bench, with no ground
 // station anywhere), so getGroundStation() returns null and the views leave
 // the station, its line and its distances out. Any way, a "gs" packet with
-// a fix sets the real position.
+// a fix sets the real position. On the launch page (launch.html) the live
+// flight store is made with the position typed in at the field (source
+// 'launch-mode'), and setGroundStation() moves it when that setting changes.
 //
 // The launch pad (rocket.padPosition) is the average of the good fixes from
 // the last PAD_AVG_S on the pad, so a board whose GPS wanders on the pad
@@ -223,6 +225,21 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
     gs = { lat: g.lat, lon: g.lon, altMsl: Number.isFinite(g.altMsl) ? g.altMsl : null, source: 'ground station GPS', t: sample.t ?? null };
   }
 
+  // Moves the ground station to a position set by hand: launch mode's
+  // setting, typed in at the field (js/launch/launch-panel.js). It takes
+  // the place of the position the store was made with, so reset() and
+  // clearAll() keep it. next is { lat, lon, altMsl, source }, or null for
+  // no ground station. Returns false, and changes nothing, for a position
+  // that isn't two numbers. Subscribers get one 'station' change and draw
+  // the dish, the radio link and every distance from the new spot.
+  function setGroundStation(next) {
+    if (next && !(Number.isFinite(next.lat) && Number.isFinite(next.lon))) return false;
+    groundStation = next ? { lat: next.lat, lon: next.lon, altMsl: next.altMsl ?? null, source: next.source } : null;
+    gs = makeConfigGroundStation();
+    notify({ type: 'station', newEvents: [], quiet: true });
+    return true;
+  }
+
   // Adds one sample and tells every subscriber.
   function addSample(sample) {
     const newEvents = ingest(sample);
@@ -386,6 +403,7 @@ export function createStore({ fleet = createFleet(), detectorConfig = DETECTOR_D
     getFocusedId: () => focusedRocketId,
     getEvents: () => events,
     getGroundStation: () => gs,   // null when there is no ground station
+    setGroundStation,
     getNow: () => now,
     getTotals: () => ({ ...totals }),
     ageOf,

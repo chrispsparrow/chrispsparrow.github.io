@@ -6,7 +6,8 @@
 //               for a name (the date and time unless one is typed). It's
 //               then a LOCAL flight in SAVED FLIGHTS. After a STOP the bar
 //               shows RECORD while the board is still connected, to start
-//               a new one.
+//               a new one. The launch page doesn't ask when the board
+//               disconnects (see below).
 //   Recovery    A recording that a crash or a closed tab left unfinished is
 //               offered on the next visit: UNSAVED RECORDING FOUND, with
 //               RECOVER and DISCARD (DISCARD asks first).
@@ -21,11 +22,32 @@
 // main.js makes it once and passes the serial link's callbacks through
 // wrapLink(), so every line is recorded before anything else sees it.
 //
+// On the launch page (launch.html, see js/launch/launch-mode.js) it works
+// the same way, with four differences for launch day:
+//   - Every line reaches storage within a quarter of a second
+//     (LAUNCH_FLUSH_MS), not every 2 s.
+//   - A played test capture (js/launch/capture.js) is recorded too, marked
+//     as a test, and saved by itself as "Test capture, <date and time>"
+//     when it ends, with no name box.
+//   - A recording that ends because the port closed (DISCONNECT, or the
+//     cable pulled) is saved by itself under its date and time, with no
+//     name box. The box would cover the launch panel, and COPY COORDINATES
+//     with it, right when the rocket's position matters most. A status
+//     line under the bar says where it went. STOP still asks for a name.
+//   - RECOVER also hands the recovered recording to the flight log
+//     (onRecovered()), which puts it back on the live view.
+//
 // Usage (main.js):
 //   const localConsole = createLocalConsole({ savedMenu, navigate, announce });
 //   createSerialLink(localConsole.wrapLink({ onLine, onOpen, onClose, ... }));
 //   await localConsole.find(id)      // { entry, load() } or null, for openFlight()
 //   localConsole.coversLive()        // every connection is safely recorded
+// Launch mode (js/launch/flight-log.js) also uses:
+//   localConsole.markNextRecording({ test: true })   // the next connection is a test capture
+//   localConsole.recording()         // the browser copy's state, for the log's status
+//   localConsole.onRecovered(fn)     // fn(record) after RECOVER saved one
+//   localConsole.readLines(id)       // a LOCAL flight's { lines, times }
+//   localConsole.flushNow()          // writes the newest lines now (the page is closing)
 
 import { h, setChildren } from './dom.js?v=2';
 import { formatDuration } from '../geo.js?v=3';
@@ -33,8 +55,13 @@ import { openFlightDb } from '../local/flight-db.js';
 import {
   createRecorder, saveRecording, findUnfinished, findBusy, listSaved, readFlightFile, storeFile,
   openLocalFlight, rawLogText, csvText, exportsFor, exportFileName, defaultName, cleanName,
-  isLocalId, lockName, MAX_FILE_BYTES, MAX_NAME, STALE_MS,
+  isLocalId, lockName, MAX_FILE_BYTES, MAX_NAME, STALE_MS, FLUSH_MS, LAUNCH_FLUSH_MS,
 } from '../local/local-flights.js';
+import { LAUNCH } from '../launch/launch-mode.js';
+
+// The name a recording gets when none is typed. A test capture says so, so
+// it is never taken for a flight.
+const nameFor = (record) => (record?.test ? `Test capture, ${defaultName(record.createdAt)}` : defaultName(record.createdAt));
 
 const $ = (id) => document.getElementById(id);
 
@@ -70,9 +97,15 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
   let saved = [];              // the saved LOCAL flights, newest first
   let unfinished = [];         // recordings left behind, newest first
   let recoverAsking = false;   // the recovery line is asking "discard it?"
+  let nextFields = null;       // launch mode: extra fields for the next connection's recording
+  let linkFields = null;       // the same, for the connection that is open now
+  const recoveredFns = new Set();
 
   const recorder = createRecorder({
     db: lazyDb,
+    // The launch page writes every line within a quarter of a second, so a
+    // crash in the middle of a flight loses next to nothing.
+    ...(LAUNCH ? { flushMs: LAUNCH_FLUSH_MS, touchMs: FLUSH_MS, flushOnLine: true } : {}),
     onState: () => showRec(),
     onProblem: (err) => {
       if (err) {
@@ -114,8 +147,8 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
 
   function startRecording() {
     if (recorder.active || !linkOpen) return;
-    recorder.start();
-    announce('Recording started.');
+    recorder.start(linkFields);
+    announce(linkFields?.test ? 'Recording the test capture.' : 'Recording started.');
   }
 
   els.recStop.addEventListener('click', () => endRecording('stop'));
@@ -133,6 +166,8 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
       },
       onOpen() {
         linkOpen = true;
+        linkFields = nextFields;
+        nextFields = null;
         callbacks.onOpen?.();
         startRecording();
         showRec();
@@ -141,13 +176,16 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         linkOpen = false;
         callbacks.onClose?.(info);
         if (recorder.active) endRecording('closed', info);
+        linkFields = null;
         showRec();
       },
     };
   }
 
   // Ends the running recording and asks for its name. reason is 'stop' (the
-  // STOP button) or 'closed' (the port closed).
+  // STOP button) or 'closed' (the port closed). On the launch page a test
+  // capture, and any recording the port closing ended, are saved under
+  // their default names with no question.
   async function endRecording(reason, info = {}) {
     if (!recorder.active || stopping) return;
     stopping = true;
@@ -161,7 +199,27 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         recorder.release();
         return;
       }
+      if (record.test) {
+        // A test capture (launch page) is saved by itself. Nobody should
+        // have to name a test, and a real connection may be opening.
+        const savedRecord = await saveRecording(lazyDb, record, nameFor(record));
+        recorder.release(record.id);
+        await refresh();
+        savedNote(savedRecord);
+        return;
+      }
       const ranS = (record.updatedAt - record.createdAt) / 1000;
+      if (LAUNCH && reason === 'closed') {
+        // Launch page: saved at once under the date and time, the name the
+        // box would have filled in, so nothing covers the launch panel. A
+        // reconnect may be opening, so only this recording is let go. A
+        // lost port is already said on the link's own line above the note.
+        const savedRecord = await saveRecording(lazyDb, record, nameFor(record));
+        recorder.release(record.id);
+        await refresh();
+        savedNote(savedRecord, `The recording stopped after ${formatDuration(ranS)}.`);
+        return;
+      }
       const why = reason === 'closed'
         ? `${info.lost ? 'The board was unplugged' : 'The board disconnected'}, so the recording stopped after ${formatDuration(ranS)}.`
         : `The recording ran ${formatDuration(ranS)}.`;
@@ -235,7 +293,10 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         busy = true;
         d.error.hidden = true;
         try {
-          const savedRecord = await saveRecording(lazyDb, record, d.input.value);
+          // An empty box gives the date and time, or for a test capture
+          // its own name, so it still says it was a test.
+          const typed = record.test && !d.input.value.trim() ? nameFor(record) : d.input.value;
+          const savedRecord = await saveRecording(lazyDb, record, typed);
           finish({ action: 'save', saved: savedRecord });
         } catch (err) {
           console.error('Flight Console: the recording could not be saved', err);
@@ -262,7 +323,7 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
       };
       d.form.addEventListener('submit', onSubmit);
       d.el.addEventListener('cancel', onCancel);
-      d.input.value = defaultName(record.createdAt);
+      d.input.value = nameFor(record);
       d.error.hidden = true;
       naming();
       if (!d.el.open) d.el.showModal();
@@ -324,7 +385,12 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => discardUnfinished(rec) }, 'DISCARD'),
         h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => { recoverAsking = false; drawRecover(); } }, 'KEEP'));
     } else {
-      els.recoverText.textContent = `It started ${defaultName(rec.createdAt)} and ran about ${formatDuration(ranS)} before the page closed.${more}`;
+      // On the launch page, RECOVER also puts a flight back on the live
+      // view (js/launch/flight-log.js). A test capture only goes to SAVED
+      // FLIGHTS.
+      const what = rec.test ? 'The test capture' : 'It';
+      const after = !LAUNCH ? '' : rec.test ? ' RECOVER saves it in SAVED FLIGHTS.' : ' RECOVER saves it and puts it back on the live view.';
+      els.recoverText.textContent = `${what} started ${defaultName(rec.createdAt)} and ran about ${formatDuration(ranS)} before the page closed.${after}${more}`;
       setChildren(els.recoverActions,
         h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => recoverUnfinished(rec) }, 'RECOVER'),
         h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm', onclick: () => { recoverAsking = true; drawRecover(); els.recoverActions.firstElementChild?.focus(); } }, 'DISCARD'));
@@ -338,6 +404,9 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
     } else {
       await refresh();
       savedNote(choice.saved);
+      for (const fn of [...recoveredFns]) {
+        try { fn(choice.saved); } catch (err) { console.error('Flight Console: a recovered recording could not be handed on', err); }
+      }
     }
     await checkUnfinished();
   }
@@ -368,10 +437,13 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
     delete els.fileNote.dataset.tag;
   }
 
-  function savedNote(record) {
+  // lead, when given, is a sentence that goes first (why the recording
+  // ended, when it was saved with no name box).
+  function savedNote(record, lead = '') {
     const open = h('button', { type: 'button', class: 'fc-bkt fc-bkt--sm fc-status-close fc-file-action', onclick: () => { hideFileNote(); navigate({ flight: record.id }); } }, 'OPEN');
+    const where = `"${record.title}" is in SAVED FLIGHTS, kept in this browser.`;
     // The note's text is a live region, so screen readers hear it too.
-    fileNote('SAVED', `"${record.title}" is in SAVED FLIGHTS, kept in this browser.`, 'info', open);
+    fileNote('SAVED', lead ? `${lead} ${where}` : where, 'info', open);
   }
 
   // ------------------------------------------------------------------
@@ -476,7 +548,8 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         return;
       }
       try {
-        await storeFile(lazyDb, result.record, result.lines);
+        // A flight log from launch mode keeps the times its lines arrived.
+        await storeFile(lazyDb, result.record, result.lines, undefined, result.times);
       } catch (err) {
         console.error('Flight Console: could not store the file', err);
         fileNote('FILE', `${name} was read, but this browser didn't store it (${err?.name || 'an error'}).`, 'warn');
@@ -542,6 +615,45 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
     // True when leaving the page loses nothing: every connection this visit
     // was recorded from start to end, into storage that lasts.
     coversLive: () => allRecorded && Boolean(db?.persistent) && (!recorder.active || !recorder.failing),
+    // Launch mode: the next connection's recording gets these fields
+    // ({ test: true } for a played test capture).
+    markNextRecording(fields) { nextFields = fields ?? null; },
+    // Launch mode: the browser copy, for the flight log's status.
+    //   active       a recording is running
+    //   id           the running recording's id (or the stopped one's,
+    //                until it is saved or thrown away)
+    //   storedId     the newest recording's id, kept after it is saved
+    //   storedLines  how many of that one's lines are in storage
+    //   lineCount    how many lines the running one has had in all
+    //   failing      storing is failing (the lines wait on the page)
+    //   persistent   false when the browser keeps them in memory only
+    //   linkOpen     a connection is open
+    //   stopped      STOP was pressed and the connection goes on unrecorded
+    recording() {
+      const rec = recorder.record;
+      return {
+        active: recorder.active,
+        id: rec?.id ?? null,
+        storedId: recorder.storedId,
+        storedLines: recorder.storedLines,
+        lineCount: rec?.lineCount ?? 0,
+        failing: recorder.failing,
+        persistent: db ? Boolean(db.persistent) : null,
+        linkOpen,
+        stopped: linkOpen && !recorder.active,
+        test: Boolean(rec?.test),
+      };
+    },
+    // Launch mode: fn(record) runs after RECOVER saved a recording. Returns
+    // a function that stops it.
+    onRecovered(fn) {
+      recoveredFns.add(fn);
+      return () => recoveredFns.delete(fn);
+    },
+    readLines: (id) => lazyDb.readLines(id),
+    // Writes the lines that came in since the last write, now. The page is
+    // closing. Resolves once they are stored (if the page lives that long).
+    flushNow: () => (recorder.active ? recorder.flush() : Promise.resolve()),
     // For tests: the recorder and storage.
     test: { recorder, db: lazyDb, refresh, checkUnfinished, loadFile },
     cleanName,

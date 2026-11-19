@@ -86,6 +86,16 @@
 //        Before that it is from Manta to the newest good fix, and null when
 //        there is no Manta position.
 //
+//   stationName(gs)
+//     -> what the ground station is called in capitals: 'MANTA', or
+//        'GROUND STATION' on the launch page (launch.html), where the
+//        position is one typed in at the field and no Manta is there. The
+//        store says which through the ground station's source, which is
+//        'launch-mode' for a typed-in position. So the recovery block reads
+//        '840 M FROM GROUND STATION' there. The 'manta' in `from` above
+//        still means "the store's ground station" on both pages.
+//
+//   mapsUrl(position)          Google Maps at { lat, lon }, or '' without one
 //   packetRate(store, rocket)  packets a second over the last PAD_LINK_WINDOW_S
 //   formatDistanceCaps(m)      '840 M' or '1.24 KM'
 //   Bearings are written by formatBearing() in geo.js ('062° (ENE)').
@@ -209,6 +219,19 @@ export function formatDistanceCaps(m) {
   return Math.round(m) < 1000 ? `${formatNumber(m, 0)} M` : `${formatNumber(m / 1000, 2)} KM`;
 }
 
+// The ground station's source when its position was typed in on the launch
+// page (launchGroundStation() in js/launch/launch-mode.js sets it).
+const TYPED_STATION_SOURCE = 'launch-mode';
+
+export function stationName(gs) {
+  return gs?.source === TYPED_STATION_SOURCE ? 'GROUND STATION' : 'MANTA';
+}
+
+export function mapsUrl(position) {
+  if (!position || !Number.isFinite(position.lat) || !Number.isFinite(position.lon)) return '';
+  return `https://www.google.com/maps/search/?api=1&query=${position.lat.toFixed(6)},${position.lon.toFixed(6)}`;
+}
+
 export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
   const d = rocket?.derived ?? null;
   const landed = d?.events?.landed ?? null;
@@ -242,7 +265,7 @@ export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
   const origin = gs ?? rocket.padPosition ?? null;
   const from = !position || !origin ? null : gs ? 'manta' : 'launch';
   const rb = from ? rangeAndBearing(origin, position) : null;
-  const fromWords = from === 'manta' ? 'FROM MANTA' : 'FROM LAUNCH POINT';
+  const fromWords = from === 'manta' ? `FROM ${stationName(gs)}` : 'FROM LAUNCH POINT';
 
   return {
     position,
@@ -258,7 +281,7 @@ export function recoveryInfo(store, rocket = store?.getFocused?.() ?? null) {
       bearing: rb ? formatBearing(rb.bearingDeg) : MISSING,
     },
     coordsText: position ? `${position.lat.toFixed(6)}, ${position.lon.toFixed(6)}` : '',
-    mapsUrl: position ? `https://www.google.com/maps/search/?api=1&query=${position.lat.toFixed(6)},${position.lon.toFixed(6)}` : '',
+    mapsUrl: mapsUrl(position),
   };
 }
 
