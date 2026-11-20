@@ -14,9 +14,99 @@ The tests use Node 24 and the Chrome that is already on the laptop.
   the internet blocked and once with the internet up but dead. It prints
   whether the page started, its errors, and any request it made to the
   internet.
+- `acceptance.mjs` is the whole launch day check list in one run. See
+  below.
 - `fake_receiver.py` and `backup_logger_test.py` test the backup logger
   (`launch-mode/backup_logger.py`). Their own header comments say how to run
   them.
+
+## The acceptance test, before a launch
+
+From the website folder:
+
+    node launch-mode/test/acceptance.mjs
+
+It runs every check on the launch day list, one PASS or FAIL line each with
+the real numbers:
+
+1. With the internet blocked, the launch page starts and the launch panel
+   has the field's center as the ground station.
+2. Both maps show the saved imagery around the field. The 3D view uses no
+   Cesium ion and flat ground. The 2D map loads saved tiles at two zooms.
+   From high up, the saved box has imagery and the ground outside it is
+   plain.
+3. The test capture plays through the live path, and every packet reaches
+   the flight store.
+4. The flight log is saved: the server copy in `flight-logs/`, a file
+   given to the page, and IndexedDB.
+5. The recovery panel shows the last fix, its altitude, range and bearing,
+   the age counts up, and COPY COORDINATES works.
+6. A session is cut off by closing the tab, and by killing Chrome about a
+   second after the last packet. When the page opens again, the panel shows
+   the last packet's fix and the time it really arrived before RECOVER is
+   pressed, and says to press RECOVER. After the kill, the disk file and
+   the server copy have every line but the last seconds. RECOVER brings it
+   all back. A plain reload shows the SAVED FIX.
+7. A saved log replays with LOAD FILE.
+8. A connected port that sends nothing gets the NO DATA warning under the
+   bar within about 10 seconds, and not in the first 6.
+9. A packet 50 km away and a packet at 0, 0, both with a GPS fix, do not
+   change the readout, COPY COORDINATES or the saved fix.
+10. The cable comes out and goes back in. The page says the port was lost,
+    opens it again by itself with nothing clicked, and the lines carry on
+    in all three copies, in the same files.
+11. The test's own server is stopped while lines keep coming. The SERVER
+    STOPPED warning shows, and the disk file and the browser copy keep
+    saving. Then the server is started again on the same port, and its
+    copy catches up with no line lost or doubled.
+12. A flight first heard in the air uses the ground height in
+    `launch-mode/field.json`, so ABOVE GROUND is the GPS altitude minus
+    that, not minus the normal page's 700 m.
+13. With connections that open and never answer, nothing is slower.
+14. Every request that tried to reach the internet in all of those runs,
+    which part of the page made it, and what happened to it.
+15. With the internet open, Esri's photos show outside the saved box.
+16. The normal page works as before.
+
+Headless Chrome has no serial ports and can't show a save box. Checks 6 and
+8 to 12 press the real CONNECT button on a stand-in port and a stand-in save
+box, which the test puts in the page before the page's own code runs. The
+page reads the stand-in exactly as it reads a real port. So these checks
+cover the page, not the receiver, its cable or Chrome's real save box. Try
+those by hand with the board plugged in.
+
+Then it runs the Node unit tests, the four browser checks in
+`flight-console/test/`, and the backup logger test. If the receiver board is
+plugged in, it runs the backup logger on its COM port for 10 seconds and
+prints the first lines it saved.
+
+It ends with exit code 0 only when every check passed, and prints how long
+it took. On a quiet laptop the whole run took 16 and a half minutes. The
+launch page checks (1 to 16) took about 3 of them. The panel and flight log
+browser checks took about 6 each.
+
+    node launch-mode/test/acceptance.mjs --skip unit,browser,logger   the launch page checks only, about 3 minutes
+    node launch-mode/test/acceptance.mjs --only maps,panel            just those two
+    node launch-mode/test/acceptance.mjs --only silent,badfix,reconnect,server   checks 8 to 11, which share one page
+    node launch-mode/test/acceptance.mjs --skip-online                no checks that need the internet
+    node launch-mode/test/acceptance.mjs --shots C:/some/folder       where the pictures go
+
+`--only` and `--skip` take these names: start, maps, capture, log, panel,
+restore, replay, silent, badfix, reconnect, server, ground, tarpit,
+requests, online, normal, unit, browser, logger.
+
+It uses port 8131 (and 8132 to 8135 for the other suites). Check 11 stops
+the server the test started on port 8131 and starts it again. It never
+stops a server it did not start. The online checks use
+`http://localhost:8000` served from 127.0.0.4, so the real server on
+127.0.0.1 is never touched. Look at the pictures it saves. A check that
+only reads numbers can pass on a broken picture. It deletes the files its
+own pages and the other suites' pages wrote in `flight-logs/`, by the names
+its servers saw, and leaves everything else there alone.
+
+If the laptop goes to sleep during the run, everything stops until it
+wakes, and the checks that were running fail on their time limits. Run it
+again with the laptop awake.
 
 ## How to run the quick check
 

@@ -121,14 +121,22 @@ function everyMs(fn, ms) {
 //   clock    the computer's clock in ms (for tests)
 //   every    (fn, ms) -> stop function, or null to move the clock only
 //            through tick() (for tests)
-export function createLiveFeed({ store, rocket = DEFAULT_ROCKET, clock = () => Date.now(), every = everyMs, tickMs = TICK_MS } = {}) {
+//   keepOnRestart   launch page only (js/launch/): a board that restarts
+//            keeps its track. Its new TIME RUNNING is moved on to carry on
+//            from the old one by the real time between the two blocks,
+//            instead of the store starting over. There the blocks come from
+//            the rocket over the radio, and a restart in flight (a brownout
+//            at an ejection charge, say) mustn't wipe the track on the map.
+//            restart() still clears the store when it is called.
+export function createLiveFeed({ store, rocket = DEFAULT_ROCKET, clock = () => Date.now(), every = everyMs, tickMs = TICK_MS, keepOnRestart = false } = {}) {
   const id = String(rocket.id);
   store.registerRocket({ id, name: rocket.name, board: rocket.board });
 
-  let anchor = null;      // { boardT, realMs }: the newest block's TIME RUNNING (s) and when its banner arrived
-  let last = null;        // { timeRunning, heartbeat } of the newest block
+  let anchor = null;      // { boardT, realMs }: the newest block's time on the store (s) and when its banner arrived
+  let last = null;        // { timeRunning, heartbeat } of the newest block, as the board printed them
   let stopTimer = null;
   let restarts = 0;
+  let shift = 0;          // s added to TIME RUNNING since a kept restart (keepOnRestart)
 
   // The board's time now: the newest block's TIME RUNNING plus the real
   // time since its banner arrived, the same way the bench graphs slide.
@@ -149,9 +157,21 @@ export function createLiveFeed({ store, rocket = DEFAULT_ROCKET, clock = () => D
   function push(block) {
     const sample = blockToSample(block, id);
     if (!sample) return false;
-    if (wentBack(block)) restart();
+    const realMs = Number.isFinite(block.t) ? block.t : clock();
+    if (wentBack(block)) {
+      if (keepOnRestart && anchor) {
+        // Carry on from the old time by the real time since the last block,
+        // a millisecond on at least, so the store never sees time go back.
+        const goneS = Math.max(0, realMs - anchor.realMs) / 1000;
+        shift = anchor.boardT + Math.max(0.001, goneS) - block.timeRunning;
+        restarts += 1;
+      } else {
+        restart();
+      }
+    }
+    sample.t += shift;
     last = { timeRunning: block.timeRunning, heartbeat: block.heartbeat ?? null };
-    anchor = { boardT: sample.t, realMs: Number.isFinite(block.t) ? block.t : clock() };
+    anchor = { boardT: sample.t, realMs };
     store.addSamples([sample], { time: boardNow() });
     if (!stopTimer && every) stopTimer = every(tick, tickMs);
     return true;
@@ -165,6 +185,7 @@ export function createLiveFeed({ store, rocket = DEFAULT_ROCKET, clock = () => D
     restarts += 1;
     last = null;
     anchor = null;
+    shift = 0;
     store.reset();
   }
 

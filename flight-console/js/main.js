@@ -93,10 +93,10 @@ import { createDataPanel } from './views/data-panel.js?v=5';
 import { createSerialLink } from './live/serial-link.js?v=1';
 import { createSourceDetector } from './live/sources.js?v=3';
 import { createBenchPanel } from './live/bench-panel.js?v=7';
-import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=3';
-import { createFlightFeed, waitingNote } from './live/flight-feed.js';
+import { createLiveFeed, LIVE_STORE_OPTIONS } from './live/bench-feed.js?v=4';
+import { createFlightFeed, waitingNote, createReceiverWatch, receiverNote } from './live/flight-feed.js';
 // Launch mode: only on when the page is launch.html (see js/launch/launch-mode.js).
-import { LAUNCH, launchReady, launchGroundStation, startLaunchMode, tapLink } from './launch/launch-mode.js';
+import { LAUNCH, launchReady, launchGroundStation, launchDetectorConfig, startLaunchMode, tapLink } from './launch/launch-mode.js';
 
 const TITLE_LANDING = 'Flight Console | Dogtooth Systems';
 const TITLE_CONSOLE = 'Track a Rocket | Dogtooth Systems';
@@ -831,6 +831,9 @@ let live = null;        // the live session, see ensureLive()
 //   flightFeed the flight feed into stores.flight (flight-feed.js)
 //   flightNote the line this page last put under the bar for a flight
 //              source ("found, no packets yet"), or ''
+//   receiver   launch page only: what the receiver's plain lines said on
+//              this connection (createReceiverWatch() in flight-feed.js,
+//              see showReceiverNote() below). null on the normal page.
 //   panel      the bench panel: CONNECT, readings, graphs, raw output, CSV
 //   link       the serial port (serial-link.js)
 //   linkState  the link's state ('idle', 'picking', 'opening', 'open', ...)
@@ -849,6 +852,7 @@ function ensureLive() {
     feed: null,
     flightFeed: null,
     flightNote: '',
+    receiver: LAUNCH ? createReceiverWatch() : null,
     panel: null,
     link: null,
     linkState: 'idle',
@@ -856,8 +860,15 @@ function ensureLive() {
   try {
     next.panel = createBenchPanel({
       root: sections.console,
-      onBlock: (block) => next.feed?.push(block),
-      onRestart: () => next.feed?.restart(),
+      onBlock: (block) => {
+        next.feed?.push(block);
+        // On the launch page a block is also a packet the receiver heard.
+        if (next.receiver?.block()) showReceiverNote();
+      },
+      // On the launch page the feed keeps the track through a restart
+      // itself (keepOnRestart in liveStore()), so the panel's word is not
+      // passed on there.
+      onRestart: () => { if (!LAUNCH) next.feed?.restart(); },
       onConnect: () => {
         // CONNECT in a replay goes back to live first. The port picker
         // opens right away, still inside the click. On the launch page
@@ -879,11 +890,18 @@ function ensureLive() {
       onLine(line, t) {
         const before = next.source;
         const source = next.detector.push(line);
+        // On the launch page the receiver's plain lines are read too (see
+        // showReceiverNote()). next.receiver is null on the normal page, so
+        // nothing here changes there.
+        const told = source?.mode !== 'flight' && next.receiver?.push(line) === true;
         // A source has to be set up before its first block reaches the
         // panel, so the bench feed is there to take it.
         if (source && source !== before) useSource(source);
-        else if (!source) setUnknown(next.detector.unknown);
+        // A receiver that waits for the rocket matches no source. Once its
+        // own lines are known, its data is never called unknown.
+        else if (!source) setUnknown(next.detector.unknown && !next.receiver?.known);
         if (source?.mode === 'flight') feedFlightLine(source, line, t);
+        else if (told) showReceiverNote();
         next.panel.handleLine(line, t);
       },
       onLink: (state, text) => {
@@ -900,6 +918,7 @@ function ensureLive() {
         next.source = null;
         setUnknown(false);
         next.flightFeed?.newConnection();
+        next.receiver?.newConnection();
         next.panel.connected();
       },
       // Nothing comes in once the port closes, so the "not recognized"
@@ -995,14 +1014,18 @@ function useSource(source) {
 function liveStore(mode) {
   if (!live) ensureLive();
   if (!live.stores[mode]) {
-    // On the launch page the flight store starts with the ground station
-    // position typed in at the field (the field's center until then).
-    const options = LAUNCH && mode === 'flight'
-      ? { ...LIVE_STORE_OPTIONS[mode], groundStation: launchGroundStation() }
+    // On the launch page both live stores start with the ground station
+    // position typed in at the field (the field's center until then), and
+    // with the field's own ground height for a flight first heard in the air.
+    // The bench store is in that list because the receiver's newer firmware
+    // prints the rocket's packets as the board's own status blocks, so at
+    // the field those blocks are the rocket in flight, not a board on a desk.
+    const options = LAUNCH
+      ? { ...LIVE_STORE_OPTIONS[mode], groundStation: launchGroundStation(), detectorConfig: launchDetectorConfig(LIVE_STORE_OPTIONS[mode].detectorConfig ?? config.DETECTOR_DEFAULTS) }
       : LIVE_STORE_OPTIONS[mode];
     const store = createStore({ fleet: createFleet(), ...options });
     live.stores[mode] = store;
-    if (mode === 'bench') live.feed = createLiveFeed({ store });
+    if (mode === 'bench') live.feed = createLiveFeed({ store, keepOnRestart: LAUNCH });
     else live.flightFeed = createFlightFeed({ store });
   }
   return live.stores[mode];
@@ -1032,7 +1055,27 @@ function feedFlightLine(source, line, t) {
     // shows it.
     console.error(`Flight Console: ${source.name} couldn't read a line`, err);
   }
-  const note = waitingNote(feed, source.name);
+  // On the launch page a radio that didn't start also says what to do next.
+  const note = waitingNote(feed, source.name, { nextStep: LAUNCH });
+  setFlightNote(note.text, note.kind);
+}
+
+// LAUNCH PAGE ONLY: THE RECEIVER'S PLAIN LINES. The receiver's newer
+// firmware prints a Dogtooth board's status blocks, one per good packet, so
+// it is read as a Dogtooth board over USB and feedFlightLine() never runs
+// for it. Between packets it prints its start-up report and plain "Error: "
+// lines, which match no source (js/live/flight-feed.js has the list). On
+// the launch page live.receiver reads those, and this puts what they say
+// under the bar: that the receiver was found and is listening before the
+// first packet, or that its radio did not start and what to do next. It is
+// called when one of those lines came, and when a status block did.
+function showReceiverNote() {
+  if (!live?.receiver) return;
+  // Packets that are on the live view already count, as they do for the
+  // older firmware: after a cable was plugged back in, "no packets yet"
+  // would not be true.
+  const heard = ['bench', 'flight'].some((mode) => (live.stores[mode]?.getTotals().samples ?? 0) > 0);
+  const note = receiverNote(live.receiver, { heard });
   setFlightNote(note.text, note.kind);
 }
 

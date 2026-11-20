@@ -5,6 +5,12 @@
 // into the console (js/parser.js and js/local/local-flights.js), and how a
 // saved capture is paced and moved for the test capture
 // (js/launch/capture-plan.js).
+// At the end, the parts launch mode leans on when things go wrong at the
+// field: the computer's clock set back, the browser's storage failing as
+// the port closes, the save box's names, the quiet way the serial link
+// opens a lost port again (js/live/serial-link.js), what the page says
+// about a radio that did not start, and how the launch page knows the
+// receiver's newer firmware by its plain lines (js/live/flight-feed.js).
 // Run it from the repo's root folder with Node 22 or newer:
 //   node --test flight-console/test/flight-log.test.mjs
 
@@ -12,17 +18,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  LOG_PREFIX, formatLogTime, dataLine, noteLine, headerLines, logFileName, otherFileName, createLogText, byteLength,
+  LOG_PREFIX, formatLogTime, dataLine, noteLine, headerLines, logFileName, otherFileName, freshPickName, createLogText, byteLength,
 } from '../js/launch/log-format.js';
-import { createDiskSink, createServerSink, KEEPALIVE_MAX_BYTES } from '../js/launch/log-sinks.js';
+import { createDiskSink, createServerSink, isDue, KEEPALIVE_MAX_BYTES } from '../js/launch/log-sinks.js';
 import {
   planCapture, captureTimes, readCapture, shiftLines, firstFix, cleanSpeed, MAX_GAP_S,
 } from '../js/launch/capture-plan.js';
 import { parseFile, readFlightLogLine } from '../js/parser.js?v=3';
-import { readFlightFile, detectFlightFile, storeFile, openLocalFlight, linesToBlocks, rawLogText } from '../js/local/local-flights.js';
+import { readFlightFile, detectFlightFile, storeFile, openLocalFlight, linesToBlocks, rawLogText, createRecorder } from '../js/local/local-flights.js';
 import { openFlightDb } from '../js/local/flight-db.js';
 import { createSourceDetector } from '../js/live/sources.js';
-import { createFlightFeed } from '../js/live/flight-feed.js';
+import { createFlightFeed, waitingNote, readReceiverLine, createReceiverWatch, receiverNote } from '../js/live/flight-feed.js';
 import { LIVE_STORE_OPTIONS } from '../js/live/bench-feed.js';
 import { createStore } from '../js/store.js';
 import { createFleet } from '../js/fleet.js';
@@ -474,4 +480,332 @@ test('the moved capture goes through the live path and lands on the field', () =
   assert.equal(rocket.samples.length, 126);
   assert.equal(rocket.samples[0].gps.lat.toFixed(6), FIELD.lat.toFixed(6));
   assert.equal(rocket.samples[0].gps.lon.toFixed(6), FIELD.lon.toFixed(6));
+});
+
+// ------------------------------------------------------------------
+// When things go wrong at the field
+// ------------------------------------------------------------------
+
+test('a copy is due after its gap, and at once when the computer\'s clock was set back', () => {
+  assert.equal(isDue(10_000, 9_500, 1000), false, 'half a second after the last cycle is too soon');
+  assert.equal(isDue(10_000, 9_000, 1000), true);
+  assert.equal(isDue(10_000, 0, 1000), true, 'no cycle has run yet');
+  // Windows set the clock back an hour, so the last cycle looks like it is
+  // in the future. Waiting for the gap would stop the copy for that hour.
+  assert.equal(isDue(10_000 - 3600e3, 9_900, 1000), true);
+});
+
+test('the disk file\'s age is measured on a clock that only goes forward', async () => {
+  const text = writeLog(CAPTURE_LINES.slice(0, 4));
+  const file = fakeFile();
+  let wall = 50_000;
+  let steady = 1000;
+  const disk = createDiskSink({ text, now: () => wall, steady: () => steady });
+  assert.equal(disk.state().lastWriteAgoMs, null, 'nothing written yet');
+  disk.use(file.handle);
+  await disk.cycle();
+  wall -= 3600e3;   // the clock is set back an hour
+  steady += 400;
+  assert.equal(disk.state().lastWriteAgoMs, 400, 'the real age, not a negative one shown as zero');
+  assert.equal(disk.state().lastWriteAt, 50_000, 'when it was written, on the clock as it was then');
+});
+
+test('the recorder writes at once when the clock was set back, and its running time never goes negative', async () => {
+  const db = await openFlightDb({ indexedDB: null });
+  let clock = 1_000_000;
+  // A long flushMs, so only a line can start a write during this test.
+  const rec = createRecorder({ db, now: () => clock, flushMs: 60_000, touchMs: 2000, flushOnLine: true, locks: null });
+  rec.start();
+  clock += 100;
+  rec.line('a', clock);
+  assert.equal(rec.record.lineCount, 0, 'not due yet: the line waits for the next write');
+  clock -= 3600e3;
+  rec.line('b', clock);
+  assert.equal(rec.record.lineCount, 2, 'the clock went back, and both lines are written at once');
+  assert.equal(rec.elapsed(), 0, 'the REC readout never shows a negative time');
+  const done = await rec.stop();
+  rec.release();
+  assert.deepEqual((await db.readLines(done.id)).lines, ['a', 'b']);
+});
+
+test('lines that storage refused as the port closed are tried again until they are stored', async () => {
+  // Storage that can be made to fail, like a full disk.
+  async function failingDb() {
+    const inner = await openFlightDb({ indexedDB: null });
+    const state = { failing: false, inner };
+    const guard = (fn) => (...args) => (state.failing
+      ? Promise.reject(Object.assign(new Error('the disk is full'), { name: 'QuotaExceededError' }))
+      : fn(...args));
+    state.db = { ...inner, addChunk: guard(inner.addChunk), putFlight: guard(inner.putFlight) };
+    return state;
+  }
+  // One recording: a line stored, then two more as storage fails and the
+  // port closes.
+  async function run(options) {
+    const s = await failingDb();
+    const problems = [];
+    const late = [];
+    const rec = createRecorder({ db: s.db, flushMs: 60_000, locks: null, onProblem: (err) => problems.push(Boolean(err)), onLate: (id) => late.push(id), ...options });
+    const record = rec.start();
+    rec.line('one', 1);
+    await rec.flush();
+    s.failing = true;
+    rec.line('two', 2);
+    rec.line('three', 3);
+    const done = await rec.stop();
+    assert.equal(done.lineCount, 3);
+    assert.equal(rec.failing, true);
+    assert.equal(rec.stored(), false, 'two lines wait on the page');
+    assert.deepEqual((await s.inner.readLines(record.id)).lines, ['one']);
+    // Storage works again a moment later. Nothing calls the recorder.
+    s.failing = false;
+    await new Promise((r) => { setTimeout(r, 150); });
+    return { rec, record, problems, late, lines: (await s.inner.readLines(record.id)).lines };
+  }
+
+  // The launch page: it keeps trying by itself.
+  const launch = await run({ retryMs: 20 });
+  assert.deepEqual(launch.lines, ['one', 'two', 'three']);
+  assert.equal(launch.rec.failing, false);
+  assert.equal(launch.rec.stored(), true);
+  assert.deepEqual(launch.late, [launch.record.id], 'the page is told, so it can count the recording\'s lines again');
+  assert.deepEqual(launch.problems, [true, false]);
+  launch.rec.release();
+
+  // The normal page (no retryMs) behaves as it always has.
+  const normal = await run({});
+  assert.deepEqual(normal.lines, ['one']);
+  assert.equal(normal.rec.failing, true);
+  assert.deepEqual(normal.late, []);
+  normal.rec.release();
+});
+
+test('the save box is never offered a name it was offered before', () => {
+  const base = logFileName('flight', START);
+  assert.equal(freshPickName(base, []), base);
+  assert.equal(freshPickName(base, ['flight-2020-01-01-0000.log']), base);
+  const second = freshPickName(base, [base]);
+  assert.equal(second, base.replace(/\.log$/, '-2.log'));
+  assert.equal(freshPickName(base, [base, second]), base.replace(/\.log$/, '-3.log'));
+  assert.equal(freshPickName(base, [second]), base, 'only names that were really used count');
+  const testName = logFileName('test', START);
+  assert.match(freshPickName(testName, [testName]), /^test-capture-\d{4}-\d{2}-\d{2}-\d{4}-2\.log$/);
+});
+
+test('the serial link opens a lost port again quietly, and a try that fails changes nothing on the page', async () => {
+  const enc = new TextEncoder();
+  // A stand-in SerialPort. failOpens makes its first opens fail, like a
+  // port Windows is not ready to open yet.
+  function makePort({ failOpens = 0 } = {}) {
+    let ctrl = null;
+    const port = {
+      closed: 0,
+      readable: null,
+      async open() {
+        if (failOpens > 0) {
+          failOpens -= 1;
+          throw new DOMException('Failed to open serial port.', 'NetworkError');
+        }
+        port.readable = new ReadableStream({ start(c) { ctrl = c; } });
+      },
+      async setSignals() {},
+      async close() { port.closed += 1; port.readable = null; },
+      send(text) { ctrl.enqueue(enc.encode(text)); },
+      unplug() { port.readable = null; ctrl.error(new DOMException('The device has been lost.', 'NetworkError')); },
+    };
+    return port;
+  }
+  const tick = () => new Promise((r) => { setTimeout(r, 20); });
+  const first = makePort();
+  Object.defineProperty(globalThis.navigator, 'serial', {
+    value: Object.assign(new EventTarget(), { requestPort: async () => first, getPorts: async () => [] }),
+    configurable: true,
+  });
+  const { createSerialLink, LINK_NOTES } = await import('../js/live/serial-link.js');
+  const events = [];
+  const link = createSerialLink({
+    onLine: (line) => events.push(`line ${line}`),
+    onLink: (state) => events.push(`link ${state}`),
+    onNote: (text) => events.push(`note ${text}`),
+    onOpen: () => events.push('open'),
+    onClose: ({ lost }) => events.push(`close lost=${lost}`),
+  });
+
+  // A normal connection, then the cable comes out: the link's own words.
+  assert.equal(await link.connect(), true);
+  first.send('A\r\n');
+  await tick();
+  first.unplug();
+  await tick();
+  assert.deepEqual(events, ['note ', 'link picking', 'link opening', 'open', 'link open', 'line A', 'close lost=true', 'link lost',
+    'note The board was unplugged or stopped answering. Plug it back in and press CONNECT.']);
+  assert.equal(LINK_NOTES.lost, 'The board was unplugged or stopped answering. Plug it back in and press CONNECT.');
+
+  // The launch page swaps that note for its own line under the bar.
+  link.useNotes({ lost: '' });
+  events.length = 0;
+
+  // A quiet try at a port that will not open yet.
+  const second = makePort({ failOpens: 1 });
+  assert.equal(await link.connect({ port: second, quiet: true }), false);
+  assert.deepEqual(events, [], 'no note and no change of the link');
+  assert.equal(link.link, 'lost');
+  // A quiet try that opens after the page stopped waiting: closed again.
+  const unwanted = makePort();
+  assert.equal(await link.connect({ port: unwanted, quiet: true, still: () => false }), false);
+  assert.equal(unwanted.closed, 1);
+  assert.deepEqual(events, []);
+  // No port, no picker: a quiet connect never asks the user.
+  assert.equal(await link.connect({ quiet: true }), false);
+  assert.deepEqual(events, []);
+  // The try that works starts a connection like any other.
+  assert.equal(await link.connect({ port: second, quiet: true, still: () => true }), true);
+  second.send('B\r\n');
+  await tick();
+  assert.deepEqual(events, ['note ', 'open', 'link open', 'line B']);
+  assert.equal(link.port, second);
+  // Lost again: the swapped note is empty, so the link says nothing.
+  events.length = 0;
+  second.unplug();
+  await tick();
+  assert.deepEqual(events, ['close lost=true', 'link lost', 'note ']);
+  link.destroy();
+});
+
+test('on the launch page a radio that did not start says what to do next, and the normal page keeps its words', () => {
+  const store = createStore({ fleet: createFleet(), ...LIVE_STORE_OPTIONS.flight });
+  const feed = createFlightFeed({ store, every: null });
+  feed.noteLine('# DEKEL_RX radio-failed error=-2 good=0 bad=0 rx_up_s=5.0');
+  const normal = waitingNote(feed, 'Radio board receiver');
+  const launch = waitingNote(feed, 'Radio board receiver', { nextStep: true });
+  assert.equal(normal.text, 'Radio board receiver is connected, but its radio didn\'t start (error -2). It can\'t hear the rocket until that is fixed.');
+  assert.equal(launch.kind, 'warn');
+  assert.equal(launch.text, `${normal.text} Unplug the receiver and plug it back in. If it says the same again, its radio is not working, so switch to the spare receiver or check its antenna and wiring.`);
+  assert.doesNotMatch(launch.text, /[—–;&]|: /);
+  // Every other note is the same on both pages.
+  feed.noteLine('# DEKEL_RX listening good=0 bad=0 rx_up_s=6.0');
+  assert.deepEqual(waitingNote(feed, 'Radio board receiver', { nextStep: true }), waitingNote(feed, 'Radio board receiver'));
+});
+
+// ------------------------------------------------------------------
+// The receiver's newer firmware (js/live/flight-feed.js, THE RECEIVER'S
+// PLAIN LINES). REAL_START and the waiting line are what the real board
+// sent the launch page on 2026-11-19 (flight-logs/, which git ignores).
+// ------------------------------------------------------------------
+const REAL_START = [
+  '',
+  'DEKEL_RX_FIRMWARE receiver for Dogtooth telemetry, RadioB_V1_Dekel (ATSAMD51J19A + SX1262)',
+  'Built Nov 17 2026 01:16:36',
+  'Radio: 909.000 MHz, BW 125.0 kHz, SF9, CR 4/7, sync 0x12, preamble 8, CRC on, explicit header, listening (receive only)',
+];
+const waitingLine = (s) => `Error: No packets received for ${s} s`;
+// The firmware's words for a radio that did not start (printRadioResult()
+// in DEKEL_RX_FIRMWARE's src/main_rx.cpp).
+const RADIO_DEAD = 'Error: The radio did not start (RadioLib error -2: chip not found: check SPI wiring, 3.3 V, NRST and BUSY).';
+const REJECTED = 'Error: Rejected a packet (damaged on the air, 34 bytes, -118.0 dBm, -9.50 dB).';
+const FOUND = 'Radio board receiver found. It is listening, and no packets from the rocket have come in yet.';
+const DEAD_NOTE = 'Radio board receiver is connected, but its radio didn\'t start (error -2). It can\'t hear the rocket until that is fixed. Unplug the receiver and plug it back in. If it says the same again, its radio is not working, so switch to the spare receiver or check its antenna and wiring.';
+
+test('the receiver\'s plain lines are read, and nothing else is', () => {
+  assert.deepEqual(readReceiverLine(REAL_START[1]), { kind: 'hello' });
+  assert.deepEqual(readReceiverLine(REAL_START[3]), { kind: 'listening' });
+  assert.deepEqual(readReceiverLine(waitingLine(13)), { kind: 'no-packets', seconds: 13 });
+  assert.deepEqual(readReceiverLine(`  ${waitingLine(3)}\r`), { kind: 'no-packets', seconds: 3 });
+  assert.deepEqual(readReceiverLine(RADIO_DEAD), { kind: 'radio-failed', error: -2 });
+  assert.deepEqual(readReceiverLine('Error: The radio did not start.'), { kind: 'radio-failed', error: null });
+  assert.deepEqual(readReceiverLine(REJECTED), { kind: 'rejected' });
+  const others = [
+    '', REAL_START[2],
+    'Radio: OFF, held in reset. Packets are printed as hex, not transmitted.',
+    'Error: GPS has sent no data for 3 s',
+    'Error: The flight board restarted: its clock went back (a power problem in flight?).',
+    '==================== HEARTBEAT #807 | TIME RUNNING: 13 min 27.0 s ====================',
+    '# DEKEL_RX listening good=12 bad=3 last_good_s_ago=0.4 rx_up_s=73.0',
+    null, undefined,
+  ];
+  for (const other of others) assert.equal(readReceiverLine(other), null, String(other));
+});
+
+test('a receiver that waits for the rocket is known by its own lines, though it matches no source', () => {
+  const detector = createSourceDetector();
+  const watch = createReceiverWatch();
+  assert.equal(watch.known, false);
+  assert.deepEqual(receiverNote(watch), { text: '', kind: 'info' });
+  // The start-up report, then one waiting line every 5 s for ten minutes.
+  const lines = [...REAL_START, ...Array.from({ length: 120 }, (_, i) => waitingLine(13 + 5 * i))];
+  const counted = lines.map((line) => {
+    detector.push(line);
+    return watch.push(line);
+  });
+  assert.equal(detector.source, null);
+  assert.equal(detector.unknown, true, 'the shared detector alone would call this unknown');
+  assert.equal(watch.known, true);
+  assert.deepEqual(counted.slice(0, 5), [false, true, false, true, true]);
+  assert.deepEqual(receiverNote(watch), { text: FOUND, kind: 'info' });
+  // It hears packets it turns away: the note counts them, as for the older firmware.
+  watch.push(REJECTED);
+  assert.equal(receiverNote(watch).text, `${FOUND} It heard 1 packet that was damaged or from another radio.`);
+  watch.push('Error: Rejected a packet (wrong length, 12 bytes, -90.0 dBm, 4.00 dB).');
+  assert.equal(receiverNote(watch).text, `${FOUND} It heard 2 packets that were damaged or from other radios.`);
+  assert.doesNotMatch(receiverNote(watch).text, /[—–;&]|: /);
+  // With packets on the live view already, "no packets yet" is not said.
+  assert.equal(receiverNote(watch, { heard: true }).text, '');
+  // The first status block is the first packet: the note goes.
+  assert.equal(watch.block(), true);
+  assert.equal(receiverNote(watch).text, '');
+  assert.equal(watch.block(), false, 'a later block changes nothing');
+  // A new connection may be another board: nothing is known again.
+  watch.newConnection();
+  assert.equal(watch.known, false);
+  assert.equal(watch.receiver, null);
+  assert.deepEqual(watch.counts, { samples: 0, bad: 0 });
+  assert.equal(receiverNote(watch).text, '');
+  // The start-up report was missed: the waiting line alone is enough.
+  assert.equal(watch.push(waitingLine(203)), true);
+  assert.equal(watch.known, true);
+  assert.equal(receiverNote(watch).text, FOUND);
+});
+
+test('a radio that did not start gets the launch page\'s next step with the newer firmware too', () => {
+  const watch = createReceiverWatch();
+  // The start-up report of a receiver whose radio is dead, then its line every 5 s.
+  for (const line of [REAL_START[0], REAL_START[1], REAL_START[2], RADIO_DEAD, RADIO_DEAD]) watch.push(line);
+  assert.equal(watch.known, true);
+  assert.deepEqual(watch.receiver, { state: 'radio-failed', error: -2 });
+  assert.deepEqual(receiverNote(watch), { text: DEAD_NOTE, kind: 'warn' });
+  assert.doesNotMatch(DEAD_NOTE, /[—–;&]|: /);
+  // The same words the older firmware's status line gets on the launch page.
+  const feed = createFlightFeed({ store: createStore({ fleet: createFleet(), ...LIVE_STORE_OPTIONS.flight }), every: null });
+  feed.noteLine('# DEKEL_RX radio-failed error=-2 good=0 bad=0 rx_up_s=5.0');
+  assert.equal(waitingNote(feed, 'Radio board receiver', { nextStep: true }).text, DEAD_NOTE);
+  // Packets on the live view from before do not hide it.
+  assert.equal(receiverNote(watch, { heard: true }).text, DEAD_NOTE);
+  // The radio starts at a later try: the warning goes.
+  watch.push(REAL_START[3]);
+  assert.deepEqual(watch.receiver, { state: 'listening', error: null });
+  assert.equal(receiverNote(watch).text, FOUND);
+  // It fails again, and then a packet comes after all: a block clears it.
+  watch.push(RADIO_DEAD);
+  assert.equal(receiverNote(watch).kind, 'warn');
+  assert.equal(watch.block(), true);
+  assert.equal(receiverNote(watch).text, '');
+  // After packets, with the start-up line seen, the line still counts.
+  assert.equal(watch.push(RADIO_DEAD), true);
+  assert.equal(receiverNote(watch).text, DEAD_NOTE);
+  assert.equal(watch.push(waitingLine(8)), true, 'a waiting line only comes from a radio that works');
+  assert.equal(receiverNote(watch).text, '');
+
+  // The start-up report was missed and no block has come: taken as the receiver's.
+  const late = createReceiverWatch();
+  assert.equal(late.push(RADIO_DEAD), true);
+  assert.equal(late.known, true);
+  assert.equal(receiverNote(late).text, DEAD_NOTE);
+
+  // A Dogtooth board on USB prints the same line when its own radio fails,
+  // between status blocks. It is not the receiver, so nothing is said.
+  const board = createReceiverWatch();
+  board.block();
+  assert.equal(board.push(RADIO_DEAD), false);
+  assert.equal(board.known, false);
+  assert.equal(receiverNote(board).text, '');
 });

@@ -31,6 +31,27 @@
 // readReceiverStatus() reads it, and waitingNote() turns the feed's state
 // into the line the page shows before the first packet arrives.
 //
+// THE RECEIVER'S PLAIN LINES. The receiver's firmware since 2026-11-17
+// prints neither of those lines and no PKT line. It prints what a Dogtooth
+// board prints on USB. A start-up report each time a program opens its port:
+//   DEKEL_RX_FIRMWARE receiver for Dogtooth telemetry, RadioB_V1_Dekel (...)
+//   Built Nov 17 2026 01:16:36
+//   Radio: 909.000 MHz, BW 125.0 kHz, ..., listening (receive only)
+// then one status block per good packet, which the page reads as a Dogtooth
+// board over USB (sources.js), and these lines in between:
+//   Error: No packets received for 13 s
+//       3 s after the last good packet, then every 5 s
+//   Error: The radio did not start (RadioLib error -2: chip not found).
+//       in the start-up report in place of "Radio: ...", then every 5 s
+//   Error: Rejected a packet (damaged on the air, 34 bytes, ...).
+// So a receiver that waits for the rocket matches no source in sources.js,
+// and a radio that did not start has no status line to say so.
+// readReceiverLine() reads these lines, createReceiverWatch() keeps what
+// they said on one connection, and receiverNote() gives the line under the
+// bar for it, in waitingNote()'s words. Only the launch page uses them
+// (js/main.js), so the normal page is as it was. The firmware's side is
+// src/main_rx.cpp in DEKEL_RX_FIRMWARE.
+//
 // Usage:
 //   const store = createStore({ fleet, ...LIVE_STORE_OPTIONS.flight });
 //   const feed = createFlightFeed({ store });
@@ -42,7 +63,7 @@
 //
 // No DOM here, so Node can run it too.
 
-import { RECEIVER_MARKER } from './sources.js?v=3';
+import { RECEIVER_MARKER, SOURCES } from './sources.js?v=3';
 
 // How often (ms) the store's clock moves on between packets.
 export const TICK_MS = 250;
@@ -83,12 +104,16 @@ export function readReceiverStatus(line) {
 // What the page says under the bar while a flight source is connected:
 //   { text, kind }   kind is 'info' or 'warn'
 // The text is '' once packets are on screen and nothing is wrong, since the
-// HUD says the rest.
-export function waitingNote(feed, sourceName = 'The receiver') {
+// HUD says the rest. nextStep adds what to do about a radio that didn't
+// start. The launch page asks for it (js/main.js), because at the field the
+// note has to say what to do next. The normal page's words stay as they were.
+export function waitingNote(feed, sourceName = 'The receiver', { nextStep = false } = {}) {
   const rx = feed?.receiver ?? null;
   if (rx?.state === 'radio-failed') {
     const code = rx.error === null ? '' : ` (error ${rx.error})`;
-    return { text: `${sourceName} is connected, but its radio didn't start${code}. It can't hear the rocket until that is fixed.`, kind: 'warn' };
+    const what = `${sourceName} is connected, but its radio didn't start${code}. It can't hear the rocket until that is fixed.`;
+    const todo = ' Unplug the receiver and plug it back in. If it says the same again, its radio is not working, so switch to the spare receiver or check its antenna and wiring.';
+    return { text: nextStep ? what + todo : what, kind: 'warn' };
   }
   if (feed?.counts.samples > 0) return { text: '', kind: 'info' };
   const heard = feed?.counts.bad ?? 0;
@@ -96,6 +121,122 @@ export function waitingNote(feed, sourceName = 'The receiver') {
     : heard === 1 ? ' It heard 1 packet that was damaged or from another radio.'
       : ` It heard ${heard} packets that were damaged or from other radios.`;
   return { text: `${sourceName} found. It is listening, and no packets from the rocket have come in yet.${other}`, kind: 'info' };
+}
+
+// What the page calls the receiver, whichever firmware it runs.
+const RECEIVER_NAME = SOURCES.find((s) => s.id === 'radio-board-rx')?.name ?? 'The receiver';
+
+// How the start-up report of the receiver's newer firmware begins. The
+// firmware's copy is Config::kFirmwareName in DEKEL_RX_FIRMWARE's
+// include/Config.h, followed by the words in printStartupReport().
+const RECEIVER_HELLO = 'DEKEL_RX_FIRMWARE receiver for Dogtooth telemetry';
+
+// Reads one of the receiver's plain lines (see THE RECEIVER'S PLAIN LINES at
+// the top). Returns null for any other line, or one of
+//   { kind: 'hello' }                  the first line of its start-up report
+//   { kind: 'listening' }              "Radio: ..., listening (receive only)"
+//   { kind: 'radio-failed', error }    error is RadioLib's number, or null
+//   { kind: 'no-packets', seconds }    seconds since the last good packet
+//   { kind: 'rejected' }               it heard a packet and turned it away
+export function readReceiverLine(line) {
+  const text = String(line ?? '').trim();
+  if (text.startsWith(RECEIVER_HELLO)) return { kind: 'hello' };
+  if (text.startsWith('Radio:')) return /\blistening\b/.test(text) ? { kind: 'listening' } : null;
+  if (!text.startsWith('Error:')) return null;
+  const message = text.slice('Error:'.length).trim();
+  const silent = /^No packets received for (\d+) s\b/.exec(message);
+  if (silent) return { kind: 'no-packets', seconds: Number(silent[1]) };
+  if (message.startsWith('The radio did not start')) {
+    const code = /\(RadioLib error (-?\d+)/.exec(message);
+    return { kind: 'radio-failed', error: code ? Number(code[1]) : null };
+  }
+  if (message.startsWith('Rejected a packet')) return { kind: 'rejected' };
+  return null;
+}
+
+// Keeps what the receiver's plain lines said on one connection.
+//   push(line)       every line that is not a flight source's. True when it
+//                    was one of the receiver's plain lines and it counted.
+//   block()          a status block arrived (one good packet). True when
+//                    that changes what the page should say.
+//   newConnection()  the port opened: a different board may be plugged in
+//   known            true once a line only the receiver prints has come on
+//                    this connection. The page then never calls the data
+//                    unknown, however long the receiver waits for a packet.
+//   receiver         null, or { state: 'listening' | 'radio-failed', error },
+//                    the part of readReceiverStatus()'s result that
+//                    waitingNote() reads
+//   counts           { samples, bad }: status blocks and rejected packets
+//                    on this connection
+export function createReceiverWatch() {
+  let hello = false;
+  let known = false;
+  let receiver = null;
+  const counts = { samples: 0, bad: 0 };
+
+  // Only a radio that works prints these.
+  function radioWorks() {
+    known = true;
+    receiver = { state: 'listening', error: null };
+  }
+
+  function push(line) {
+    const r = readReceiverLine(line);
+    if (!r) return false;
+    if (r.kind === 'hello') {
+      hello = true;
+      known = true;
+    } else if (r.kind === 'radio-failed') {
+      // A Dogtooth board on USB prints the same line when its own radio
+      // fails. It also prints a status block every second, and a receiver
+      // with no radio prints none. So the line is the receiver's when its
+      // start-up line came on this connection, or when no block has.
+      if (!hello && counts.samples > 0) return false;
+      known = true;
+      receiver = { state: 'radio-failed', error: r.error };
+    } else {
+      if (r.kind === 'rejected') counts.bad += 1;
+      radioWorks();
+    }
+    return true;
+  }
+
+  function block() {
+    counts.samples += 1;
+    // A block is a packet the radio heard, so the radio works.
+    const wasFailed = receiver?.state === 'radio-failed';
+    if (wasFailed) receiver = { state: 'listening', error: null };
+    return wasFailed || counts.samples === 1;
+  }
+
+  function newConnection() {
+    hello = false;
+    known = false;
+    receiver = null;
+    counts.samples = 0;
+    counts.bad = 0;
+  }
+
+  return {
+    push,
+    block,
+    newConnection,
+    counts,
+    get known() { return known; },
+    get receiver() { return receiver; },
+  };
+}
+
+// The line under the bar for what a receiver watch holds: { text, kind },
+// in the words waitingNote() has for the older firmware, with the next step
+// for a radio that did not start. The text is '' when the lines on this
+// connection are not known to be the receiver's, and once a packet has
+// come. heard says that the live view already has packets (from before a
+// cable was plugged back in, say), so "no packets yet" would not be true.
+export function receiverNote(watch, { heard = false } = {}) {
+  if (!watch?.known) return { text: '', kind: 'info' };
+  const samples = heard || watch.counts.samples > 0 ? 1 : 0;
+  return waitingNote({ receiver: watch.receiver, counts: { samples, bad: watch.counts.bad } }, RECEIVER_NAME, { nextStep: true });
 }
 
 // Runs fn every ms milliseconds. Returns a function that stops it.

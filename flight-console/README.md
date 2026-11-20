@@ -22,6 +22,12 @@ The live console needs the Web Serial API, so it only connects in Chrome and Edg
 
 On the live site the same page is at https://www.dogtoothsystems.com/flight-console/.
 
+## Launch mode
+
+Launch mode is this console set up for a launch field with no reliable internet. It is its own page, `launch.html`, made from `index.html` by `node launch-mode/build-launch-page.mjs` (run it again after any change to `index.html`). It loads the fonts, Leaflet and CesiumJS from `vendor/`, shows the saved USGS map of the field (`offline-maps/`, not in Git) on both views, writes every serial line to three copies, and keeps the rocket's last fix on a recovery panel. `launch-mode.bat` in the website folder starts it.
+
+The shared code checks `LAUNCH` from `js/launch/launch-mode.js`, which is only true on `launch.html`. On this page nothing changes. The whole guide, from the one setting (`launch-mode/field.json`) to the tests, is in `../launch-mode/README.md`, and the launch day steps are in `../launch-mode/CHECKLIST.md`.
+
 ## The three screens
 
 `js/main.js` reads the address bar and shows one of three screens.
@@ -276,13 +282,13 @@ Panel 1 is one frame with two views: the 3D view (CesiumJS on Cesium World Terra
 - **The launch point**: a small off-white dot.
 - **Event markers** for the focused rocket: a small white diamond at apogee, drogue, main and landed, on the fix where each happened (`eventCrumb()` in `js/flight-state.js`). A marker only appears once playback reaches its event, and an event that fell in a GPS gap gets none.
 - **The recovery crosshair**: after landing, a ring around the recovery position (the averaged fixes that OPEN IN MAPS uses).
-- **Labels** in small Share Tech Mono with a leader line (`js/views/map-labels.js`): DOGTOOTH (moves with the board), MANTA, LAUNCH POINT and APOGEE with the real height. Things closer than 22 px on screen share one label. A label tries four spots around its point and fades out if none is free of other labels, the HUD and the view's edge. All labels fade out when the view is zoomed far out. Labels never take clicks, and screen readers skip them, since the HUD says the same things.
+- **Labels** in small Share Tech Mono with a leader line (`js/views/map-labels.js`): DOGTOOTH (moves with the board), MANTA (GROUND STATION on the launch page, where it is a position typed in at the field: `stationLabel()` in `map-labels.js`), LAUNCH POINT and APOGEE with the real height. Things closer than 22 px on screen share one label. A label tries four spots around its point and fades out if none is free of other labels, the HUD and the view's edge. All labels fade out when the view is zoomed far out. Labels never take clicks, and screen readers skip them, since the HUD says the same things.
 
 With less motion asked for, the ring and the traveling dot don't run, and the camera jumps instead of gliding.
 
 ### Controls
 
-One row, the same in every view: `[ SATELLITE ] [ DARK MAP ] [ 3D ]`, `[x] FOLLOW BOARD` and `[ KEY ]`, plus `[ WHOLE FLIGHT ]` and `[ RESET VIEW ]` while a saved flight is on screen. `map-view.js` builds the row and puts it in `#fc-map-controls`, and the HUD's CSS decides where that sits. The active view is amber.
+One row, the same in every view: `[ SATELLITE ] [ DARK MAP ] [ 3D ]`, `[x] FOLLOW BOARD` and `[ KEY ]`, plus `[ WHOLE FLIGHT ]` and `[ RESET VIEW ]` while a saved flight is on screen. On the launch page RESET VIEW is there on the live screen too (it goes back to the field until there is a board to look at), WHOLE FLIGHT shows once there is a fix or a launch point, and DARK MAP is hidden, since CARTO's tiles can't be saved. `map-view.js` builds the row and puts it in `#fc-map-controls`, and the HUD's CSS decides where that sits. The active view is amber.
 
 - FOLLOW BOARD is one setting for both views. With it on, the camera keeps the focused board in view (see "FOLLOW BOARD" below). It switches on by itself when the state turns to `flight`, and sliding the view switches it off.
 - WHOLE FLIGHT frames every point drawn so far, the launch point, the events and Manta inside the part of the view the HUD leaves free (every element marked `data-fc-cover`), with 28 px to spare (`WHOLE_ROOM_PX` in `map-view.js`). In 3D it keeps framing them as the path grows, and frames again if the board leaves the free part, until the viewer zooms or slides the view.
@@ -517,7 +523,7 @@ If a line makes the code that reads it throw, `serial-link.js` logs the error an
 The live stores are made with the options in `LIVE_STORE_OPTIONS` in `js/live/bench-feed.js`, so the page and the tests make them the same way.
 
 - They use the normal detector, liftoff and landing included. `BENCH_DETECTOR` there is just `DETECTOR_DEFAULTS` now, kept as its own name so code that imports it keeps working. A board on a desk stays on its pad however much its GPS wanders (`test/bench-wander.test.mjs` checks it). The pad is still found, and the 3D view needs it to place the board.
-- They have no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California, which would be thousands of kilometers from a board on my desk. So `getGroundStation()` returns null, and the map, the 3D view and the HUD leave out the dish, the radio link and every distance to Manta. The KEY drops those rows, and the recovery block measures from the launch point. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one.
+- They have no ground station (`groundStation: null`). A replay's store starts with the demo ground station in `config.js`, at the simulator's placeholder pad in California, which would be thousands of kilometers from a board on my desk. So `getGroundStation()` returns null, and the map, the 3D view and the HUD leave out the dish, the radio link and every distance to Manta. The KEY drops those rows, and the recovery block measures from the launch point. The console never makes a ground station out of the board's own position. A real ground station's own "gs" packets would still set one. The launch page is the exception. There both live stores start with the ground station typed in at the field (see Launch mode above).
 
 ### The radio board receiver
 
@@ -537,6 +543,8 @@ How the console reads it:
 - Before the first packet, the line under the bar says the receiver was found and is listening, and how many packets from other radios it heard (`waitingNote()` in `flight-feed.js`, shown by `setFlightNote()` in `main.js`). It turns into a warning when the status line says the radio didn't start. It goes away at the first packet, when the pad checklist takes over.
 - RSSI and SNR are on every `PKT` line, and the schema already has them (`radio.rssi` and `radio.snr`). They show in the HUD's MORE column under RADIO LINK.
 - A new connection keeps the flight. The rockets, their tracks and the clock stay, so a cable that was bumped costs nothing but the packets missed.
+
+The receiver's newer firmware (built November 17, 2026) prints differently. After a start-up report (its first line starts with `DEKEL_RX_FIRMWARE`, then the build date and a `Radio: ... listening` line), it prints one Dogtooth status block, starting `==== HEARTBEAT #n`, for each good packet from the rocket, and `Error: No packets received for N s` every 5 seconds while it waits. The Dogtooth entry in `sources.js` picks those blocks up, so they go to the bench store like a board on the USB cable. On this page, a receiver that waits for 60 lines with no packet is still called NOT RECOGNIZED. The launch page reads its start-up and waiting lines itself (`createReceiverWatch()` in `js/live/flight-feed.js`), gives the bench store the ground station, and keeps the track when the flight board restarts (`keepOnRestart` in `js/live/bench-feed.js`).
 
 What it doesn't do yet. Panel 2's graphs and readings are filled from Dogtooth status blocks, so they stay empty for the receiver. Its raw output and mission timeline do work. The square on the CONNECT button only follows status blocks too.
 
@@ -719,7 +727,7 @@ CONNECT starts a recording as soon as the port opens. The bar shows an amber dot
 
 The recording is crash proof. Every 2 s (`FLUSH_MS`) the new lines go to storage as one chunk, together with the flight's record, so a crash, a closed tab or a dead laptop loses at most the last 2 s. A write that fails is tried again on the next one, in order, so no line is lost or doubled. If storing keeps failing (the disk is full, say), the line under the bar says so and the newest lines wait on the page until it works again.
 
-`[ STOP ]`, or the board disconnecting or being unplugged, ends the recording and opens the name box. The name starts as the date and time (`Nov 17, 2026, 2:32 PM`) and can be anything up to 80 characters. `[ SAVE ]` (or Enter) saves it, and so does Escape, with the name in the box, so a recording is never lost by backing out. `[ DISCARD ]` asks first, in the box. A recording where nothing came in is thrown away without asking. After a save, the line under the bar says where it went, with `[ OPEN ]` to replay it.
+`[ STOP ]`, or the board disconnecting or being unplugged, ends the recording and opens the name box. (On the launch page a disconnect or a pulled cable saves the recording straight away under its date and time instead, so nothing covers the recovery panel. STOP still opens the box there.) The name starts as the date and time (`Nov 17, 2026, 2:32 PM`) and can be anything up to 80 characters. `[ SAVE ]` (or Enter) saves it, and so does Escape, with the name in the box, so a recording is never lost by backing out. `[ DISCARD ]` asks first, in the box. A recording where nothing came in is thrown away without asking. After a save, the line under the bar says where it went, with `[ OPEN ]` to replay it.
 
 After a STOP while the board is still connected, `[ RECORD ]` sits where REC was and starts a new recording. The lines in between aren't recorded.
 
@@ -805,6 +813,12 @@ node --test "flight-console/test/*.test.mjs"
 - `test/live-sources.test.mjs` checks the source detector: the banner means a Dogtooth board, other lines don't, a new connection starts over, unknown data is called unknown, the radio board receiver is the one flight source, and the Manta hook is there but switched off.
 - `test/radio-board-rx.test.mjs` checks the radio board receiver from its lines to the store: its header, status line or a `PKT` line names it, a Dogtooth board's output (status blocks and `SIM PKT` lines) never does, `PKT` lines become samples with the rocket ID from `node=` and RSSI and SNR in the radio group, `BAD` lines are counted, the store's clock keeps moving so the data goes old, a REBOOTED board's track carries on, a second board joins the same clock, and the line under the bar says what it should before the first packet.
 
+- `test/offline-tiles.test.mjs`, `test/offline-leaflet.test.mjs` and `test/offline-globe.test.mjs` check launch mode's saved map: which tiles are saved (from the downloader's manifest), the 2D layer cut at the box with missing files falling back up the zooms, and the 3D layers in order with Esri only after its key check.
+- `test/flight-log.test.mjs` checks launch mode's flight log: the file format and names, the disk and server copies against stand-ins that fail in every way (no line lost or doubled), a launch log loading back with exactly the capture's samples, and the test capture's pacing and shift.
+- `test/launch-panel.test.mjs` and `test/map-labels.test.mjs` check the recovery panel and the ground station: typed positions, the copy text, range and bearing against an independent calculation, the saved fix, real arrival times after RECOVER, and GROUND STATION versus MANTA.
+- `test/launch-page.test.mjs` checks that `launch.html` is exactly what the generator makes from `index.html`, that nothing on it loads from the internet, and that the vendored Cesium and Leaflet are the files the site uses.
+- The `test/*-browser.mjs` scripts (launch panel, flight log, restore, map names) and the tools in `../launch-mode/test/` check launch mode in headless Chrome. They are not run by `node --test`. See `../launch-mode/test/README.md`.
+
 `test/synthetic.mjs` isn't a test itself. It makes seeded, repeatable GPS data for the tests: a still board's wander (what my bench board did, about 15 m by 30 m sideways with worse altitude, plus single wild fixes, steps, lost fixes and a cold start) and whole flights that land into it.
 
 ### Checking the parser
@@ -818,6 +832,9 @@ node --test "flight-console/test/*.test.mjs"
 - `index.html`: the page itself. It holds the site's nav and footer (copied from the home page), the landing's text, the console (the bar, the status lines, the two panels and the `[ GRAPHS ]` and `[ MAP ]` switches, with panel 2's live parts (the live mission timeline's `#bc-log` spot among them) and the empty spots the views fill in), and the script tags for Leaflet and `js/main.js`. Its comments say what each part is. It has no tag for CesiumJS on purpose (see "Loading and failures").
 - `flight-console.css`, `flight-console-hero.css`, `flight-console-map.css` and `flight-console-data.css`: this page's styles, one file per part (see "The stylesheets and who owns what").
 - `../css/flight-console-theme.css`: the colors, fonts and shared pieces of all three Flight Console pages (see "The look: colors and fonts").
+- `launch.html`: the launch mode page, made from `index.html` by `../launch-mode/build-launch-page.mjs`. Never edit it by hand.
+- `flight-console-launch.css`: styles only the launch page loads.
+- `vendor/`: the local copies of CesiumJS 1.146, Leaflet 1.9.4 and the fonts for the launch page, with their licenses (see `vendor/README.md`).
 - `README.md`: this guide.
 - `.gitignore`: keeps `js/config.local.js` out of Git.
 
@@ -854,6 +871,14 @@ node --test "flight-console/test/*.test.mjs"
 - `js/live/flight-feed.js`: puts a flight source's samples in the flight store, keeps that store's clock moving, follows a board that restarts, and reads the receiver's status line.
 - `js/live/bench-feed.js`: turns the board's blocks into samples for the live store. It also holds the live stores' options (`BENCH_DETECTOR` and `LIVE_STORE_OPTIONS`).
 - `js/views/data-series.js`: the points for panel 2's graphs in a replay (see "Panel 2: graphs and readings").
+
+### Launch mode's code (js/launch/)
+
+- `launch-mode.js`: `LAUNCH`, the hub (`window.fcLaunch`), the field settings, the ground station, whether the internet answers, and the serial line taps.
+- `offline-tiles.js`, `offline-leaflet.js`, `offline-globe.js`: the saved map, for both views.
+- `launch-panel.js`, `recovery-fix.js`, `position-input.js`: the recovery panel and the ground station setting.
+- `flight-log.js`, `log-sinks.js`, `log-format.js`: the flight log's three copies and its file format.
+- `capture.js`, `capture-plan.js`: the test capture played through the live path.
 
 ### Code for the page
 

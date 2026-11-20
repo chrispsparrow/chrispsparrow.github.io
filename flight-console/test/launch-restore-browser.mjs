@@ -12,13 +12,15 @@
 //   capture   The test capture at real speed: LAST PACKET counts up between
 //             packets and starts again at each one, and keeps counting once
 //             the capture stops. The capture saves itself as "Test capture".
-//   closed    A real connection, then a lost port, then a reconnect and
-//             DISCONNECT by hand. On the launch page neither opens the
-//             SAVE THIS RECORDING box (js/views/local-console.js): each
-//             recording is in SAVED FLIGHTS under its date and time, a
-//             status line says so, and COPY COORDINATES works at once.
+//   closed    A real connection, then a lost port, then the cable goes back
+//             in (the page reconnects by itself) and DISCONNECT by hand. On
+//             the launch page neither opens the SAVE THIS RECORDING box
+//             (js/views/local-console.js): each recording is in SAVED
+//             FLIGHTS under its date and time, a status line says so, and
+//             COPY COORDINATES works at once.
 //   normal    The normal page (index.html): the box still opens after a
-//             lost port and after DISCONNECT.
+//             lost port and after DISCONNECT, and a replug waits for
+//             CONNECT.
 //
 // It is not a node --test file (it needs Chrome), so run it by hand from
 // the website folder:
@@ -65,32 +67,68 @@ function check(name, ok, detail) {
 }
 
 // The stand-in for navigator.serial and the save box, the same one
-// launch-log-browser.mjs uses. The page's serial-link.js reads its stream
-// as it reads a real port.
+// launch-log-browser.mjs uses (its comment there says more). The page's
+// serial-link.js reads its stream as it reads a real port.
+//   __fake.unplug()   the cable comes out: the stream fails, the port
+//                     leaves getPorts(), and "disconnect" fires
+//   __fake.replug()   plugged back in: a NEW port object, as in Chrome, and
+//                     "connect" fires
 const FAKE = `(() => {
   const enc = new TextEncoder();
-  const fake = window.__fake = { requestCalls: 0, pickerCalls: 0, granted: false, opens: 0 };
-  const port = {
-    readable: null,
-    controller: null,
-    async open() { fake.opens += 1; port.readable = new ReadableStream({ start(c) { port.controller = c; } }); },
-    async setSignals() {},
-    async close() { port.readable = null; },
-    getInfo() { return {}; },
-    send(text) { port.controller.enqueue(enc.encode(text)); },
-    unplug() { const c = port.controller; port.readable = null; c.error(new DOMException('The device has been lost.', 'NetworkError')); },
+  const fake = window.__fake = { requestCalls: 0, pickerCalls: 0, granted: false, plugged: true, opens: 0, openTries: 0, made: 0 };
+  const heard = { connect: new Set(), disconnect: new Set() };
+  const tell = (type, port) => {
+    for (const fn of [...heard[type]]) {
+      try { fn({ type, target: port, port }); } catch (err) { console.error(err); }
+    }
   };
-  fake.port = port;
+  function makePort() {
+    fake.made += 1;
+    const port = {
+      n: fake.made,
+      gone: false,
+      readable: null,
+      controller: null,
+      async open() {
+        fake.openTries += 1;
+        if (port.gone || !fake.plugged) throw new DOMException('Failed to open serial port.', 'NetworkError');
+        fake.opens += 1;
+        port.readable = new ReadableStream({ start(c) { port.controller = c; } });
+      },
+      async setSignals() {},
+      async close() { port.readable = null; },
+      getInfo() { return { usbVendorId: 0x239a, usbProductId: 0x800b }; },
+      send(text) { port.controller.enqueue(enc.encode(text)); },
+      unplug() { fake.unplug(); },
+    };
+    return port;
+  }
+  fake.port = makePort();
+  Object.defineProperty(fake, 'unplug', { enumerable: false, value: () => {
+    const port = fake.port;
+    fake.plugged = false;
+    port.gone = true;
+    const c = port.controller;
+    port.readable = null;
+    port.controller = null;
+    if (c) c.error(new DOMException('The device has been lost.', 'NetworkError'));
+    tell('disconnect', port);
+  } });
+  Object.defineProperty(fake, 'replug', { enumerable: false, value: () => {
+    fake.port = makePort();
+    fake.plugged = true;
+    tell('connect', fake.port);
+  } });
   Object.defineProperty(navigator, 'serial', { value: {
     async requestPort() {
       fake.requestCalls += 1;
       if (!navigator.userActivation.isActive) throw new DOMException('Must be handling a user gesture to show a permission request.', 'SecurityError');
       fake.granted = true;
-      return port;
+      return fake.port;
     },
-    async getPorts() { return fake.granted ? [port] : []; },
-    addEventListener() {},
-    removeEventListener() {},
+    async getPorts() { return fake.granted && fake.plugged ? [fake.port] : []; },
+    addEventListener(type, fn) { if (heard[type]) heard[type].add(fn); },
+    removeEventListener(type, fn) { if (heard[type]) heard[type].delete(fn); },
   }, configurable: true });
   window.showSaveFilePicker = async (opts) => {
     fake.pickerCalls += 1;
@@ -106,7 +144,10 @@ async function openPage(browser, server, url, { fake = true } = {}) {
   await page.goto(server.url(url));
   await page.waitFor(() => window.fcStarted === true, { timeout: 40000, message: 'the console did not start' });
   if (url.includes('launch.html')) {
-    await page.waitFor(() => window.fcLaunch?.parts?.panel && window.fcLaunch?.parts?.log, { timeout: 40000, message: 'launch mode did not start' });
+    // The parts start one after the other (panel, log, capture), so the
+    // last one is waited for too. A check that plays the capture at once
+    // would otherwise find it missing on a slow start.
+    await page.waitFor(() => window.fcLaunch?.parts?.panel && window.fcLaunch?.parts?.log && window.fcLaunch?.parts?.capture, { timeout: 40000, message: 'launch mode did not start' });
   }
   return page;
 }
@@ -158,20 +199,35 @@ const savedFlights = (page) => page.evaluate(async () => {
 
 // Whether a real click in the middle of COPY COORDINATES lands on it (no
 // box over it), and what it then copies.
+//
+// The button can move once while this runs: about 5 s after the last
+// packet the fix turns old, the panel gains a line that says so, and the
+// button goes down by that line. A click sent in that instant lands where
+// the button was. So when nothing was copied and the button is not where
+// it was, the click is made again (moves says how often that happened). A
+// button that stayed put and copied nothing still fails the check.
 async function copyNow(page, browser, server) {
   await browser.send('Browser.grantPermissions', { origin: server.origin, permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] });
   await page.evaluate(() => navigator.clipboard.writeText('nothing yet'));
-  const onTop = await page.evaluate(() => {
+  const look = () => page.evaluate(() => {
     const b = document.getElementById('fcl-copy');
     const r = b.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return { onTop: b === hit || b.contains(hit), disabled: b.disabled, hit: hit ? `${hit.tagName.toLowerCase()}#${hit.id}.${hit.className}` : null };
+    return { top: Math.round(r.top), onTop: b === hit || b.contains(hit), disabled: b.disabled, hit: hit ? `${hit.tagName.toLowerCase()}#${hit.id}.${hit.className}` : null };
   });
   const began = Date.now();
-  await page.click('#fcl-copy');
-  await sleep(250);
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  return { ...onTop, copied, words: await text(page, '#fcl-copied'), ms: Date.now() - began };
+  let onTop;
+  let copied;
+  let moves = 0;
+  for (;;) {
+    onTop = await look();
+    await page.click('#fcl-copy');
+    await sleep(250);
+    copied = await page.evaluate(() => navigator.clipboard.readText());
+    if (copied !== 'nothing yet' || moves >= 2 || (await look()).top === onTop.top) break;
+    moves += 1;
+  }
+  return { ...onTop, copied, moves, words: await text(page, '#fcl-copied'), ms: Date.now() - began };
 }
 
 const server = await startServer({ port: PORT });
@@ -238,8 +294,11 @@ try {
       const realAge = (after.now - lastPktMs) / 1000;
       const clock = await clockOf(page2, lastPktMs);
       const restoreClock = await clockOf(page2, restoredAt);
-      check('restore: the 20 packets are back on the live view', after.samples === 20 && after.feed === lastPktMs,
-        `rocket 1 has ${after.samples} samples, lastArrival('1') is ${after.feed} (the last PKT was sent at ${lastPktMs})`);
+      // The test notes its clock just before the line goes into the port,
+      // and the page stamps the line when it reads it, a few ms later. So
+      // the two are close, not equal. RECOVER came seconds after both.
+      check('restore: the 20 packets are back on the live view', after.samples === 20 && Math.abs(after.feed - lastPktMs) <= 100,
+        `rocket 1 has ${after.samples} samples, lastArrival('1') is ${after.feed}, ${after.feed - lastPktMs} ms after the last PKT was sent (${lastPktMs}); RECOVER put it back ${restoredAt - lastPktMs} ms after that`);
       check('restore: LAST PACKET says when the packet really came, not when RECOVER put it back',
         Math.abs(agoS(after.packet) - realAge) <= 2 && after.packet.endsWith(`AT ${clock}`) && Math.abs(after.fix.packetWallMs - lastPktMs) < 2000 && Math.abs(after.fix.packetAgeS - realAge) < 2,
         `"${after.packet}", real age ${realAge.toFixed(1)} s, the packet came at ${clock} and RECOVER put it back at ${restoreClock}; status packetWallMs off by ${after.fix.packetWallMs - lastPktMs} ms, packetAgeS ${after.fix.packetAgeS.toFixed(2)} s`);
@@ -353,12 +412,13 @@ try {
       check('closed: a status line says where it went', lostNote === `The recording stopped after ${lostNote.match(/after (.+?)\./)?.[1]}. "${first?.title}" is in SAVED FLIGHTS, kept in this browser.` && !/[—;]/.test(lostNote),
         `SAVED ${lostNote}`);
       check('closed: COPY COORDINATES works straight away', lostCopy.onTop && !lostCopy.disabled && /^-?\d+\.\d{6}, -?\d+\.\d{6}$/.test(lostCopy.copied) && lostCopy.words === `COPIED ${lostCopy.copied}`,
-        `the click landed on ${lostCopy.onTop ? 'the button' : lostCopy.hit}, copied "${lostCopy.copied}", the panel said "${lostCopy.words}"`);
+        `the click landed on ${lostCopy.onTop ? 'the button' : lostCopy.hit}, copied "${lostCopy.copied}", the panel said "${lostCopy.words}"${lostCopy.moves ? ` (clicked again ${lostCopy.moves} time, because the button moved down when the fix turned old)` : ''}`);
       await page.screenshot(path.join(OUT, 'closed-lost-port.png'));
 
-      // Plugged back in: CONNECT starts the next recording.
-      await page.click('#bc-connect');
-      await page.waitFor(() => window.fcLaunch.ctx.live.link.open, { timeout: 10000, message: 'the port did not open again' });
+      // Plugged back in: the page reconnects by itself (js/launch/
+      // flight-log.js), and the next recording starts with nothing clicked.
+      await page.evaluate(() => window.__fake.replug());
+      await page.waitFor(() => window.fcLaunch.ctx.live.link.open, { timeout: 10000, message: 'the port did not open again by itself' });
       await sendLines(page, CAPTURE_LINES.slice(20, 40), 150);
       await page.waitFor(() => window.fcLaunch.parts.log.status().browser.lines === 20, { timeout: 10000, message: 'the second recording did not reach 20 lines' });
       const rec = await page.evaluate(() => window.fcLaunch.ctx.localConsole.recording());
@@ -381,7 +441,7 @@ try {
       check('closed: that recording is in SAVED FLIGHTS too, with a note', second && second.title === second.defaultName && second.lineCount === 20 && handNote.startsWith('The recording stopped after ') && handNote.endsWith(`"${second.title}" is in SAVED FLIGHTS, kept in this browser.`),
         `"${second?.title}", ${second?.lineCount} lines; SAVED ${handNote}`);
       check('closed: COPY COORDINATES works straight away after DISCONNECT', handCopy.onTop && handCopy.copied === handWant && handCopy.words === `COPIED ${handCopy.copied}`,
-        `the click landed on ${handCopy.onTop ? 'the button' : handCopy.hit}, copied "${handCopy.copied}", the last fix is "${handWant}", the panel said "${handCopy.words}"`);
+        `the click landed on ${handCopy.onTop ? 'the button' : handCopy.hit}, copied "${handCopy.copied}", the last fix is "${handWant}", the panel said "${handCopy.words}"${handCopy.moves ? ` (clicked again ${handCopy.moves} time, because the button moved down when the fix turned old)` : ''}`);
       await page.screenshot(path.join(OUT, 'closed-disconnect.png'));
       // Both in the SAVED FLIGHTS menu.
       await page.click('#fc-saved-button');
@@ -415,6 +475,14 @@ try {
         `"${lost.title}": ${lost.text} Name "${lost.name}"`);
       await page.click('dialog.fc-dialog button[type="submit"]');
       await page.waitFor(() => !document.querySelector('dialog.fc-dialog')?.open, { timeout: 10000, message: 'the name box did not close' });
+      // Plugged back in. The normal page waits for CONNECT: only the launch
+      // page opens a lost port again by itself.
+      const triesBefore = await page.evaluate(() => window.__fake.openTries);
+      await page.evaluate(() => window.__fake.replug());
+      await sleep(3500);
+      const waited = await page.evaluate(() => ({ state: document.getElementById('bc-connect').dataset.state, tries: window.__fake.openTries, note: document.getElementById('bc-link-note').textContent }));
+      check('normal: a replug does not reconnect by itself', waited.state === 'lost' && waited.tries === triesBefore && waited.note === 'The board was unplugged or stopped answering. Plug it back in and press CONNECT.',
+        `3.5 s after the replug: link ${waited.state}, ${waited.tries - triesBefore} opens tried, note "${waited.note}"`);
       await page.click('#bc-connect');
       await page.waitFor(() => document.getElementById('bc-connect').dataset.state === 'open', { timeout: 10000, message: 'the port did not open again' });
       await sendLines(page, CAPTURE_LINES.slice(10, 20), 150);

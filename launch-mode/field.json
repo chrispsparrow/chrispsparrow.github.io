@@ -2,6 +2,7 @@
   "name": "CRMRC launch field",
   "center": { "lat": 44.825278, "lon": -73.171727 },
   "boxHalfKm": 15,
+  "groundElevM": 44,
   "tiles": {
     "folder": "offline-maps/crmrc",
     "levels": [

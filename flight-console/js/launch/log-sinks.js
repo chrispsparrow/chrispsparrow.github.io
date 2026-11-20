@@ -26,8 +26,10 @@
 // last cycle that finished.
 //
 // flight-log.js makes them and decides when a cycle runs (about once a
-// second, and at once when the page is hidden). No DOM here, so Node can
-// test them with a stand-in file handle and a stand-in fetch.
+// second, and at once when the page is hidden). isDue() is its test for
+// "long enough since the last cycle", which also holds when the computer's
+// clock is set back. No DOM here, so Node can test them with a stand-in
+// file handle and a stand-in fetch.
 
 import { otherFileName } from './log-format.js';
 
@@ -44,6 +46,20 @@ export const KEEPALIVE_MAX_BYTES = 48 * 1024;
 // How long (ms) the server gets to answer one request.
 export const POST_TIMEOUT_MS = 5000;
 
+// A clock that only goes forward (ms since the page loaded), for measuring
+// how long ago something happened. The computer's clock can't be used for
+// that: Windows sets it back and forth when it syncs the time.
+export const steadyClock = () => globalThis.performance?.now?.() ?? Date.now();
+
+// True when `gap` ms have passed since `last`, on the computer's clock
+// reading `now`. When Windows sets the clock back, `now` is before `last`
+// and the difference is negative. That counts as due, so a copy never
+// stops writing for as long as the clock was set back.
+export function isDue(now, last, gap) {
+  const since = now - last;
+  return since < 0 || since >= gap;
+}
+
 // ------------------------------------------------------------------
 // The disk file
 // ------------------------------------------------------------------
@@ -55,8 +71,14 @@ export const POST_TIMEOUT_MS = 5000;
 //                       true when the file has every line, false when the
 //                       write failed (see error) or there is no file. urgent
 //                       runs one more cycle right after the one in progress.
-//   state()             { name, lines, bytes, pending, lastWriteAt, error, busy }
-export function createDiskSink({ text, now = () => Date.now(), onChange = () => {} }) {
+//   state()             { name, lines, bytes, pending, lastWriteAt,
+//                         lastWriteAgoMs, error, busy }
+//                       lastWriteAt is when the file was last written on the
+//                       computer's clock. lastWriteAgoMs is how long ago
+//                       that was, measured on a clock that only goes
+//                       forward (steady), so it is right even after Windows
+//                       changed the time.
+export function createDiskSink({ text, now = () => Date.now(), steady = steadyClock, onChange = () => {} }) {
   let handle = null;
   let turn = 0;            // goes up with every new file, so a cycle on the old one is ignored
   let base = null;         // the file's size before this log's first line, null until it is read
@@ -65,6 +87,7 @@ export function createDiskSink({ text, now = () => Date.now(), onChange = () => 
   let again = false;
   let error = null;
   let lastWriteAt = null;
+  let lastWriteTick = null;   // the same moment on the steady clock
   let lastStartAt = 0;
 
   function use(next) {
@@ -74,6 +97,7 @@ export function createDiskSink({ text, now = () => Date.now(), onChange = () => 
     written = 0;
     error = null;
     lastWriteAt = null;
+    lastWriteTick = null;
     onChange();
   }
 
@@ -112,6 +136,7 @@ export function createDiskSink({ text, now = () => Date.now(), onChange = () => 
     if (mine !== turn) return;
     written = upto;
     lastWriteAt = now();
+    lastWriteTick = steady();
   }
 
   function cycle({ urgent = false } = {}) {
@@ -149,6 +174,7 @@ export function createDiskSink({ text, now = () => Date.now(), onChange = () => 
       bytes: text.bytesAt(written),
       pending: text.count - written,
       lastWriteAt,
+      lastWriteAgoMs: lastWriteTick === null ? null : Math.max(0, Math.round(steady() - lastWriteTick)),
       error,
       busy: Boolean(busy),
     }),

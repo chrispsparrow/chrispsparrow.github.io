@@ -104,7 +104,14 @@ async function loadSettings() {
   // imagery when there is internet, and plain ground when there isn't.
   const manifest = tilesUrl ? await fetchJson(new URL('manifest.json', tilesUrl), SETTINGS_TIMEOUT_MS) : null;
   if (!manifest) console.warn('Launch mode: no saved map tiles were found (no manifest.json in the tiles folder)');
-  return { field, manifest, tilesUrl };
+  // The saved tiles belong to the center and box they were downloaded for.
+  // After a change to field.json the downloader has to run again.
+  const moved = manifest && validPosition(manifest.center) &&
+    (Math.abs(manifest.center.lat - field.center.lat) > 1e-6 ||
+      Math.abs(manifest.center.lon - field.center.lon) > 1e-6 ||
+      manifest.boxHalfKm !== field.boxHalfKm);
+  if (moved) console.warn('Launch mode: the saved map tiles were downloaded for a different center or box than launch-mode/field.json has now. Run launch-mode/download_tiles.py again.');
+  return { field, manifest, tilesUrl, tilesMatchField: !moved };
 }
 
 // ------------------------------------------------------------------
@@ -264,6 +271,19 @@ if (LAUNCH) globalThis.fcLaunch = hub;
 export function launchGroundStation() {
   const p = hub.groundStation.get();
   return p ? { lat: p.lat, lon: p.lon, altMsl: null, source: 'launch-mode' } : null;
+}
+
+// The detector settings for the launch page's live flight store. When the
+// first packets come from a rocket already in the air (the receiver was
+// plugged in late, or the page was reloaded mid-flight), the detector has
+// no pad readings to take the ground level from, and falls back on a fixed
+// guess. config.js's guess is the simulator's desert site, 700 m, which
+// would put a Vermont flight hundreds of meters under ground. field.json's
+// groundElevM is the field's real height above sea level, so it is used
+// here. Without it the defaults come back unchanged.
+export function launchDetectorConfig(defaults) {
+  const elev = hub.settings?.field?.groundElevM;
+  return Number.isFinite(elev) ? { ...defaults, GROUND_ELEV_FALLBACK_M: elev } : defaults;
 }
 
 // Starts launch mode's parts. ctx comes from js/main.js:

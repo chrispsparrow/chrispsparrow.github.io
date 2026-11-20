@@ -98,7 +98,7 @@ if not defined BROWSER goto default_browser
 
 if "%KIND%"=="chrome" echo Opening the launch page in Chrome.
 if "%KIND%"=="edge" echo Chrome was not found, so the launch page opens in Edge.
-start "" "%BROWSER%" --user-data-dir="%PROFILES%\%KIND%-profile" --no-first-run --no-default-browser-check --no-proxy-server --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=IntensiveWakeUpThrottling "%PAGE%"
+start "" "%BROWSER%" --user-data-dir="%PROFILES%\%KIND%-profile" --start-maximized --no-first-run --no-default-browser-check --no-proxy-server --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=IntensiveWakeUpThrottling "%PAGE%"
 goto started
 
 :default_browser

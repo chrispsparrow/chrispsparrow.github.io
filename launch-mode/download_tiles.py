@@ -63,6 +63,9 @@ TILE_PX = 256
 BLOCK_TILES = 8            # an export request covers up to 8 by 8 tiles
 EXPORT_PAUSE_S = 1.5       # between export requests, which are heavier
 JPEG_QUALITY = 88
+# What a tile averaged in the CRMRC download (10,432 tiles, 193 MB), for the
+# size estimate that --count prints. Farmland and water. A city would be more.
+AVERAGE_TILE_KB = 18.5
 SHIFT = 20037508.342789244  # half the web map's width, in meters
 
 
@@ -391,7 +394,7 @@ def main():
     print(f'Saving to {folder}')
     for lv in levels:
         print(f"  zoom {lv['z']:>2}: {lv['count']:>5} tiles, {lv['halfKm']:g} km each way, from {lv['source']}")
-    print(f'  total: {total} tiles')
+    print(f'  total: {total} tiles, about {total * AVERAGE_TILE_KB / 1000:.0f} MB')
     if args.count:
         return 0
 

@@ -29,15 +29,29 @@
      the two panels  |  the launch panel
 
    The column is kept from the start, before the panel is built, so the
-   map opens at its final size. In a window narrower than a laptop's the
-   panel goes under the panels and scrolls inside itself.
+   map opens at its final size. It stays a column down to a window 1000 px
+   wide: launch-mode.bat opens Chrome maximized, but a window that isn't
+   maximized opens about 1037 px wide, and the last good fix has to be in
+   view there too. Narrower than that, the panel goes under the panels (see
+   the end of this section).
 
    Top to bottom: the last good fix (the largest text here, for reading in
    daylight at arm's length), the ground station's two boxes, then the
    slots the flight log and the test capture fill in. Plain text on the
    page's background, thin lines between the parts, no boxes. Amber marks
-   a fix that is old or saved, and a value that was refused.
+   a fix that is old, saved or weak, and a value that was refused.
+
+   The site nav is hidden while the console is up on this page. Its links
+   leave the page, which nobody wants in the middle of a flight, and its
+   64 px are worth more to the map and the last good fix. The console is
+   the only thing that reads --fc-nav-h while it shows (its own top edge),
+   and the launch page has no early globe poster to line up with it, so
+   setting it to 0 moves nothing else. FLIGHT CONSOLE in the bar still
+   goes back to the landing, where the nav shows as usual.
    ============================================================ */
+body.fc-page[data-fc-screen="console"] { --fc-nav-h: 0px; }
+body.fc-page[data-fc-screen="console"] #nav { display: none; }
+
 .fc-page .fc-console {
   --fcl-w: clamp(19.5rem, 25vw, 23rem);
   display: grid;
@@ -69,11 +83,13 @@
    scroll (with the flight log and the test capture the panel is taller
    than a laptop's window). The scroll padding keeps a box that gets focus
    from hiding under it. launch-panel.js keeps --fcl-rec-h at the readout's
-   height. */
+   height. The readout sticks at the panel's very top edge, over the
+   panel's own 0.1rem of top padding. At top: 0 it would stop under that
+   padding, and a thin line of whatever scrolls past would show above it. */
 .fc-page .fcl-panel { scroll-padding-top: var(--fcl-rec-h, 0px); }
 .fc-page .fcl-recovery {
   position: sticky;
-  top: 0;
+  top: -0.1rem;
   z-index: 1;
   background: var(--fc-bg);
   border-bottom: 1px solid var(--fc-divider);
@@ -152,7 +168,7 @@
   letter-spacing: 0.04em;
   color: var(--fc-text);
 }
-.fc-page .fc-main .fcl-recovery:is([data-fix="old"], [data-fix="saved"]) .fcl-state { color: var(--fc-warn); }
+.fc-page .fc-main .fcl-recovery:is([data-fix="old"], [data-fix="saved"], [data-quality="weak"]) .fcl-state { color: var(--fc-warn); }
 .fc-page .fc-main .fcl-recovery[data-fix="none"] .fcl-state { color: var(--fc-text-2); }
 .fc-page .fc-main .fcl-detail {
   margin: 0.05rem 0 0;
@@ -185,6 +201,46 @@
 .fc-page .fcl-clear-q { font-size: 0.76rem; letter-spacing: 0.05em; color: var(--fc-text); }
 .fc-page .fcl-clear-ask { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 1.2rem; }
 .fc-page .fcl-clear-q { color: var(--fc-warn); padding-left: 0.15em; }
+
+/* A weak fix that is newer than the good one, under the readout's buttons:
+   what it is and how old in amber, its coordinates the size of the range,
+   then its satellites, its HDOP and how far it is from the good fix. It
+   sits below COPY COORDINATES so nothing above it moves when it comes and
+   goes, which it does every time the receiver's view of the sky changes.
+   A newer fix that is far from the good one and not confirmed shows the
+   same way. */
+.fc-page .fcl-weak { margin-top: 0.45rem; padding-top: 0.4rem; border-top: 1px dashed var(--fc-divider); }
+/* ALSO SAVED, the other rockets' saved fixes when two boards are on the
+   air: a part of its own, the first under the pinned readout. Each has
+   which rocket and how old, then its coordinates. While it is hidden, the
+   part after it is the first under the readout, and has no line above. */
+.fc-page .fcl-also[hidden] + .fcl-sec { border-top: 0; }
+.fc-page .fcl-other { margin-top: 0.3rem; }
+.fc-page .fc-main .fcl-weak-state {
+  margin: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  color: var(--fc-warn);
+}
+.fc-page .fc-main .fcl-weak-coords {
+  margin: 0.05rem 0 0;
+  font-family: var(--fc-font-mono);
+  font-size: 1.2rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--fc-text);
+}
+.fc-page .fc-main .fcl-weak-note {
+  margin: 0;
+  font-family: var(--fc-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--fc-text);
+}
+.fc-page .fc-main .fcl-weak .fcl-actions { margin-top: 0.15rem; }
 
 /* The boxes: the ground station's two, and the one the coordinates show in
    when the browser blocks copying. */
@@ -221,27 +277,82 @@
 /* The other parts' slots: plain console text until their own styles say more. */
 .fc-page .fcl-slot { margin-top: 0.3rem; font-size: 0.82rem; line-height: 1.35; color: var(--fc-text); overflow-wrap: anywhere; }
 
-/* A window narrower than a laptop's: the panel goes under the two panels,
-   its parts side by side where there is room, and scrolls inside itself. */
-@media (max-width: 1099.98px) {
+/* The map beside the column is narrower than the window, but the HUD over
+   it (flight-console.css) arranges itself by the window's width. From
+   1000 px to 1280 px wide the column leaves the map 960 px or less, so
+   there the HUD gets the arrangement it already uses in a window that
+   narrow: the phase bar on a row of its own across the top, and the map's
+   buttons across the whole bottom. Without it the phase names are cut
+   short ("ASCEN") and the buttons wrap onto two rows. A window under
+   520 px tall keeps the HUD's own short arrangement, which does both. */
+@media (min-width: 1000px) and (max-width: 1280px) and (min-height: 520.02px) {
+  .fc-page .fc-overlay {
+    grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas:
+      "top top"
+      "tl  tr"
+      "tl  more"
+      "bl  ."
+      "ctl ctl"
+      "tm  tm";
+  }
+  .fc-page .fc-ov-top { width: 100%; }
+}
+
+/* A window under 1000 px wide: the panel goes under the two panels and
+   scrolls inside itself.
+   - The map keeps a height its own controls fit in. The tallest case is a
+     landed flight: the phase bar, the HUD's recovery block, GPS, HDOP and
+     PKT, then the row of map buttons, about 280 px in all (about 250 px in
+     a window under 520 px tall, where the HUD is more compact). The panel
+     gets the rest, up to 46% of the window.
+   - The last good fix is the panel's first part, across its whole width,
+     and it is laid out flat so that it fits in the room that is left: the
+     coordinates and whether they are current on the left, and on the
+     right the range, the last packet, the altitude and COPY COORDINATES.
+     So the numbers to walk to and the button that copies them are in view
+     without scrolling. The newer weak fix and CLEAR SAVED FIX follow on
+     the right, under the button.
+   - The ground station, the flight log and the test capture sit side by
+     side under it where there is room. */
+@media (max-width: 999.98px) {
   .fc-page .fc-console {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(clamp(15.5rem, 50vh, 17.5rem), 1fr) minmax(0, auto);
   }
   .fc-page .fc-console > .fcl-panel {
     grid-column: 1;
     grid-row: 4;
-    max-height: 44vh;
+    max-height: 46vh;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    align-content: start;
     column-gap: 1.4rem;
     border-left: 0;
     border-top: 1px solid var(--fc-divider);
     scroll-padding-top: 0;
   }
   .fc-page .fcl-sec + .fcl-sec { border-top: 0; }
-  /* Side by side, the last good fix is the first part and needs no pin. */
-  .fc-page .fcl-recovery { position: static; border-bottom: 0; }
+  .fc-page .fcl-recovery {
+    position: static;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    column-gap: clamp(1.2rem, 4vw, 2.6rem);
+    align-items: start;
+    border-bottom: 1px solid var(--fc-divider);
+  }
+  .fc-page .fcl-recovery > * { grid-column: 1; }
+  .fc-page .fcl-recovery > .fcl-rows { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
+  .fc-page .fcl-recovery > :is(.fcl-actions, .fcl-copy-field, .fcl-weak) { grid-column: 2; }
+  .fc-page .fc-main .fcl-recovery > :is(.fcl-state, .fcl-detail) { max-width: 22rem; }
+}
+/* Too narrow for the two halves side by side (a phone, or a sliver of a
+   window): the last good fix reads top to bottom again. */
+@media (max-width: 559.98px) {
+  .fc-page .fcl-recovery { display: block; }
+  .fc-page .fcl-recovery > .fcl-rows { margin-top: 0.45rem; }
 }
 
 /* ============================================================
@@ -269,13 +380,30 @@
    and ticks while data arrives. The test capture's controls sit under it,
    and while one plays a status line under the bar says so in amber
    (#fcl-test-banner, in the console's own status lines).
+
+   The log's own warnings go in the status lines under the bar too
+   (.fcl-alert: the local server stopped, the receiver's port lost or
+   silent, another launch tab connected). The panel can be scrolled, and in
+   a narrow window it sits under the map, so a warning there can be out of
+   sight. The status lines are on screen at every size. A warning is amber
+   with an amber bar down its left edge, so it stands apart from the quiet
+   notes around it. A note that only reports (kind "info": the receiver
+   reconnected) is plain text.
    ============================================================ */
+.fc-page .fcl-alert[data-kind="warn"] {
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--fc-warn);
+}
+.fc-page .fcl-alert[data-kind="warn"] .fc-status-text { color: var(--fc-warn); }
+.fc-page .fcl-alert[data-kind="info"] .fc-status-tag { color: var(--fc-text-2); }
+
 .fc-page .fcl-log-rows { margin-top: 0.15rem; }
 .fc-page .fcl-log-row--lines dd { font-size: 1.32rem; line-height: 1.2; }
 /* The copy's state first, its file's name small under it. */
 .fc-page .fcl-log-file { display: block; font-size: 0.72rem; line-height: 1.3; color: var(--fc-text-2); }
 .fc-page .fcl-log-row[data-state="warn"] dt,
-.fc-page .fcl-log-row[data-state="warn"] dd { color: var(--fc-warn); }
+.fc-page .fcl-log-row[data-state="warn"] dd,
+.fc-page .fcl-log-row[data-state="warn"] .fcl-log-file { color: var(--fc-warn); }
 .fc-page .fc-main .fcl-log-kind {
   margin: 0.1rem 0 0.2rem;
   font-family: var(--fc-font-mono);

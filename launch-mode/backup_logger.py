@@ -75,7 +75,7 @@ READ_WAIT_S = 0.2         # the longest one read waits, so Ctrl+C is answered qu
 PARTIAL_WAIT_S = 2.0      # a line with no ending is written after sitting this long
 STOP_TAKE_S = 0.5         # at a stop, how long it keeps taking bytes that already arrived
 STATUS_EVERY_S = 10.0     # how often the window says how much is saved
-QUIET_AFTER_S = 5.0       # silence this long is worth a mention (the receiver talks every second)
+QUIET_AFTER_S = 12.0      # silence this long is worth a mention (the receiver prints at least every 5 s)
 GONE_CHECK_S = 2.0        # how often a silent port is looked up in the port list
 MAX_LINE = 4096           # a "line" longer than this is cut, like the page does, so noise can't grow forever
 RX_BUFFER = 65536         # asked of the Windows driver, in case the disk is slow for a moment
@@ -108,6 +108,13 @@ def default_log_path():
         if not os.path.exists(path):
             return path
         time.sleep(0.2)
+
+
+def is_packet(line):
+    """A line that is one packet from the rocket: the receiver's older
+    firmware prints "PKT node=1 ...", its newer one starts a status block
+    with "==== HEARTBEAT #12 | TIME RUNNING: ... ====" for each packet."""
+    return line.startswith('PKT ') or (line.startswith('=') and ' HEARTBEAT #' in line)
 
 
 def count(n, word):
@@ -810,7 +817,7 @@ class BackupLogger:
         when = stamp()
         ok = self._log.add(''.join(f'{when} > {line}\n' for line in lines))
         self.lines += len(lines)
-        self.packets += sum(1 for line in lines if line.startswith('PKT '))
+        self.packets += sum(1 for line in lines if is_packet(line))
         self._disk_state(ok)
         for line in lines:
             self._console.say(shown(line))

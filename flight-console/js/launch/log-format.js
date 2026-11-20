@@ -22,7 +22,10 @@
 // flight-YYYY-MM-DD-HHMM.log. The server's copy is
 // flight-YYYY-MM-DD-HHMMSS-page.log in flight-logs/. A played test capture
 // uses test-capture- in place of flight-, so test data is never taken for
-// the flight.
+// the flight. A name the save box already suggested once gets -2, then -3,
+// before ".log" (freshPickName()): picking a file that is already there
+// makes the browser empty it, and after a crash and a quick restart the
+// same minute would suggest the earlier log's own name.
 //
 // createLogText() holds one log's lines while the page is open, with how
 // many bytes the first k lines take. The file on disk and the server's copy
@@ -86,6 +89,20 @@ export function logFileName(kind, ms, where = 'pick') {
   return where === 'server'
     ? `${start}-${day}-${clock}${pad(d.getSeconds())}-page.log`
     : `${start}-${day}-${clock}.log`;
+}
+
+// The name to suggest in the save box: `name` itself, or when it is one of
+// the names in `used` (the ones suggested or picked before), the same name
+// with -2 before ".log", then -3, and so on.
+//   flight-2026-11-21-1403.log, flight-2026-11-21-1403-2.log, ...
+export function freshPickName(name, used = []) {
+  const taken = new Set(used);
+  if (!taken.has(name)) return name;
+  const stem = String(name).replace(/\.log$/, '');
+  for (let n = 2; ; n += 1) {
+    const next = `${stem}-${n}.log`;
+    if (!taken.has(next)) return next;
+  }
 }
 
 // Another name for the server's copy, for when the first one can't be used

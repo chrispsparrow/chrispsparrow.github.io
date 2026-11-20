@@ -19,7 +19,7 @@ import { buildFlight, LibraryError } from '../library.js?v=6';
 import { parseFile, readFlightLogLine } from '../parser.js?v=4';
 import { BlockParser } from '../bench/parse.js?v=5';
 import { buildCsv, blockUnits, readCsvBlocks } from '../bench/csv.js?v=6';
-import { DEFAULT_ROCKET } from '../live/bench-feed.js?v=3';
+import { DEFAULT_ROCKET } from '../live/bench-feed.js?v=4';
 import { KNOWN_ROCKETS } from '../fleet.js?v=3';
 
 export const LOCAL_PREFIX = 'local-';
@@ -170,17 +170,31 @@ export function summarize(record, { lines, times }) {
 //                     timer. Browsers slow a hidden tab's timers down to
 //                     once a minute, and the lines keep arriving, so this
 //                     keeps the copy close behind them (the launch page).
+//   retryMs           a recording that stopped while storing was failing
+//                     still has lines waiting on the page. They are tried
+//                     again this often until they are stored. 0 never
+//                     tries again by itself, which is what the normal page
+//                     does (the launch page tries).
 //   onState(rec)      the recording started, stopped or was released
 //   onProblem(err)    storing failed (err), or works again (null)
+//   onLate(id)        the last waiting lines of a recording that had
+//                     already stopped are in storage now
+//
+// THE CLOCK. flushOnLine and touchMs compare now() with the time of the
+// last write. Windows can set the computer's clock back (a time sync), and
+// the difference is then negative. That counts as "long enough", so the
+// copy never waits for the clock to catch up.
 export function createRecorder({
   db,
   now = () => Date.now(),
   flushMs = FLUSH_MS,
   touchMs = 0,
   flushOnLine = false,
+  retryMs = 0,
   locks = globalThis.navigator?.locks ?? null,
   onState = () => {},
   onProblem = () => {},
+  onLate = () => {},
 } = {}) {
   let rec = null;            // the record of the running recording
   let stopped = null;        // the record after stop(), until released
@@ -188,6 +202,7 @@ export function createRecorder({
   const queue = [];          // chunks not stored yet, in order: { id, seq, lines, times }
   let seq = 0;
   let timer = null;
+  let retryTimer = null;     // tries the queue again after a recording stopped with lines waiting
   let writing = Promise.resolve();
   let failing = false;
   const unlocks = new Map(); // recording id -> the function that lets go of its lock
@@ -252,7 +267,11 @@ export function createRecorder({
     if (!rec) return;
     buffer.lines.push(text);
     buffer.times.push(Number.isFinite(t) ? t : now());
-    if (flushOnLine && now() - lastFlush >= flushMs) flush();
+    if (flushOnLine) {
+      // Negative when the clock was set back, which counts as due.
+      const since = now() - lastFlush;
+      if (since < 0 || since >= flushMs) flush();
+    }
   }
 
   // Writes what came in since the last write. Returns a promise that is
@@ -265,7 +284,7 @@ export function createRecorder({
       rec.lineCount += buffer.lines.length;
       for (const l of buffer.lines) rec.byteCount += l.length + 2;
       buffer = { lines: [], times: [] };
-    } else if (touchMs > 0 && !queue.length && now() - lastTouch < touchMs) {
+    } else if (touchMs > 0 && !queue.length && now() - lastTouch >= 0 && now() - lastTouch < touchMs) {
       // Nothing new, and the record was written a moment ago.
       return writing;
     }
@@ -276,20 +295,43 @@ export function createRecorder({
     return writing;
   }
 
+  // snapshot is the running recording's record, or null when only waiting
+  // lines of a stopped recording are tried again (keepTrying()).
   async function writeQueue(snapshot) {
     try {
-      if (!queue.length) await db.putFlight(snapshot);
+      if (!queue.length && snapshot) await db.putFlight(snapshot);
       while (queue.length) {
         const c = queue[0];
         // The record goes in with its own recording's chunks only.
-        await db.addChunk(c.id, c.seq, c.lines, c.times, c.id === snapshot.id ? snapshot : null);
+        await db.addChunk(c.id, c.seq, c.lines, c.times, c.id === snapshot?.id ? snapshot : null);
         queue.shift();
         if (c.id === stored.id) stored.lines += c.lines.length;
+        // The last waiting lines of a recording that stopped earlier.
+        if (c.id !== snapshot?.id && !queue.some((q) => q.id === c.id)) tellLate(c.id);
       }
       setFailing(null);
     } catch (err) {
       setFailing(err);
     }
+  }
+
+  function tellLate(id) {
+    try { onLate(id); } catch (err) { console.error('Flight Console: a recording\'s late lines could not be handed on', err); }
+  }
+
+  // After a recording stopped with lines still waiting (storing was
+  // failing): tries them again every retryMs until they are stored. While
+  // a recording runs, its own flushes write the queue.
+  function keepTrying() {
+    if (retryTimer || retryMs <= 0 || !queue.length) return;
+    retryTimer = setInterval(() => {
+      if (!queue.length) {
+        clearInterval(retryTimer);
+        retryTimer = null;
+      } else if (!rec) {
+        writing = writing.then(() => writeQueue(null));
+      }
+    }, retryMs);
   }
 
   function setFailing(err) {
@@ -315,6 +357,7 @@ export function createRecorder({
     if (queue.length) {
       await writeQueue({ ...done, updatedAt: now() });
     }
+    keepTrying();
     onState(null);
     return done;
   }
@@ -343,8 +386,9 @@ export function createRecorder({
     get active() { return Boolean(rec); },
     // The running recording's record, or the stopped one until released.
     get record() { return rec ?? stopped; },
-    // How long the running recording has been going, in ms.
-    elapsed: () => (rec ? now() - startedAt : 0),
+    // How long the running recording has been going, in ms (never negative,
+    // also after the computer's clock was set back).
+    elapsed: () => (rec ? Math.max(0, now() - startedAt) : 0),
     // True when every line so far is in storage.
     stored: () => !queue.length && !failing,
     get failing() { return failing; },

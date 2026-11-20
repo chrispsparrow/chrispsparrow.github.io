@@ -18,8 +18,12 @@
 //   the pair 44 and 49.517), a latitude past 90 or a longitude past 180, E
 //   or W in the latitude box, a minus sign together with a letter, a letter
 //   squeezed between two numbers with no other letter to say whose it is
-//   ("1e5"), and a decimal comma ("44,82" would read as the pair 44 and 82,
-//   which nobody means).
+//   ("1e5"), a decimal comma ("44,82" would read as the pair 44 and 82,
+//   which nobody means), and a space after the point ("44. 825278" would
+//   read as the pair 44 and 825278).
+// Each message is worded for the box it shows under: its example is that
+// box's kind of value, and a pair that is out of range says that the box
+// holds a pair and which of its two numbers is wrong.
 //
 //   parsePosition(latText, lonText)
 //     -> { ok: true, lat, lon }
@@ -29,32 +33,44 @@
 //   readPair(text)
 //     -> { lat, lon } when the text is a whole position on its own, or
 //        null. The panel uses it to split a pasted pair into the two boxes.
-//   formatDegrees(value) -> '44.825278' (6 decimals, about 0.1 m)
+//   formatDegrees(value) -> '44.825278' (6 decimals, about 0.1 m). A value
+//     that rounds to zero is '0.000000', never '-0.000000'.
+//   roundDegrees(value)  -> the number formatDegrees() writes
 //
-// Used by: js/launch/launch-panel.js and test/launch-panel.test.mjs. No DOM.
+// Used by: js/launch/launch-panel.js, js/launch/recovery-fix.js and
+// test/launch-panel.test.mjs. No DOM.
 
 const EXAMPLE_LAT = '44.825278';
 const EXAMPLE_LON = '-73.171727';
 const EXAMPLE_PAIR = `${EXAMPLE_LAT}, ${EXAMPLE_LON}`;
+// The example a message shows: the kind of value its box takes.
+const exampleFor = (which) => (which === 'lon' ? EXAMPLE_LON : EXAMPLE_LAT);
 
-// 6 decimal places of a degree is about 0.1 m, more than a GPS fix is good for.
+// 6 decimal places of a degree is about 0.1 m, more than a GPS fix is good
+// for. Adding 0 turns the -0 that a tiny negative value rounds to into 0.
+export function roundDegrees(value) {
+  return Number.isFinite(value) ? Number(value.toFixed(6)) + 0 : NaN;
+}
+
 export function formatDegrees(value) {
-  return Number.isFinite(value) ? value.toFixed(6) : '';
+  return Number.isFinite(value) ? roundDegrees(value).toFixed(6) : '';
 }
 
 // One box's text, as a list of parts: [{ value, letter, signed }]. letter is
 // 'N', 'S', 'E', 'W' or ''. Returns { empty: true } for a blank box and
-// { error } for text that can't be read.
-function readBox(text) {
+// { error } for text that can't be read. which is the box, 'lat' or 'lon',
+// so a message can show an example of what that box takes.
+function readBox(text, which = 'lat') {
   const raw = String(text ?? '');
+  const example = exampleFor(which);
   // Minus signs from a web page or a phone are often not the keyboard's.
   let clean = raw.replace(/[−‒–—]/g, '-').toUpperCase();
   if (/['"′″]|\bMIN|\bSEC/.test(clean) || /\d\s*°\s*\d/.test(clean)) {
-    return { error: `Type decimal degrees, like ${EXAMPLE_LAT}. Degrees and minutes aren't read here.` };
+    return { error: `Type decimal degrees, like ${example}. Degrees and minutes aren't read here.` };
   }
   // A comma straight between two whole numbers is a decimal comma.
   if (/(^|[^\d.])\d+,\d+($|[^\d.])/.test(clean.replace(/\s+$/, '')) && !/\./.test(clean)) {
-    return { error: `Use a point for decimals, like ${EXAMPLE_LAT}.` };
+    return { error: `Use a point for decimals, like ${example}.` };
   }
   clean = clean.replace(/°|\bDEG(REES)?\b|\bLAT(ITUDE)?\b|\bLON(G|GITUDE)?\b|\bLNG\b|[()[\]:=]/g, ' ');
   if (clean.trim() === '') return { empty: true };
@@ -65,29 +81,35 @@ function readBox(text) {
   const pattern = /[NSEW]|[-+]?(?:\d+\.?\d*|\.\d+)/g;
   let last = 0;
   for (let m = pattern.exec(clean); m; m = pattern.exec(clean)) {
-    if (/[^\s,;]/.test(clean.slice(last, m.index))) return { error: unreadable(raw) };
+    if (/[^\s,;]/.test(clean.slice(last, m.index))) return { error: unreadable(raw, example) };
     // A second point in one number ("44.82.5") is a slip, never a pair.
-    if (m.index === last && m[0].startsWith('.') && tokens.length && !tokens[tokens.length - 1].letter) return { error: unreadable(raw) };
+    if (m.index === last && m[0].startsWith('.') && tokens.length && !tokens[tokens.length - 1].letter) return { error: unreadable(raw, example) };
     tokens.push({ text: m[0], start: m.index, end: pattern.lastIndex, letter: /^[NSEW]$/.test(m[0]) });
     last = pattern.lastIndex;
   }
-  if (/[^\s,;]/.test(clean.slice(last))) return { error: unreadable(raw) };
+  if (/[^\s,;]/.test(clean.slice(last))) return { error: unreadable(raw, example) };
 
   const numbers = tokens.filter((t) => !t.letter);
   const letters = tokens.filter((t) => t.letter);
-  if (numbers.length === 0) return { error: unreadable(raw) };
+  if (numbers.length === 0) return { error: unreadable(raw, example) };
   if (numbers.length > 2 || letters.length > numbers.length) {
     return { error: `There are too many numbers here. Type one value, or a pair like ${EXAMPLE_PAIR}.` };
   }
-  // "44 49.517" is degrees and minutes, not the pair 44 and 49.517: a whole
-  // number, only spaces, then a number under 60 with no sign. A pair with a
-  // comma between its two numbers ("44, 49.517") is still read as a pair,
-  // and so is one with a letter on each number ("44N 49E").
   if (numbers.length === 2 && letters.length < 2) {
     const [first, second] = numbers;
     const between = clean.slice(first.end, second.start);
+    // "44. 825278" is one number with a space typed after its point, not
+    // the pair 44 and 825278: a number that ends in a point, only spaces,
+    // then digits alone.
+    if (first.text.endsWith('.') && /^\s+$/.test(between) && /^\d+$/.test(second.text)) {
+      return { error: `There is a space after the point. Type it as one number, like ${example}.` };
+    }
+    // "44 49.517" is degrees and minutes, not the pair 44 and 49.517: a
+    // whole number, only spaces, then a number under 60 with no sign. A
+    // pair with a comma between its two numbers ("44, 49.517") is still
+    // read as a pair, and so is one with a letter on each number ("44N 49E").
     if (/^[-+]?\d+$/.test(first.text) && /^\s+$/.test(between) && !/^[-+]/.test(second.text) && Number(second.text) < 60) {
-      return { error: `This looks like degrees and minutes. Type decimal degrees, like ${EXAMPLE_LAT}. If it is a pair, put a comma between the two.` };
+      return { error: `This looks like degrees and minutes. Type decimal degrees, like ${example}. If it is a pair, put a comma between the two.` };
     }
   }
   // Each letter belongs to the number it touches (44.8 W73.1). A letter
@@ -105,11 +127,11 @@ function readBox(text) {
     const touchesNext = Boolean(next) && tok.end === next.start;
     // One letter squeezed between two numbers ("1e5", "44N73") could belong
     // to either. With a letter for each number ("44.8N73.1W") it is clear.
-    if (touchesPrev && touchesNext && letters.length < numbers.length) return { error: unreadable(raw) };
+    if (touchesPrev && touchesNext && letters.length < numbers.length) return { error: unreadable(raw, example) };
     let owner = lettersFirst ? next : prev;
     if (touchesNext && !touchesPrev) owner = next;
     else if (touchesPrev && !touchesNext) owner = prev;
-    if (!owner || letterOf.has(owner)) return { error: unreadable(raw) };
+    if (!owner || letterOf.has(owner)) return { error: unreadable(raw, example) };
     letterOf.set(owner, tok.text);
   }
   const parts = numbers.map((tok) => ({
@@ -117,14 +139,14 @@ function readBox(text) {
     letter: letterOf.get(tok) ?? '',
     signed: /^[-+]/.test(tok.text),
   }));
-  if (parts.some((p) => !Number.isFinite(p.value))) return { error: unreadable(raw) };
+  if (parts.some((p) => !Number.isFinite(p.value))) return { error: unreadable(raw, example) };
   if (parts.some((p) => p.letter && p.signed)) return { error: 'Use a minus sign or a letter, not both.' };
   return { parts };
 }
 
-function unreadable(raw) {
+function unreadable(raw, example = EXAMPLE_LAT) {
   const shown = raw.trim().length > 24 ? `${raw.trim().slice(0, 24)}...` : raw.trim();
-  return `"${shown}" can't be read as a position. Type decimal degrees, like ${EXAMPLE_LAT}.`;
+  return `"${shown}" can't be read as a position. Type decimal degrees, like ${example}.`;
 }
 
 // A part's number with its letter applied (S and W are negative).
@@ -139,7 +161,10 @@ function checkRange(lat, lon) {
 }
 
 // Two parts from one box, as a position. Without letters the latitude
-// comes first, the way the console writes its own coordinates.
+// comes first, the way the console writes its own coordinates. A pair that
+// is out of range says that the box was read as a pair and which of the two
+// numbers is wrong. "Longitude goes from -180 to 180." alone, under the
+// latitude box, reads as if the wrong box were meant.
 function readPairParts(parts, box) {
   let [a, b] = parts;
   if (isLonLetter(a.letter) || isLatLetter(b.letter)) [a, b] = [b, a];
@@ -149,12 +174,14 @@ function readPairParts(parts, box) {
   const lat = signedValue(a);
   const lon = signedValue(b);
   const bad = checkRange(lat, lon);
-  return bad ? { ok: false, box, message: bad.message } : { ok: true, lat, lon };
+  if (!bad) return { ok: true, lat, lon };
+  const which = bad.box === 'lat' ? 'latitude' : 'longitude';
+  return { ok: false, box, message: `This box was read as a pair, and the pair's ${which}, ${bad.box === 'lat' ? lat : lon}, is out of range. ${bad.message}` };
 }
 
 export function parsePosition(latText, lonText) {
-  const a = readBox(latText);
-  const b = readBox(lonText);
+  const a = readBox(latText, 'lat');
+  const b = readBox(lonText, 'lon');
   const aPair = a.parts?.length === 2;
   const bPair = b.parts?.length === 2;
   // An unreadable box is refused, unless the other box holds a whole pair.

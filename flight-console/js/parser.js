@@ -37,7 +37,7 @@
 import { CHANNELS, GROUPS, lookupAlias, lookupAliasInGroup } from './schema.js?v=2';
 import { BlockParser } from './bench/parse.js?v=5';
 import { readCsvBlocks } from './bench/csv.js?v=6';
-import { blockToSample, DEFAULT_ROCKET } from './live/bench-feed.js?v=3';
+import { blockToSample, DEFAULT_ROCKET } from './live/bench-feed.js?v=4';
 
 // Firmware telemetry packet layout (DOGTOOTH_V1_FIRMWARE src/core/Telemetry.h).
 const PACKET_SIZE = 34;

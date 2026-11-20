@@ -24,8 +24,10 @@
 // is a test capture and not live data, CONNECT reads DISCONNECT (which stops
 // it), and its logs are named test-capture-... (flight-log.js). The browser
 // copy is saved by itself as "Test capture, <date and time>". It refuses to
-// start while a real port is open, or once a real connection has put data
-// on the live view, so a test never mixes with the flight.
+// start while a real port is open, while the page is opening a lost port
+// again by itself, or once a real connection has put data on the live view,
+// so a test never mixes with the flight. It also refuses while another
+// launch tab is connected or playing (one tab at a time, see flight-log.js).
 //
 // FOR AUTOMATED RUNS the address can start it once the console is up:
 //   launch.html?track&capture=1             the default file
@@ -90,7 +92,14 @@ export function createCapturePlayer({ hub, ctx }) {
   function refusal() {
     if (run) return 'A test capture is already playing.';
     if (LINK_BUSY.has(live.link?.link)) return 'A port is open, so the test capture can\'t play. Test captures only play while nothing is connected.';
-    const realData = hub.parts.log?.liveData?.() === 'real' && (live.stores?.flight?.getTotals?.().samples ?? 0) > 0;
+    // After a lost port the page opens the receiver again by itself
+    // (flight-log.js), which could happen in the middle of a capture.
+    if (hub.parts.log?.reconnecting?.()) return 'The page is trying to reconnect to the receiver, so the test capture can\'t play. Press DISCONNECT first.';
+    // Real packets are in the flight store with the receiver's older
+    // firmware and in the bench store with its newer one, so the log is
+    // asked about both (liveHasData() in flight-log.js).
+    const log = hub.parts.log;
+    const realData = log?.liveData?.() === 'real' && log.liveHasData();
     if (realData) return 'The live view has data from a real connection, and a test capture would mix with it. Reload the page to test again.';
     return null;
   }
@@ -151,6 +160,20 @@ export function createCapturePlayer({ hub, ctx }) {
     }
     if (run !== mine) {
       mine.done({ ok: false, reason: 'stopped', sent: 0, total: 0 });
+      return;
+    }
+    // One launch tab at a time: another one may be connected to the
+    // receiver or playing a capture of its own (flight-log.js).
+    const free = await hub.parts.log?.claimTest?.();
+    if (run !== mine) {
+      mine.done({ ok: false, reason: 'stopped', sent: 0, total: 0 });
+      return;
+    }
+    if (free === false) {
+      run = null;
+      const reason = hub.parts.log.otherTabNote();
+      say(reason, 'warn');
+      mine.done({ ok: false, reason, sent: 0, total: 0 });
       return;
     }
     // A port may have opened while the file loaded.

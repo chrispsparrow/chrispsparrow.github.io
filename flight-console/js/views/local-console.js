@@ -23,9 +23,12 @@
 // wrapLink(), so every line is recorded before anything else sees it.
 //
 // On the launch page (launch.html, see js/launch/launch-mode.js) it works
-// the same way, with four differences for launch day:
+// the same way, with five differences for launch day:
 //   - Every line reaches storage within a quarter of a second
 //     (LAUNCH_FLUSH_MS), not every 2 s.
+//   - When storage fails just as the port closes, the lines that wait on
+//     the page are tried again every 2 s until they are stored, and the
+//     saved recording's line count is worked out again (lateLines()).
 //   - A played test capture (js/launch/capture.js) is recorded too, marked
 //     as a test, and saved by itself as "Test capture, <date and time>"
 //     when it ends, with no name box.
@@ -35,7 +38,8 @@
 //     with it, right when the rocket's position matters most. A status
 //     line under the bar says where it went. STOP still asks for a name.
 //   - RECOVER also hands the recovered recording to the flight log
-//     (onRecovered()), which puts it back on the live view.
+//     (onRecovered()), which puts it back on the live view when the live
+//     view has no data yet, and says why when it can't.
 //
 // Usage (main.js):
 //   const localConsole = createLocalConsole({ savedMenu, navigate, announce });
@@ -47,6 +51,7 @@
 //   localConsole.recording()         // the browser copy's state, for the log's status
 //   localConsole.onRecovered(fn)     // fn(record) after RECOVER saved one
 //   localConsole.readLines(id)       // a LOCAL flight's { lines, times }
+//   localConsole.unfinished()        // the recordings RECOVER offers (js/launch/launch-panel.js)
 //   localConsole.flushNow()          // writes the newest lines now (the page is closing)
 
 import { h, setChildren } from './dom.js?v=2';
@@ -56,7 +61,7 @@ import {
   createRecorder, saveRecording, findUnfinished, findBusy, listSaved, readFlightFile, storeFile,
   openLocalFlight, rawLogText, csvText, exportsFor, exportFileName, defaultName, cleanName,
   isLocalId, lockName, MAX_FILE_BYTES, MAX_NAME, STALE_MS, FLUSH_MS, LAUNCH_FLUSH_MS,
-} from '../local/local-flights.js';
+} from '../local/local-flights.js?v=1';
 import { LAUNCH } from '../launch/launch-mode.js';
 
 // The name a recording gets when none is typed. A test capture says so, so
@@ -104,8 +109,10 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
   const recorder = createRecorder({
     db: lazyDb,
     // The launch page writes every line within a quarter of a second, so a
-    // crash in the middle of a flight loses next to nothing.
-    ...(LAUNCH ? { flushMs: LAUNCH_FLUSH_MS, touchMs: FLUSH_MS, flushOnLine: true } : {}),
+    // crash in the middle of a flight loses next to nothing. It also keeps
+    // trying after a recording ended while storage was failing, until the
+    // waiting lines are stored.
+    ...(LAUNCH ? { flushMs: LAUNCH_FLUSH_MS, touchMs: FLUSH_MS, flushOnLine: true, retryMs: FLUSH_MS, onLate: (id) => { lateLines(id); } } : {}),
     onState: () => showRec(),
     onProblem: (err) => {
       if (err) {
@@ -213,7 +220,8 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
         // Launch page: saved at once under the date and time, the name the
         // box would have filled in, so nothing covers the launch panel. A
         // reconnect may be opening, so only this recording is let go. A
-        // lost port is already said on the link's own line above the note.
+        // lost port is already said on the flight log's RECEIVER LOST line
+        // above the note (js/launch/flight-log.js).
         const savedRecord = await saveRecording(lazyDb, record, nameFor(record));
         recorder.release(record.id);
         await refresh();
@@ -240,6 +248,20 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
     } finally {
       stopping = false;
       showRec();
+    }
+  }
+
+  // Launch page: a recording that ended while storage was failing got its
+  // waiting lines stored after all. If it was saved in the meantime, its
+  // line count and summary are worked out again from every line.
+  async function lateLines(id) {
+    try {
+      const record = await lazyDb.getFlight(id);
+      if (record?.status !== 'saved') return;
+      await saveRecording(lazyDb, record, record.title);
+      await refresh();
+    } catch (err) {
+      console.warn('Flight Console: a recording\'s late lines could not be counted', err);
     }
   }
 
@@ -651,6 +673,10 @@ export function createLocalConsole({ savedMenu, navigate, announce = () => {} })
       return () => recoveredFns.delete(fn);
     },
     readLines: (id) => lazyDb.readLines(id),
+    // Launch mode: the recordings left unfinished, the ones RECOVER offers,
+    // newest first, read from storage now. Changes nothing. The launch
+    // panel reads the rocket's last fix out of one after a crash.
+    unfinished: () => findUnfinished(lazyDb, { except: recorder.record?.id ?? null }),
     // Writes the lines that came in since the last write, now. The page is
     // closing. Resolves once they are stored (if the page lives that long).
     flushNow: () => (recorder.active ? recorder.flush() : Promise.resolve()),

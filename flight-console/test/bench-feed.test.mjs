@@ -272,6 +272,52 @@ test('a board restart clears the store and starts over', () => {
   assert.equal(empty.restarts, 0);
 });
 
+test('launch page: a board restart keeps the track and carries the time on', () => {
+  const store = newStore();
+  const clock = { ms: 1_763_000_000_000 };
+  const feed = createLiveFeed({ store, clock: () => clock.ms, every: null, keepOnRestart: true });
+  for (let i = 0; i < 12; i++) {
+    feed.push(block(100 + i, 100.3 + i, {}, clock.ms));
+    clock.ms += 1000;
+  }
+  const rocket = () => store.getRocket('1');
+  assert.equal(rocket().samples.length, 12);
+  const lastT = rocket().samples[11].t;
+
+  // TIME RUNNING goes back 2.5 s of real time after the last block: the
+  // board restarted. The track stays, and the new block lands 2.5 s on.
+  clock.ms += 1500;
+  assert.equal(feed.push(block(1, 1.3, { LATITUDE: '42.3390000' }, clock.ms)), true);
+  assert.equal(feed.restarts, 1);
+  assert.equal(rocket().samples.length, 13, 'the old track is kept');
+  assert.ok(Math.abs(rocket().samples[12].t - (lastT + 2.5)) < 1e-6, 'time carries on by the real gap');
+  assert.equal(store.getTotals().late, 0, 'nothing was turned away as late');
+  assert.equal(rocket().lastGoodFix.lat, 42.339, 'the new fix is the last good fix');
+
+  // The blocks after it follow the new TIME RUNNING, moved the same way.
+  clock.ms += 1000;
+  feed.push(block(2, 2.3, {}, clock.ms));
+  assert.equal(feed.restarts, 1);
+  assert.equal(rocket().samples.length, 14);
+  assert.ok(Math.abs(rocket().samples[13].t - (lastT + 3.5)) < 1e-6);
+
+  // The heartbeat number going back is kept the same way, even with no
+  // real time between the two blocks.
+  feed.push(block(1, 3.3, {}, clock.ms));
+  assert.equal(feed.restarts, 2);
+  assert.equal(rocket().samples.length, 15);
+  assert.ok(rocket().samples[14].t > rocket().samples[13].t, 'time never goes back');
+  assert.equal(store.getTotals().late, 0);
+
+  // restart() itself still clears the store (the flight log uses it to drop
+  // a test capture when a real connection opens).
+  feed.restart();
+  assert.equal(rocket().samples.length, 0);
+  clock.ms += 1000;
+  feed.push(block(7, 7.3, {}, clock.ms));
+  assert.equal(rocket().samples[0].t, 7.3, 'a fresh start has no carried time');
+});
+
 // ------------------------------------------------------------------
 // A board sitting on a desk, from power-up: SEARCHING for 10 s, then
 // LOCKED with a few meters of GPS jitter, like the Bench Console's test
